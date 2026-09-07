@@ -24,9 +24,11 @@ final class StatusCommand implements Callable<Integer> {
 
     static int render(Path config, boolean json, PrintWriter output) {
         var configuration = new ConfigurationLoader().load(config);
-        var snapshot = new StatusSnapshot(configuration.sourcePath(), configuration.targetPath(),
-                new PathInspector().inspect(configuration.sourcePath(), configuration.targetPath()));
-        new StatusRenderer().render(snapshot, json, output);
+        var snapshots = configuration.relocations().stream()
+                .map(relocation -> new StatusSnapshot(relocation.sourcePath(), relocation.targetPath(),
+                        new PathInspector().inspect(relocation.sourcePath(), relocation.targetPath())))
+                .toList();
+        new StatusRenderer().render(snapshots, json, output);
         return 0;
     }
 

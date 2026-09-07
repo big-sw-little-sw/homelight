@@ -31,7 +31,11 @@ public final class ConfigurationLoader {
             }
             SmallRyeConfig config = builder.withMapping(HomeLightMapping.class).build();
             var mapping = config.getConfigMapping(HomeLightMapping.class);
-            return new HomeLightConfiguration(resolve(mapping.sourcePath()), resolve(mapping.targetPath()));
+            var targetRoot = resolve(mapping.targetRoot());
+            var relocations = mapping.relocations().stream()
+                    .map(relocation -> resolveRelocation(targetRoot, relocation))
+                    .toList();
+            return new HomeLightConfiguration(targetRoot, relocations);
         } catch (IOException exception) {
             throw new ConfigurationException("Unable to read configuration " + path, exception);
         }
@@ -52,6 +56,22 @@ public final class ConfigurationLoader {
             expanded = System.getProperty("user.home") + expanded.substring(1);
         }
         return Path.of(expanded).toAbsolutePath().normalize();
+    }
+
+    private static Relocation resolveRelocation(Path targetRoot, RelocationMapping mapping) {
+        var sourcePath = resolve(mapping.sourcePath());
+        var targetPath = mapping.targetPath()
+                .map(ConfigurationLoader::resolve)
+                .orElseGet(() -> deriveTarget(targetRoot, sourcePath));
+        return new Relocation(sourcePath, targetPath);
+    }
+
+    private static Path deriveTarget(Path targetRoot, Path sourcePath) {
+        var home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize();
+        if (!sourcePath.startsWith(home)) {
+            throw new ConfigurationException("A source outside $HOME requires an explicit target-path: " + sourcePath);
+        }
+        return targetRoot.resolve(home.relativize(sourcePath)).normalize();
     }
 
     public static final class ConfigurationException extends RuntimeException {

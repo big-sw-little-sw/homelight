@@ -6,6 +6,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,7 +73,7 @@ class HomeLightCommandTest {
         Files.createDirectories(targetPath);
         Files.createSymbolicLink(sourcePath, targetPath);
         var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  source-path: " + sourcePath + "\n  target-path: " + targetPath + "\n");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + sourcePath + "\n      target-path: " + targetPath + "\n");
 
         var result = execute("status", "--config", config.toString(), "--json");
 
@@ -85,7 +86,7 @@ class HomeLightCommandTest {
     void tuiDisplaysBaselineStatusView() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  source-path: " + root + "/home\n  target-path: " + root + "/local\n");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + root + "/home\n      target-path: " + root + "/local\n");
 
         var result = execute("tui", "--config", config.toString());
 
@@ -100,7 +101,7 @@ class HomeLightCommandTest {
         var snapshot = new StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
                 io.github.bigswlittlesw.homelight.fs.PathState.ABSENT);
 
-        new StatusRenderer().render(snapshot, true, new PrintWriter(output, true));
+        new StatusRenderer().render(List.of(snapshot), true, new PrintWriter(output, true));
 
         assertTrue(output.toString().contains("line\\nbreak"));
     }

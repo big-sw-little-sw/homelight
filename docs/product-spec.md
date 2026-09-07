@@ -32,19 +32,19 @@ Users should normally create and update configuration through interactive comman
 An illustrative configuration is:
 
 ```yaml
-targetPath: /local/home/${USER}
+target-root: /local/home/${USER}
 
 externallyManagedSourceRoots:
   - ~/dotfiles/stow
 
 relocations:
-  - path: ~/.m2
+  - source-path: ~/.m2
     existing: move
 
-  - path: ~/.cache/uv
+  - source-path: ~/.cache/uv
     existing: discard
 
-  - path: ~/.config/agent-tools
+  - source-path: ~/.config/agent-tools
     existing: move
 
 links:
