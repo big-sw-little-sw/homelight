@@ -13,14 +13,14 @@ class ConfigurationLoaderTest {
         var configFile = Files.createTempFile("homelight", ".yaml");
         Files.writeString(configFile, """
                 homelight:
-                  local-root: /local/${USER}/storage
-                  relocation-path: ~/.m2
+                  source-path: ~/.m2
+                  target-path: /local/${USER}/storage
                 """);
 
         var configuration = new ConfigurationLoader().load(configFile);
 
-        assertEquals("/local/" + System.getenv("USER") + "/storage", configuration.localRoot().toString());
-        assertEquals(System.getProperty("user.home") + "/.m2", configuration.relocationPath().toString());
+        assertEquals(System.getProperty("user.home") + "/.m2", configuration.sourcePath().toString());
+        assertEquals("/local/" + System.getenv("USER") + "/storage", configuration.targetPath().toString());
     }
 
     @Test
@@ -28,16 +28,16 @@ class ConfigurationLoaderTest {
         var configFile = Files.createTempFile("homelight", ".yaml");
         Files.writeString(configFile, """
                 homelight:
-                  local-root: /yaml/root
-                  relocation-path: /yaml/path
+                  source-path: /yaml/source
+                  target-path: /yaml/target
                 """);
 
         var configuration = new ConfigurationLoader().load(configFile, java.util.Map.of(
-                "homelight.local-root", "/cli/root",
-                "homelight.relocation-path", "/cli/path"));
+                "homelight.source-path", "/cli/source",
+                "homelight.target-path", "/cli/target"));
 
-        assertEquals("/cli/root", configuration.localRoot().toString());
-        assertEquals("/cli/path", configuration.relocationPath().toString());
+        assertEquals("/cli/source", configuration.sourcePath().toString());
+        assertEquals("/cli/target", configuration.targetPath().toString());
     }
 
     @Test
@@ -45,15 +45,15 @@ class ConfigurationLoaderTest {
         var configFile = Files.createTempFile("homelight", ".yaml");
         Files.writeString(configFile, """
                 homelight:
-                  local-root: /yaml/root
-                  relocation-path: /yaml/path
+                  source-path: /yaml/source
+                  target-path: /yaml/target
                 """);
-        System.setProperty("homelight.local-root", "/property/root");
+        System.setProperty("homelight.source-path", "/property/source");
         try {
             var configuration = new ConfigurationLoader().load(configFile);
-            assertEquals("/property/root", configuration.localRoot().toString());
+            assertEquals("/property/source", configuration.sourcePath().toString());
         } finally {
-            System.clearProperty("homelight.local-root");
+            System.clearProperty("homelight.source-path");
         }
     }
 }

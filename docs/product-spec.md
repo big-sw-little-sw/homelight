@@ -32,7 +32,7 @@ Users should normally create and update configuration through interactive comman
 An illustrative configuration is:
 
 ```yaml
-localRoot: /local/home/${USER}
+targetPath: /local/home/${USER}
 
 externallyManagedSourceRoots:
   - ~/dotfiles/stow

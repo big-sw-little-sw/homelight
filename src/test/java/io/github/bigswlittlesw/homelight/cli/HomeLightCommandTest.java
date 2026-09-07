@@ -66,25 +66,25 @@ class HomeLightCommandTest {
     @Test
     void statusReportsJsonFilesystemState() throws Exception {
         var root = Files.createTempDirectory("homelight");
-        var homePath = root.resolve("home");
-        var localRoot = root.resolve("local");
-        Files.createDirectories(localRoot.resolve("home"));
-        Files.createSymbolicLink(homePath, localRoot.resolve("home"));
+        var sourcePath = root.resolve("home");
+        var targetPath = root.resolve("local");
+        Files.createDirectories(targetPath);
+        Files.createSymbolicLink(sourcePath, targetPath);
         var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  local-root: " + localRoot + "\n  relocation-path: " + homePath + "\n");
+        Files.writeString(config, "homelight:\n  source-path: " + sourcePath + "\n  target-path: " + targetPath + "\n");
 
         var result = execute("status", "--config", config.toString(), "--json");
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("\"state\":\"correct_symlink\""));
-        assertTrue(result.output().contains("\"path\":\"" + homePath));
+        assertTrue(result.output().contains("\"sourcePath\":\"" + sourcePath));
     }
 
     @Test
     void tuiDisplaysBaselineStatusView() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  local-root: " + root + "/local\n  relocation-path: " + root + "/home\n");
+        Files.writeString(config, "homelight:\n  source-path: " + root + "/home\n  target-path: " + root + "/local\n");
 
         var result = execute("tui", "--config", config.toString());
 

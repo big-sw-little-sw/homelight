@@ -31,7 +31,7 @@ public final class ConfigurationLoader {
             }
             SmallRyeConfig config = builder.withMapping(HomeLightMapping.class).build();
             var mapping = config.getConfigMapping(HomeLightMapping.class);
-            return new HomeLightConfiguration(resolve(mapping.localRoot()), resolve(mapping.relocationPath()));
+            return new HomeLightConfiguration(resolve(mapping.sourcePath()), resolve(mapping.targetPath()));
         } catch (IOException exception) {
             throw new ConfigurationException("Unable to read configuration " + path, exception);
         }

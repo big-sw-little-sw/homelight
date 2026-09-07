@@ -5,13 +5,13 @@ import java.io.PrintWriter;
 final class StatusRenderer {
     void render(StatusSnapshot snapshot, boolean json, PrintWriter output) {
         if (json) {
-            output.printf("{\"path\":\"%s\",\"target\":\"%s\",\"state\":\"%s\"}%n",
-                    escape(snapshot.relocationPath().toString()), escape(snapshot.localTarget().toString()),
+            output.printf("{\"sourcePath\":\"%s\",\"targetPath\":\"%s\",\"state\":\"%s\"}%n",
+                    escape(snapshot.sourcePath().toString()), escape(snapshot.targetPath().toString()),
                     snapshot.state().name().toLowerCase());
             return;
         }
-        output.printf("path: %s%n", snapshot.relocationPath());
-        output.printf("target: %s%n", snapshot.localTarget());
+        output.printf("source: %s%n", snapshot.sourcePath());
+        output.printf("target: %s%n", snapshot.targetPath());
         output.printf("status: %s%n", snapshot.state().name().toLowerCase().replace('_', ' '));
     }
 

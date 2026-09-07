@@ -4,7 +4,7 @@ import io.smallrye.config.ConfigMapping;
 
 @ConfigMapping(prefix = "homelight")
 interface HomeLightMapping {
-    String localRoot();
+    String sourcePath();
 
-    String relocationPath();
+    String targetPath();
 }

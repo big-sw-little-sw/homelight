@@ -5,8 +5,8 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.nio.file.Path;
 import java.io.PrintWriter;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.concurrent.Callable;
 
@@ -18,29 +18,28 @@ final class StatusCommand implements Callable<Integer> {
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
 
-    @Option(names = "--local-root", description = "Override the local storage root.")
-    private String localRoot;
+    @Option(names = "--source-path", description = "Override the path to relocate.")
+    private String sourcePath;
 
-    @Option(names = "--relocation-path", description = "Override the home path to relocate.")
-    private String relocationPath;
+    @Option(names = "--target-path", description = "Override the relocation target path.")
+    private String targetPath;
 
     @Override
     public Integer call() {
-        return render(config, json, localRoot, relocationPath, spec().commandLine().getOut());
+        return render(config, json, sourcePath, targetPath, spec().commandLine().getOut());
     }
 
-    static int render(Path config, boolean json, String localRoot, String relocationPath, PrintWriter output) {
+    static int render(Path config, boolean json, String sourcePath, String targetPath, PrintWriter output) {
         var overrides = new HashMap<String, String>();
-        if (localRoot != null) {
-            overrides.put("homelight.local-root", localRoot);
+        if (sourcePath != null) {
+            overrides.put("homelight.source-path", sourcePath);
         }
-        if (relocationPath != null) {
-            overrides.put("homelight.relocation-path", relocationPath);
+        if (targetPath != null) {
+            overrides.put("homelight.target-path", targetPath);
         }
         var configuration = new ConfigurationLoader().load(config, overrides);
-        var target = localTargetFor(configuration.localRoot(), configuration.relocationPath());
-        var snapshot = new StatusSnapshot(configuration.relocationPath(), target,
-                new PathInspector().inspect(configuration.relocationPath(), target));
+        var snapshot = new StatusSnapshot(configuration.sourcePath(), configuration.targetPath(),
+                new PathInspector().inspect(configuration.sourcePath(), configuration.targetPath()));
         new StatusRenderer().render(snapshot, json, output);
         return 0;
     }
@@ -51,13 +50,4 @@ final class StatusCommand implements Callable<Integer> {
 
     @picocli.CommandLine.Spec
     private picocli.CommandLine.Model.CommandSpec commandSpec;
-
-    static Path localTargetFor(Path localRoot, Path relocationPath) {
-        var home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize();
-        var absoluteRelocation = relocationPath.toAbsolutePath().normalize();
-        if (absoluteRelocation.startsWith(home)) {
-            return localRoot.resolve(home.relativize(absoluteRelocation)).normalize();
-        }
-        return localRoot.resolve(absoluteRelocation.getFileName()).normalize();
-    }
 }
