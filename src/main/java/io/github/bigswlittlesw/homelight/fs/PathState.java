@@ -8,5 +8,6 @@ public enum PathState {
     CORRECT_SYMLINK,
     WRONG_SYMLINK,
     BROKEN_SYMLINK,
+    SYMLINK,
     OTHER
 }

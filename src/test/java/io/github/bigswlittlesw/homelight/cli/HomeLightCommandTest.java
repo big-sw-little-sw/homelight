@@ -93,6 +93,8 @@ class HomeLightCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("HomeLight TUI"));
         assertTrue(result.output().contains("status: absent"));
+        assertTrue(result.output().contains("Plan"));
+        assertTrue(result.output().contains("create-directory:"));
     }
 
     @Test

@@ -25,6 +25,11 @@ final class TuiCommand implements Callable<Integer> {
     public Integer call() {
         PrintWriter output = spec.commandLine().getOut();
         output.println("HomeLight TUI");
-        return StatusCommand.render(config, json, output);
+        int status = StatusCommand.render(config, json, output);
+        if (!json) {
+            output.println("Plan");
+            PlanCommand.render(config, false, java.util.Map.of(), output);
+        }
+        return status;
     }
 }

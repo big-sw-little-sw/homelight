@@ -6,7 +6,7 @@ It is intended for space-constrained or shared home directories, including Linux
 
 ## Status
 
-The project is at the initial design and implementation stage. The repository currently contains the Maven Java 25 skeleton and project documentation. Filesystem relocation is not implemented yet.
+The project is at the initial design and implementation stage. Configuration loading, filesystem inspection, and dry-run planning are implemented. Filesystem mutation is not implemented yet.
 
 ## Planned commands
 
@@ -38,6 +38,8 @@ Run the CLI directly through Maven with `exec:java`:
 ```text
 mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml"
 mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
+mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml"
+mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml --json"
 ```
 
 The repository launcher hides that Maven detail:
@@ -46,6 +48,7 @@ The repository launcher hides that Maven detail:
 ./homelight status
 ./homelight status --json
 ./homelight status --config /path/to/.homelight.yaml
+./homelight plan --config /path/to/.homelight.yaml
 ```
 
 The default configuration path is `~/.homelight.yaml`.

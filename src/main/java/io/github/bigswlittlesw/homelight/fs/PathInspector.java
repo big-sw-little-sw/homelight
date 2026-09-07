@@ -7,6 +7,13 @@ import java.nio.file.Path;
 
 /// Inspects configured paths while treating symlinks as filesystem objects.
 public final class PathInspector {
+    public PathState inspect(Path path) {
+        if (Files.isSymbolicLink(path)) {
+            return PathState.SYMLINK;
+        }
+        return inspectNonLink(path);
+    }
+
     public PathState inspect(Path path, Path expectedTarget) {
         if (Files.isSymbolicLink(path)) {
             var linkTarget = readLink(path);
@@ -19,6 +26,10 @@ public final class PathInspector {
                     ? PathState.CORRECT_SYMLINK
                     : PathState.WRONG_SYMLINK;
         }
+        return inspectNonLink(path);
+    }
+
+    private PathState inspectNonLink(Path path) {
         try {
             var attributes = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class,
                     LinkOption.NOFOLLOW_LINKS);

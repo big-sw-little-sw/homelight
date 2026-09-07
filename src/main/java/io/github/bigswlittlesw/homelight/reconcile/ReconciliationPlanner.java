@@ -1,0 +1,48 @@
+package io.github.bigswlittlesw.homelight.reconcile;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/// Computes safe filesystem actions from observations and never mutates the filesystem.
+public final class ReconciliationPlanner {
+    public ReconciliationPlan plan(List<RelocationState> states) {
+        var actions = new ArrayList<ReconciliationAction>();
+        states.forEach(state -> actions.addAll(plan(state)));
+        return new ReconciliationPlan(actions);
+    }
+
+    private List<ReconciliationAction> plan(RelocationState state) {
+        var relocation = state.relocation();
+        var source = relocation.sourcePath();
+        var target = relocation.targetPath();
+
+        return switch (state.sourceState()) {
+            case CORRECT_SYMLINK -> List.of(new ReconciliationAction.NoOp(source));
+            case ABSENT -> switch (state.targetState()) {
+                case ABSENT -> List.of(
+                        new ReconciliationAction.CreateDirectory(target),
+                        new ReconciliationAction.CreateSymlink(source, target));
+                case DIRECTORY -> List.of(new ReconciliationAction.CreateSymlink(source, target));
+                default -> blocked(source, "destination is not an available directory");
+            };
+            case DIRECTORY, FILE -> switch (state.targetState()) {
+                case ABSENT -> List.of(
+                        new ReconciliationAction.Move(source, target),
+                        new ReconciliationAction.CreateSymlink(source, target));
+                default -> blocked(source, "source and destination both contain filesystem state");
+            };
+            case WRONG_SYMLINK, BROKEN_SYMLINK -> switch (state.targetState()) {
+                case ABSENT -> List.of(
+                        new ReconciliationAction.CreateDirectory(target),
+                        new ReconciliationAction.ReplaceSymlink(source, target));
+                case DIRECTORY -> List.of(new ReconciliationAction.ReplaceSymlink(source, target));
+                default -> blocked(source, "destination is not an available directory");
+            };
+            case OTHER, SYMLINK -> blocked(source, "source has an unsupported filesystem state");
+        };
+    }
+
+    private static List<ReconciliationAction> blocked(java.nio.file.Path path, String reason) {
+        return List.of(new ReconciliationAction.Blocked(path, reason));
+    }
+}
