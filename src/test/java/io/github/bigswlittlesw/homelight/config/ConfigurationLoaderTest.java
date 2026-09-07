@@ -20,6 +20,21 @@ class ConfigurationLoaderTest {
                 .findFirst()
                 .orElseThrow()
                 .sourcePath());
+        assertEquals("~/.local/pipx/venvs", candidates.stream()
+                .filter(candidate -> candidate.sourcePath().equals("~/.local/pipx/venvs"))
+                .findFirst()
+                .orElseThrow()
+                .sourcePath());
+        assertEquals("~/.local/share/uv/tools", candidates.stream()
+                .filter(candidate -> candidate.sourcePath().equals("~/.local/share/uv/tools"))
+                .findFirst()
+                .orElseThrow()
+                .sourcePath());
+        assertEquals("~/.local/share/pnpm/store", candidates.stream()
+                .filter(candidate -> candidate.sourcePath().equals("~/.local/share/pnpm/store"))
+                .findFirst()
+                .orElseThrow()
+                .sourcePath());
         assertEquals("~/.cache/uv", candidates.stream()
                 .filter(candidate -> candidate.sourcePath().equals("~/.cache/uv"))
                 .findFirst()
