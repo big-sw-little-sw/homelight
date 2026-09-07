@@ -14,6 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <propertiesEncoding>UTF-8</propertiesEncoding>
         <picocli.version>4.7.7</picocli.version>
+        <smallrye.config.version>3.13.3</smallrye.config.version>
         <junit.version>5.12.0</junit.version>
     </properties>
 
@@ -40,6 +41,16 @@
             <artifactId>picocli-codegen</artifactId>
             <version>${picocli.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.config</groupId>
+            <artifactId>smallrye-config</artifactId>
+            <version>${smallrye.config.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.config</groupId>
+            <artifactId>smallrye-config-source-yaml</artifactId>
+            <version>${smallrye.config.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

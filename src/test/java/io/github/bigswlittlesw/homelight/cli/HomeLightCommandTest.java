@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,6 +61,36 @@ class HomeLightCommandTest {
 
         assertEquals(1, version.length);
         assertEquals("homelight " + HomeLightVersionProvider.resolveVersion(), version[0]);
+    }
+
+    @Test
+    void statusReportsJsonFilesystemState() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var homePath = root.resolve("home");
+        var localRoot = root.resolve("local");
+        Files.createDirectories(localRoot.resolve("home"));
+        Files.createSymbolicLink(homePath, localRoot.resolve("home"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  local-root: " + localRoot + "\n  relocation-path: " + homePath + "\n");
+
+        var result = execute("status", "--config", config.toString(), "--json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"state\":\"correct_symlink\""));
+        assertTrue(result.output().contains("\"path\":\"" + homePath));
+    }
+
+    @Test
+    void tuiDisplaysBaselineStatusView() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  local-root: " + root + "/local\n  relocation-path: " + root + "/home\n");
+
+        var result = execute("tui", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("HomeLight TUI"));
+        assertTrue(result.output().contains("status: absent"));
     }
 
     private static CapturedOutput execute(String... args) {
