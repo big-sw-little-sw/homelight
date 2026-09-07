@@ -1,13 +1,17 @@
 package io.github.bigswlittlesw.homelight.cli;
 
+import com.fasterxml.jackson.core.JsonFactory;
+
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 
 final class StatusRenderer {
+    private final JsonFactory jsonFactory = new JsonFactory();
+
     void render(StatusSnapshot snapshot, boolean json, PrintWriter output) {
         if (json) {
-            output.printf("{\"sourcePath\":\"%s\",\"targetPath\":\"%s\",\"state\":\"%s\"}%n",
-                    escape(snapshot.sourcePath().toString()), escape(snapshot.targetPath().toString()),
-                    snapshot.state().name().toLowerCase());
+            output.println(toJson(snapshot));
             return;
         }
         output.printf("source: %s%n", snapshot.sourcePath());
@@ -15,26 +19,17 @@ final class StatusRenderer {
         output.printf("status: %s%n", snapshot.state().name().toLowerCase().replace('_', ' '));
     }
 
-    private static String escape(String value) {
-        var escaped = new StringBuilder(value.length());
-        for (var character : value.toCharArray()) {
-            switch (character) {
-                case '\\' -> escaped.append("\\\\");
-                case '"' -> escaped.append("\\\"");
-                case '\n' -> escaped.append("\\n");
-                case '\r' -> escaped.append("\\r");
-                case '\t' -> escaped.append("\\t");
-                case '\b' -> escaped.append("\\b");
-                case '\f' -> escaped.append("\\f");
-                default -> {
-                    if (character < 0x20) {
-                        escaped.append("\\u%04x".formatted((int) character));
-                    } else {
-                        escaped.append(character);
-                    }
-                }
-            }
+    private String toJson(StatusSnapshot snapshot) {
+        var json = new StringWriter();
+        try (var generator = jsonFactory.createGenerator(json)) {
+            generator.writeStartObject();
+            generator.writeStringField("sourcePath", snapshot.sourcePath().toString());
+            generator.writeStringField("targetPath", snapshot.targetPath().toString());
+            generator.writeStringField("state", snapshot.state().name().toLowerCase());
+            generator.writeEndObject();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to render status as JSON", exception);
         }
-        return escaped.toString();
+        return json.toString();
     }
 }

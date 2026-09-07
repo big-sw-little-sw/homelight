@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,6 +92,17 @@ class HomeLightCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("HomeLight TUI"));
         assertTrue(result.output().contains("status: absent"));
+    }
+
+    @Test
+    void statusJsonEscapesPathControlCharacters() {
+        var output = new StringWriter();
+        var snapshot = new StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
+                io.github.bigswlittlesw.homelight.fs.PathState.ABSENT);
+
+        new StatusRenderer().render(snapshot, true, new PrintWriter(output, true));
+
+        assertTrue(output.toString().contains("line\\nbreak"));
     }
 
     private static CapturedOutput execute(String... args) {
