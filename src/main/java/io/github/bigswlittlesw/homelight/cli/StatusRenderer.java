@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Path;
 import java.util.List;
 
 final class StatusRenderer {
@@ -20,6 +21,27 @@ final class StatusRenderer {
             output.printf("target: %s%n", snapshot.targetPath());
             output.printf("status: %s%n", snapshot.state().name().toLowerCase().replace('_', ' '));
         }
+    }
+
+    void renderUnconfigured(Path config, boolean json, PrintWriter output) {
+        if (json) {
+            var jsonOutput = new StringWriter();
+            try (var generator = jsonFactory.createGenerator(jsonOutput)) {
+                generator.writeStartObject();
+                generator.writeBooleanField("configured", false);
+                generator.writeStringField("configPath", config.toAbsolutePath().normalize().toString());
+                generator.writeArrayFieldStart("relocations");
+                generator.writeEndArray();
+                generator.writeEndObject();
+            } catch (IOException exception) {
+                throw new IllegalStateException("Unable to render unconfigured status as JSON", exception);
+            }
+            output.println(jsonOutput);
+            return;
+        }
+        output.printf("No HomeLight configuration found at %s.%n", config.toAbsolutePath().normalize());
+        output.println("No paths are currently managed.");
+        output.println("Run `./homelight init` to configure relocations.");
     }
 
     private String toJson(List<StatusSnapshot> snapshots) {

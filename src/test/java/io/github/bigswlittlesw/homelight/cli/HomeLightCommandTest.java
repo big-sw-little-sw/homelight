@@ -106,6 +106,17 @@ class HomeLightCommandTest {
         assertTrue(output.toString().contains("line\\nbreak"));
     }
 
+    @Test
+    void unconfiguredStatusExplainsHowToConfigureHomeLight() {
+        var output = new StringWriter();
+
+        new StatusRenderer().renderUnconfigured(Path.of("/tmp/.homelight.yaml"), false,
+                new PrintWriter(output, true));
+
+        assertTrue(output.toString().contains("No paths are currently managed."));
+        assertTrue(output.toString().contains("./homelight init"));
+    }
+
     private static CapturedOutput execute(String... args) {
         var commandLine = HomeLightCommand.createCommandLine();
         var output = new StringWriter();

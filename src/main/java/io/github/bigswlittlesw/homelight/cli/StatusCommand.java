@@ -6,6 +6,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
@@ -23,6 +24,10 @@ final class StatusCommand implements Callable<Integer> {
     }
 
     static int render(Path config, boolean json, PrintWriter output) {
+        if (isMissingDefaultConfig(config)) {
+            new StatusRenderer().renderUnconfigured(config, json, output);
+            return 0;
+        }
         var configuration = new ConfigurationLoader().load(config);
         var snapshots = configuration.relocations().stream()
                 .map(relocation -> new StatusSnapshot(relocation.sourcePath(), relocation.targetPath(),
@@ -30,6 +35,11 @@ final class StatusCommand implements Callable<Integer> {
                 .toList();
         new StatusRenderer().render(snapshots, json, output);
         return 0;
+    }
+
+    private static boolean isMissingDefaultConfig(Path config) {
+        return config.toAbsolutePath().normalize().equals(ConfigurationLoader.DEFAULT_PATH.toAbsolutePath().normalize())
+                && !Files.isRegularFile(config);
     }
 
     private picocli.CommandLine.Model.CommandSpec spec() {
