@@ -18,12 +18,6 @@ final class TuiCommand implements Callable<Integer> {
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
 
-    @Option(names = "--source-path", description = "Override the path to relocate.")
-    private String sourcePath;
-
-    @Option(names = "--target-path", description = "Override the relocation target path.")
-    private String targetPath;
-
     @Spec
     private CommandSpec spec;
 
@@ -31,6 +25,6 @@ final class TuiCommand implements Callable<Integer> {
     public Integer call() {
         PrintWriter output = spec.commandLine().getOut();
         output.println("HomeLight TUI");
-        return StatusCommand.render(config, json, sourcePath, targetPath, output);
+        return StatusCommand.render(config, json, output);
     }
 }
