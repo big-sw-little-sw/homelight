@@ -33,4 +33,13 @@ The project uses Java 25 and Maven.
 mvn test
 ```
 
+Run the CLI directly through Maven with `exec:java`:
+
+```text
+mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml"
+mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
+```
+
+The default configuration path is `~/.homelight.yaml`.
+
 Follow [`AGENTS.md`](AGENTS.md) for repository conventions.

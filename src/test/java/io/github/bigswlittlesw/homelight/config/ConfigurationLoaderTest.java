@@ -13,6 +13,11 @@ class ConfigurationLoaderTest {
         var candidates = CandidateCatalog.defaults();
 
         assertEquals("~/.m2", candidates.getFirst().sourcePath());
+        assertEquals("~/.cache/pip", candidates.stream()
+                .filter(candidate -> candidate.sourcePath().equals("~/.cache/pip"))
+                .findFirst()
+                .orElseThrow()
+                .sourcePath());
         assertEquals("~/.cache/uv", candidates.stream()
                 .filter(candidate -> candidate.sourcePath().equals("~/.cache/uv"))
                 .findFirst()
