@@ -29,3 +29,17 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 ## Verification
 
 When asked to review, audit, or verify a claim, assess it independently. Report the evidence: relevant files inspected, checks run, and any remaining uncertainty. Do not describe work as complete without a proportionate spot-check.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues via `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (`CONTEXT.md` + `docs/adr/`). See `docs/agents/domain.md`.

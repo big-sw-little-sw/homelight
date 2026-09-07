@@ -20,6 +20,32 @@ Dependency injection, runtime scanning, and a general plugin framework are defer
 
 GraalVM Native Image is a future aspiration. The project will favor explicit construction, standard Java APIs, isolated serialization, and minimal reflection. Native-image verification should be added before the architecture becomes difficult to change.
 
+## 2026-09-07: Prefer CLI and TUI over desktop GUI
+
+HomeLight will focus on a command-line interface paired with rich, interactive terminal prompts and widgets (TUI) rather than a desktop GUI (such as JavaFX).
+
+HomeLight targets quota-constrained Linux workstations and remote environments where SSH and headless access are standard. A TUI provides rich interactive workflows (such as guided discovery in `init`) while keeping the runtime distribution to a single binary with minimal GraalVM Native Image reachability friction.
+
+Desktop GUI alternatives (JavaFX, Gluon Substrate, webview wrappers) are deferred because they introduce substantial build complexity, native graphics bindings, OS packaging overhead, and requirement for display forwarding over remote sessions.
+
+## 2026-09-07: Combine CLI and TUI in a single binary
+
+HomeLight will provide both non-interactive CLI commands and interactive TUI prompts within the same executable rather than choosing one exclusively.
+
+A pure TUI is unsuitable for automation, scripting, and non-TTY environments (cron, CI, shell piping). The Picocli CLI layer acts as the primary entry point and routing mechanism (supporting flags like `--yes` and `--json`), invoking TUI components only when interactive user input is required or when running in an interactive TTY.
+
+## 2026-09-07: Maintain a single Maven module with logical package boundaries
+
+The project will remain a single Maven module with clear package boundaries (`domain`, `reconcile`, `fs`, `config`, `cli`, `tui`) instead of splitting into a multi-module Maven build upfront.
+
+For a solo developer, logical package boundaries provide clean architectural separation and decoupled unit testing without the build maintenance, multi-POM configuration, and refactoring friction of multi-module builds.
+
+## 2026-09-07: Use plain Java 25 and targeted libraries instead of application frameworks
+
+HomeLight will use plain Java 25 with targeted libraries (Picocli for command routing, JLine 3 / TamboUI for terminal interactions, SnakeYAML Engine / Jackson for serialization) rather than a full-stack application framework like Spring Boot 4 or Quarkus.
+
+A filesystem utility does not require runtime dependency injection, classpath scanning, or server-oriented lifecycle management. Plain libraries ensure fast startup, low binary footprint, straightforward unit tests, and seamless GraalVM Native Image compilation.
+
 ## How to add decisions
 
 Use this format:

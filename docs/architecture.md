@@ -24,20 +24,23 @@ config
   configuration serialization, validation, and path resolution
 
 cli
-  Picocli commands, prompts, output, JSON, and exit codes
+  Picocli commands, options, output formatting, JSON, and exit codes
+
+tui
+  interactive prompts, candidate selection widgets, and step wizards
 ```
 
 The dependency direction is:
 
 ```text
-cli -> config, reconcile, fs
+cli, tui -> config, reconcile, fs
 reconcile -> domain
 fs -> domain
 config -> domain
 domain -> Java standard library only where practical
 ```
 
-The reconciliation engine must not depend on `cli`, terminal APIs, or a concrete YAML implementation.
+The reconciliation engine must not depend on `cli`, `tui`, terminal APIs, or a concrete YAML implementation.
 
 ## Domain model
 
