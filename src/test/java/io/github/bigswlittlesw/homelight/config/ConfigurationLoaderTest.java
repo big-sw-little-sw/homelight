@@ -3,6 +3,8 @@ package io.github.bigswlittlesw.homelight.config;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -35,6 +37,8 @@ class ConfigurationLoaderTest {
                     - source-path: ~/.m2
                     - source-path: ~/.cache/uv
                       target-path: /fast/uv
+                  ignored-source-paths:
+                    - ~/.cargo
                 """);
 
         var configuration = new ConfigurationLoader().load(configFile);
@@ -44,6 +48,8 @@ class ConfigurationLoaderTest {
         assertEquals(System.getProperty("user.home") + "/.m2", configuration.relocations().getFirst().sourcePath().toString());
         assertEquals("/local/" + System.getenv("USER") + "/.m2", configuration.relocations().getFirst().targetPath().toString());
         assertEquals("/fast/uv", configuration.relocations().get(1).targetPath().toString());
+        assertEquals(List.of(Path.of(System.getProperty("user.home"), ".cargo")),
+                configuration.ignoredSourcePaths());
     }
 
     @Test

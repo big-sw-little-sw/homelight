@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 /// Loads one YAML configuration and applies SmallRye's standard environment and
@@ -35,7 +36,11 @@ public final class ConfigurationLoader {
             var relocations = mapping.relocations().stream()
                     .map(relocation -> resolveRelocation(targetRoot, relocation))
                     .toList();
-            return new HomeLightConfiguration(targetRoot, relocations);
+            var ignoredSourcePaths = mapping.ignoredSourcePaths()
+                    .orElse(List.of()).stream()
+                    .map(ConfigurationLoader::resolve)
+                    .toList();
+            return new HomeLightConfiguration(targetRoot, relocations, ignoredSourcePaths);
         } catch (IOException exception) {
             throw new ConfigurationException("Unable to read configuration " + path, exception);
         }

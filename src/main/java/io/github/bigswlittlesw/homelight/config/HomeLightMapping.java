@@ -10,6 +10,8 @@ interface HomeLightMapping {
     String targetRoot();
 
     List<RelocationMapping> relocations();
+
+    Optional<List<String>> ignoredSourcePaths();
 }
 
 interface RelocationMapping {
