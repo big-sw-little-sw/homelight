@@ -27,6 +27,10 @@ HomeLight does not replace GNU Stow or become a general dotfile or workstation m
 
 Configuration describes desired state and user policy. It must not encode a fixed sequence of low-level filesystem operations.
 
+The configured relocation list is an explicit allow-list. Built-in candidate
+paths are offered for discovery but are not managed unless the user selects
+them and they are written to configuration.
+
 Users should normally create and update configuration through interactive commands rather than editing it manually.
 
 An illustrative configuration is:

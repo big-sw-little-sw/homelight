@@ -40,6 +40,18 @@ mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml"
 mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
 ```
 
+The repository launcher hides that Maven detail:
+
+```text
+./homelight status
+./homelight status --json
+./homelight status --config /path/to/.homelight.yaml
+```
+
 The default configuration path is `~/.homelight.yaml`.
+
+The `relocations` list is an explicit allow-list. A built-in candidate is only
+managed after it is selected and written to this list; leaving a candidate out
+means HomeLight leaves it unchanged.
 
 Follow [`AGENTS.md`](AGENTS.md) for repository conventions.
