@@ -18,6 +18,9 @@ final class TuiCommand implements Callable<Integer> {
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
 
+    @Option(names = "--apply", description = "Apply the displayed plan.")
+    private boolean apply;
+
     @Spec
     private CommandSpec spec;
 
@@ -29,6 +32,10 @@ final class TuiCommand implements Callable<Integer> {
         if (!json) {
             output.println("Plan");
             PlanCommand.render(config, false, java.util.Map.of(), output);
+            if (apply) {
+                output.println("Apply Plan");
+                return ApplyCommand.render(config, output);
+            }
         }
         return status;
     }

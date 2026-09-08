@@ -34,7 +34,9 @@ public final class ReconciliationPlanner {
             };
             case ABSENT -> switch (state.target().state()) {
                 case ABSENT -> outcome(state, List.of(
+                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
                         new ReconciliationAction.CreateDirectory(target),
+                        new ReconciliationAction.EnsureDirectory(source.getParent(), state.sourceParent().state()),
                         new ReconciliationAction.CreateSymlink(source, target)));
                 case DIRECTORY -> conflict(state, target, "destination already exists and its ownership is unknown",
                         ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
@@ -46,6 +48,7 @@ public final class ReconciliationPlanner {
             };
             case DIRECTORY -> switch (state.target().state()) {
                 case ABSENT -> outcome(state, List.of(
+                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
                         new ReconciliationAction.Move(source, target),
                         new ReconciliationAction.CreateSymlink(source, target)));
                 case DIRECTORY -> conflict(state, source, "source and destination both contain directories",
@@ -62,9 +65,10 @@ public final class ReconciliationPlanner {
                     ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
             case BROKEN_SYMLINK -> switch (state.target().state()) {
                 case ABSENT -> repairedBrokenLink(state, List.of(
+                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
                         new ReconciliationAction.CreateDirectory(target),
-                        new ReconciliationAction.ReplaceSymlink(source, target)));
-                case DIRECTORY -> repairedBrokenLink(state, List.of(new ReconciliationAction.ReplaceSymlink(source, target)));
+                        replacementLink(state)));
+                case DIRECTORY -> repairedBrokenLink(state, List.of(replacementLink(state)));
                 case SYMLINK -> conflict(state, target, "relocation target is a symlink",
                         ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
                         ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
@@ -89,6 +93,12 @@ public final class ReconciliationPlanner {
                 relocation.sourcePath(), "BROKEN_SOURCE_LINK_REPAIRED",
                 "source was a broken symlink and will be replaced with the configured target");
         return new RelocationPlan(relocation, actions, List.of(warning), Optional.empty());
+    }
+
+    private static ReconciliationAction.ReplaceSymlink replacementLink(RelocationState state) {
+        var sourceTarget = state.source().symlinkTarget().orElseThrow();
+        return new ReconciliationAction.ReplaceSymlink(state.relocation().sourcePath(),
+                state.relocation().targetPath(), sourceTarget, state.target().state());
     }
 
     private static RelocationPlan conflict(

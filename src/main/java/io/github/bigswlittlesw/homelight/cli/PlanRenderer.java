@@ -47,6 +47,7 @@ final class PlanRenderer {
     private String description(ReconciliationAction action) {
         return switch (action) {
             case ReconciliationAction.CreateDirectory create -> "create-directory: " + create.path();
+            case ReconciliationAction.EnsureDirectory directory -> "ensure-directory: " + directory.path();
             case ReconciliationAction.Move move -> "move: " + move.path() + " -> " + move.target();
             case ReconciliationAction.CreateSymlink link -> "create-symlink: " + link.path() + " -> " + link.target();
             case ReconciliationAction.ReplaceSymlink link -> "replace-symlink: " + link.path() + " -> " + link.target();
@@ -140,6 +141,7 @@ final class PlanRenderer {
     private String type(ReconciliationAction action) {
         return switch (action) {
             case ReconciliationAction.CreateDirectory ignored -> "create-directory";
+            case ReconciliationAction.EnsureDirectory ignored -> "ensure-directory";
             case ReconciliationAction.Move ignored -> "move";
             case ReconciliationAction.CreateSymlink ignored -> "create-symlink";
             case ReconciliationAction.ReplaceSymlink ignored -> "replace-symlink";
