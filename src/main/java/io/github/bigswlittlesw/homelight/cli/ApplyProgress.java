@@ -12,6 +12,7 @@ import java.io.PrintWriter;
 final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     private final PrintWriter output;
     private final ProgressBar progressBar;
+    private String activity = "Preparing relocation…";
 
     ApplyProgress(PrintWriter output, int actionCount) {
         this.output = output;
@@ -22,18 +23,26 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     @Override
     public void started(RelocationPlan relocation, ReconciliationAction action) {
         if (action instanceof ReconciliationAction.Move) {
-            output.println("Relocating " + relocation.relocation().sourcePath() + "…");
+            activity = "Relocating " + relocation.relocation().sourcePath() + "…";
+        } else if (action instanceof ReconciliationAction.CreateSymlink) {
+            activity = "Linking " + relocation.relocation().sourcePath() + "…";
         }
+        render();
     }
 
     @Override
     public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
         progressBar.tick();
-        output.print("\r" + progressBar.get());
-        output.flush();
+        render();
     }
 
     void complete() {
-        output.println();
+        output.print("\r\u001B[2K");
+        output.flush();
+    }
+
+    private void render() {
+        output.print("\r\u001B[2K" + activity + " " + progressBar.get());
+        output.flush();
     }
 }
