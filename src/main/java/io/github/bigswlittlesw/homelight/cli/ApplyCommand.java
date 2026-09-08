@@ -86,7 +86,7 @@ final class ApplyCommand implements Callable<Integer> {
         if (verbose && !json && progress == null) {
             ApplyProgress.renderResult(plan, result, noColor, output);
         }
-        new ApplyRenderer().render(result, json, noColor, verbose, output);
+        new ApplyRenderer().render(result, json, noColor, verbose || progress != null, output);
         return result.succeeded() ? 0 : 1;
     }
 

@@ -35,7 +35,7 @@ final class ApplyRenderer {
                 continue;
             }
             if (!verbose) {
-                output.println(style.success("✓ " + description(relocation, source, target)));
+                output.println(style.success("✓ " + description(relocation.relocation(), source, target)));
             }
         }
         var changed = result.relocations().stream().filter(this::changed).count();
@@ -69,14 +69,15 @@ final class ApplyRenderer {
                 : result + " " + unchanged + plural((int) unchanged, "relocation") + " already configured.";
     }
 
-    private String description(ReconciliationExecutor.RelocationExecution relocation, String source, String target) {
-        if (relocation.actions().stream().anyMatch(action -> action.action() instanceof ReconciliationAction.Move)) {
+    static String description(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation,
+            String source, String target) {
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
             return "Relocated " + source + " → " + target;
         }
-        if (relocation.actions().stream().anyMatch(action -> action.action() instanceof ReconciliationAction.NoOp)) {
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured " + source + " → " + target;
         }
-        if (relocation.actions().stream().anyMatch(action -> action.action() instanceof ReconciliationAction.ReplaceSymlink)) {
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repaired link " + source + " → " + target;
         }
         return "Created " + target + " and linked " + source;

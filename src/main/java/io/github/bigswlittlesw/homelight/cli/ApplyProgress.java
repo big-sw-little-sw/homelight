@@ -64,6 +64,9 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
         synchronized (lock) {
             states.put(action.action(), state(action.status()));
+            if (!verbose && action.status() == ReconciliationExecutor.ActionStatus.COMPLETED && completed(relocation)) {
+                renderCompletedRelocation(relocation);
+            }
         }
     }
 
@@ -100,6 +103,17 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         for (var line : rendered.lines().toList()) {
             output.print("\r\u001B[2K" + line + "\n");
         }
+    }
+
+    private boolean completed(RelocationPlan relocation) {
+        return relocation.actions().stream().allMatch(action -> states.get(action) == ActionState.COMPLETED);
+    }
+
+    private void renderCompletedRelocation(RelocationPlan relocation) {
+        output.print("\r\u001B[2K");
+        var configured = relocation.relocation();
+        var message = ApplyRenderer.description(relocation, configured.sourcePath().toString(), configured.targetPath().toString());
+        output.println(new TerminalStyle(noColor).success("✓ " + message));
     }
 
     private void pauseForVisualTesting() {
