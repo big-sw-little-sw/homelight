@@ -28,7 +28,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    void movesExistingContentBeforeCreatingTheSourceLink() throws Exception {
+    void copiesExistingContentAndLeavesTheSourceUntilTheTargetIsAdopted() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "value");
@@ -40,8 +40,24 @@ class ApplyCommandTest {
 
         assertEquals(0, result.exitCode());
         assertEquals("value", Files.readString(target.resolve("entry")));
+        assertTrue(Files.isDirectory(source));
+        assertTrue(result.output().contains("Copied " + source + " → " + target));
+    }
+
+    @Test
+    void adoptsAnExistingTargetOnlyWhenExplicitlyConfigured() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        Files.writeString(target.resolve("entry"), "value");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target, "adopt"));
+
+        var result = execute("apply", "--yes", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
         assertTrue(Files.isSymbolicLink(source));
-        assertTrue(result.output().contains("Relocated " + source + " → " + target));
+        assertTrue(result.output().contains("Adopted " + target + " and linked " + source));
     }
 
     @Test
@@ -240,7 +256,7 @@ class ApplyCommandTest {
         assertTrue(result.output().contains("\"succeeded\":true"));
         assertTrue(result.output().contains("\"status\":\"completed\""));
         assertTrue(!result.output().contains("\u001B["));
-        assertTrue(!result.output().contains("○ Move contents"));
+        assertTrue(!result.output().contains("○ Copy contents"));
     }
 
     @Test

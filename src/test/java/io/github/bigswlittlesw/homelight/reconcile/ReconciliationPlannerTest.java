@@ -32,7 +32,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    void movesAnExistingSourceIntoAnAbsentDestination() throws Exception {
+    void copiesAnExistingSourceIntoAnAbsentDestinationWithoutReplacingTheSource() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "value");
@@ -42,9 +42,46 @@ class ReconciliationPlannerTest {
 
         assertEquals(List.of(
                 new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent()),
-                new ReconciliationAction.Move(relocation.sourcePath(), relocation.targetPath()),
-                new ReconciliationAction.CreateSymlink(relocation.sourcePath(), relocation.targetPath())),
+                new ReconciliationAction.CopyDirectory(relocation.sourcePath(), relocation.targetPath())),
                 plan.actions());
+    }
+
+    @Test
+    void adoptPolicyReplacesAnExistingSourceWithALinkToAnAcceptedTarget() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = Files.createDirectories(root.resolve("local/cache"));
+
+        var plan = plan(relocation(source, target, ExistingContentPolicy.ADOPT));
+
+        assertEquals(List.of(
+                new ReconciliationAction.ReplaceDirectoryWithSymlink(source, target)), plan.actions());
+    }
+
+    @Test
+    void adoptPolicyRequiresAnExistingTargetWhenBothPathsAreAbsent() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+
+        var plan = plan(relocation(source, target, ExistingContentPolicy.ADOPT));
+
+        assertTrue(plan.hasConflicts());
+        assertTrue(plan.relocations().getFirst().conflict().orElseThrow().reason().contains("adopt"));
+    }
+
+    @Test
+    void adoptPolicyRequiresAnExistingTargetWhenRepairingABrokenSourceLink() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        Files.createDirectories(source.getParent());
+        Files.createSymbolicLink(source, root.resolve("missing"));
+        var target = root.resolve("local/cache");
+
+        var plan = plan(relocation(source, target, ExistingContentPolicy.ADOPT));
+
+        assertTrue(plan.hasConflicts());
+        assertTrue(plan.relocations().getFirst().conflict().orElseThrow().reason().contains("adopt"));
     }
 
     @Test
@@ -123,7 +160,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    void movePolicyRefusesToMergeIntoAnExistingTargetDirectory() throws Exception {
+    void movePolicyRequiresExplicitAdoptionOfAnExistingTargetDirectory() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         var target = Files.createDirectories(root.resolve("local/cache"));
@@ -132,11 +169,11 @@ class ReconciliationPlannerTest {
         var plan = plan(relocation(source, target, ExistingContentPolicy.MOVE));
 
         assertTrue(plan.hasConflicts());
-        assertTrue(plan.relocations().getFirst().conflict().orElseThrow().reason().contains("cannot merge"));
+        assertTrue(plan.relocations().getFirst().conflict().orElseThrow().reason().contains("adopt"));
     }
 
     @Test
-    void movePolicyReplacesAnEmptyTargetDirectoryBeforeRelocatingContent() throws Exception {
+    void movePolicyRequiresExplicitAdoptionEvenWhenTheTargetDirectoryIsEmpty() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "value");
@@ -144,19 +181,16 @@ class ReconciliationPlannerTest {
 
         var plan = plan(relocation(source, target, ExistingContentPolicy.MOVE));
 
-        assertEquals(List.of(
-                new ReconciliationAction.DeleteDirectory(target, PathState.DIRECTORY, true),
-                new ReconciliationAction.Move(source, target),
-                new ReconciliationAction.CreateSymlink(source, target)), plan.actions());
+        assertTrue(plan.hasConflicts());
     }
 
     @Test
-    void preservePolicyLinksAnAbsentSourceToAnExplicitlyPreservedTargetDirectory() throws Exception {
+    void adoptPolicyLinksAnAbsentSourceToAnExplicitlyAcceptedTargetDirectory() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");
         var target = Files.createDirectories(root.resolve("local/cache"));
 
-        var plan = plan(relocation(source, target, ExistingContentPolicy.PRESERVE));
+        var plan = plan(relocation(source, target, ExistingContentPolicy.ADOPT));
 
         assertEquals(List.of(
                 new ReconciliationAction.EnsureDirectory(source.getParent()),

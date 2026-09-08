@@ -153,7 +153,7 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     private static String activity(RelocationPlan relocation, ReconciliationAction action) {
         var name = relocation.relocation().sourcePath().getFileName();
         return switch (action) {
-            case ReconciliationAction.Move _ -> "Relocating " + name + "…";
+            case ReconciliationAction.CopyDirectory _ -> "Copying " + name + "…";
             case ReconciliationAction.CreateSymlink _ -> "Linking " + name + "…";
             default -> "Preparing " + name + "…";
         };
@@ -174,9 +174,10 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         return switch (action) {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
-            case ReconciliationAction.Move _ -> "Move contents";
+            case ReconciliationAction.CopyDirectory _ -> "Copy contents";
             case ReconciliationAction.DeleteDirectory _ -> "Discard contents";
             case ReconciliationAction.CreateSymlink _ -> "Create source link";
+            case ReconciliationAction.ReplaceDirectoryWithSymlink _ -> "Adopt target and replace source link";
             case ReconciliationAction.ReplaceSymlink _ -> "Replace source link";
             case ReconciliationAction.NoOp _ -> "Already configured";
             case ReconciliationAction.Skip _ -> "Leave existing content unchanged";

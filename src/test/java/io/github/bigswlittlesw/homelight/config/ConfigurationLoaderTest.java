@@ -54,6 +54,8 @@ class ConfigurationLoaderTest {
                     - source-path: ~/.cache/uv
                       target-path: /fast/uv
                       existing: discard
+                    - source-path: ~/.cache/pip
+                      existing: adopt
                   ignored-source-paths:
                     - ~/.cargo
                 """);
@@ -61,12 +63,13 @@ class ConfigurationLoaderTest {
         var configuration = new ConfigurationLoader().load(configFile);
 
         assertEquals("/local/" + System.getenv("USER"), configuration.targetRoot().toString());
-        assertEquals(2, configuration.relocations().size());
+        assertEquals(3, configuration.relocations().size());
         assertEquals(System.getProperty("user.home") + "/.m2", configuration.relocations().getFirst().sourcePath().toString());
         assertEquals("/local/" + System.getenv("USER") + "/.m2", configuration.relocations().getFirst().targetPath().toString());
         assertEquals(ExistingContentPolicy.MOVE, configuration.relocations().getFirst().existingContentPolicy().orElseThrow());
         assertEquals("/fast/uv", configuration.relocations().get(1).targetPath().toString());
         assertEquals(ExistingContentPolicy.DISCARD, configuration.relocations().get(1).existingContentPolicy().orElseThrow());
+        assertEquals(ExistingContentPolicy.ADOPT, configuration.relocations().get(2).existingContentPolicy().orElseThrow());
         assertEquals(List.of(Path.of(System.getProperty("user.home"), ".cargo")),
                 configuration.ignoredSourcePaths());
     }

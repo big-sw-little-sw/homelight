@@ -6,7 +6,6 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +32,7 @@ class ReconciliationExecutorTest {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");
         var target = root.resolve("local/cache");
-        var plan = plan(new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.MOVE)));
+        var plan = plan(new Relocation(source, target));
         Files.createDirectories(target);
 
         var result = new ReconciliationExecutor().execute(plan);
@@ -67,7 +66,7 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    void copiesAcrossFilesystemsBeforeRemovingTheSourceAndPreservesNestedLinks() throws Exception {
+    void copiesDirectoryContentsWithoutRemovingTheSourceAndPreservesNestedLinks() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "value");
@@ -76,16 +75,32 @@ class ReconciliationExecutorTest {
         var target = root.resolve("local/cache");
         var plan = plan(new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.MOVE)));
 
-        var result = new ReconciliationExecutor((from, to) -> {
-            throw new AtomicMoveNotSupportedException(from.toString(), to.toString(), "test fallback");
-        }).execute(plan);
+        var result = new ReconciliationExecutor().execute(plan);
 
         assertTrue(result.succeeded());
         assertEquals("value", Files.readString(target.resolve("entry")));
         assertTrue(Files.isSymbolicLink(target.resolve("nested-link")));
         assertEquals(external, target.resolve("nested-link").getParent()
                 .resolve(Files.readSymbolicLink(target.resolve("nested-link"))).normalize());
-        assertTrue(Files.isSymbolicLink(source));
+        assertTrue(Files.isDirectory(source));
+        assertEquals("value", Files.readString(source.resolve("entry")));
+    }
+
+    @Test
+    void doesNotCopyOverATargetCreatedAfterPlanning() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        Files.writeString(source.resolve("entry"), "value");
+        var target = root.resolve("local/cache");
+        var plan = plan(new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.MOVE)));
+
+        Files.createDirectories(target);
+
+        var result = new ReconciliationExecutor().execute(plan);
+
+        assertTrue(!result.succeeded());
+        assertTrue(Files.isDirectory(source));
+        assertTrue(Files.isDirectory(target));
     }
 
     @Test
@@ -107,28 +122,29 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    void movesIntoAnEmptyPreexistingTargetDirectoryWithoutLosingSourceContent() throws Exception {
+    void copiesExistingContentToAnAbsentTargetWithoutReplacingTheSource() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "value");
-        var target = Files.createDirectories(root.resolve("local/cache"));
+        var target = root.resolve("local/cache");
         var relocation = new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.MOVE));
 
         var result = new ReconciliationExecutor().execute(plan(relocation));
 
         assertTrue(result.succeeded());
         assertEquals("value", Files.readString(target.resolve("entry")));
-        assertTrue(Files.isSymbolicLink(source));
+        assertTrue(Files.isDirectory(source));
     }
 
     @Test
-    void refusesToRemoveATargetThatWasNoLongerEmptyAfterPlanningAMove() throws Exception {
+    void refusesToCopyOverATargetCreatedAfterPlanning() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("source-entry"), "source");
-        var target = Files.createDirectories(root.resolve("local/cache"));
+        var target = root.resolve("local/cache");
         var relocation = new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.MOVE));
         var plan = plan(relocation);
+        Files.createDirectories(target);
         Files.writeString(target.resolve("late-entry"), "late");
 
         var result = new ReconciliationExecutor().execute(plan);
@@ -136,6 +152,23 @@ class ReconciliationExecutorTest {
         assertTrue(!result.succeeded());
         assertTrue(Files.isDirectory(source));
         assertEquals("late", Files.readString(target.resolve("late-entry")));
+    }
+
+    @Test
+    void adoptsAnAcceptedTargetByReplacingTheSourceWithALink() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        Files.writeString(source.resolve("old-entry"), "old");
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        Files.writeString(target.resolve("accepted-entry"), "accepted");
+        var relocation = new Relocation(source, target, java.util.Optional.of(ExistingContentPolicy.ADOPT));
+
+        var result = new ReconciliationExecutor().execute(plan(relocation));
+
+        assertTrue(result.succeeded());
+        assertTrue(Files.isSymbolicLink(source));
+        assertEquals("accepted", Files.readString(target.resolve("accepted-entry")));
+        assertTrue(Files.notExists(target.resolve("old-entry")));
     }
 
     private static ReconciliationPlan plan(Relocation... relocations) {

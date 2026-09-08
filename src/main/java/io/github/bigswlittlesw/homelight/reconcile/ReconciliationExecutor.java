@@ -4,7 +4,6 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import io.github.bigswlittlesw.homelight.fs.PathState;
 
 import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -18,15 +17,6 @@ import java.util.List;
 /// Applies a fully resolved plan, stopping when the filesystem no longer matches its guards.
 public final class ReconciliationExecutor {
     private final PathInspector inspector = new PathInspector();
-    private final AtomicMover atomicMover;
-
-    public ReconciliationExecutor() {
-        this((source, target) -> Files.move(source, target, StandardCopyOption.ATOMIC_MOVE));
-    }
-
-    ReconciliationExecutor(AtomicMover atomicMover) {
-        this.atomicMover = atomicMover;
-    }
 
     public ExecutionResult execute(ReconciliationPlan plan) {
         return execute(plan, ProgressListener.NONE);
@@ -67,9 +57,10 @@ public final class ReconciliationExecutor {
         switch (action) {
             case ReconciliationAction.CreateDirectory directory -> createDirectory(directory);
             case ReconciliationAction.EnsureDirectory directory -> ensureDirectory(directory);
-            case ReconciliationAction.Move move -> move(move);
+            case ReconciliationAction.CopyDirectory copy -> copyDirectory(copy);
             case ReconciliationAction.DeleteDirectory directory -> deleteDirectory(directory);
             case ReconciliationAction.CreateSymlink link -> createSymlink(link);
+            case ReconciliationAction.ReplaceDirectoryWithSymlink link -> replaceDirectoryWithSymlink(link);
             case ReconciliationAction.ReplaceSymlink link -> replaceSymlink(link);
             case ReconciliationAction.NoOp _ -> { }
             case ReconciliationAction.Skip _ -> { }
@@ -92,14 +83,12 @@ public final class ReconciliationExecutor {
         }
     }
 
-    private void move(ReconciliationAction.Move action) throws IOException {
+    private void copyDirectory(ReconciliationAction.CopyDirectory action) throws IOException {
         requireState(action.path(), action.expectedSourceState());
         requireState(action.target(), action.expectedTargetState());
-        try {
-            atomicMover.move(action.path(), action.target());
-        } catch (AtomicMoveNotSupportedException exception) {
-            copyThenRemove(action.path(), action.target());
-        }
+        Files.createDirectory(action.target());
+        Files.walkFileTree(action.path(), new CopyVisitor(action.path(), action.target()));
+        verifyCopy(action.path(), action.target());
     }
 
     private void deleteDirectory(ReconciliationAction.DeleteDirectory action) throws IOException {
@@ -116,6 +105,20 @@ public final class ReconciliationExecutor {
         replaceWithLink(action.path(), action.target(), false);
     }
 
+    private void replaceDirectoryWithSymlink(ReconciliationAction.ReplaceDirectoryWithSymlink action) throws IOException {
+        requireState(action.path(), PathState.DIRECTORY);
+        requireState(action.target(), action.expectedTargetState());
+        var temporary = prepareLink(action.path(), action.target());
+        try {
+            requireState(action.path(), PathState.DIRECTORY);
+            requireState(action.target(), action.expectedTargetState());
+            deleteTree(action.path());
+            Files.move(temporary, action.path(), StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
     private void replaceSymlink(ReconciliationAction.ReplaceSymlink action) throws IOException {
         requireState(action.path(), PathState.SYMLINK);
         requireState(action.target(), action.expectedTargetState());
@@ -127,10 +130,8 @@ public final class ReconciliationExecutor {
     }
 
     private void replaceWithLink(Path path, Path target, boolean replaceExisting) throws IOException {
-        var temporary = Files.createTempFile(path.getParent(), ".homelight-", ".link");
-        Files.delete(temporary);
+        var temporary = prepareLink(path, target);
         try {
-            Files.createSymbolicLink(temporary, target);
             if (replaceExisting) {
                 Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } else {
@@ -141,17 +142,11 @@ public final class ReconciliationExecutor {
         }
     }
 
-    private void copyThenRemove(Path source, Path target) throws IOException {
-        var temporary = Files.createTempDirectory(target.getParent(), ".homelight-move-");
-        var copied = temporary.resolve(target.getFileName());
-        try {
-            Files.walkFileTree(source, new CopyVisitor(source, copied));
-            verifyCopy(source, copied);
-            Files.move(copied, target, StandardCopyOption.ATOMIC_MOVE);
-            deleteTree(source);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
+    private static Path prepareLink(Path path, Path target) throws IOException {
+        var temporary = Files.createTempFile(path.getParent(), ".homelight-", ".link");
+        Files.delete(temporary);
+        Files.createSymbolicLink(temporary, target);
+        return temporary;
     }
 
     private static void deleteTree(Path root) throws IOException {
@@ -243,11 +238,6 @@ public final class ReconciliationExecutor {
         default void started(RelocationPlan relocation, ReconciliationAction action) { }
 
         default void finished(RelocationPlan relocation, ActionExecution action) { }
-    }
-
-    @FunctionalInterface
-    interface AtomicMover {
-        void move(Path source, Path target) throws IOException;
     }
 
     public record ActionExecution(ReconciliationAction action, ActionStatus status, String message) { }

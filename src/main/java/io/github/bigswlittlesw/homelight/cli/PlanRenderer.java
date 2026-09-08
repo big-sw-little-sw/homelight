@@ -52,7 +52,7 @@ final class PlanRenderer {
                     output.println("    Existing content: " + policy.value()));
             relocation.conflict().ifPresentOrElse(
                     conflict -> output.println("    " + style.error("! " + conflict.reason())),
-                    () -> output.println("    " + intent(relocation.actions())));
+                    () -> output.println("    " + intent(relocation)));
         }
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
             output.println();
@@ -72,14 +72,19 @@ final class PlanRenderer {
         output.println("  " + label + " (" + diagnostic.source() + ")");
     }
 
-    private String intent(java.util.List<ReconciliationAction> actions) {
+    private String intent(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation) {
+        var actions = relocation.actions();
         if (actions.stream().anyMatch(ReconciliationAction.Blocked.class::isInstance)) {
             var blocked = (ReconciliationAction.Blocked) actions.stream()
                     .filter(ReconciliationAction.Blocked.class::isInstance).findFirst().orElseThrow();
             return "Blocked: " + blocked.reason();
         }
-        if (actions.stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
-            return "Move existing contents and create a link";
+        if (actions.stream().anyMatch(ReconciliationAction.CopyDirectory.class::isInstance)) {
+            return "Copy existing contents to the target";
+        }
+        if (relocation.relocation().existingContentPolicy()
+                .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
+            return "Adopt the target and replace the source with a link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
             return "Discard existing contents and create a link";

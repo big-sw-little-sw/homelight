@@ -93,8 +93,12 @@ final class ApplyRenderer {
 
     static String description(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation,
             String source, String target) {
-        if (relocation.actions().stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
-            return "Relocated " + source + " → " + target;
+        if (relocation.relocation().existingContentPolicy()
+                .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
+            return "Adopted " + target + " and linked " + source;
+        }
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.CopyDirectory.class::isInstance)) {
+            return "Copied " + source + " → " + target + "; inspect it and set existing: adopt to replace the source";
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
             return "Discarded existing content and linked " + source + " → " + target;

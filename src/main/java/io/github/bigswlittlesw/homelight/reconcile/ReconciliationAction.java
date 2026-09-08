@@ -15,9 +15,10 @@ public sealed interface ReconciliationAction {
         return switch (this) {
             case CreateDirectory _ -> "create-directory";
             case EnsureDirectory _ -> "ensure-directory";
-            case Move _ -> "move";
+            case CopyDirectory _ -> "copy-directory";
             case DeleteDirectory _ -> "delete-directory";
             case CreateSymlink _ -> "create-symlink";
+            case ReplaceDirectoryWithSymlink _ -> "replace-directory-with-symlink";
             case ReplaceSymlink _ -> "replace-symlink";
             case NoOp _ -> "no-op";
             case Skip _ -> "skip";
@@ -55,15 +56,16 @@ public sealed interface ReconciliationAction {
         }
     }
 
-    record Move(Path path, Path target, PathState expectedSourceState, PathState expectedTargetState)
+    /// Copies a source tree into an exclusively created target, leaving the source intact on failure.
+    record CopyDirectory(Path path, Path target, PathState expectedSourceState, PathState expectedTargetState)
             implements ReconciliationAction {
-        public Move(Path path, Path target) {
+        public CopyDirectory(Path path, Path target) {
             this(path, target, PathState.DIRECTORY, PathState.ABSENT);
         }
 
         @Override
         public boolean destructive() {
-            return true;
+            return false;
         }
     }
 
@@ -92,6 +94,19 @@ public sealed interface ReconciliationAction {
         @Override
         public boolean destructive() {
             return false;
+        }
+    }
+
+    /// Prepares a replacement link before removing an accepted source directory.
+    record ReplaceDirectoryWithSymlink(Path path, Path target, PathState expectedTargetState)
+            implements ReconciliationAction {
+        public ReplaceDirectoryWithSymlink(Path path, Path target) {
+            this(path, target, PathState.DIRECTORY);
+        }
+
+        @Override
+        public boolean destructive() {
+            return true;
         }
     }
 

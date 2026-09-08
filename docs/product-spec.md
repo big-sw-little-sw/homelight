@@ -170,12 +170,13 @@ Actions are implementation details of a plan, not configuration semantics.
 
 Initial user-facing policies are:
 
-- `move`: preserve existing contents by moving them to local storage
+- `move`: copy and verify existing contents at an absent local target, leaving the source intact
 - `discard`: remove existing contents and create fresh local state
 - `preserve`: refuse destructive replacement when existing contents make the operation unsafe
+- `adopt`: explicitly accept an existing local target, then replace the source with a managed link
 - unmanaged or skip: leave the path outside HomeLight management
 
-A policy can produce multiple actions depending on actual state. For example, `move` may create a destination, move contents, create a symlink, and validate the result.
+A policy can produce multiple actions depending on actual state. For example, `move` copies and verifies the source at a newly created target. It deliberately leaves both directories present, so a later plan requires explicit `adopt` before it removes the source and creates its link. If copying fails, the source remains authoritative and the visible target is treated as a conflict for an operator to resolve.
 
 HomeLight must be idempotent. Once the desired state is reached, repeated planning produces no unnecessary actions and repeated application is safe.
 
