@@ -23,17 +23,27 @@ final class ApplyCommand implements Callable<Integer> {
     @Option(names = "--yes", required = true, description = "Confirm non-interactive application.")
     private boolean yes;
 
+    @Option(names = "--json", description = "Emit JSON.")
+    private boolean json;
+
+    @Option(names = "--no-color", description = "Disable terminal color.")
+    private boolean noColor;
+
     @Spec
     private CommandSpec spec;
 
     @Override
     public Integer call() {
-        return render(config, spec.commandLine().getOut());
+        return render(config, json, noColor, spec.commandLine().getOut());
     }
 
     static int render(Path config, PrintWriter output) {
+        return render(config, false, false, output);
+    }
+
+    static int render(Path config, boolean json, boolean noColor, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
-            output.println("No configuration available to apply.");
+            output.println(json ? "{\"succeeded\":true,\"relocations\":[]}" : "No configuration available to apply.");
             return 0;
         }
         var configuration = new ConfigurationLoader().load(config);
@@ -44,16 +54,11 @@ final class ApplyCommand implements Callable<Integer> {
                 .toList();
         var plan = new ReconciliationPlanner().plan(states);
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            new PlanRenderer().render(plan, false, output);
+            new PlanRenderer().render(plan, json, noColor, output);
             return 1;
         }
         var result = new ReconciliationExecutor().execute(plan);
-        for (var relocation : result.relocations()) {
-            for (var action : relocation.actions()) {
-                output.println(action.status().name().toLowerCase() + ": " + action.action().path()
-                        + " (" + action.message() + ")");
-            }
-        }
+        new ApplyRenderer().render(result, json, noColor, output);
         return result.succeeded() ? 0 : 1;
     }
 

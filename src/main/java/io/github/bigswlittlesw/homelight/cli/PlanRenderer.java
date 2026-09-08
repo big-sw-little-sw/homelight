@@ -13,47 +13,73 @@ final class PlanRenderer {
     private final JsonFactory jsonFactory = new JsonFactory();
 
     void render(ReconciliationPlan plan, boolean json, PrintWriter output) {
+        render(plan, json, false, output);
+    }
+
+    void render(ReconciliationPlan plan, boolean json, boolean noColor, PrintWriter output) {
         if (json) {
             output.println(toJson(plan));
             return;
         }
         if (plan.actions().isEmpty() && plan.diagnostics().isEmpty() && !plan.hasConflicts()) {
-            output.println("No actions required.");
+            output.println(new TerminalStyle(noColor).success("Plan is already up to date."));
             return;
         }
+        var style = new TerminalStyle(noColor);
+        var ready = plan.relocations().stream().filter(relocation -> relocation.conflict().isEmpty()).count();
+        var heading = plan.hasBlockedActions() || plan.hasConflicts()
+                ? "Plan: " + plan.relocations().size() + plural(plan.relocations().size(), "relocation") + " needs attention"
+                : "Plan: " + ready + plural((int) ready, "relocation") + " ready";
+        output.println(style.heading(heading));
+        output.println();
         for (var diagnostic : plan.diagnostics()) {
-            renderDiagnostic(diagnostic, output);
+            renderDiagnostic(diagnostic, style, output);
         }
         for (var relocation : plan.relocations()) {
             for (var diagnostic : relocation.diagnostics()) {
-                renderDiagnostic(diagnostic, output);
+                renderDiagnostic(diagnostic, style, output);
             }
-            relocation.conflict().ifPresent(conflict -> output.println("conflict: " + conflict.path()
-                    + " (" + conflict.reason() + ")"));
-            for (var action : relocation.actions()) {
-                output.println(description(action));
-            }
+            output.println("  " + relocation.relocation().sourcePath() + " → " + relocation.relocation().targetPath());
+            relocation.conflict().ifPresentOrElse(
+                    conflict -> output.println("    " + style.error("! " + conflict.reason())),
+                    () -> output.println("    " + intent(relocation.actions())));
         }
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            output.println("Plan cannot be applied until blocked states and conflicts are resolved.");
+            output.println();
+            output.println(style.error("No changes will be made until these items are resolved."));
+        } else {
+            output.println();
+            output.println("No changes have been made. Run `homelight apply --yes` to apply this plan.");
         }
     }
 
-    private void renderDiagnostic(ReconciliationDiagnostic diagnostic, PrintWriter output) {
-        output.println(diagnostic.severity().name().toLowerCase() + ": " + diagnostic.source()
-                + " [" + diagnostic.code() + "] " + diagnostic.message());
+    private void renderDiagnostic(ReconciliationDiagnostic diagnostic, TerminalStyle style, PrintWriter output) {
+        var label = diagnostic.severity() == ReconciliationDiagnostic.Severity.ERROR
+                ? style.error("! " + diagnostic.message())
+                : style.warning("! " + diagnostic.message());
+        output.println("  " + label + " (" + diagnostic.source() + ")");
     }
 
-    private String description(ReconciliationAction action) {
-        return switch (action) {
-            case ReconciliationAction.CreateDirectory create -> "create-directory: " + create.path();
-            case ReconciliationAction.EnsureDirectory directory -> "ensure-directory: " + directory.path();
-            case ReconciliationAction.Move move -> "move: " + move.path() + " -> " + move.target();
-            case ReconciliationAction.CreateSymlink link -> "create-symlink: " + link.path() + " -> " + link.target();
-            case ReconciliationAction.ReplaceSymlink link -> "replace-symlink: " + link.path() + " -> " + link.target();
-            case ReconciliationAction.NoOp noOp -> "no-op: " + noOp.path();
-            case ReconciliationAction.Blocked blocked -> "blocked: " + blocked.path() + " (" + blocked.reason() + ")";
-        };
+    private String intent(java.util.List<ReconciliationAction> actions) {
+        if (actions.stream().anyMatch(ReconciliationAction.Blocked.class::isInstance)) {
+            var blocked = (ReconciliationAction.Blocked) actions.stream()
+                    .filter(ReconciliationAction.Blocked.class::isInstance).findFirst().orElseThrow();
+            return "Blocked: " + blocked.reason();
+        }
+        if (actions.stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
+            return "Move existing contents and create a link";
+        }
+        if (actions.stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
+            return "Repair the source link";
+        }
+        if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
+            return "Already configured";
+        }
+        return "Create a destination directory and link";
+    }
+
+    private static String plural(int count, String noun) {
+        return count == 1 ? " " + noun : " " + noun + "s";
     }
 
     private String toJson(ReconciliationPlan plan) {

@@ -94,7 +94,7 @@ class HomeLightCommandTest {
         assertTrue(result.output().contains("HomeLight TUI"));
         assertTrue(result.output().contains("status: absent"));
         assertTrue(result.output().contains("Plan"));
-        assertTrue(result.output().contains("create-directory:"));
+        assertTrue(result.output().contains("Plan: 1 relocation ready"));
     }
 
     @Test
@@ -111,7 +111,7 @@ class HomeLightCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(Files.isSymbolicLink(source));
         assertTrue(result.output().contains("Apply Plan"));
-        assertTrue(result.output().contains("completed"));
+        assertTrue(result.output().contains("Created " + target + " and linked " + source));
     }
 
     @Test

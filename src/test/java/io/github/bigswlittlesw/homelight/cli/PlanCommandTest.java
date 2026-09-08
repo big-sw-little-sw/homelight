@@ -19,8 +19,10 @@ class PlanCommandTest {
         var result = execute("plan", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("create-directory: " + target));
-        assertTrue(result.output().contains("create-symlink: " + source + " -> " + target));
+        assertTrue(result.output().contains("Plan: 1 relocation ready"));
+        assertTrue(result.output().contains(source + " → " + target));
+        assertTrue(result.output().contains("Create a destination directory and link"));
+        assertTrue(!result.output().contains("create-directory:"));
         assertTrue(Files.notExists(source));
         assertTrue(Files.notExists(target));
     }
@@ -56,8 +58,7 @@ class PlanCommandTest {
                 "--target-path", overrideTarget.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("create-directory: " + overrideTarget));
-        assertTrue(result.output().contains("create-symlink: " + overrideSource + " -> " + overrideTarget));
+        assertTrue(result.output().contains(overrideSource + " → " + overrideTarget));
         assertTrue(!result.output().contains(configuredSource.toString()));
     }
 

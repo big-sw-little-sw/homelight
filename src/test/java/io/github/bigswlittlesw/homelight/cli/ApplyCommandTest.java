@@ -24,7 +24,7 @@ class ApplyCommandTest {
         assertTrue(Files.isDirectory(target));
         assertTrue(Files.isSymbolicLink(source));
         assertEquals(target, source.getParent().resolve(Files.readSymbolicLink(source)).normalize());
-        assertTrue(result.output().contains("completed"));
+        assertTrue(result.output().contains("Created " + target + " and linked " + source));
     }
 
     @Test
@@ -41,6 +41,7 @@ class ApplyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("value", Files.readString(target.resolve("entry")));
         assertTrue(Files.isSymbolicLink(source));
+        assertTrue(result.output().contains("Relocated " + source + " → " + target));
     }
 
     @Test
@@ -56,7 +57,7 @@ class ApplyCommandTest {
         assertEquals(1, result.exitCode());
         assertTrue(Files.isDirectory(source));
         assertTrue(Files.isDirectory(target));
-        assertTrue(result.output().contains("conflict:"));
+        assertTrue(result.output().contains("needs attention"));
     }
 
     @Test
@@ -76,6 +77,22 @@ class ApplyCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(Files.isSymbolicLink(firstSource));
         assertTrue(Files.isSymbolicLink(secondSource));
+    }
+
+    @Test
+    void applyJsonReportsExecutionWithoutTerminalStyling() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "--yes", "--json", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"succeeded\":true"));
+        assertTrue(result.output().contains("\"status\":\"completed\""));
+        assertTrue(!result.output().contains("\u001B["));
     }
 
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {

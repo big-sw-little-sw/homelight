@@ -24,6 +24,9 @@ final class PlanCommand implements Callable<Integer> {
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
 
+    @Option(names = "--no-color", description = "Disable terminal color.")
+    private boolean noColor;
+
     @Option(names = "--source-path", description = "Override the source path for the first relocation.")
     private Path sourcePath;
 
@@ -41,10 +44,14 @@ final class PlanCommand implements Callable<Integer> {
         var overrides = sourcePath == null ? Map.<String, String>of() : Map.of(
                 "homelight.relocations[0].source-path", sourcePath.toString(),
                 "homelight.relocations[0].target-path", targetPath.toString());
-        return render(config, json, overrides, spec.commandLine().getOut());
+        return render(config, json, noColor, overrides, spec.commandLine().getOut());
     }
 
     static int render(Path config, boolean json, Map<String, String> overrides, PrintWriter output) {
+        return render(config, json, false, overrides, output);
+    }
+
+    static int render(Path config, boolean json, boolean noColor, Map<String, String> overrides, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             if (json) {
                 output.println("{\"blocked\":false,\"actions\":[]}");
@@ -61,7 +68,7 @@ final class PlanCommand implements Callable<Integer> {
                         inspector.inspect(relocation.targetPath())))
                 .toList();
         var plan = new ReconciliationPlanner().plan(states);
-        new PlanRenderer().render(plan, json, output);
+        new PlanRenderer().render(plan, json, noColor, output);
         return 0;
     }
 
