@@ -4,7 +4,7 @@
 
 HomeLight should be a small Java library with a thin interactive CLI. The reconciliation library is the durable product boundary; the CLI is one consumer of it.
 
-The design should support future TUI, GUI, automation, Git, and HTTP integrations without placing those concerns in the reconciliation engine.
+The design should support future GUI, automation, Git, and HTTP integrations without placing those concerns in the reconciliation engine.
 
 Initially, use one Maven module with clear package boundaries. Split into Maven modules only when independent compilation, packaging, or dependency isolation becomes useful.
 
@@ -26,21 +26,19 @@ config
 cli
   Picocli commands, options, output formatting, JSON, and exit codes
 
-tui
-  interactive prompts, candidate selection widgets, and step wizards
 ```
 
 The dependency direction is:
 
 ```text
-cli, tui -> config, reconcile, fs
+cli -> config, reconcile, fs
 reconcile -> domain
 fs -> domain
 config -> domain
 domain -> Java standard library only where practical
 ```
 
-The reconciliation engine must not depend on `cli`, `tui`, terminal APIs, or a concrete YAML implementation.
+The reconciliation engine must not depend on `cli`, terminal APIs, or a concrete YAML implementation.
 
 ## Domain model
 

@@ -83,38 +83,6 @@ class HomeLightCommandTest {
     }
 
     @Test
-    void tuiDisplaysBaselineStatusView() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + root + "/home\n      target-path: " + root + "/local\n");
-
-        var result = execute("tui", "--config", config.toString());
-
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("HomeLight TUI"));
-        assertTrue(result.output().contains("status: absent"));
-        assertTrue(result.output().contains("Plan"));
-        assertTrue(result.output().contains("Plan: 1 relocation ready"));
-    }
-
-    @Test
-    void tuiCanApplyTheDisplayedPlan() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var source = root.resolve("home/cache");
-        var target = root.resolve("local/cache");
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n"
-                + "    - source-path: " + source + "\n      target-path: " + target + "\n");
-
-        var result = execute("tui", "--apply", "--config", config.toString());
-
-        assertEquals(0, result.exitCode());
-        assertTrue(Files.isSymbolicLink(source));
-        assertTrue(result.output().contains("Apply Plan"));
-        assertTrue(result.output().contains("Created " + target + " and linked " + source));
-    }
-
-    @Test
     void statusJsonEscapesPathControlCharacters() {
         var output = new StringWriter();
         var snapshot = new StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),

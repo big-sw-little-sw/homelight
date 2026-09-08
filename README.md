@@ -21,7 +21,7 @@ Automation and machine-readable output are planned through options such as `appl
 
 ## Design
 
-HomeLight is planned as a small library-oriented core with a thin Picocli CLI. Reconciliation will produce structured plans independently of prompts and filesystem mutation. Future Git, HTTP, TUI, or GUI integrations should remain adapters around that core.
+HomeLight is planned as a small library-oriented core with a thin Picocli CLI. Reconciliation will produce structured plans independently of prompts and filesystem mutation. Future Git, HTTP, or GUI integrations should remain adapters around that core.
 
 See the project requirements in [`docs/product-spec.md`](docs/product-spec.md), the architecture in [`docs/architecture.md`](docs/architecture.md), and recorded design choices in [`docs/decisions.md`](docs/decisions.md).
 

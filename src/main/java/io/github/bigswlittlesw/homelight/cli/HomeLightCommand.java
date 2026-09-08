@@ -10,7 +10,7 @@ import java.util.concurrent.Callable;
 /// Root command and CLI entry point for HomeLight.
 @Command(
     name = "homelight",
-    subcommands = {StatusCommand.class, PlanCommand.class, ApplyCommand.class, TuiCommand.class},
+    subcommands = {StatusCommand.class, PlanCommand.class, ApplyCommand.class},
     mixinStandardHelpOptions = true,
     versionProvider = HomeLightVersionProvider.class,
     description = "Relocates selected bulky home directories to machine-local storage."

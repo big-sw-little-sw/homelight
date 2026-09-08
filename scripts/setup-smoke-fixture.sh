@@ -29,5 +29,3 @@ printf 'Plan:\n'
 printf '  mvn -q exec:java -Dexec.args="plan --config %s"\n' "$config_path"
 printf 'Apply:\n'
 printf '  mvn -q exec:java -Dexec.args="apply --yes --config %s"\n' "$config_path"
-printf 'TUI apply:\n'
-printf '  mvn -q exec:java -Dexec.args="tui --apply --config %s"\n' "$config_path"

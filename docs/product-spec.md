@@ -6,7 +6,7 @@ HomeLight keeps a space-constrained or shared `$HOME` directory lightweight by r
 
 The primary use case is Linux systems where `$HOME` is mounted over NFS or is quota-constrained, while each machine has larger local storage.
 
-HomeLight is a Java CLI application. Its initial user experience is an interactive guided CLI. A full-screen TUI or GUI is deferred until a workflow clearly benefits from richer interaction.
+HomeLight is a Java CLI application. Its initial user experience is an interactive guided CLI. A desktop GUI is deferred until a workflow clearly benefits from one.
 
 ## Scope
 
@@ -261,14 +261,14 @@ Avoid framework infrastructure, dependency injection, runtime scanning, and prem
 
 Defer:
 
-- full-screen TUI or GUI
+- desktop GUI
 - automatic cleanup
 - rollback history
 - sophisticated migration assistance
 - broad workstation-management features
 - a general plugin framework
 
-Possible future commands include `repair`, `restore`, `reconfigure`, and `tui`, but their names and behavior are not fixed by this specification.
+Possible future commands include `repair`, `restore`, and `reconfigure`, but their names and behavior are not fixed by this specification.
 
 ## Initial milestone
 
