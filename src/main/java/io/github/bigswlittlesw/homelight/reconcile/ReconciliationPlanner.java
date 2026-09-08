@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.homelight.reconcile;
 
-import io.github.bigswlittlesw.homelight.fs.RelocationSourceState;
+import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 
 import java.util.ArrayList;
 import java.util.List;

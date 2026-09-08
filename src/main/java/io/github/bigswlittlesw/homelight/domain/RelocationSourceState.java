@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.fs;
+package io.github.bigswlittlesw.homelight.domain;
 
 /// The source path's state relative to its configured relocation target.
 public enum RelocationSourceState {

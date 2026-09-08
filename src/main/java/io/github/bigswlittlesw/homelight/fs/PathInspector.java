@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.homelight.fs;
 
+import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;

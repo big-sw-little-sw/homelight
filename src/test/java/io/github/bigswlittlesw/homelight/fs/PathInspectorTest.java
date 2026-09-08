@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.fs;
 
+import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
