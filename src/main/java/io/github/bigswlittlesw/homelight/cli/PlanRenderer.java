@@ -17,6 +17,14 @@ final class PlanRenderer {
     }
 
     void render(ReconciliationPlan plan, boolean json, boolean noColor, PrintWriter output) {
+        render(plan, json, noColor, true, output);
+    }
+
+    void renderForConfirmation(ReconciliationPlan plan, boolean noColor, PrintWriter output) {
+        render(plan, false, noColor, false, output);
+    }
+
+    private void render(ReconciliationPlan plan, boolean json, boolean noColor, boolean showApplyHint, PrintWriter output) {
         if (json) {
             output.println(toJson(plan));
             return;
@@ -49,7 +57,9 @@ final class PlanRenderer {
             output.println(style.error("No changes will be made until these items are resolved."));
         } else {
             output.println();
-            output.println("No changes have been made. Run `homelight apply --yes` to apply this plan.");
+            output.println(showApplyHint
+                    ? "No changes have been made. Run `homelight apply --yes` to apply this plan."
+                    : "No changes have been made. Confirm to apply this plan.");
         }
     }
 

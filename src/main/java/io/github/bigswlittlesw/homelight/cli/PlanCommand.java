@@ -1,10 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
-import io.github.bigswlittlesw.homelight.fs.PathInspector;
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
-import io.github.bigswlittlesw.homelight.reconcile.RelocationState;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
@@ -61,14 +58,7 @@ final class PlanCommand implements Callable<Integer> {
             }
             return 0;
         }
-        var configuration = new ConfigurationLoader().load(config, overrides);
-        var inspector = new PathInspector();
-        var states = configuration.relocations().stream()
-                .map(relocation -> new RelocationState(relocation,
-                        inspector.inspect(relocation.sourcePath()),
-                        inspector.inspect(relocation.targetPath())))
-                .toList();
-        var plan = new ReconciliationPlanner().plan(states);
+        var plan = new ReconciliationPlanning().plan(config, overrides);
         new PlanRenderer().render(plan, json, noColor, output);
         return 0;
     }

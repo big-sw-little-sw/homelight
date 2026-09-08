@@ -61,6 +61,76 @@ class ApplyCommandTest {
     }
 
     @Test
+    void guidedApplyPreviewsThenExecutesTheSamePlanWhenConfirmed() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+        var output = new StringWriter();
+        var confirmed = new boolean[1];
+
+        var exitCode = ApplyCommand.renderGuided(config, () -> {
+            confirmed[0] = true;
+            return true;
+        }, new PrintWriter(output, true));
+
+        assertEquals(0, exitCode);
+        assertTrue(confirmed[0]);
+        assertTrue(output.toString().contains("Plan: 1 relocation ready"));
+        assertTrue(output.toString().contains("Confirm to apply this plan."));
+        assertTrue(Files.isSymbolicLink(source));
+    }
+
+    @Test
+    void guidedApplyLeavesTheFilesystemUnchangedWhenDeclined() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+        var output = new StringWriter();
+
+        var exitCode = ApplyCommand.renderGuided(config, () -> false, new PrintWriter(output, true));
+
+        assertEquals(0, exitCode);
+        assertTrue(Files.notExists(source));
+        assertTrue(Files.notExists(target));
+        assertTrue(output.toString().contains("Cancelled. No changes made."));
+    }
+
+    @Test
+    void nonInteractiveApplyRequiresYes() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "--config", config.toString());
+
+        assertEquals(2, result.exitCode());
+        assertTrue(result.output().contains("Non-interactive apply requires --yes."));
+        assertTrue(Files.notExists(source));
+        assertTrue(Files.notExists(target));
+    }
+
+    @Test
+    void jsonApplyRequiresYesInsteadOfPrompting() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "--json", "--config", config.toString());
+
+        assertEquals(2, result.exitCode());
+        assertTrue(result.output().contains("JSON apply requires --yes."));
+        assertTrue(Files.notExists(source));
+    }
+
+    @Test
     void appliesRelocationsThatShareATargetParent() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var firstSource = root.resolve("home/cache");
