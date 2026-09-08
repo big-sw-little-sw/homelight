@@ -18,6 +18,14 @@ final class TerminalStyle {
         return noColor ? text : Clique.ink().green().bold().on(text);
     }
 
+    String pending(String text) {
+        return noColor ? text : Clique.ink().brightBlack().on(text);
+    }
+
+    String active(String text) {
+        return noColor ? text : Clique.ink().cyan().on(text);
+    }
+
     String warning(String text) {
         return noColor ? text : Clique.ink().yellow().bold().on(text);
     }

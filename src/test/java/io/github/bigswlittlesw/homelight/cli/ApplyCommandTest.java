@@ -127,12 +127,12 @@ class ApplyCommandTest {
         var config = root.resolve("config.yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("apply", "--yes", "--verbose", "--config", config.toString());
+        var result = execute("apply", "--yes", "--verbose", "--no-color", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains(source + " → " + target));
-        assertTrue(result.output().contains("○ Create " + target));
-        assertTrue(result.output().contains("○ Create source link"));
+        assertTrue(result.output().contains("✓ Create " + target));
+        assertTrue(result.output().contains("✓ Create source link"));
         assertTrue(!result.output().contains("✓ Created " + target + " and linked " + source));
     }
 
@@ -145,7 +145,7 @@ class ApplyCommandTest {
         Files.writeString(config, configuration(root, source, target));
         execute("apply", "--yes", "--config", config.toString());
 
-        var result = execute("apply", "--yes", "--verbose", "--config", config.toString());
+        var result = execute("apply", "--yes", "--verbose", "--no-color", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("Already configured"));
