@@ -30,8 +30,8 @@ public final class ConfigurationLoader {
                 builder.withSources(new MapBackedConfigSource("command line", overrides, 500) {
                 });
             }
-            SmallRyeConfig config = builder.withMapping(HomeLightMapping.class).build();
-            var mapping = config.getConfigMapping(HomeLightMapping.class);
+            SmallRyeConfig config = builder.withMapping(HomeLightConfiguration.HomeLightMapping.class).build();
+            var mapping = config.getConfigMapping(HomeLightConfiguration.HomeLightMapping.class);
             var targetRoot = resolve(mapping.targetRoot());
             var relocations = mapping.relocations().stream()
                     .map(relocation -> resolveRelocation(targetRoot, relocation))
@@ -63,7 +63,7 @@ public final class ConfigurationLoader {
         return Path.of(expanded).toAbsolutePath().normalize();
     }
 
-    private static Relocation resolveRelocation(Path targetRoot, RelocationMapping mapping) {
+    private static Relocation resolveRelocation(Path targetRoot, HomeLightConfiguration.RelocationMapping mapping) {
         var sourcePath = resolve(mapping.sourcePath());
         var targetPath = mapping.targetPath()
                 .map(ConfigurationLoader::resolve)
