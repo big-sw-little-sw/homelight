@@ -133,6 +133,23 @@ class ApplyCommandTest {
         assertTrue(result.output().contains(source + " → " + target));
         assertTrue(result.output().contains("○ Create " + target));
         assertTrue(result.output().contains("○ Create source link"));
+        assertTrue(!result.output().contains("✓ Created " + target + " and linked " + source));
+    }
+
+    @Test
+    void verboseApplyDoesNotRepeatAnAlreadyConfiguredRelocation() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+        execute("apply", "--yes", "--config", config.toString());
+
+        var result = execute("apply", "--yes", "--verbose", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("Already configured"));
+        assertTrue(!result.output().contains("✓ Already configured " + source));
     }
 
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {

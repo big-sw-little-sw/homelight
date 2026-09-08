@@ -13,6 +13,10 @@ final class ApplyRenderer {
     private final JsonFactory jsonFactory = new JsonFactory();
 
     void render(ReconciliationExecutor.ExecutionResult result, boolean json, boolean noColor, PrintWriter output) {
+        render(result, json, noColor, false, output);
+    }
+
+    void render(ReconciliationExecutor.ExecutionResult result, boolean json, boolean noColor, boolean verbose, PrintWriter output) {
         if (json) {
             output.println(toJson(result));
             return;
@@ -30,7 +34,9 @@ final class ApplyRenderer {
                 output.println("  " + failed.orElseThrow().message());
                 continue;
             }
-            output.println(style.success("✓ " + description(relocation, source, target)));
+            if (!verbose) {
+                output.println(style.success("✓ " + description(relocation, source, target)));
+            }
         }
         var changed = result.relocations().stream().filter(this::changed).count();
         var unchanged = result.relocations().size() - changed;
