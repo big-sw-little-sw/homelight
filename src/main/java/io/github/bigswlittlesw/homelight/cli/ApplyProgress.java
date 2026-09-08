@@ -25,7 +25,7 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         this.output = output;
         this.noColor = noColor;
         spinner = Executors.newSingleThreadScheduledExecutor(
-                runnable -> Thread.ofPlatform().daemon().name("homelight-spinner").unstarted(runnable));
+                runnable -> Thread.ofVirtual().name("homelight-spinner").unstarted(runnable));
         output.println("Applying " + actionCount + (actionCount == 1 ? " step" : " steps") + "…");
         spinner.scheduleAtFixedRate(this::render, 0, 100, TimeUnit.MILLISECONDS);
     }
