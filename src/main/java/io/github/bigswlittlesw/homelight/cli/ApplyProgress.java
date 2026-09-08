@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.cli;
 import io.github.kusoroadeolu.clique.Clique;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 
 import java.io.PrintWriter;
@@ -28,6 +29,18 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
                 runnable -> Thread.ofVirtual().name("homelight-spinner").unstarted(runnable));
         output.println("Applying " + relocationCount + (relocationCount == 1 ? " relocation" : " relocations") + "…");
         spinner.scheduleAtFixedRate(this::render, 0, 100, TimeUnit.MILLISECONDS);
+    }
+
+    static void renderPlan(ReconciliationPlan plan, PrintWriter output) {
+        for (var relocation : plan.relocations()) {
+            var configured = relocation.relocation();
+            var tree = Clique.tree(configured.sourcePath() + " → " + configured.targetPath());
+            for (var action : relocation.actions()) {
+                tree.add(actionLabel(action));
+            }
+            output.print(tree.get());
+        }
+        output.println();
     }
 
     @Override
@@ -58,5 +71,17 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             output.print("\r\u001B[2K" + indicator + " " + activity);
             output.flush();
         }
+    }
+
+    private static String actionLabel(ReconciliationAction action) {
+        return switch (action) {
+            case ReconciliationAction.EnsureDirectory ensure -> "○ Ensure " + ensure.path();
+            case ReconciliationAction.CreateDirectory create -> "○ Create " + create.path();
+            case ReconciliationAction.Move ignored -> "○ Move contents";
+            case ReconciliationAction.CreateSymlink ignored -> "○ Create source link";
+            case ReconciliationAction.ReplaceSymlink ignored -> "○ Replace source link";
+            case ReconciliationAction.NoOp ignored -> "✓ Already configured";
+            case ReconciliationAction.Blocked blocked -> "! Blocked: " + blocked.reason();
+        };
     }
 }

@@ -30,12 +30,15 @@ final class ApplyCommand implements Callable<Integer> {
     @Option(names = "--no-color", description = "Disable terminal color.")
     private boolean noColor;
 
+    @Option(names = "--verbose", description = "Show planned internal steps.")
+    private boolean verbose;
+
     @Spec
     private CommandSpec spec;
 
     @Override
     public Integer call() {
-        return render(config, json, noColor, System.console() != null, spec.commandLine().getOut());
+        return render(config, json, noColor, verbose, System.console() != null, spec.commandLine().getOut());
     }
 
     static int render(Path config, PrintWriter output) {
@@ -43,10 +46,10 @@ final class ApplyCommand implements Callable<Integer> {
     }
 
     static int render(Path config, boolean json, boolean noColor, PrintWriter output) {
-        return render(config, json, noColor, false, output);
+        return render(config, json, noColor, false, false, output);
     }
 
-    private static int render(Path config, boolean json, boolean noColor, boolean showProgress, PrintWriter output) {
+    private static int render(Path config, boolean json, boolean noColor, boolean verbose, boolean showProgress, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             new ApplyRenderer().renderUnconfigured(json, output);
             return 0;
@@ -61,6 +64,9 @@ final class ApplyCommand implements Callable<Integer> {
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
             new PlanRenderer().render(plan, json, noColor, output);
             return 1;
+        }
+        if (verbose && !json) {
+            ApplyProgress.renderPlan(plan, output);
         }
         var hasChanges = plan.actions().stream().anyMatch(action -> !(action instanceof ReconciliationAction.NoOp));
         var progress = json || !showProgress || !hasChanges ? null : new ApplyProgress(output, plan.relocations().size(), noColor);

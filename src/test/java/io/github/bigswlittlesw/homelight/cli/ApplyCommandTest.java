@@ -110,12 +110,29 @@ class ApplyCommandTest {
         var config = root.resolve("config.yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("apply", "--yes", "--json", "--config", config.toString());
+        var result = execute("apply", "--yes", "--json", "--verbose", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("\"succeeded\":true"));
         assertTrue(result.output().contains("\"status\":\"completed\""));
         assertTrue(!result.output().contains("\u001B["));
+        assertTrue(!result.output().contains("○ Move contents"));
+    }
+
+    @Test
+    void verboseApplyShowsAReconciliationTree() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "--yes", "--verbose", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains(source + " → " + target));
+        assertTrue(result.output().contains("○ Create " + target));
+        assertTrue(result.output().contains("○ Create source link"));
     }
 
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {
