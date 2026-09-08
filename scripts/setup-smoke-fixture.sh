@@ -19,8 +19,10 @@ printf '%s\n' \
   '  relocations:' \
   "    - source-path: $home_root/cache" \
   "      target-path: $target_root/cache" \
+  '      existing: move' \
   "    - source-path: $home_root/tool-cache" \
   "      target-path: $target_root/tool-cache" \
+  '      existing: move' \
   > "$config_path"
 
 printf 'Smoke fixture: %s\n' "$fixture_root"

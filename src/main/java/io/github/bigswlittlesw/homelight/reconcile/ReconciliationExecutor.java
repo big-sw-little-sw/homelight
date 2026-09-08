@@ -71,8 +71,8 @@ public final class ReconciliationExecutor {
             case ReconciliationAction.DeleteDirectory directory -> deleteDirectory(directory);
             case ReconciliationAction.CreateSymlink link -> createSymlink(link);
             case ReconciliationAction.ReplaceSymlink link -> replaceSymlink(link);
-            case ReconciliationAction.NoOp ignored -> { }
-            case ReconciliationAction.Skip ignored -> { }
+            case ReconciliationAction.NoOp _ -> { }
+            case ReconciliationAction.Skip _ -> { }
             case ReconciliationAction.Blocked blocked -> throw new IllegalStateException(blocked.reason());
         }
     }

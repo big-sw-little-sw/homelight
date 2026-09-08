@@ -153,8 +153,8 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     private static String activity(RelocationPlan relocation, ReconciliationAction action) {
         var name = relocation.relocation().sourcePath().getFileName();
         return switch (action) {
-            case ReconciliationAction.Move ignored -> "Relocating " + name + "…";
-            case ReconciliationAction.CreateSymlink ignored -> "Linking " + name + "…";
+            case ReconciliationAction.Move _ -> "Relocating " + name + "…";
+            case ReconciliationAction.CreateSymlink _ -> "Linking " + name + "…";
             default -> "Preparing " + name + "…";
         };
     }
@@ -174,12 +174,12 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         return switch (action) {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
-            case ReconciliationAction.Move ignored -> "Move contents";
-            case ReconciliationAction.DeleteDirectory ignored -> "Discard contents";
-            case ReconciliationAction.CreateSymlink ignored -> "Create source link";
-            case ReconciliationAction.ReplaceSymlink ignored -> "Replace source link";
-            case ReconciliationAction.NoOp ignored -> "Already configured";
-            case ReconciliationAction.Skip ignored -> "Leave existing content unchanged";
+            case ReconciliationAction.Move _ -> "Move contents";
+            case ReconciliationAction.DeleteDirectory _ -> "Discard contents";
+            case ReconciliationAction.CreateSymlink _ -> "Create source link";
+            case ReconciliationAction.ReplaceSymlink _ -> "Replace source link";
+            case ReconciliationAction.NoOp _ -> "Already configured";
+            case ReconciliationAction.Skip _ -> "Leave existing content unchanged";
             case ReconciliationAction.Blocked blocked -> "Blocked: " + blocked.reason();
         };
     }

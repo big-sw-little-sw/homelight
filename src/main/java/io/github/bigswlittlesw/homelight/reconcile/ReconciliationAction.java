@@ -13,24 +13,24 @@ public sealed interface ReconciliationAction {
     /// Returns the stable machine-readable name used by presentation adapters.
     default String type() {
         return switch (this) {
-            case CreateDirectory ignored -> "create-directory";
-            case EnsureDirectory ignored -> "ensure-directory";
-            case Move ignored -> "move";
-            case DeleteDirectory ignored -> "delete-directory";
-            case CreateSymlink ignored -> "create-symlink";
-            case ReplaceSymlink ignored -> "replace-symlink";
-            case NoOp ignored -> "no-op";
-            case Skip ignored -> "skip";
-            case Blocked ignored -> "blocked";
+            case CreateDirectory _ -> "create-directory";
+            case EnsureDirectory _ -> "ensure-directory";
+            case Move _ -> "move";
+            case DeleteDirectory _ -> "delete-directory";
+            case CreateSymlink _ -> "create-symlink";
+            case ReplaceSymlink _ -> "replace-symlink";
+            case NoOp _ -> "no-op";
+            case Skip _ -> "skip";
+            case Blocked _ -> "blocked";
         };
     }
 
     /// Whether executing this action can change the filesystem.
     default boolean mutatesFilesystem() {
         return switch (this) {
-            case NoOp ignored -> false;
-            case Skip ignored -> false;
-            case Blocked ignored -> false;
+            case NoOp _ -> false;
+            case Skip _ -> false;
+            case Blocked _ -> false;
             default -> true;
         };
     }
