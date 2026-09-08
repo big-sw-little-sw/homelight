@@ -8,6 +8,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
 
@@ -33,12 +34,19 @@ final class ApplyCommand implements Callable<Integer> {
     @Option(names = "--verbose", description = "Show planned internal steps.")
     private boolean verbose;
 
+    @Option(names = "--debug-step-delay-ms", hidden = true, paramLabel = "MILLISECONDS",
+            description = "Pause each action for visual testing.")
+    private long debugStepDelayMillis;
+
     @Spec
     private CommandSpec spec;
 
     @Override
     public Integer call() {
-        return render(config, json, noColor, verbose, System.console() != null, spec.commandLine().getOut());
+        if (debugStepDelayMillis < 0 || debugStepDelayMillis > 60_000) {
+            throw new ParameterException(spec.commandLine(), "--debug-step-delay-ms must be between 0 and 60000");
+        }
+        return render(config, json, noColor, verbose, debugStepDelayMillis, System.console() != null, spec.commandLine().getOut());
     }
 
     static int render(Path config, PrintWriter output) {
@@ -46,10 +54,11 @@ final class ApplyCommand implements Callable<Integer> {
     }
 
     static int render(Path config, boolean json, boolean noColor, PrintWriter output) {
-        return render(config, json, noColor, false, false, output);
+        return render(config, json, noColor, false, 0, false, output);
     }
 
-    private static int render(Path config, boolean json, boolean noColor, boolean verbose, boolean showProgress, PrintWriter output) {
+    private static int render(Path config, boolean json, boolean noColor, boolean verbose,
+            long debugStepDelayMillis, boolean showProgress, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             new ApplyRenderer().renderUnconfigured(json, output);
             return 0;
@@ -66,7 +75,8 @@ final class ApplyCommand implements Callable<Integer> {
             return 1;
         }
         var hasChanges = plan.actions().stream().anyMatch(action -> !(action instanceof ReconciliationAction.NoOp));
-        var progress = json || !showProgress || !hasChanges ? null : new ApplyProgress(output, plan, noColor, verbose);
+        var progress = json || !showProgress || !hasChanges ? null
+                : new ApplyProgress(output, plan, noColor, verbose, debugStepDelayMillis);
         var result = progress == null
                 ? new ReconciliationExecutor().execute(plan)
                 : new ReconciliationExecutor().execute(plan, progress);

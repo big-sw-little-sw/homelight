@@ -7,7 +7,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 
 import java.io.PrintWriter;
-import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -21,18 +21,20 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     private final ReconciliationPlan plan;
     private final boolean noColor;
     private final boolean verbose;
+    private final long stepDelayMillis;
     private final ScheduledExecutorService spinner;
-    private final Map<ReconciliationAction, ActionState> states = new HashMap<>();
+    private final Map<ReconciliationAction, ActionState> states = new IdentityHashMap<>();
     private final Object lock = new Object();
     private String activity = "Preparing relocation…";
     private int frame;
     private int renderedLines;
 
-    ApplyProgress(PrintWriter output, ReconciliationPlan plan, boolean noColor, boolean verbose) {
+    ApplyProgress(PrintWriter output, ReconciliationPlan plan, boolean noColor, boolean verbose, long stepDelayMillis) {
         this.output = output;
         this.plan = plan;
         this.noColor = noColor;
         this.verbose = verbose;
+        this.stepDelayMillis = stepDelayMillis;
         spinner = Executors.newSingleThreadScheduledExecutor(
                 runnable -> Thread.ofVirtual().name("homelight-spinner").unstarted(runnable));
         spinner.scheduleAtFixedRate(this::render, 0, 100, TimeUnit.MILLISECONDS);
@@ -40,7 +42,7 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
 
     static void renderResult(ReconciliationPlan plan, ReconciliationExecutor.ExecutionResult result,
             boolean noColor, PrintWriter output) {
-        var states = new HashMap<ReconciliationAction, ActionState>();
+        var states = new IdentityHashMap<ReconciliationAction, ActionState>();
         for (var relocation : result.relocations()) {
             for (var action : relocation.actions()) {
                 states.put(action.action(), state(action.status()));
@@ -55,6 +57,7 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             states.put(action, ActionState.RUNNING);
             activity = activity(relocation, action);
         }
+        pauseForVisualTesting();
     }
 
     @Override
@@ -96,6 +99,17 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         renderedLines = (int) rendered.lines().count();
         for (var line : rendered.lines().toList()) {
             output.print("\r\u001B[2K" + line + "\n");
+        }
+    }
+
+    private void pauseForVisualTesting() {
+        if (stepDelayMillis == 0) {
+            return;
+        }
+        try {
+            Thread.sleep(stepDelayMillis);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
         }
     }
 

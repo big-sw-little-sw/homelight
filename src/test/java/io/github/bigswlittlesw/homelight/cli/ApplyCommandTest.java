@@ -120,6 +120,20 @@ class ApplyCommandTest {
     }
 
     @Test
+    void acceptsTheDebugStepDelayHook() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "--yes", "--json", "--debug-step-delay-ms", "0", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"succeeded\":true"));
+    }
+
+    @Test
     void verboseApplyShowsAReconciliationTree() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");

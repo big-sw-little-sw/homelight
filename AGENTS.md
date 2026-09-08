@@ -12,7 +12,7 @@ Do not add documentation comments that merely restate names, types, or obvious b
 
 These are judgment calls, not mechanical find-and-replace rules. Apply the principle, not merely its most literal form.
 
-1. **Records and sealed interfaces are the default for pure data types.**
+1. **Records and sealed interfaces are the default for pure data types.** Omit an explicit `permits` clause when all permitted subtypes are declared in the same compilation unit; let the compiler infer them.
 
 2. **A static factory belongs on the type it constructs only when it is a genuine smart constructor.** It builds one instance of type X purely from data that is already X's own information. It does not belong there when it orchestrates multiple sources or transforms a collection into a differently shaped collection. Test before moving a method: would it create divergent change or feature envy? If yes, keep it elsewhere.
 
