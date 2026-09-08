@@ -19,7 +19,7 @@ public final class PathInspector {
     }
 
     public RelocationSourceState inspectRelocationSource(Path path, Path expectedTarget) {
-        return inspect(path).asRelocationSource(expectedTarget);
+        return inspect(path).sourceStateForTarget(expectedTarget);
     }
 
     private Path resolveLinkTarget(Path path) {

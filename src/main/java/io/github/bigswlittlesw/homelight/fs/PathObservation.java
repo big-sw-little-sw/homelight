@@ -18,7 +18,7 @@ public record PathObservation(
         }
     }
 
-    public RelocationSourceState asRelocationSource(Path expectedTarget) {
+    public RelocationSourceState sourceStateForTarget(Path expectedTarget) {
         return switch (kind) {
             case ABSENT -> RelocationSourceState.ABSENT;
             case FILE -> RelocationSourceState.FILE;

@@ -48,7 +48,7 @@ public final class ReconciliationPlanner {
     }
 
     private RelocationSourceState sourceState(RelocationState state) {
-        return state.source().asRelocationSource(state.relocation().targetPath());
+        return state.source().sourceStateForTarget(state.relocation().targetPath());
     }
 
     private static List<ReconciliationAction> blocked(java.nio.file.Path path, String reason) {
