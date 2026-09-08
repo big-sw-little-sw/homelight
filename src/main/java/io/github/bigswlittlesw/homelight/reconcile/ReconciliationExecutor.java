@@ -73,12 +73,11 @@ public final class ReconciliationExecutor {
 
     private void ensureDirectory(ReconciliationAction.EnsureDirectory action) throws IOException {
         var state = inspector.inspect(action.path()).state();
-        if (state != action.expectedPathState()) {
-            throw new IllegalStateException("expected " + action.expectedPathState().name().toLowerCase() + " at "
-                    + action.path() + " but found " + state.name().toLowerCase());
-        }
         if (state == PathState.ABSENT) {
             Files.createDirectories(action.path());
+        } else if (state != PathState.DIRECTORY) {
+            throw new IllegalStateException("expected absent or directory at " + action.path()
+                    + " but found " + state.name().toLowerCase());
         }
     }
 

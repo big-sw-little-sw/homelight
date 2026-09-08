@@ -23,9 +23,9 @@ class ReconciliationPlannerTest {
         var plan = plan(relocation);
 
         assertEquals(List.of(
-                new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent(), PathState.ABSENT),
+                new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent()),
                 new ReconciliationAction.CreateDirectory(relocation.targetPath()),
-                new ReconciliationAction.EnsureDirectory(relocation.sourcePath().getParent(), PathState.ABSENT),
+                new ReconciliationAction.EnsureDirectory(relocation.sourcePath().getParent()),
                 new ReconciliationAction.CreateSymlink(relocation.sourcePath(), relocation.targetPath())),
                 plan.actions());
     }
@@ -40,7 +40,7 @@ class ReconciliationPlannerTest {
         var plan = plan(relocation);
 
         assertEquals(List.of(
-                new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent(), PathState.ABSENT),
+                new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent()),
                 new ReconciliationAction.Move(relocation.sourcePath(), relocation.targetPath()),
                 new ReconciliationAction.CreateSymlink(relocation.sourcePath(), relocation.targetPath())),
                 plan.actions());
@@ -166,9 +166,7 @@ class ReconciliationPlannerTest {
         var relocation = new Relocation(root.resolve("home/cache"), root.resolve("local/cache"));
         var state = new RelocationState(relocation,
                 new PathObservation(PathState.INACCESSIBLE, java.util.Optional.empty(), false),
-                new PathObservation(PathState.ABSENT, java.util.Optional.empty(), false),
-                new PathInspector().inspect(relocation.sourcePath().getParent()),
-                new PathInspector().inspect(relocation.targetPath().getParent()));
+                new PathObservation(PathState.ABSENT, java.util.Optional.empty(), false));
 
         var plan = new ReconciliationPlanner().plan(List.of(state));
 
@@ -183,9 +181,7 @@ class ReconciliationPlannerTest {
         var inspector = new PathInspector();
         var states = List.of(parent, child).stream()
                 .map(relocation -> new RelocationState(relocation,
-                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()),
-                        inspector.inspect(relocation.sourcePath().getParent()),
-                        inspector.inspect(relocation.targetPath().getParent())))
+                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath())))
                 .toList();
 
         var plan = new ReconciliationPlanner().plan(states);
@@ -199,9 +195,7 @@ class ReconciliationPlannerTest {
         var inspector = new PathInspector();
         var state = new RelocationState(relocation,
                 inspector.inspect(relocation.sourcePath()),
-                inspector.inspect(relocation.targetPath()),
-                inspector.inspect(relocation.sourcePath().getParent()),
-                inspector.inspect(relocation.targetPath().getParent()));
+                inspector.inspect(relocation.targetPath()));
         return new ReconciliationPlanner().plan(List.of(state));
     }
 }

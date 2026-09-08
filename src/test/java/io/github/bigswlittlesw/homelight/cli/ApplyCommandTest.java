@@ -59,6 +59,25 @@ class ApplyCommandTest {
         assertTrue(result.output().contains("conflict:"));
     }
 
+    @Test
+    void appliesRelocationsThatShareATargetParent() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var firstSource = root.resolve("home/cache");
+        var firstTarget = root.resolve("local/cache");
+        var secondSource = root.resolve("home/tool-cache");
+        var secondTarget = root.resolve("local/tool-cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n"
+                + "    - source-path: " + firstSource + "\n      target-path: " + firstTarget + "\n"
+                + "    - source-path: " + secondSource + "\n      target-path: " + secondTarget + "\n");
+
+        var result = execute("apply", "--yes", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(Files.isSymbolicLink(firstSource));
+        assertTrue(Files.isSymbolicLink(secondSource));
+    }
+
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {
         return "homelight:\n  target-root: " + root + "\n  relocations:\n"
                 + "    - source-path: " + source + "\n      target-path: " + target + "\n";

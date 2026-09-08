@@ -7,7 +7,5 @@ import io.github.bigswlittlesw.homelight.fs.PathObservation;
 public record RelocationState(
         Relocation relocation,
         PathObservation source,
-        PathObservation target,
-        PathObservation sourceParent,
-        PathObservation targetParent) {
+        PathObservation target) {
 }

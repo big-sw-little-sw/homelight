@@ -58,9 +58,7 @@ final class PlanCommand implements Callable<Integer> {
         var states = configuration.relocations().stream()
                 .map(relocation -> new RelocationState(relocation,
                         inspector.inspect(relocation.sourcePath()),
-                        inspector.inspect(relocation.targetPath()),
-                        inspector.inspect(relocation.sourcePath().getParent()),
-                        inspector.inspect(relocation.targetPath().getParent())))
+                        inspector.inspect(relocation.targetPath())))
                 .toList();
         var plan = new ReconciliationPlanner().plan(states);
         new PlanRenderer().render(plan, json, output);

@@ -34,9 +34,9 @@ public final class ReconciliationPlanner {
             };
             case ABSENT -> switch (state.target().state()) {
                 case ABSENT -> outcome(state, List.of(
-                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
+                        new ReconciliationAction.EnsureDirectory(target.getParent()),
                         new ReconciliationAction.CreateDirectory(target),
-                        new ReconciliationAction.EnsureDirectory(source.getParent(), state.sourceParent().state()),
+                        new ReconciliationAction.EnsureDirectory(source.getParent()),
                         new ReconciliationAction.CreateSymlink(source, target)));
                 case DIRECTORY -> conflict(state, target, "destination already exists and its ownership is unknown",
                         ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
@@ -48,7 +48,7 @@ public final class ReconciliationPlanner {
             };
             case DIRECTORY -> switch (state.target().state()) {
                 case ABSENT -> outcome(state, List.of(
-                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
+                        new ReconciliationAction.EnsureDirectory(target.getParent()),
                         new ReconciliationAction.Move(source, target),
                         new ReconciliationAction.CreateSymlink(source, target)));
                 case DIRECTORY -> conflict(state, source, "source and destination both contain directories",
@@ -65,7 +65,7 @@ public final class ReconciliationPlanner {
                     ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
             case BROKEN_SYMLINK -> switch (state.target().state()) {
                 case ABSENT -> repairedBrokenLink(state, List.of(
-                        new ReconciliationAction.EnsureDirectory(target.getParent(), state.targetParent().state()),
+                        new ReconciliationAction.EnsureDirectory(target.getParent()),
                         new ReconciliationAction.CreateDirectory(target),
                         replacementLink(state)));
                 case DIRECTORY -> repairedBrokenLink(state, List.of(replacementLink(state)));

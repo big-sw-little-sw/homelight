@@ -38,7 +38,10 @@ class ReconciliationExecutorTest {
         var result = new ReconciliationExecutor().execute(plan);
 
         assertFalse(result.succeeded());
-        var action = result.relocations().getFirst().actions().getFirst();
+        var action = result.relocations().getFirst().actions().stream()
+                .filter(execution -> execution.status() == ReconciliationExecutor.ActionStatus.FAILED)
+                .findFirst()
+                .orElseThrow();
         assertEquals(ReconciliationExecutor.ActionStatus.FAILED, action.status());
         assertTrue(action.message().contains("expected absent"));
         assertTrue(Files.notExists(source));
@@ -88,9 +91,7 @@ class ReconciliationExecutorTest {
         var inspector = new PathInspector();
         var states = java.util.Arrays.stream(relocations)
                 .map(relocation -> new RelocationState(relocation,
-                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()),
-                        inspector.inspect(relocation.sourcePath().getParent()),
-                        inspector.inspect(relocation.targetPath().getParent())))
+                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath())))
                 .toList();
         return new ReconciliationPlanner().plan(states);
     }

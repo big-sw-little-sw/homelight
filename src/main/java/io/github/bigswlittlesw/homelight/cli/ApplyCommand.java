@@ -40,9 +40,7 @@ final class ApplyCommand implements Callable<Integer> {
         var inspector = new PathInspector();
         var states = configuration.relocations().stream()
                 .map(relocation -> new RelocationState(relocation,
-                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()),
-                        inspector.inspect(relocation.sourcePath().getParent()),
-                        inspector.inspect(relocation.targetPath().getParent())))
+                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath())))
                 .toList();
         var plan = new ReconciliationPlanner().plan(states);
         if (plan.hasBlockedActions() || plan.hasConflicts()) {

@@ -22,8 +22,8 @@ public sealed interface ReconciliationAction {
         }
     }
 
-    /// Ensures a prerequisite directory exists without accepting files or symlinks at that path.
-    record EnsureDirectory(Path path, PathState expectedPathState) implements ReconciliationAction {
+    /// Creates a prerequisite directory when absent and refuses files or symlinks.
+    record EnsureDirectory(Path path) implements ReconciliationAction {
         @Override
         public boolean destructive() {
             return false;
