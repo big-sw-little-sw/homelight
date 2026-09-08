@@ -159,7 +159,7 @@ public final class ReconciliationExecutor {
         Files.walkFileTree(source, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
-                var copiedDirectory = copy.resolve(source.relativize(directory));
+                var copiedDirectory = copiedPath(source, copy, directory);
                 if (!Files.isDirectory(copiedDirectory, LinkOption.NOFOLLOW_LINKS)) {
                     throw new IOException("copied directory is missing: " + copiedDirectory);
                 }
@@ -168,7 +168,7 @@ public final class ReconciliationExecutor {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
-                var copiedFile = copy.resolve(source.relativize(file));
+                var copiedFile = copiedPath(source, copy, file);
                 if (Files.isSymbolicLink(file)) {
                     if (!Files.isSymbolicLink(copiedFile)
                             || !Files.readSymbolicLink(file).equals(Files.readSymbolicLink(copiedFile))) {
@@ -181,6 +181,10 @@ public final class ReconciliationExecutor {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private static Path copiedPath(Path source, Path copy, Path entry) {
+        return copy.resolve(source.relativize(entry));
     }
 
     private void requireState(Path path, PathState expected) {
@@ -202,13 +206,13 @@ public final class ReconciliationExecutor {
 
         @Override
         public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
-            Files.createDirectories(destination.resolve(source.relativize(directory)));
+            Files.createDirectories(copiedPath(source, destination, directory));
             return FileVisitResult.CONTINUE;
         }
 
         @Override
         public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
-            Files.copy(file, destination.resolve(source.relativize(file)), LinkOption.NOFOLLOW_LINKS);
+            Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS);
             return FileVisitResult.CONTINUE;
         }
     }

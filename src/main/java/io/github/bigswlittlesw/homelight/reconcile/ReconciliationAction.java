@@ -10,7 +10,7 @@ public sealed interface ReconciliationAction {
 
     boolean destructive();
 
-    /// Ensures that `path` and its missing parent directories exist.
+    /// Creates `path` after its parent-directory prerequisites have been satisfied.
     record CreateDirectory(Path path, PathState expectedPathState) implements ReconciliationAction {
         public CreateDirectory(Path path) {
             this(path, PathState.ABSENT);
