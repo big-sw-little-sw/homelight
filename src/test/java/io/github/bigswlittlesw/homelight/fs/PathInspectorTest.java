@@ -14,27 +14,27 @@ class PathInspectorTest {
         Files.createDirectories(expected);
         var inspector = new PathInspector();
 
-        assertEquals(PathState.ABSENT, inspector.inspect(root.resolve("absent"), expected));
+        assertEquals(FilesystemKind.ABSENT, inspector.inspect(root.resolve("absent")).kind());
 
         var directory = root.resolve("directory");
         Files.createDirectory(directory);
-        assertEquals(PathState.DIRECTORY, inspector.inspect(directory, expected));
+        assertEquals(FilesystemKind.DIRECTORY, inspector.inspect(directory).kind());
 
         var file = root.resolve("file");
         Files.createFile(file);
-        assertEquals(PathState.FILE, inspector.inspect(file, expected));
+        assertEquals(FilesystemKind.FILE, inspector.inspect(file).kind());
 
         var correct = root.resolve("correct");
         Files.createSymbolicLink(correct, expected);
-        assertEquals(PathState.CORRECT_SYMLINK, inspector.inspect(correct, expected));
+        assertEquals(RelocationSourceState.CORRECT_SYMLINK, inspector.inspectRelocationSource(correct, expected));
 
         var wrong = root.resolve("wrong");
         var other = Files.createDirectory(root.resolve("other"));
         Files.createSymbolicLink(wrong, other);
-        assertEquals(PathState.WRONG_SYMLINK, inspector.inspect(wrong, expected));
+        assertEquals(RelocationSourceState.WRONG_SYMLINK, inspector.inspectRelocationSource(wrong, expected));
 
         var broken = root.resolve("broken");
         Files.createSymbolicLink(broken, root.resolve("missing"));
-        assertEquals(PathState.BROKEN_SYMLINK, inspector.inspect(broken, expected));
+        assertEquals(RelocationSourceState.BROKEN_SYMLINK, inspector.inspectRelocationSource(broken, expected));
     }
 }

@@ -31,7 +31,7 @@ final class StatusCommand implements Callable<Integer> {
         var configuration = new ConfigurationLoader().load(config);
         var snapshots = configuration.relocations().stream()
                 .map(relocation -> new StatusSnapshot(relocation.sourcePath(), relocation.targetPath(),
-                        new PathInspector().inspect(relocation.sourcePath(), relocation.targetPath())))
+                        new PathInspector().inspectRelocationSource(relocation.sourcePath(), relocation.targetPath())))
                 .toList();
         new StatusRenderer().render(snapshots, json, output);
         return 0;

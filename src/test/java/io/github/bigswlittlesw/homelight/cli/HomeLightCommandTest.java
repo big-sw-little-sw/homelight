@@ -101,7 +101,7 @@ class HomeLightCommandTest {
     void statusJsonEscapesPathControlCharacters() {
         var output = new StringWriter();
         var snapshot = new StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
-                io.github.bigswlittlesw.homelight.fs.PathState.ABSENT);
+                io.github.bigswlittlesw.homelight.fs.RelocationSourceState.ABSENT);
 
         new StatusRenderer().render(List.of(snapshot), true, new PrintWriter(output, true));
 

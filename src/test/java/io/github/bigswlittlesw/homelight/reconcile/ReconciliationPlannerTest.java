@@ -2,7 +2,6 @@ package io.github.bigswlittlesw.homelight.reconcile;
 
 import io.github.bigswlittlesw.homelight.config.Relocation;
 import io.github.bigswlittlesw.homelight.fs.PathInspector;
-import io.github.bigswlittlesw.homelight.fs.PathState;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -55,6 +54,23 @@ class ReconciliationPlannerTest {
     }
 
     @Test
+    void blocksCorrectSourceLinkWhenTargetIsASymlink() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var realTarget = Files.createDirectories(root.resolve("real-local/cache"));
+        var target = root.resolve("local/cache");
+        Files.createDirectories(target.getParent());
+        Files.createSymbolicLink(target, realTarget);
+        var source = root.resolve("home/cache");
+        Files.createDirectories(source.getParent());
+        Files.createSymbolicLink(source, target);
+
+        var plan = plan(new Relocation(source, target));
+
+        var blocked = assertInstanceOf(ReconciliationAction.Blocked.class, plan.actions().getFirst());
+        assertEquals(target, blocked.path());
+    }
+
+    @Test
     void replacesWrongLinksWhenDestinationIsAvailable() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var target = Files.createDirectories(root.resolve("local/cache"));
@@ -85,7 +101,7 @@ class ReconciliationPlannerTest {
     private static ReconciliationPlan plan(Relocation relocation) {
         var inspector = new PathInspector();
         var state = new RelocationState(relocation,
-                inspector.inspect(relocation.sourcePath(), relocation.targetPath()),
+                inspector.inspect(relocation.sourcePath()),
                 inspector.inspect(relocation.targetPath()));
         return new ReconciliationPlanner().plan(List.of(state));
     }

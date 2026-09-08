@@ -7,44 +7,41 @@ import java.nio.file.Path;
 
 /// Inspects configured paths while treating symlinks as filesystem objects.
 public final class PathInspector {
-    public PathState inspect(Path path) {
+    public PathObservation inspect(Path path) {
         if (Files.isSymbolicLink(path)) {
-            return PathState.SYMLINK;
+            var resolvedTarget = resolveLinkTarget(path);
+            return new PathObservation(FilesystemKind.SYMLINK, java.util.Optional.of(resolvedTarget),
+                    Files.exists(resolvedTarget));
         }
         return inspectNonLink(path);
     }
 
-    public PathState inspect(Path path, Path expectedTarget) {
-        if (Files.isSymbolicLink(path)) {
-            var linkTarget = readLink(path);
-            var absolutePath = path.toAbsolutePath();
-            var resolvedTarget = absolutePath.getParent().resolve(linkTarget).normalize();
-            if (!Files.exists(resolvedTarget)) {
-                return PathState.BROKEN_SYMLINK;
-            }
-            return resolvedTarget.equals(expectedTarget.toAbsolutePath().normalize())
-                    ? PathState.CORRECT_SYMLINK
-                    : PathState.WRONG_SYMLINK;
-        }
-        return inspectNonLink(path);
+    public RelocationSourceState inspectRelocationSource(Path path, Path expectedTarget) {
+        return inspect(path).asRelocationSource(expectedTarget);
     }
 
-    private PathState inspectNonLink(Path path) {
+    private Path resolveLinkTarget(Path path) {
+        var linkTarget = readLink(path);
+        var absolutePath = path.toAbsolutePath();
+        return absolutePath.getParent().resolve(linkTarget).normalize();
+    }
+
+    private PathObservation inspectNonLink(Path path) {
         try {
             var attributes = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class,
                     LinkOption.NOFOLLOW_LINKS);
             if (attributes.isDirectory()) {
-                return PathState.DIRECTORY;
+                return new PathObservation(FilesystemKind.DIRECTORY, java.util.Optional.empty(), false);
             }
             if (attributes.isRegularFile()) {
-                return PathState.FILE;
+                return new PathObservation(FilesystemKind.FILE, java.util.Optional.empty(), false);
             }
-            return PathState.OTHER;
+            return new PathObservation(FilesystemKind.OTHER, java.util.Optional.empty(), false);
         } catch (IOException exception) {
             if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-                return PathState.ABSENT;
+                return new PathObservation(FilesystemKind.ABSENT, java.util.Optional.empty(), false);
             }
-            return PathState.OTHER;
+            return new PathObservation(FilesystemKind.OTHER, java.util.Optional.empty(), false);
         }
     }
 

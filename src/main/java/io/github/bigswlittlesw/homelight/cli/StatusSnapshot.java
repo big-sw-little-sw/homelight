@@ -1,8 +1,8 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import io.github.bigswlittlesw.homelight.fs.PathState;
+import io.github.bigswlittlesw.homelight.fs.RelocationSourceState;
 
 import java.nio.file.Path;
 
-record StatusSnapshot(Path sourcePath, Path targetPath, PathState state) {
+record StatusSnapshot(Path sourcePath, Path targetPath, RelocationSourceState state) {
 }
