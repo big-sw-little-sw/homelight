@@ -21,12 +21,12 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
     private String activity = "Preparing relocation…";
     private int frame;
 
-    ApplyProgress(PrintWriter output, int actionCount, boolean noColor) {
+    ApplyProgress(PrintWriter output, int relocationCount, boolean noColor) {
         this.output = output;
         this.noColor = noColor;
         spinner = Executors.newSingleThreadScheduledExecutor(
                 runnable -> Thread.ofVirtual().name("homelight-spinner").unstarted(runnable));
-        output.println("Applying " + actionCount + (actionCount == 1 ? " step" : " steps") + "…");
+        output.println("Applying " + relocationCount + (relocationCount == 1 ? " relocation" : " relocations") + "…");
         spinner.scheduleAtFixedRate(this::render, 0, 100, TimeUnit.MILLISECONDS);
     }
 

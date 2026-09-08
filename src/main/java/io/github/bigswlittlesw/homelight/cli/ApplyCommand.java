@@ -63,7 +63,7 @@ final class ApplyCommand implements Callable<Integer> {
             return 1;
         }
         var hasChanges = plan.actions().stream().anyMatch(action -> !(action instanceof ReconciliationAction.NoOp));
-        var progress = json || !showProgress || !hasChanges ? null : new ApplyProgress(output, plan.actions().size(), noColor);
+        var progress = json || !showProgress || !hasChanges ? null : new ApplyProgress(output, plan.relocations().size(), noColor);
         var result = progress == null
                 ? new ReconciliationExecutor().execute(plan)
                 : new ReconciliationExecutor().execute(plan, progress);
