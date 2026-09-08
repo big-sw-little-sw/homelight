@@ -48,7 +48,7 @@ final class ApplyCommand implements Callable<Integer> {
 
     private static int render(Path config, boolean json, boolean noColor, boolean showProgress, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
-            output.println(json ? "{\"succeeded\":true,\"relocations\":[]}" : "No configuration available to apply.");
+            new ApplyRenderer().renderUnconfigured(json, output);
             return 0;
         }
         var configuration = new ConfigurationLoader().load(config);

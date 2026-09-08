@@ -39,6 +39,14 @@ final class ApplyRenderer {
         output.println(result.succeeded() ? style.success(summary) : style.error(summary));
     }
 
+    void renderUnconfigured(boolean json, PrintWriter output) {
+        if (json) {
+            output.println(toJson(new ReconciliationExecutor.ExecutionResult(java.util.List.of())));
+        } else {
+            output.println("No configuration available to apply.");
+        }
+    }
+
     private boolean changed(ReconciliationExecutor.RelocationExecution relocation) {
         return relocation.actions().stream().anyMatch(action -> !(action.action() instanceof ReconciliationAction.NoOp));
     }

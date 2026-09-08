@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.cli;
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
 import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner;
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -54,7 +55,7 @@ final class PlanCommand implements Callable<Integer> {
     static int render(Path config, boolean json, boolean noColor, Map<String, String> overrides, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             if (json) {
-                output.println("{\"blocked\":false,\"actions\":[]}");
+                new PlanRenderer().render(new ReconciliationPlan(java.util.List.of(), java.util.List.of()), true, output);
             } else {
                 output.println("No configuration available for planning.");
             }

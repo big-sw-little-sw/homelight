@@ -63,8 +63,13 @@ class PlanCommandTest {
     }
 
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {
-        return "homelight:\n  target-root: " + root + "\n  relocations:\n"
-                + "    - source-path: " + source + "\n      target-path: " + target + "\n";
+        return """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, source, target);
     }
 
     private static CapturedOutput execute(String... args) {
