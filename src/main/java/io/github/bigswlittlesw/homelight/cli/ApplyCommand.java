@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.cli;
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
 import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState;
 import picocli.CommandLine.Command;
@@ -61,7 +62,8 @@ final class ApplyCommand implements Callable<Integer> {
             new PlanRenderer().render(plan, json, noColor, output);
             return 1;
         }
-        var progress = json || !showProgress ? null : new ApplyProgress(output, plan.actions().size(), noColor);
+        var hasChanges = plan.actions().stream().anyMatch(action -> !(action instanceof ReconciliationAction.NoOp));
+        var progress = json || !showProgress || !hasChanges ? null : new ApplyProgress(output, plan.actions().size(), noColor);
         var result = progress == null
                 ? new ReconciliationExecutor().execute(plan)
                 : new ReconciliationExecutor().execute(plan, progress);

@@ -80,6 +80,23 @@ class ApplyCommandTest {
     }
 
     @Test
+    void reportsThatNoChangesWereRequiredOnAConvergedSecondRun() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target));
+        execute("apply", "--yes", "--config", config.toString());
+
+        var result = execute("apply", "--yes", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("Already configured " + source));
+        assertTrue(result.output().contains("No changes required. 1 relocation already configured."));
+        assertTrue(!result.output().contains("Applied 1 relocation."));
+    }
+
+    @Test
     void applyJsonReportsExecutionWithoutTerminalStyling() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");

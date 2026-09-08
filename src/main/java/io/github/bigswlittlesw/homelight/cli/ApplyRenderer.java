@@ -32,11 +32,27 @@ final class ApplyRenderer {
             }
             output.println(style.success("✓ " + description(relocation, source, target)));
         }
-        var summary = result.succeeded()
-                ? "Applied " + result.relocations().size() + plural(result.relocations().size(), "relocation") + "."
-                : "Application stopped. Review the failed relocation and run plan again.";
+        var changed = result.relocations().stream().filter(this::changed).count();
+        var unchanged = result.relocations().size() - changed;
+        var summary = summary(result.succeeded(), changed, unchanged);
         output.println();
         output.println(result.succeeded() ? style.success(summary) : style.error(summary));
+    }
+
+    private boolean changed(ReconciliationExecutor.RelocationExecution relocation) {
+        return relocation.actions().stream().anyMatch(action -> !(action.action() instanceof ReconciliationAction.NoOp));
+    }
+
+    private static String summary(boolean succeeded, long changed, long unchanged) {
+        if (!succeeded) {
+            return "Application stopped. Review the failed relocation and run plan again.";
+        }
+        if (changed == 0) {
+            return "No changes required. " + unchanged + plural((int) unchanged, "relocation") + " already configured.";
+        }
+        var result = "Applied " + changed + plural((int) changed, "relocation") + ".";
+        return unchanged == 0 ? result
+                : result + " " + unchanged + plural((int) unchanged, "relocation") + " already configured.";
     }
 
     private String description(ReconciliationExecutor.RelocationExecution relocation, String source, String target) {
