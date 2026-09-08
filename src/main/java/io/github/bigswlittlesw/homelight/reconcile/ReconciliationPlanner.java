@@ -2,14 +2,14 @@ package io.github.bigswlittlesw.homelight.reconcile;
 
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /// Computes safe filesystem actions from observations and never mutates the filesystem.
 public final class ReconciliationPlanner {
     public ReconciliationPlan plan(List<RelocationState> states) {
-        var actions = new ArrayList<ReconciliationAction>();
-        states.forEach(state -> actions.addAll(plan(state)));
+        var actions = states.stream()
+                .flatMap(state -> plan(state).stream())
+                .toList();
         return new ReconciliationPlan(actions);
     }
 
