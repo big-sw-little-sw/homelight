@@ -50,8 +50,10 @@ class ConfigurationLoaderTest {
                   target-root: /local/${USER}
                   relocations:
                     - source-path: ~/.m2
+                      existing: move
                     - source-path: ~/.cache/uv
                       target-path: /fast/uv
+                      existing: discard
                   ignored-source-paths:
                     - ~/.cargo
                 """);
@@ -62,7 +64,9 @@ class ConfigurationLoaderTest {
         assertEquals(2, configuration.relocations().size());
         assertEquals(System.getProperty("user.home") + "/.m2", configuration.relocations().getFirst().sourcePath().toString());
         assertEquals("/local/" + System.getenv("USER") + "/.m2", configuration.relocations().getFirst().targetPath().toString());
+        assertEquals(ExistingContentPolicy.MOVE, configuration.relocations().getFirst().existingContentPolicy().orElseThrow());
         assertEquals("/fast/uv", configuration.relocations().get(1).targetPath().toString());
+        assertEquals(ExistingContentPolicy.DISCARD, configuration.relocations().get(1).existingContentPolicy().orElseThrow());
         assertEquals(List.of(Path.of(System.getProperty("user.home"), ".cargo")),
                 configuration.ignoredSourcePaths());
     }

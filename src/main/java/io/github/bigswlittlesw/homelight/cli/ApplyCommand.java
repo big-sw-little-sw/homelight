@@ -82,7 +82,7 @@ final class ApplyCommand implements Callable<Integer> {
             new PlanRenderer().render(plan, json, noColor, output);
             return 1;
         }
-        var hasChanges = plan.actions().stream().anyMatch(action -> !(action instanceof ReconciliationAction.NoOp));
+        var hasChanges = plan.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem);
         if (!yes && hasChanges) {
             new PlanRenderer().renderForConfirmation(plan, noColor, output);
             if (!confirmation.confirm()) {

@@ -68,9 +68,11 @@ public final class ReconciliationExecutor {
             case ReconciliationAction.CreateDirectory directory -> createDirectory(directory);
             case ReconciliationAction.EnsureDirectory directory -> ensureDirectory(directory);
             case ReconciliationAction.Move move -> move(move);
+            case ReconciliationAction.DeleteDirectory directory -> deleteDirectory(directory);
             case ReconciliationAction.CreateSymlink link -> createSymlink(link);
             case ReconciliationAction.ReplaceSymlink link -> replaceSymlink(link);
             case ReconciliationAction.NoOp ignored -> { }
+            case ReconciliationAction.Skip ignored -> { }
             case ReconciliationAction.Blocked blocked -> throw new IllegalStateException(blocked.reason());
         }
     }
@@ -98,6 +100,14 @@ public final class ReconciliationExecutor {
         } catch (AtomicMoveNotSupportedException exception) {
             copyThenRemove(action.path(), action.target());
         }
+    }
+
+    private void deleteDirectory(ReconciliationAction.DeleteDirectory action) throws IOException {
+        requireState(action.path(), action.expectedPathState());
+        if (action.expectedEmpty() && !inspector.inspect(action.path()).emptyDirectory()) {
+            throw new IllegalStateException("expected empty directory at " + action.path());
+        }
+        deleteTree(action.path());
     }
 
     private void createSymlink(ReconciliationAction.CreateSymlink action) throws IOException {

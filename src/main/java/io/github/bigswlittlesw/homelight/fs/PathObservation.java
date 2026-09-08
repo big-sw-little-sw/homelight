@@ -10,7 +10,8 @@ import java.util.Optional;
 public record PathObservation(
         PathState state,
         Optional<Path> symlinkTarget,
-        SymlinkTargetAvailability symlinkTargetAvailability) {
+        SymlinkTargetAvailability symlinkTargetAvailability,
+        boolean emptyDirectory) {
     public PathObservation {
         symlinkTarget = Objects.requireNonNullElse(symlinkTarget, Optional.empty());
         Objects.requireNonNull(symlinkTargetAvailability, "symlinkTargetAvailability");
@@ -22,12 +23,20 @@ public record PathObservation(
                 && (symlinkTarget.isEmpty() || symlinkTargetAvailability == SymlinkTargetAvailability.NOT_A_SYMLINK)) {
             throw new IllegalArgumentException("A symlink observation needs its target and availability");
         }
+        if (emptyDirectory && state != PathState.DIRECTORY) {
+            throw new IllegalArgumentException("Only directory observations may be empty");
+        }
+    }
+
+    public PathObservation(PathState state, Optional<Path> symlinkTarget,
+            SymlinkTargetAvailability symlinkTargetAvailability) {
+        this(state, symlinkTarget, symlinkTargetAvailability, false);
     }
 
     public PathObservation(PathState state, Optional<Path> symlinkTarget, boolean symlinkTargetExists) {
         this(state, symlinkTarget, state == PathState.SYMLINK
                 ? symlinkTargetExists ? SymlinkTargetAvailability.EXISTS : SymlinkTargetAvailability.ABSENT
-                : SymlinkTargetAvailability.NOT_A_SYMLINK);
+                : SymlinkTargetAvailability.NOT_A_SYMLINK, false);
     }
 
     public RelocationSourceState sourceStateForTarget(Path expectedTarget) {

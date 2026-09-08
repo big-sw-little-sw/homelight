@@ -10,6 +10,31 @@ public sealed interface ReconciliationAction {
 
     boolean destructive();
 
+    /// Returns the stable machine-readable name used by presentation adapters.
+    default String type() {
+        return switch (this) {
+            case CreateDirectory ignored -> "create-directory";
+            case EnsureDirectory ignored -> "ensure-directory";
+            case Move ignored -> "move";
+            case DeleteDirectory ignored -> "delete-directory";
+            case CreateSymlink ignored -> "create-symlink";
+            case ReplaceSymlink ignored -> "replace-symlink";
+            case NoOp ignored -> "no-op";
+            case Skip ignored -> "skip";
+            case Blocked ignored -> "blocked";
+        };
+    }
+
+    /// Whether executing this action can change the filesystem.
+    default boolean mutatesFilesystem() {
+        return switch (this) {
+            case NoOp ignored -> false;
+            case Skip ignored -> false;
+            case Blocked ignored -> false;
+            default -> true;
+        };
+    }
+
     /// Creates `path` after its parent-directory prerequisites have been satisfied.
     record CreateDirectory(Path path, PathState expectedPathState) implements ReconciliationAction {
         public CreateDirectory(Path path) {
@@ -34,6 +59,22 @@ public sealed interface ReconciliationAction {
             implements ReconciliationAction {
         public Move(Path path, Path target) {
             this(path, target, PathState.DIRECTORY, PathState.ABSENT);
+        }
+
+        @Override
+        public boolean destructive() {
+            return true;
+        }
+    }
+
+    /// Removes a real directory tree after verifying its planned state, and optionally emptiness, still hold.
+    record DeleteDirectory(Path path, PathState expectedPathState, boolean expectedEmpty) implements ReconciliationAction {
+        public DeleteDirectory(Path path) {
+            this(path, PathState.DIRECTORY, false);
+        }
+
+        public DeleteDirectory(Path path, PathState expectedPathState) {
+            this(path, expectedPathState, false);
         }
 
         @Override
@@ -67,6 +108,14 @@ public sealed interface ReconciliationAction {
     }
 
     record NoOp(Path path) implements ReconciliationAction {
+        @Override
+        public boolean destructive() {
+            return false;
+        }
+    }
+
+    /// Records an explicit decision to leave pre-existing content unmanaged.
+    record Skip(Path path) implements ReconciliationAction {
         @Override
         public boolean destructive() {
             return false;

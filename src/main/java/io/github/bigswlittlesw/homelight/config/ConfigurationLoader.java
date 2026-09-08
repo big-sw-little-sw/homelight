@@ -68,7 +68,7 @@ public final class ConfigurationLoader {
         var targetPath = mapping.targetPath()
                 .map(ConfigurationLoader::resolve)
                 .orElseGet(() -> deriveTarget(targetRoot, sourcePath));
-        return new Relocation(sourcePath, targetPath);
+        return new Relocation(sourcePath, targetPath, mapping.existing());
     }
 
     private static Path deriveTarget(Path targetRoot, Path sourcePath) {

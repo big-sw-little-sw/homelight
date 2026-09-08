@@ -27,4 +27,6 @@ interface RelocationMapping {
     String sourcePath();
 
     Optional<String> targetPath();
+
+    Optional<ExistingContentPolicy> existing();
 }

@@ -1,6 +1,8 @@
 package io.github.bigswlittlesw.homelight.reconcile;
 
+import io.github.bigswlittlesw.homelight.config.ExistingContentPolicy;
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
+import io.github.bigswlittlesw.homelight.fs.PathState;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -38,22 +40,14 @@ public final class ReconciliationPlanner {
                         new ReconciliationAction.CreateDirectory(target),
                         new ReconciliationAction.EnsureDirectory(source.getParent()),
                         new ReconciliationAction.CreateSymlink(source, target)));
-                case DIRECTORY -> conflict(state, target, "destination already exists and its ownership is unknown",
-                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
-                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET);
+                case DIRECTORY -> planExistingTarget(state);
                 case SYMLINK -> conflict(state, target, "relocation target is a symlink",
                         ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
                         ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
                 default -> blockedOutcome(state, "destination is not an available directory");
             };
             case DIRECTORY -> switch (state.target().state()) {
-                case ABSENT -> outcome(state, List.of(
-                        new ReconciliationAction.EnsureDirectory(target.getParent()),
-                        new ReconciliationAction.Move(source, target),
-                        new ReconciliationAction.CreateSymlink(source, target)));
-                case DIRECTORY -> conflict(state, source, "source and destination both contain directories",
-                        ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT,
-                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                case ABSENT, DIRECTORY -> planExistingSource(state);
                 case SYMLINK -> conflict(state, target, "relocation target is a symlink",
                         ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
                         ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
@@ -77,6 +71,63 @@ public final class ReconciliationPlanner {
             case INACCESSIBLE -> blockedOutcome(state, "source cannot be inspected");
             case OTHER -> blockedOutcome(state, "source has an unsupported filesystem state");
         };
+    }
+
+    private RelocationPlan planExistingSource(RelocationState state) {
+        var targetState = state.target().state();
+        return state.relocation().existingContentPolicy().map(policy -> switch (policy) {
+            case MOVE -> targetState == PathState.ABSENT
+                    ? outcome(state, List.of(
+                            new ReconciliationAction.EnsureDirectory(state.relocation().targetPath().getParent()),
+                            new ReconciliationAction.Move(state.relocation().sourcePath(), state.relocation().targetPath()),
+                            new ReconciliationAction.CreateSymlink(state.relocation().sourcePath(), state.relocation().targetPath())))
+                    : targetState == PathState.DIRECTORY && state.target().emptyDirectory()
+                    ? outcome(state, List.of(
+                            new ReconciliationAction.DeleteDirectory(state.relocation().targetPath(), PathState.DIRECTORY, true),
+                            new ReconciliationAction.Move(state.relocation().sourcePath(), state.relocation().targetPath()),
+                            new ReconciliationAction.CreateSymlink(state.relocation().sourcePath(), state.relocation().targetPath())))
+                    : conflict(state, state.relocation().targetPath(),
+                    "move policy cannot merge source content into an existing destination",
+                    ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
+                    ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+            case DISCARD -> discardExistingDirectories(state);
+            case PRESERVE -> outcome(state, List.of(new ReconciliationAction.Skip(state.relocation().sourcePath())));
+        }).orElseGet(() -> policyRequired(state, state.relocation().sourcePath()));
+    }
+
+    private RelocationPlan planExistingTarget(RelocationState state) {
+        return state.relocation().existingContentPolicy().map(policy -> switch (policy) {
+            case MOVE, PRESERVE -> outcome(state, List.of(
+                    new ReconciliationAction.EnsureDirectory(state.relocation().sourcePath().getParent()),
+                    new ReconciliationAction.CreateSymlink(state.relocation().sourcePath(), state.relocation().targetPath())));
+            case DISCARD -> discardExistingDirectories(state);
+        }).orElseGet(() -> policyRequired(state, state.relocation().targetPath()));
+    }
+
+    private static RelocationPlan discardExistingDirectories(RelocationState state) {
+        var relocation = state.relocation();
+        var actions = new java.util.ArrayList<ReconciliationAction>();
+        if (state.source().state() == PathState.DIRECTORY) {
+            actions.add(new ReconciliationAction.DeleteDirectory(relocation.sourcePath()));
+        }
+        if (state.target().state() == PathState.DIRECTORY) {
+            actions.add(new ReconciliationAction.DeleteDirectory(relocation.targetPath()));
+        }
+        actions.add(new ReconciliationAction.EnsureDirectory(relocation.targetPath().getParent()));
+        actions.add(new ReconciliationAction.CreateDirectory(relocation.targetPath()));
+        actions.add(new ReconciliationAction.EnsureDirectory(relocation.sourcePath().getParent()));
+        actions.add(new ReconciliationAction.CreateSymlink(relocation.sourcePath(), relocation.targetPath()));
+        var warning = new ReconciliationDiagnostic(ReconciliationDiagnostic.Severity.WARNING,
+                relocation.sourcePath(), "EXISTING_CONTENT_DISCARDED",
+                "discard policy will permanently remove existing directory content");
+        return new RelocationPlan(relocation, actions, List.of(warning), Optional.empty());
+    }
+
+    private static RelocationPlan policyRequired(RelocationState state, Path path) {
+        return conflict(state, path, "existing content requires an explicit move, discard, or preserve policy",
+                ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT,
+                ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
+                ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET);
     }
 
     private RelocationSourceState sourceState(RelocationState state) {

@@ -19,7 +19,11 @@ class PathInspectorTest {
 
         var directory = root.resolve("directory");
         Files.createDirectory(directory);
-        assertEquals(PathState.DIRECTORY, inspector.inspect(directory).state());
+        var directoryObservation = inspector.inspect(directory);
+        assertEquals(PathState.DIRECTORY, directoryObservation.state());
+        assertEquals(true, directoryObservation.emptyDirectory());
+        Files.createFile(directory.resolve("entry"));
+        assertEquals(false, inspector.inspect(directory).emptyDirectory());
 
         var file = root.resolve("file");
         Files.createFile(file);

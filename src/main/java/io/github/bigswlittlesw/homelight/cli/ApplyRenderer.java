@@ -39,8 +39,9 @@ final class ApplyRenderer {
             }
         }
         var changed = result.relocations().stream().filter(this::changed).count();
-        var unchanged = result.relocations().size() - changed;
-        var summary = summary(result.succeeded(), changed, unchanged);
+        var skipped = result.relocations().stream().filter(this::skipped).count();
+        var unchanged = result.relocations().size() - changed - skipped;
+        var summary = summary(result.succeeded(), changed, skipped, unchanged);
         output.println();
         output.println(result.succeeded() ? style.success(summary) : style.error(summary));
     }
@@ -54,19 +55,40 @@ final class ApplyRenderer {
     }
 
     private boolean changed(ReconciliationExecutor.RelocationExecution relocation) {
-        return relocation.actions().stream().anyMatch(action -> !(action.action() instanceof ReconciliationAction.NoOp));
+        return relocation.actions().stream().map(ReconciliationExecutor.ActionExecution::action)
+                .anyMatch(ReconciliationAction::mutatesFilesystem);
     }
 
-    private static String summary(boolean succeeded, long changed, long unchanged) {
+    private boolean skipped(ReconciliationExecutor.RelocationExecution relocation) {
+        return relocation.actions().stream().map(ReconciliationExecutor.ActionExecution::action)
+                .anyMatch(ReconciliationAction.Skip.class::isInstance);
+    }
+
+    private static String summary(boolean succeeded, long changed, long skipped, long unchanged) {
         if (!succeeded) {
             return "Application stopped. Review the failed relocation and run plan again.";
         }
-        if (changed == 0) {
+        if (changed == 0 && skipped == 0) {
             return "No changes required. " + unchanged + plural((int) unchanged, "relocation") + " already configured.";
         }
-        var result = "Applied " + changed + plural((int) changed, "relocation") + ".";
-        return unchanged == 0 ? result
-                : result + " " + unchanged + plural((int) unchanged, "relocation") + " already configured.";
+        var result = new StringBuilder();
+        if (changed > 0) {
+            result.append("Applied ").append(changed).append(plural((int) changed, "relocation")).append('.');
+        }
+        if (skipped > 0) {
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append("Left ").append(skipped).append(plural((int) skipped, "relocation"))
+                    .append(" unchanged by policy.");
+        }
+        if (unchanged > 0) {
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(unchanged).append(plural((int) unchanged, "relocation")).append(" already configured.");
+        }
+        return result.toString();
     }
 
     static String description(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation,
@@ -74,8 +96,14 @@ final class ApplyRenderer {
         if (relocation.actions().stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
             return "Relocated " + source + " → " + target;
         }
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
+            return "Discarded existing content and linked " + source + " → " + target;
+        }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured " + source + " → " + target;
+        }
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
+            return "Left existing content unchanged at " + source;
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repaired link " + source + " → " + target;
@@ -94,11 +122,14 @@ final class ApplyRenderer {
                 generator.writeStartObject();
                 generator.writeStringField("source", configuredRelocation.sourcePath().toString());
                 generator.writeStringField("target", configuredRelocation.targetPath().toString());
+                var existingContentPolicy = configuredRelocation.existingContentPolicy();
+                if (existingContentPolicy.isPresent()) {
+                    generator.writeStringField("existing", existingContentPolicy.orElseThrow().value());
+                }
                 generator.writeArrayFieldStart("actions");
                 for (var action : relocation.actions()) {
                     generator.writeStartObject();
-                    generator.writeStringField("type", actionType(action.action()));
-                    generator.writeStringField("path", action.action().path().toString());
+                    ActionJson.writeFields(generator, action.action());
                     generator.writeStringField("status", action.status().name().toLowerCase());
                     generator.writeStringField("message", action.message());
                     generator.writeEndObject();
@@ -118,15 +149,4 @@ final class ApplyRenderer {
         return count == 1 ? " " + noun : " " + noun + "s";
     }
 
-    private static String actionType(ReconciliationAction action) {
-        return switch (action) {
-            case ReconciliationAction.CreateDirectory ignored -> "create-directory";
-            case ReconciliationAction.EnsureDirectory ignored -> "ensure-directory";
-            case ReconciliationAction.Move ignored -> "move";
-            case ReconciliationAction.CreateSymlink ignored -> "create-symlink";
-            case ReconciliationAction.ReplaceSymlink ignored -> "replace-symlink";
-            case ReconciliationAction.NoOp ignored -> "no-op";
-            case ReconciliationAction.Blocked ignored -> "blocked";
-        };
-    }
 }

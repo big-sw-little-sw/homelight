@@ -38,7 +38,8 @@ public final class PathInspector {
             var attributes = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class,
                     LinkOption.NOFOLLOW_LINKS);
             if (attributes.isDirectory()) {
-                return new PathObservation(PathState.DIRECTORY, java.util.Optional.empty(), false);
+                return new PathObservation(PathState.DIRECTORY, java.util.Optional.empty(),
+                        SymlinkTargetAvailability.NOT_A_SYMLINK, isEmptyDirectory(path));
             }
             if (attributes.isRegularFile()) {
                 return new PathObservation(PathState.FILE, java.util.Optional.empty(), false);
@@ -48,6 +49,12 @@ public final class PathInspector {
             return new PathObservation(PathState.ABSENT, java.util.Optional.empty(), false);
         } catch (IOException exception) {
             return new PathObservation(PathState.INACCESSIBLE, java.util.Optional.empty(), false);
+        }
+    }
+
+    private static boolean isEmptyDirectory(Path path) throws IOException {
+        try (var entries = Files.list(path)) {
+            return entries.findAny().isEmpty();
         }
     }
 

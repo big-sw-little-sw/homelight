@@ -44,6 +44,40 @@ class PlanCommandTest {
     }
 
     @Test
+    void planRendersConfiguredExistingContentPolicyForPeopleAndAutomation() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target).replace("target-path: " + target,
+                "target-path: " + target + "\n      existing: move"));
+
+        var text = execute("plan", "--config", config.toString());
+        var json = execute("plan", "--config", config.toString(), "--json");
+
+        assertEquals(0, text.exitCode());
+        assertTrue(text.output().contains("Existing content: move"));
+        assertEquals(0, json.exitCode());
+        assertTrue(json.output().contains("\"existing\":\"move\""));
+    }
+
+    @Test
+    void planWarnsBeforeDiscardingExistingContent() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target).replace("target-path: " + target,
+                "target-path: " + target + "\n      existing: discard"));
+
+        var result = execute("plan", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("discard policy will permanently remove"));
+        assertTrue(result.output().contains("Discard existing contents and create a link"));
+    }
+
+    @Test
     void pairedSourceAndTargetOverridesTakePrecedenceAtThePlanCommand() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var configuredSource = root.resolve("configured/home");

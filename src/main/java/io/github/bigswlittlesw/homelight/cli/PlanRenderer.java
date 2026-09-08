@@ -48,6 +48,8 @@ final class PlanRenderer {
                 renderDiagnostic(diagnostic, style, output);
             }
             output.println("  " + relocation.relocation().sourcePath() + " → " + relocation.relocation().targetPath());
+            relocation.relocation().existingContentPolicy().ifPresent(policy ->
+                    output.println("    Existing content: " + policy.value()));
             relocation.conflict().ifPresentOrElse(
                     conflict -> output.println("    " + style.error("! " + conflict.reason())),
                     () -> output.println("    " + intent(relocation.actions())));
@@ -79,11 +81,17 @@ final class PlanRenderer {
         if (actions.stream().anyMatch(ReconciliationAction.Move.class::isInstance)) {
             return "Move existing contents and create a link";
         }
+        if (actions.stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
+            return "Discard existing contents and create a link";
+        }
         if (actions.stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repair the source link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured";
+        }
+        if (actions.stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
+            return "Leave existing content unchanged";
         }
         return "Create a destination directory and link";
     }
@@ -108,6 +116,10 @@ final class PlanRenderer {
                 generator.writeStartObject();
                 generator.writeStringField("source", relocation.relocation().sourcePath().toString());
                 generator.writeStringField("target", relocation.relocation().targetPath().toString());
+                var existingContentPolicy = relocation.relocation().existingContentPolicy();
+                if (existingContentPolicy.isPresent()) {
+                    generator.writeStringField("existing", existingContentPolicy.orElseThrow().value());
+                }
                 generator.writeArrayFieldStart("diagnostics");
                 for (var diagnostic : relocation.diagnostics()) {
                     writeDiagnostic(generator, diagnostic);
@@ -160,29 +172,8 @@ final class PlanRenderer {
 
     private void writeAction(com.fasterxml.jackson.core.JsonGenerator generator, ReconciliationAction action) throws IOException {
         generator.writeStartObject();
-        generator.writeStringField("type", type(action));
-        generator.writeStringField("path", action.path().toString());
-        generator.writeBooleanField("destructive", action.destructive());
-        switch (action) {
-            case ReconciliationAction.Move move -> generator.writeStringField("target", move.target().toString());
-            case ReconciliationAction.CreateSymlink link -> generator.writeStringField("target", link.target().toString());
-            case ReconciliationAction.ReplaceSymlink link -> generator.writeStringField("target", link.target().toString());
-            case ReconciliationAction.Blocked blocked -> generator.writeStringField("reason", blocked.reason());
-            default -> {
-            }
-        }
+        ActionJson.writeFields(generator, action);
         generator.writeEndObject();
     }
 
-    private String type(ReconciliationAction action) {
-        return switch (action) {
-            case ReconciliationAction.CreateDirectory ignored -> "create-directory";
-            case ReconciliationAction.EnsureDirectory ignored -> "ensure-directory";
-            case ReconciliationAction.Move ignored -> "move";
-            case ReconciliationAction.CreateSymlink ignored -> "create-symlink";
-            case ReconciliationAction.ReplaceSymlink ignored -> "replace-symlink";
-            case ReconciliationAction.NoOp ignored -> "no-op";
-            case ReconciliationAction.Blocked ignored -> "blocked";
-        };
-    }
 }

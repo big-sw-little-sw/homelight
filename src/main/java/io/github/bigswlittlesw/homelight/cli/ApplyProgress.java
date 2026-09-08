@@ -175,9 +175,11 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
             case ReconciliationAction.Move ignored -> "Move contents";
+            case ReconciliationAction.DeleteDirectory ignored -> "Discard contents";
             case ReconciliationAction.CreateSymlink ignored -> "Create source link";
             case ReconciliationAction.ReplaceSymlink ignored -> "Replace source link";
             case ReconciliationAction.NoOp ignored -> "Already configured";
+            case ReconciliationAction.Skip ignored -> "Leave existing content unchanged";
             case ReconciliationAction.Blocked blocked -> "Blocked: " + blocked.reason();
         };
     }

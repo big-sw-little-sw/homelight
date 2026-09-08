@@ -34,7 +34,7 @@ class ApplyCommandTest {
         Files.writeString(source.resolve("entry"), "value");
         var target = root.resolve("local/cache");
         var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, source, target));
+        Files.writeString(config, configuration(root, source, target, "move"));
 
         var result = execute("apply", "--yes", "--config", config.toString());
 
@@ -42,6 +42,60 @@ class ApplyCommandTest {
         assertEquals("value", Files.readString(target.resolve("entry")));
         assertTrue(Files.isSymbolicLink(source));
         assertTrue(result.output().contains("Relocated " + source + " → " + target));
+    }
+
+    @Test
+    void appliesAnExplicitDiscardPolicyAndReportsTheDestructiveOperation() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        Files.writeString(source.resolve("source-entry"), "source");
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        Files.writeString(target.resolve("target-entry"), "target");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target, "discard"));
+
+        var result = execute("apply", "--yes", "--json", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(Files.isSymbolicLink(source));
+        assertTrue(Files.notExists(target.resolve("source-entry")));
+        assertTrue(Files.notExists(target.resolve("target-entry")));
+        assertTrue(result.output().contains("\"existing\":\"discard\""));
+        assertTrue(result.output().contains("\"type\":\"delete-directory\""));
+    }
+
+    @Test
+    void appliesPreserveAsAnIntentionalSkipRatherThanAnAlreadyConfiguredNoOp() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        Files.writeString(source.resolve("entry"), "value");
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target, "preserve"));
+
+        var result = execute("apply", "--yes", "--json", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(Files.isDirectory(source));
+        assertTrue(Files.notExists(target));
+        assertTrue(result.output().contains("\"type\":\"skip\""));
+        assertTrue(!result.output().contains("\"type\":\"no-op\""));
+    }
+
+    @Test
+    void textApplyReportsPreservedContentAsSkippedRatherThanAlreadyConfigured() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target, "preserve"));
+
+        var result = execute("apply", "--yes", "--config", config.toString());
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("Left existing content unchanged at " + source));
+        assertTrue(result.output().contains("Left 1 relocation unchanged by policy."));
+        assertTrue(!result.output().contains("already configured"));
     }
 
     @Test
@@ -237,13 +291,19 @@ class ApplyCommandTest {
     }
 
     private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {
+        return configuration(root, source, target, null);
+    }
+
+    private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target,
+            String existingPolicy) {
         return """
                 homelight:
                   target-root: %s
                   relocations:
                     - source-path: %s
                       target-path: %s
-                """.formatted(root, source, target);
+                %s""".formatted(root, source, target,
+                existingPolicy == null ? "" : "      existing: " + existingPolicy + "\n");
     }
 
     private static CapturedOutput execute(String... args) {
