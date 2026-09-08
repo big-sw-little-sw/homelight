@@ -38,6 +38,11 @@
             <version>${picocli.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.github.kusoroadeolu</groupId>
+            <artifactId>clique-core</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+        <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli-codegen</artifactId>
             <version>${picocli.version}</version>

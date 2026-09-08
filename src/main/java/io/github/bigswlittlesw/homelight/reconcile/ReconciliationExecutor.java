@@ -29,6 +29,10 @@ public final class ReconciliationExecutor {
     }
 
     public ExecutionResult execute(ReconciliationPlan plan) {
+        return execute(plan, ProgressListener.NONE);
+    }
+
+    public ExecutionResult execute(ReconciliationPlan plan, ProgressListener progress) {
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
             throw new IllegalArgumentException("Only fully resolved plans can be executed");
         }
@@ -42,10 +46,15 @@ public final class ReconciliationExecutor {
                     continue;
                 }
                 try {
+                    progress.started(relocation, action);
                     apply(action);
-                    actions.add(new ActionExecution(action, ActionStatus.COMPLETED, "completed"));
+                    var execution = new ActionExecution(action, ActionStatus.COMPLETED, "completed");
+                    actions.add(execution);
+                    progress.finished(relocation, execution);
                 } catch (IOException | IllegalStateException exception) {
-                    actions.add(new ActionExecution(action, ActionStatus.FAILED, exception.getMessage()));
+                    var execution = new ActionExecution(action, ActionStatus.FAILED, exception.getMessage());
+                    actions.add(execution);
+                    progress.finished(relocation, execution);
                     halted = true;
                 }
             }
@@ -217,6 +226,14 @@ public final class ReconciliationExecutor {
     }
 
     public enum ActionStatus { COMPLETED, FAILED, PENDING }
+
+    public interface ProgressListener {
+        ProgressListener NONE = new ProgressListener() { };
+
+        default void started(RelocationPlan relocation, ReconciliationAction action) { }
+
+        default void finished(RelocationPlan relocation, ActionExecution action) { }
+    }
 
     @FunctionalInterface
     interface AtomicMover {

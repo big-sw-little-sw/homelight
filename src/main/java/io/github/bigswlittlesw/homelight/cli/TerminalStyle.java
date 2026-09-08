@@ -1,32 +1,28 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import picocli.CommandLine.Help.Ansi;
+import io.github.kusoroadeolu.clique.Clique;
 
 /// Applies restrained terminal emphasis while preserving plain output for pipes and `--no-color`.
 final class TerminalStyle {
-    private final Ansi ansi;
+    private final boolean noColor;
 
     TerminalStyle(boolean noColor) {
-        ansi = noColor ? Ansi.OFF : Ansi.AUTO;
+        this.noColor = noColor;
     }
 
     String heading(String text) {
-        return format("bold", text);
+        return noColor ? text : Clique.ink().bold().on(text);
     }
 
     String success(String text) {
-        return format("green,bold", text);
+        return noColor ? text : Clique.ink().green().bold().on(text);
     }
 
     String warning(String text) {
-        return format("yellow,bold", text);
+        return noColor ? text : Clique.ink().yellow().bold().on(text);
     }
 
     String error(String text) {
-        return format("red,bold", text);
-    }
-
-    private String format(String styles, String text) {
-        return ansi.string("@|" + styles + " " + text + "|@");
+        return noColor ? text : Clique.ink().red().bold().on(text);
     }
 }

@@ -34,7 +34,7 @@ final class ApplyCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        return render(config, json, noColor, spec.commandLine().getOut());
+        return render(config, json, noColor, System.console() != null, spec.commandLine().getOut());
     }
 
     static int render(Path config, PrintWriter output) {
@@ -42,6 +42,10 @@ final class ApplyCommand implements Callable<Integer> {
     }
 
     static int render(Path config, boolean json, boolean noColor, PrintWriter output) {
+        return render(config, json, noColor, false, output);
+    }
+
+    private static int render(Path config, boolean json, boolean noColor, boolean showProgress, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             output.println(json ? "{\"succeeded\":true,\"relocations\":[]}" : "No configuration available to apply.");
             return 0;
@@ -57,7 +61,13 @@ final class ApplyCommand implements Callable<Integer> {
             new PlanRenderer().render(plan, json, noColor, output);
             return 1;
         }
-        var result = new ReconciliationExecutor().execute(plan);
+        var progress = json || !showProgress ? null : new ApplyProgress(output, plan.actions().size());
+        var result = progress == null
+                ? new ReconciliationExecutor().execute(plan)
+                : new ReconciliationExecutor().execute(plan, progress);
+        if (progress != null) {
+            progress.complete();
+        }
         new ApplyRenderer().render(result, json, noColor, output);
         return result.succeeded() ? 0 : 1;
     }
