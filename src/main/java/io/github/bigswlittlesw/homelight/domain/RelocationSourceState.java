@@ -8,5 +8,6 @@ public enum RelocationSourceState {
     CORRECT_SYMLINK,
     WRONG_SYMLINK,
     BROKEN_SYMLINK,
+    INACCESSIBLE,
     OTHER
 }

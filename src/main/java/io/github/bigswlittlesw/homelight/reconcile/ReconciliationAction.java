@@ -3,14 +3,12 @@ package io.github.bigswlittlesw.homelight.reconcile;
 import java.nio.file.Path;
 
 /// A concrete, inspectable step in a reconciliation plan.
-public sealed interface ReconciliationAction
-        permits ReconciliationAction.CreateDirectory, ReconciliationAction.Move,
-        ReconciliationAction.CreateSymlink, ReconciliationAction.ReplaceSymlink,
-        ReconciliationAction.NoOp, ReconciliationAction.Blocked {
+public sealed interface ReconciliationAction {
     Path path();
 
     boolean destructive();
 
+    /// Ensures that `path` and its missing parent directories exist.
     record CreateDirectory(Path path) implements ReconciliationAction {
         @Override
         public boolean destructive() {

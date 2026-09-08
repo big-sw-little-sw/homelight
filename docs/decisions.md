@@ -46,6 +46,12 @@ HomeLight will use plain Java 25 with targeted libraries (Picocli for command ro
 
 A filesystem utility does not require runtime dependency injection, classpath scanning, or server-oriented lifecycle management. Plain libraries ensure fast startup, low binary footprint, straightforward unit tests, and seamless GraalVM Native Image compilation.
 
+## 2026-09-08: Keep initial reconciliation stateless and directory-only
+
+The initial planner manages directories only. A configured file source is blocked until file relocation has a complete, separately designed state model.
+
+HomeLight does not persist an ownership registry in the initial implementation. It recognizes an already-correct configured symlink structurally, creates absent targets, and requires an explicit conflict resolution before adopting or replacing unknown existing state. This avoids recovery, staleness, and lifecycle complexity while preserving fail-closed behavior.
+
 ## How to add decisions
 
 Use this format:

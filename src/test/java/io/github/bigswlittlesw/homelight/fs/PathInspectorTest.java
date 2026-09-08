@@ -15,15 +15,15 @@ class PathInspectorTest {
         Files.createDirectories(expected);
         var inspector = new PathInspector();
 
-        assertEquals(FilesystemKind.ABSENT, inspector.inspect(root.resolve("absent")).kind());
+        assertEquals(PathState.ABSENT, inspector.inspect(root.resolve("absent")).state());
 
         var directory = root.resolve("directory");
         Files.createDirectory(directory);
-        assertEquals(FilesystemKind.DIRECTORY, inspector.inspect(directory).kind());
+        assertEquals(PathState.DIRECTORY, inspector.inspect(directory).state());
 
         var file = root.resolve("file");
         Files.createFile(file);
-        assertEquals(FilesystemKind.FILE, inspector.inspect(file).kind());
+        assertEquals(PathState.FILE, inspector.inspect(file).state());
 
         var correct = root.resolve("correct");
         Files.createSymbolicLink(correct, expected);
@@ -37,5 +37,15 @@ class PathInspectorTest {
         var broken = root.resolve("broken");
         Files.createSymbolicLink(broken, root.resolve("missing"));
         assertEquals(RelocationSourceState.BROKEN_SYMLINK, inspector.inspectRelocationSource(broken, expected));
+    }
+
+    @Test
+    void treatsAnInaccessibleSymlinkDestinationAsInaccessible() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var expected = root.resolve("local");
+        var observation = new PathObservation(PathState.SYMLINK, java.util.Optional.of(expected),
+                SymlinkTargetAvailability.INACCESSIBLE);
+
+        assertEquals(RelocationSourceState.INACCESSIBLE, observation.sourceStateForTarget(expected));
     }
 }

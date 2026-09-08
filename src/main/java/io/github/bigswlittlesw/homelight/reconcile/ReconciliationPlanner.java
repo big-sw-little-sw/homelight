@@ -2,48 +2,76 @@ package io.github.bigswlittlesw.homelight.reconcile;
 
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /// Computes safe filesystem actions from observations and never mutates the filesystem.
 public final class ReconciliationPlanner {
     public ReconciliationPlan plan(List<RelocationState> states) {
-        var actions = states.stream()
-                .flatMap(state -> plan(state).stream())
-                .toList();
-        return new ReconciliationPlan(actions);
+        var configurationDiagnostics = validateConfiguration(states);
+        if (!configurationDiagnostics.isEmpty()) {
+            var outcomes = states.stream()
+                    .map(state -> blockedOutcome(state, "relocation configuration overlaps another relocation"))
+                    .toList();
+            return new ReconciliationPlan(outcomes, configurationDiagnostics);
+        }
+        return new ReconciliationPlan(states.stream().map(this::plan).toList(), List.of());
     }
 
-    private List<ReconciliationAction> plan(RelocationState state) {
+    private RelocationPlan plan(RelocationState state) {
         var relocation = state.relocation();
         var source = relocation.sourcePath();
         var target = relocation.targetPath();
 
         return switch (sourceState(state)) {
-            case CORRECT_SYMLINK -> switch (state.target().kind()) {
-                case DIRECTORY -> List.of(new ReconciliationAction.NoOp(source));
-                default -> blocked(target, "relocation target is not a real directory");
+            case CORRECT_SYMLINK -> switch (state.target().state()) {
+                case DIRECTORY -> outcome(state, List.of(new ReconciliationAction.NoOp(source)));
+                case SYMLINK -> conflict(state, target, "relocation target is a symlink",
+                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                default -> blockedOutcome(state, "relocation target is not a real directory");
             };
-            case ABSENT -> switch (state.target().kind()) {
-                case ABSENT -> List.of(
+            case ABSENT -> switch (state.target().state()) {
+                case ABSENT -> outcome(state, List.of(
                         new ReconciliationAction.CreateDirectory(target),
-                        new ReconciliationAction.CreateSymlink(source, target));
-                case DIRECTORY -> List.of(new ReconciliationAction.CreateSymlink(source, target));
-                default -> blocked(source, "destination is not an available directory");
+                        new ReconciliationAction.CreateSymlink(source, target)));
+                case DIRECTORY -> conflict(state, target, "destination already exists and its ownership is unknown",
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
+                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET);
+                case SYMLINK -> conflict(state, target, "relocation target is a symlink",
+                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                default -> blockedOutcome(state, "destination is not an available directory");
             };
-            case DIRECTORY, FILE -> switch (state.target().kind()) {
-                case ABSENT -> List.of(
+            case DIRECTORY -> switch (state.target().state()) {
+                case ABSENT -> outcome(state, List.of(
                         new ReconciliationAction.Move(source, target),
-                        new ReconciliationAction.CreateSymlink(source, target));
-                default -> blocked(source, "source and destination both contain filesystem state");
+                        new ReconciliationAction.CreateSymlink(source, target)));
+                case DIRECTORY -> conflict(state, source, "source and destination both contain directories",
+                        ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT,
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                case SYMLINK -> conflict(state, target, "relocation target is a symlink",
+                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                default -> blockedOutcome(state, "destination is not an available directory");
             };
-            case WRONG_SYMLINK, BROKEN_SYMLINK -> switch (state.target().kind()) {
-                case ABSENT -> List.of(
+            case FILE -> blockedOutcome(state, "source is a file; relocations currently require directories");
+            case WRONG_SYMLINK -> conflict(state, source, "source points to a live, non-configured destination",
+                    ReconciliationConflict.Resolution.REPLACE_SOURCE_LINK,
+                    ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+            case BROKEN_SYMLINK -> switch (state.target().state()) {
+                case ABSENT -> repairedBrokenLink(state, List.of(
                         new ReconciliationAction.CreateDirectory(target),
-                        new ReconciliationAction.ReplaceSymlink(source, target));
-                case DIRECTORY -> List.of(new ReconciliationAction.ReplaceSymlink(source, target));
-                default -> blocked(source, "destination is not an available directory");
+                        new ReconciliationAction.ReplaceSymlink(source, target)));
+                case DIRECTORY -> repairedBrokenLink(state, List.of(new ReconciliationAction.ReplaceSymlink(source, target)));
+                case SYMLINK -> conflict(state, target, "relocation target is a symlink",
+                        ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
+                        ReconciliationConflict.Resolution.LEAVE_UNMANAGED);
+                default -> blockedOutcome(state, "destination is not an available directory");
             };
-            case OTHER -> blocked(source, "source has an unsupported filesystem state");
+            case INACCESSIBLE -> blockedOutcome(state, "source cannot be inspected");
+            case OTHER -> blockedOutcome(state, "source has an unsupported filesystem state");
         };
     }
 
@@ -51,7 +79,64 @@ public final class ReconciliationPlanner {
         return state.source().sourceStateForTarget(state.relocation().targetPath());
     }
 
-    private static List<ReconciliationAction> blocked(java.nio.file.Path path, String reason) {
-        return List.of(new ReconciliationAction.Blocked(path, reason));
+    private static RelocationPlan outcome(RelocationState state, List<ReconciliationAction> actions) {
+        return new RelocationPlan(state.relocation(), actions, List.of(), Optional.empty());
+    }
+
+    private static RelocationPlan repairedBrokenLink(RelocationState state, List<ReconciliationAction> actions) {
+        var relocation = state.relocation();
+        var warning = new ReconciliationDiagnostic(ReconciliationDiagnostic.Severity.WARNING,
+                relocation.sourcePath(), "BROKEN_SOURCE_LINK_REPAIRED",
+                "source was a broken symlink and will be replaced with the configured target");
+        return new RelocationPlan(relocation, actions, List.of(warning), Optional.empty());
+    }
+
+    private static RelocationPlan conflict(
+            RelocationState state, Path path, String reason, ReconciliationConflict.Resolution... resolutions) {
+        return new RelocationPlan(state.relocation(), List.of(), List.of(),
+                Optional.of(new ReconciliationConflict(path, reason, List.of(resolutions))));
+    }
+
+    private static RelocationPlan blockedOutcome(RelocationState state, String reason) {
+        var path = state.relocation().sourcePath();
+        return new RelocationPlan(state.relocation(), List.of(new ReconciliationAction.Blocked(path, reason)),
+                List.of(), Optional.empty());
+    }
+
+    private static List<ReconciliationDiagnostic> validateConfiguration(List<RelocationState> states) {
+        return states.stream()
+                .map(RelocationState::relocation)
+                .filter(relocation -> intersects(relocation.sourcePath(), relocation.targetPath()))
+                .findFirst()
+                .map(relocation -> List.of(configurationError(relocation.sourcePath(), "source and target paths overlap")))
+                .orElseGet(() -> validateInterRelocationOverlaps(states));
+    }
+
+    private static List<ReconciliationDiagnostic> validateInterRelocationOverlaps(List<RelocationState> states) {
+        for (var leftIndex = 0; leftIndex < states.size(); leftIndex++) {
+            var left = states.get(leftIndex).relocation();
+            for (var rightIndex = leftIndex + 1; rightIndex < states.size(); rightIndex++) {
+                var right = states.get(rightIndex).relocation();
+                if (intersects(left.sourcePath(), right.sourcePath())
+                        || intersects(left.sourcePath(), right.targetPath())
+                        || intersects(left.targetPath(), right.sourcePath())
+                        || intersects(left.targetPath(), right.targetPath())) {
+                    return List.of(configurationError(left.sourcePath(),
+                            "relocation paths overlap: " + left.sourcePath() + " and " + right.sourcePath()));
+                }
+            }
+        }
+        return List.of();
+    }
+
+    private static boolean intersects(Path left, Path right) {
+        var normalizedLeft = left.toAbsolutePath().normalize();
+        var normalizedRight = right.toAbsolutePath().normalize();
+        return normalizedLeft.startsWith(normalizedRight) || normalizedRight.startsWith(normalizedLeft);
+    }
+
+    private static ReconciliationDiagnostic configurationError(Path source, String message) {
+        return new ReconciliationDiagnostic(ReconciliationDiagnostic.Severity.ERROR, source,
+                "OVERLAPPING_RELOCATION", message);
     }
 }
