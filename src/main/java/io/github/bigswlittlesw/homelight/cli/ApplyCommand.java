@@ -61,7 +61,7 @@ final class ApplyCommand implements Callable<Integer> {
             new PlanRenderer().render(plan, json, noColor, output);
             return 1;
         }
-        var progress = json || !showProgress ? null : new ApplyProgress(output, plan.actions().size());
+        var progress = json || !showProgress ? null : new ApplyProgress(output, plan.actions().size(), noColor);
         var result = progress == null
                 ? new ReconciliationExecutor().execute(plan)
                 : new ReconciliationExecutor().execute(plan, progress);
