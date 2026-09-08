@@ -97,7 +97,7 @@ class ApplyCommandTest {
         var result = execute("apply", "--yes", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("Already configured " + source));
+        assertTrue(result.output().contains("Already configured " + source + " → " + target));
         assertTrue(result.output().contains("No changes required. 1 relocation already configured."));
         assertTrue(!result.output().contains("Applied 1 relocation."));
     }

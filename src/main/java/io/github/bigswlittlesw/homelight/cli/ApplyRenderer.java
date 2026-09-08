@@ -68,7 +68,7 @@ final class ApplyRenderer {
             return "Relocated " + source + " → " + target;
         }
         if (relocation.actions().stream().anyMatch(action -> action.action() instanceof ReconciliationAction.NoOp)) {
-            return "Already configured " + source;
+            return "Already configured " + source + " → " + target;
         }
         if (relocation.actions().stream().anyMatch(action -> action.action() instanceof ReconciliationAction.ReplaceSymlink)) {
             return "Repaired link " + source + " → " + target;
