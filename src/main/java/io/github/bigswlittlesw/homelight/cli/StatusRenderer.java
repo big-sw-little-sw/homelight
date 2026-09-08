@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -61,4 +62,7 @@ final class StatusRenderer {
         }
         return json.toString();
     }
+}
+
+record StatusSnapshot(Path sourcePath, Path targetPath, RelocationSourceState state) {
 }

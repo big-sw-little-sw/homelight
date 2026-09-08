@@ -12,18 +12,19 @@ public record HomeLightConfiguration(
         List<Relocation> relocations,
         List<Path> ignoredSourcePaths) {
 
-    @ConfigMapping(prefix = "homelight")
-    interface HomeLightMapping {
-        String targetRoot();
+}
 
-        List<RelocationMapping> relocations();
+@ConfigMapping(prefix = "homelight")
+interface HomeLightMapping {
+    String targetRoot();
 
-        Optional<List<String>> ignoredSourcePaths();
-    }
+    List<RelocationMapping> relocations();
 
-    interface RelocationMapping {
-        String sourcePath();
+    Optional<List<String>> ignoredSourcePaths();
+}
 
-        Optional<String> targetPath();
-    }
+interface RelocationMapping {
+    String sourcePath();
+
+    Optional<String> targetPath();
 }

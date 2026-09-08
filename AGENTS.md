@@ -24,7 +24,7 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 6. **For meaningful dispatch over a closed type hierarchy,** prefer sealed types and an exhaustive pattern-matching `switch`. A single local type check need not become a switch. Treat nullability separately and explicitly.
 
-7. **Avoid unnecessary classes and files.** Keep related, non-public types together when that makes the layout clearer, but do not accumulate unrelated types in one file merely to reduce file count.
+7. **Avoid unnecessary classes and files.** Keep related, non-public types together at the same top level in the file of their primary public type when that makes the layout clearer. Use nesting only when the type is conceptually owned by its enclosing type. Do not accumulate unrelated types in one file merely to reduce file count.
 
 ## Verification
 
