@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import io.github.kusoroadeolu.clique.Clique;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
@@ -9,111 +8,60 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 import java.io.PrintWriter;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /// Reports execution progress without coupling filesystem work to terminal output.
 final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
-    private static final String[] FRAMES = {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"};
-
     private final PrintWriter output;
     private final ReconciliationPlan plan;
     private final boolean noColor;
-    private final boolean verbose;
     private final long stepDelayMillis;
-    private final ScheduledExecutorService spinner;
-    private final Map<ReconciliationAction, ActionState> states = new IdentityHashMap<>();
-    private final Object lock = new Object();
-    private String activity = "Preparing relocation…";
-    private int frame;
-    private int renderedLines;
+    private final InlineApplyProgress display;
 
-    ApplyProgress(PrintWriter output, ReconciliationPlan plan, boolean noColor, boolean verbose, long stepDelayMillis) {
+    ApplyProgress(PrintWriter output, ReconciliationPlan plan, boolean noColor, boolean awaitingConfirmation,
+            long stepDelayMillis) {
         this.output = output;
         this.plan = plan;
         this.noColor = noColor;
-        this.verbose = verbose;
         this.stepDelayMillis = stepDelayMillis;
-        spinner = Executors.newSingleThreadScheduledExecutor(
-                runnable -> Thread.ofVirtual().name("homelight-spinner").unstarted(runnable));
-        spinner.scheduleAtFixedRate(this::render, 0, 100, TimeUnit.MILLISECONDS);
+        display = InlineApplyProgress.start(plan, noColor, awaitingConfirmation).orElse(null);
+    }
+
+    boolean awaitConfirmation() {
+        return display != null && display.awaitConfirmation();
     }
 
     static void renderResult(ReconciliationPlan plan, ReconciliationExecutor.ExecutionResult result,
             boolean noColor, PrintWriter output) {
-        var states = new IdentityHashMap<ReconciliationAction, ActionState>();
+        var states = new IdentityHashMap<ReconciliationAction, ReconciliationExecutor.ActionStatus>();
         for (var relocation : result.relocations()) {
             for (var action : relocation.actions()) {
-                states.put(action.action(), state(action.status()));
+                states.put(action.action(), action.status());
             }
         }
-        output.print(tree(plan, states, 0, noColor));
+        output.print(tree(plan, states));
     }
 
     @Override
     public void started(RelocationPlan relocation, ReconciliationAction action) {
-        synchronized (lock) {
-            states.put(action, ActionState.RUNNING);
-            activity = activity(relocation, action);
+        if (display != null) {
+            display.started(relocation, action);
         }
         pauseForVisualTesting();
     }
 
     @Override
     public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
-        synchronized (lock) {
-            states.put(action.action(), state(action.status()));
-            if (!verbose && action.status() == ReconciliationExecutor.ActionStatus.COMPLETED && completed(relocation)) {
-                renderCompletedRelocation(relocation);
-            }
+        if (display != null) {
+            display.finished(relocation, action);
         }
     }
 
-    void complete() {
-        spinner.shutdownNow();
-        synchronized (lock) {
-            if (verbose) {
-                renderVerbose();
-            } else {
-                output.print("\r\u001B[2K");
-            }
-            output.flush();
+    void complete(ReconciliationExecutor.ExecutionResult result) {
+        if (display != null) {
+            display.complete(result);
+        } else {
+            renderResult(plan, result, noColor, output);
         }
-    }
-
-    private void render() {
-        synchronized (lock) {
-            if (verbose) {
-                renderVerbose();
-            } else {
-                var indicator = noColor ? FRAMES[frame++ % FRAMES.length] : Clique.ink().cyan().on(FRAMES[frame++ % FRAMES.length]);
-                output.print("\r\u001B[2K" + indicator + " " + activity);
-            }
-            output.flush();
-        }
-    }
-
-    private void renderVerbose() {
-        if (renderedLines > 0) {
-            output.print("\u001B[" + renderedLines + "A");
-        }
-        var rendered = tree(plan, states, frame++, noColor);
-        renderedLines = (int) rendered.lines().count();
-        for (var line : rendered.lines().toList()) {
-            output.print("\r\u001B[2K" + line + "\n");
-        }
-    }
-
-    private boolean completed(RelocationPlan relocation) {
-        return relocation.actions().stream().allMatch(action -> states.get(action) == ActionState.COMPLETED);
-    }
-
-    private void renderCompletedRelocation(RelocationPlan relocation) {
-        output.print("\r\u001B[2K");
-        var configured = relocation.relocation();
-        var message = ApplyRenderer.description(relocation, configured.sourcePath().toString(), configured.targetPath().toString());
-        output.println(new TerminalStyle(noColor).success("✓ " + message));
     }
 
     private void pauseForVisualTesting() {
@@ -127,55 +75,36 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
         }
     }
 
-    private static String tree(ReconciliationPlan plan, Map<ReconciliationAction, ActionState> states,
-            int frame, boolean noColor) {
+    private static String tree(ReconciliationPlan plan,
+            Map<ReconciliationAction, ReconciliationExecutor.ActionStatus> states) {
         var output = new StringBuilder("Applying ").append(plan.relocations().size())
                 .append(plan.relocations().size() == 1 ? " relocation…\n" : " relocations…\n");
         for (var relocation : plan.relocations()) {
             var configured = relocation.relocation();
-            var tree = Clique.tree(configured.sourcePath() + " → " + configured.targetPath());
+            output.append(configured.sourcePath()).append(" → ").append(configured.targetPath()).append('\n');
             for (var action : relocation.actions()) {
-                tree.add(actionLabel(action, states.getOrDefault(action, ActionState.PENDING), frame, noColor));
+                output.append("  ").append(actionLabel(action, states.getOrDefault(action,
+                        ReconciliationExecutor.ActionStatus.PENDING))).append('\n');
             }
-            output.append(tree.get());
         }
         return output.toString();
     }
 
-    private static ActionState state(ReconciliationExecutor.ActionStatus status) {
-        return switch (status) {
-            case COMPLETED -> ActionState.COMPLETED;
-            case FAILED -> ActionState.FAILED;
-            case PENDING -> ActionState.PENDING;
+    static String actionLabel(ReconciliationAction action, ReconciliationExecutor.ActionStatus status) {
+        var marker = switch (status) {
+            case PENDING -> "○ ";
+            case COMPLETED -> "✓ ";
+            case FAILED -> "✗ ";
         };
+        return marker + actionText(action);
     }
 
-    private static String activity(RelocationPlan relocation, ReconciliationAction action) {
-        var name = relocation.relocation().sourcePath().getFileName();
-        return switch (action) {
-            case ReconciliationAction.CopyDirectory _ -> "Copying " + name + "…";
-            case ReconciliationAction.CreateSymlink _ -> "Linking " + name + "…";
-            default -> "Preparing " + name + "…";
-        };
-    }
-
-    private static String actionLabel(ReconciliationAction action, ActionState state, int frame, boolean noColor) {
-        var text = actionText(action);
-        var style = new TerminalStyle(noColor);
-        return switch (state) {
-            case PENDING -> style.pending("○ " + text);
-            case RUNNING -> style.active(FRAMES[frame % FRAMES.length] + " " + text);
-            case COMPLETED -> style.success("✓ " + text);
-            case FAILED -> style.error("✗ " + text);
-        };
-    }
-
-    private static String actionText(ReconciliationAction action) {
+    static String actionText(ReconciliationAction action) {
         return switch (action) {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
-            case ReconciliationAction.CopyDirectory _ -> "Copy contents";
-            case ReconciliationAction.DeleteDirectory _ -> "Discard contents";
+            case ReconciliationAction.CopyDirectory copy -> "Copy " + copy.path() + " → " + copy.target();
+            case ReconciliationAction.DeleteDirectory delete -> "Discard contents at " + delete.path();
             case ReconciliationAction.CreateSymlink _ -> "Create source link";
             case ReconciliationAction.ReplaceDirectoryWithSymlink _ -> "Adopt target and replace source link";
             case ReconciliationAction.ReplaceSymlink _ -> "Replace source link";
@@ -184,6 +113,4 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             case ReconciliationAction.Blocked blocked -> "Blocked: " + blocked.reason();
         };
     }
-
-    private enum ActionState { PENDING, RUNNING, COMPLETED, FAILED }
 }

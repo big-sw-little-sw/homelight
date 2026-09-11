@@ -24,7 +24,8 @@ class ApplyCommandTest {
         assertTrue(Files.isDirectory(target));
         assertTrue(Files.isSymbolicLink(source));
         assertEquals(target, source.getParent().resolve(Files.readSymbolicLink(source)).normalize());
-        assertTrue(result.output().contains("Created " + target + " and linked " + source));
+        assertTrue(result.output().contains("✓ Create " + target));
+        assertTrue(result.output().contains("✓ Create source link"));
     }
 
     @Test
@@ -41,7 +42,7 @@ class ApplyCommandTest {
         assertEquals(0, result.exitCode());
         assertEquals("value", Files.readString(target.resolve("entry")));
         assertTrue(Files.isDirectory(source));
-        assertTrue(result.output().contains("Copied " + source + " → " + target));
+        assertTrue(result.output().contains("✓ Copy " + source + " → " + target));
     }
 
     @Test
@@ -57,7 +58,7 @@ class ApplyCommandTest {
 
         assertEquals(0, result.exitCode());
         assertTrue(Files.isSymbolicLink(source));
-        assertTrue(result.output().contains("Adopted " + target + " and linked " + source));
+        assertTrue(result.output().contains("✓ Adopt target and replace source link"));
     }
 
     @Test
@@ -109,7 +110,7 @@ class ApplyCommandTest {
         var result = execute("apply", "--yes", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("Left existing content unchanged at " + source));
+        assertTrue(result.output().contains("✓ Leave existing content unchanged"));
         assertTrue(result.output().contains("Left 1 relocation unchanged by policy."));
         assertTrue(!result.output().contains("already configured"));
     }
@@ -237,9 +238,28 @@ class ApplyCommandTest {
         var result = execute("apply", "--yes", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("Already configured " + source + " → " + target));
+        assertTrue(result.output().contains("✓ Already configured"));
         assertTrue(result.output().contains("No changes required. 1 relocation already configured."));
         assertTrue(!result.output().contains("Applied 1 relocation."));
+    }
+
+    @Test
+    void reportsAnAdoptedRelocationAsConfiguredOnTheSecondRun() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, configuration(root, source, target, "adopt"));
+        execute("apply", "--yes", "--config", config.toString());
+
+        var planned = execute("plan", "--config", config.toString());
+        var result = execute("apply", "--yes", "--config", config.toString());
+
+        assertTrue(planned.output().contains("Already configured"));
+        assertTrue(!planned.output().contains("Adopt the target"));
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("✓ Already configured"));
+        assertTrue(result.output().contains("No changes required. 1 relocation already configured."));
     }
 
     @Test
@@ -250,13 +270,13 @@ class ApplyCommandTest {
         var config = root.resolve("config.yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("apply", "--yes", "--json", "--verbose", "--config", config.toString());
+        var result = execute("apply", "--yes", "--json", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("\"succeeded\":true"));
         assertTrue(result.output().contains("\"status\":\"completed\""));
         assertTrue(!result.output().contains("\u001B["));
-        assertTrue(!result.output().contains("○ Copy contents"));
+        assertTrue(!result.output().contains("○ Copy " + source));
     }
 
     @Test
@@ -274,24 +294,25 @@ class ApplyCommandTest {
     }
 
     @Test
-    void verboseApplyShowsAReconciliationTree() throws Exception {
+    void applyShowsAReconciliationTree() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");
         var target = root.resolve("local/cache");
         var config = root.resolve("config.yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("apply", "--yes", "--verbose", "--no-color", "--config", config.toString());
+        var result = execute("apply", "--yes", "--no-color", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains(source + " → " + target));
         assertTrue(result.output().contains("✓ Create " + target));
         assertTrue(result.output().contains("✓ Create source link"));
         assertTrue(!result.output().contains("✓ Created " + target + " and linked " + source));
+        assertTrue(!result.output().contains("\u001B["));
     }
 
     @Test
-    void verboseApplyDoesNotRepeatAnAlreadyConfiguredRelocation() throws Exception {
+    void applyDoesNotRepeatAnAlreadyConfiguredRelocation() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = root.resolve("home/cache");
         var target = root.resolve("local/cache");
@@ -299,7 +320,7 @@ class ApplyCommandTest {
         Files.writeString(config, configuration(root, source, target));
         execute("apply", "--yes", "--config", config.toString());
 
-        var result = execute("apply", "--yes", "--verbose", "--no-color", "--config", config.toString());
+        var result = execute("apply", "--yes", "--no-color", "--config", config.toString());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("Already configured"));

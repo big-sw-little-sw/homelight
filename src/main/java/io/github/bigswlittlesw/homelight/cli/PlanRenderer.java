@@ -82,6 +82,9 @@ final class PlanRenderer {
         if (actions.stream().anyMatch(ReconciliationAction.CopyDirectory.class::isInstance)) {
             return "Copy existing contents to the target";
         }
+        if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
+            return "Already configured";
+        }
         if (relocation.relocation().existingContentPolicy()
                 .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
             return "Adopt the target and replace the source with a link";
@@ -91,9 +94,6 @@ final class PlanRenderer {
         }
         if (actions.stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repair the source link";
-        }
-        if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
-            return "Already configured";
         }
         if (actions.stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
             return "Leave existing content unchanged";

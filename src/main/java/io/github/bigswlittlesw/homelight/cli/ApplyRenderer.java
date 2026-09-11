@@ -16,7 +16,7 @@ final class ApplyRenderer {
         render(result, json, noColor, false, output);
     }
 
-    void render(ReconciliationExecutor.ExecutionResult result, boolean json, boolean noColor, boolean verbose, PrintWriter output) {
+    void render(ReconciliationExecutor.ExecutionResult result, boolean json, boolean noColor, boolean treeRendered, PrintWriter output) {
         if (json) {
             output.println(toJson(result));
             return;
@@ -34,7 +34,7 @@ final class ApplyRenderer {
                 output.println("  " + failed.orElseThrow().message());
                 continue;
             }
-            if (!verbose) {
+            if (!treeRendered) {
                 output.println(style.success("✓ " + description(relocation.relocation(), source, target)));
             }
         }
@@ -93,6 +93,9 @@ final class ApplyRenderer {
 
     static String description(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation,
             String source, String target) {
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
+            return "Already configured " + source + " → " + target;
+        }
         if (relocation.relocation().existingContentPolicy()
                 .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
             return "Adopted " + target + " and linked " + source;
@@ -102,9 +105,6 @@ final class ApplyRenderer {
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
             return "Discarded existing content and linked " + source + " → " + target;
-        }
-        if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
-            return "Already configured " + source + " → " + target;
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
             return "Left existing content unchanged at " + source;
