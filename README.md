@@ -1,27 +1,29 @@
 # HomeLight
 
-HomeLight is a Java CLI for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
+HomeLight is a Java terminal application for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
 
 It is intended for space-constrained or shared home directories, including Linux systems using NFS-mounted home directories.
 
 ## Status
 
-The project is at the initial design and implementation stage. Configuration loading, filesystem inspection, and dry-run planning are implemented. Filesystem mutation is not implemented yet.
+The project is at the initial design and implementation stage. Configuration loading, filesystem inspection, planning, and guarded filesystem mutation are implemented. The human interface is being rebuilt as a full-screen terminal application.
 
-## Planned commands
+## Commands
 
 ```text
+homelight
 homelight init
+homelight config
 homelight plan
 homelight apply
 homelight status
 ```
 
-Automation and machine-readable output are planned through options such as `apply --yes` and `plan --json`.
+Running `homelight` starts the full-screen TUI. Named commands open the corresponding TUI workflow. Automation uses prompt-free JSON forms such as `plan --json`, `status --json`, and `apply --json --yes`.
 
 ## Design
 
-HomeLight is planned as a small library-oriented core with a thin Picocli CLI. Reconciliation will produce structured plans independently of prompts and filesystem mutation. Future Git, HTTP, or GUI integrations should remain adapters around that core.
+HomeLight has a small library-oriented core with a presentation-neutral application workflow. Reconciliation produces structured plans independently of terminal rendering and filesystem mutation. The full-screen TUI and JSON commands are adapters around that workflow.
 
 See the project requirements in [`docs/product-spec.md`](docs/product-spec.md), the architecture in [`docs/architecture.md`](docs/architecture.md), and recorded design choices in [`docs/decisions.md`](docs/decisions.md).
 
@@ -36,19 +38,20 @@ mvn test
 Run the CLI directly through Maven with `exec:java`:
 
 ```text
-mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml"
+mvn -q compile exec:java
 mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
-mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml"
 mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml --json"
+mvn -q compile exec:java -Dexec.args="apply --config /path/to/.homelight.yaml --json --yes"
 ```
 
 The repository launcher hides that Maven detail:
 
 ```text
-./homelight status
+./homelight
 ./homelight status --json
-./homelight status --config /path/to/.homelight.yaml
-./homelight plan --config /path/to/.homelight.yaml
+./homelight plan
+./homelight plan --config /path/to/.homelight.yaml --json
+./homelight apply --config /path/to/.homelight.yaml --json --yes
 ```
 
 The default configuration path is `~/.homelight.yaml`.

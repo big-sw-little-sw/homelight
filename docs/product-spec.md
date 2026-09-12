@@ -6,7 +6,7 @@ HomeLight keeps a space-constrained or shared `$HOME` directory lightweight by r
 
 The primary use case is Linux systems where `$HOME` is mounted over NFS or is quota-constrained, while each machine has larger local storage.
 
-HomeLight is a Java CLI application. Its initial user experience is an interactive guided CLI. A desktop GUI is deferred until a workflow clearly benefits from one.
+HomeLight is a Java terminal application. Its primary human interface is a full-screen TUI, with prompt-free JSON commands for automation. A desktop GUI is deferred.
 
 ## Scope
 
@@ -19,7 +19,7 @@ HomeLight manages:
 - configurable treatment of existing contents
 - declarative links to externally managed files inside relocated trees
 - ownership conflicts with externally managed dotfiles
-- guided discovery and configuration of candidate heavy paths
+- full-screen discovery and configuration of candidate heavy paths
 
 HomeLight does not replace GNU Stow or become a general dotfile or workstation manager.
 
@@ -31,7 +31,7 @@ The configured relocation list is an explicit allow-list. Built-in candidate
 paths are offered for discovery but are not managed unless the user selects
 them and they are written to configuration.
 
-Users should normally create and update configuration through interactive commands rather than editing it manually.
+Users should normally create and update configuration through the TUI rather than editing it manually.
 
 An illustrative configuration is:
 
@@ -58,12 +58,14 @@ links:
 
 The schema may evolve. Path expansion and validation belong at the configuration boundary.
 
-## Interactive CLI
+## TUI and automation
 
-Initial commands are:
+Running HomeLight without arguments opens the TUI home screen. Named commands deep-link to the corresponding workflow:
 
 ```text
+homelight
 homelight init
+homelight config
 homelight plan
 homelight apply
 homelight status
@@ -71,24 +73,30 @@ homelight status
 
 Expected behavior:
 
-- `init` performs guided discovery and configuration.
+- `init` opens discovery and initial configuration.
+- `config` opens configuration review and editing.
 - `plan` computes and displays changes without modifying the filesystem.
-- `apply` executes the current plan and prompts for unresolved or risky decisions.
-- `status` reports whether configured paths match desired state.
+- `apply` opens plan review and explicit application.
+- `status` opens the current reconciliation status.
 
-Automation-friendly forms include:
+Passing `--json` bypasses the TUI and selects the automation contract:
 
 ```text
-homelight apply --yes
+homelight apply --json --yes
 homelight plan --json
 homelight status --json
+homelight config validate --json
 ```
 
-Interactive prompts must remain outside the reconciliation engine. The engine returns structured actions, warnings, conflicts, and unresolved decisions. CLI code decides whether to prompt, render human-readable output, emit JSON, or apply a plan.
+JSON commands never initialize TamboUI, prompt, emit color, or write non-JSON content to standard output. They use stable exit codes and versioned response envelopes. `apply --json` requires `--yes`; `--yes` never resolves missing decisions. Without `--json`, a non-interactive terminal fails with a clear diagnostic rather than silently changing modes.
 
-Prompts are for unresolved decisions, not repeated confirmation of decisions already stored in configuration.
+The reconciliation engine returns structured actions, warnings, conflicts, and unresolved decisions. It does not depend on TamboUI, command routing, JSON serialization, or prompt wording.
 
-`init` should:
+The TUI holds an exact structured plan in memory between review and application. Immediately before mutation it preflights that plan's expected state. If state has drifted, the plan is marked stale and the user must re-plan; HomeLight never substitutes an unreviewed plan behind an existing confirmation.
+
+The TUI resolves only decisions that are not already stored in configuration. Durable policy decisions are written to configuration before application.
+
+The full-screen `init` workflow should:
 
 1. determine or ask for the machine-local storage root
 2. scan known candidate paths
@@ -97,11 +105,19 @@ Prompts are for unresolved decisions, not repeated confirmation of decisions alr
 5. ask how existing contents should be handled
 6. detect externally managed links beneath candidate paths
 7. ask how intersections should be handled
-8. show the resulting plan
+8. transition to the resulting plan without leaving the TUI session
 9. write durable decisions to configuration
 10. optionally apply the plan
 
-Choices must be derived from the detected state and available reconciliation options. The example prompt flow is illustrative, not exhaustive.
+Choices must be derived from the detected state and available reconciliation options. The workflow is illustrative, not exhaustive.
+
+## TUI interaction and visual design
+
+One persistent TamboUI application owns navigation, focus, configuration editing, decision resolution, plan review, confirmation, execution progress, and the retained final result. Workflows are screens within this application, not separate short-lived inline applications.
+
+The interface must be recognizably designed for HomeLight. It must avoid generic dashboard-card layouts, gratuitous gradients, excessive borders, decorative clutter, canned copy, and other presentation patterns that make the product look template-generated. Information hierarchy, typography, spacing, color, keyboard behavior, empty states, failure states, and narrow-terminal layouts must be deliberate.
+
+The Plan/Apply workflow shows relocations and their actions as a navigable hierarchy. During execution, action state changes in place through pending, running, completed, and failed states. It must not append duplicate plan and progress trees. Progress claims must match executor capabilities; per-file or byte progress and cancellation are not promised until the executor supports them safely.
 
 ## Built-in candidate defaults
 
@@ -191,10 +207,10 @@ Plans distinguish:
 - unresolved decisions
 - blocked operations
 
-`apply` must:
+Application must:
 
 - display destructive actions clearly
-- prompt only when needed
+- request additional decisions only when needed
 - apply safe changes together where appropriate
 - require explicit handling of ambiguous or destructive conflicts
 - support `--yes` only when configuration resolves required decisions
@@ -211,7 +227,7 @@ Ordinary dotfiles remain managed by systems such as Stow. If a directory is relo
 `externallyManagedSourceRoots` identifies source trees such as `~/dotfiles/stow`. HomeLight inspects symlinks under paths it intends to manage. If an existing link resolves into an external source root:
 
 - `plan` surfaces the intersection
-- interactive commands ask how to handle it when necessary
+- the TUI asks how to handle it when necessary
 - `apply` never silently replaces it
 - a safe existing external link may be preserved when consistent with desired state
 
@@ -246,9 +262,11 @@ HomeLight must not depend on that repository. Safe migration from the existing s
 The initial implementation should be small and library-oriented:
 
 ```text
-core       domain model, planning, and filesystem/configuration ports
-adapters   local filesystem, configuration serialization, future Git/HTTP adapters
-cli        Picocli commands, prompts, and presentation
+core          domain model, planning, and filesystem/configuration ports
+application   presentation-neutral workflow state and orchestration
+adapters      local filesystem, configuration serialization, future Git/HTTP adapters
+tui           full-screen TamboUI presentation
+cli           Picocli routing, JSON contracts, and exit codes
 ```
 
 These may initially be packages in one Maven module. Separate modules only when that boundary provides practical value.
@@ -285,12 +303,13 @@ The first useful version supports:
 9. declarative managed links
 10. external source-root conflict detection
 11. managed links inside relocated directories
-12. structured reconciliation plans
-13. `plan`
-14. `apply`
-15. `status`
-16. `--yes` for automation
-17. JSON output
-18. unit and integration tests using temporary filesystem trees
+12. structured reconciliation plans retained between TUI review and application
+13. a full-screen TUI shell with deep-linked workflows
+14. TUI plan review and guarded apply
+15. TUI init and configuration editing
+16. TUI status
+17. prompt-free, versioned JSON plan, apply, status, and configuration validation
+18. `--yes` for JSON apply automation
+19. unit and integration tests using temporary filesystem trees
 
 This list does not limit the state or action model to only the listed cases.

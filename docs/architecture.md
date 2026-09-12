@@ -2,9 +2,9 @@
 
 ## Architectural direction
 
-HomeLight should be a small Java library with a thin interactive CLI. The reconciliation library is the durable product boundary; the CLI is one consumer of it.
+HomeLight should be a small Java library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
 
-The design should support future GUI, automation, Git, and HTTP integrations without placing those concerns in the reconciliation engine.
+The design should support future integrations without placing presentation, serialization, Git, or HTTP concerns in the reconciliation engine.
 
 Initially, use one Maven module with clear package boundaries. Split into Maven modules only when independent compilation, packaging, or dependency isolation becomes useful.
 
@@ -23,22 +23,39 @@ fs
 config
   configuration serialization, validation, and path resolution
 
+tui
+  TamboUI screens, rendering, focus, navigation, and terminal lifecycle
+
 cli
-  Picocli commands, options, output formatting, JSON, and exit codes
+  Picocli routing, JSON contracts, and exit codes
+
+application
+  workflow state, typed user intents, and orchestration of configuration,
+  inspection, planning, and execution
 
 ```
 
 The dependency direction is:
 
 ```text
-cli -> config, reconcile, fs
+tui -> application
+cli -> application
+application -> config, reconcile, fs
 reconcile -> domain
 fs -> domain
 config -> domain
 domain -> Java standard library only where practical
 ```
 
-The reconciliation engine must not depend on `cli`, terminal APIs, or a concrete YAML implementation.
+The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete YAML implementation. JSON commands must not initialize or depend on a live terminal session.
+
+## Application workflow
+
+The primary behavioral seam is a presentation-neutral workflow/session boundary. It accepts typed user intents and exposes immutable state describing the current screen, configuration draft, exact reviewed plan, plan freshness, diagnostics, and execution progress. Side effects are explicit operations delegated to configuration, inspection, planning, and execution services.
+
+TamboUI renders workflow state and translates input events into intents. JSON commands invoke the same orchestration directly and serialize versioned response contracts. Neither adapter owns reconciliation policy or filesystem mutation rules.
+
+Conflict resolution uses typed domain or application choices. Presentation code must not infer a choice by matching diagnostic text or construct configuration overrides from screen indexes.
 
 ## Domain model
 
@@ -62,6 +79,8 @@ Do not encode the domain as a collection of loosely related boolean flags. Do no
 Planning is pure from the filesystem's perspective. It reads an inspection result and produces a structured plan. It does not prompt or mutate.
 
 Application consumes a plan and performs only the actions already represented in it. It must refuse plans containing unresolved decisions or blocked operations. It must not guess during execution.
+
+The TUI retains the exact reviewed plan. Application preflight checks its expected filesystem state immediately before execution. Drift invalidates the plan and requires a new review; application never silently recomputes and substitutes a plan after confirmation.
 
 Destructive actions must be marked explicitly. Symlink handling must avoid accidental traversal. Deletion and replacement must be narrowly scoped to validated intended paths.
 
@@ -104,7 +123,9 @@ Third-party libraries are acceptable when they are isolated behind an adapter an
 
 ## Testing strategy
 
-Test the pure reconciliation engine with state and policy combinations. Test filesystem behavior with temporary directory trees. Test CLI rendering and exit behavior separately.
+Drive complete user journeys through the presentation-neutral workflow/session boundary. These tests assert externally visible state transitions and effects rather than TamboUI implementation details. Test the pure reconciliation engine with state and policy combinations and filesystem behavior with temporary directory trees.
+
+Keep adapter tests narrow: deterministic TamboUI rendering and navigation at fixed terminal sizes, exact JSON schemas and exit codes, and a small real-terminal smoke test for startup, resizing, deep links, and clean shutdown. Visual review establishes the HomeLight-specific design language before the complete workflow is built.
 
 Important invariants include:
 
