@@ -14,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HomeLightCommandTest {
 
     @Test
-    void shouldDisplayHelpWithLongOption() {var result = execute("--help");
+    void shouldDisplayHelpWithLongOption() {
+        var result = execute("--help");
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -49,11 +50,19 @@ class HomeLightCommandTest {
     }
 
     @Test
-    void shouldExecuteWithoutArgumentsAndDisplayUsage() {
+    void shouldFailClearlyWhenInvokedNonInteractivelyWithoutArguments() {
         var result = execute();
 
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("Usage: homelight"));
+        assertEquals(2, result.exitCode());
+        assertTrue(result.errorOutput().contains("HomeLight TUI requires an interactive terminal"));
+    }
+
+    @Test
+    void shouldFailClearlyWhenStatusInvokedNonInteractivelyWithoutJson() {
+        var result = execute("status");
+
+        assertEquals(2, result.exitCode());
+        assertTrue(result.errorOutput().contains("HomeLight TUI requires an interactive terminal"));
     }
 
     @Test
@@ -88,31 +97,34 @@ class HomeLightCommandTest {
         var snapshot = new StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
                 io.github.bigswlittlesw.homelight.domain.RelocationSourceState.ABSENT);
 
-        new StatusRenderer().render(List.of(snapshot), true, new PrintWriter(output, true));
+        new StatusRenderer().renderJson(List.of(snapshot), new PrintWriter(output, true));
 
         assertTrue(output.toString().contains("line\\nbreak"));
     }
 
     @Test
-    void unconfiguredStatusExplainsHowToConfigureHomeLight() {
+    void unconfiguredStatusReportsJson() {
         var output = new StringWriter();
 
-        new StatusRenderer().renderUnconfigured(Path.of("/tmp/.homelight.yaml"), false,
+        new StatusRenderer().renderUnconfiguredJson(Path.of("/tmp/.homelight.yaml"),
                 new PrintWriter(output, true));
 
-        assertTrue(output.toString().contains("No paths are currently managed."));
-        assertTrue(output.toString().contains("./homelight init"));
+        assertTrue(output.toString().contains("\"configured\":false"));
+        assertTrue(output.toString().contains("\"configPath\":"));
+        assertTrue(output.toString().contains("\"relocations\":[]"));
     }
 
     private static CapturedOutput execute(String... args) {
         var commandLine = HomeLightCommand.createCommandLine();
         var output = new StringWriter();
+        var errorOutput = new StringWriter();
         commandLine.setOut(new PrintWriter(output, true));
+        commandLine.setErr(new PrintWriter(errorOutput, true));
 
         int exitCode = commandLine.execute(args);
-        return new CapturedOutput(exitCode, output.toString());
+        return new CapturedOutput(exitCode, output.toString(), errorOutput.toString());
     }
 
-    private record CapturedOutput(int exitCode, String output) {
+    private record CapturedOutput(int exitCode, String output, String errorOutput) {
     }
 }

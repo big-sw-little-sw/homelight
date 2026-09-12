@@ -9,40 +9,27 @@ import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.List;
 
+/// Machine-readable JSON renderer for relocation status.
 final class StatusRenderer {
     private final JsonFactory jsonFactory = new JsonFactory();
 
-    void render(List<StatusSnapshot> snapshots, boolean json, PrintWriter output) {
-        if (json) {
-            output.println(toJson(snapshots));
-            return;
-        }
-        for (var snapshot : snapshots) {
-            output.printf("source: %s%n", snapshot.sourcePath());
-            output.printf("target: %s%n", snapshot.targetPath());
-            output.printf("status: %s%n", snapshot.state().name().toLowerCase().replace('_', ' '));
-        }
+    void renderJson(List<StatusSnapshot> snapshots, PrintWriter output) {
+        output.println(toJson(snapshots));
     }
 
-    void renderUnconfigured(Path config, boolean json, PrintWriter output) {
-        if (json) {
-            var jsonOutput = new StringWriter();
-            try (var generator = jsonFactory.createGenerator(jsonOutput)) {
-                generator.writeStartObject();
-                generator.writeBooleanField("configured", false);
-                generator.writeStringField("configPath", config.toAbsolutePath().normalize().toString());
-                generator.writeArrayFieldStart("relocations");
-                generator.writeEndArray();
-                generator.writeEndObject();
-            } catch (IOException exception) {
-                throw new IllegalStateException("Unable to render unconfigured status as JSON", exception);
-            }
-            output.println(jsonOutput);
-            return;
+    void renderUnconfiguredJson(Path config, PrintWriter output) {
+        var jsonOutput = new StringWriter();
+        try (var generator = jsonFactory.createGenerator(jsonOutput)) {
+            generator.writeStartObject();
+            generator.writeBooleanField("configured", false);
+            generator.writeStringField("configPath", config.toAbsolutePath().normalize().toString());
+            generator.writeArrayFieldStart("relocations");
+            generator.writeEndArray();
+            generator.writeEndObject();
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to render unconfigured status as JSON", exception);
         }
-        output.printf("No HomeLight configuration found at %s.%n", config.toAbsolutePath().normalize());
-        output.println("No paths are currently managed.");
-        output.println("Run `./homelight init` to configure relocations.");
+        output.println(jsonOutput);
     }
 
     private String toJson(List<StatusSnapshot> snapshots) {

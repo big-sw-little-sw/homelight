@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
+import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
+import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -22,8 +24,7 @@ public final class HomeLightCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        spec.commandLine().usage(spec.commandLine().getOut());
-        return CommandLine.ExitCode.OK;
+        return TuiLauncher.launchStatus(ConfigurationLoader.DEFAULT_PATH, spec.commandLine().getErr());
     }
 
     public static void main(String... args) {
