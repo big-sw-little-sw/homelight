@@ -18,6 +18,8 @@ public record HomeLightConfiguration(
 interface HomeLightMapping {
     String targetRoot();
 
+    Optional<String> stagingRoot();
+
     List<RelocationMapping> relocations();
 
     Optional<List<String>> ignoredSourcePaths();

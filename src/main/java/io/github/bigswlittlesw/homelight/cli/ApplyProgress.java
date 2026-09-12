@@ -104,7 +104,8 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
             case ReconciliationAction.CopyDirectory copy -> "Copy " + copy.path() + " → " + copy.target();
-            case ReconciliationAction.StageDirectoryForPublication stage -> "Move " + stage.path() + " → " + stage.target();
+            case ReconciliationAction.StageDirectoryForPublication stage ->
+                    "Stage and publish " + stage.path() + " → " + stage.target();
             case ReconciliationAction.ArchiveDirectory archive -> "Archive " + archive.path() + " → " + archive.target();
             case ReconciliationAction.DeleteDirectory delete -> "Discard contents at " + delete.path();
             case ReconciliationAction.CreateSymlink _ -> "Create source link";

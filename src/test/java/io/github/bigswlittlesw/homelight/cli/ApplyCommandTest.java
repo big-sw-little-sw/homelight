@@ -13,27 +13,101 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ApplyCommandTest {
     @Test
     void appliesAnAbsentSourceAndTarget() throws Exception {
-        var root = Files.createTempDirectory("homelight");
+        var root = Files.createTempDirectory("homelight").toRealPath();
         var source = root.resolve("home/cache");
         var target = root.resolve("local/cache");
 
         var result = apply(configuration(root, source, target));
 
-        assertEquals(0, result.exitCode());
+        assertEquals(0, result.exitCode(), result.output());
         assertTrue(Files.isSymbolicLink(source));
     }
 
     @Test
-    void doesNotApplySourcePublicationBeforeTheStagingTicket() throws Exception {
-        var root = Files.createTempDirectory("homelight");
+    void stagesAndAtomicallyPublishesAnExistingSourceDirectory() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
         var source = Files.createDirectories(root.resolve("home/cache"));
         var target = root.resolve("local/cache");
+        Files.writeString(source.resolve("entry"), "source");
 
         var result = apply(configuration(root, source, target));
 
-        assertEquals(1, result.exitCode());
+        assertEquals(0, result.exitCode(), result.output());
         assertTrue(Files.isDirectory(source));
-        assertTrue(Files.notExists(target));
+        assertEquals("source", Files.readString(target.resolve("entry")));
+    }
+
+    @Test
+    void usesAConfiguredTargetLocalStagingRoot() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        var stagingRoot = root.resolve("local/staging");
+        Files.writeString(source.resolve("entry"), "source");
+
+        var yaml = configuration(root, source, target, stagingRoot);
+        var result = apply(yaml);
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isDirectory(stagingRoot));
+        assertTrue(Files.notExists(target.getParent().resolve(".homelight-staging")));
+        try (var entries = Files.list(stagingRoot)) {
+            assertTrue(entries.findAny().isEmpty());
+        }
+    }
+
+    @Test
+    void cleansAProvenStaleStagingOperationBeforePublishing() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        var stagingRoot = Files.createDirectories(root.resolve("local/staging"));
+        var stale = Files.createDirectory(stagingRoot.resolve("operation-00000000-0000-0000-0000-000000000000"));
+        Files.writeString(stale.resolve("target"), "homelight-staging-v1\n" + target + "\n");
+        Files.createFile(stale.resolve("lock"));
+        Files.writeString(source.resolve("entry"), "source");
+
+        var yaml = configuration(root, source, target, stagingRoot);
+        var result = apply(yaml);
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.notExists(stale));
+        assertEquals("source", Files.readString(target.resolve("entry")));
+    }
+
+    @Test
+    void retainsAStagingOperationWithAnUnexpectedEntry() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        var stagingRoot = Files.createDirectories(root.resolve("local/staging"));
+        var suspicious = Files.createDirectory(stagingRoot.resolve("operation-00000000-0000-0000-0000-000000000000"));
+        Files.writeString(suspicious.resolve("target"), "homelight-staging-v1\n" + target + "\n");
+        Files.createFile(suspicious.resolve("lock"));
+        Files.writeString(suspicious.resolve("unexpected"), "keep");
+        Files.writeString(source.resolve("entry"), "source");
+
+        var result = apply(configuration(root, source, target, stagingRoot));
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.exists(suspicious));
+    }
+
+    @Test
+    void usesAStagingRootElsewhereOnTheTargetFilesystem() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        Files.writeString(source.resolve("entry"), "source");
+
+        var stagingRoot = root.resolve("other/staging");
+        var yaml = configuration(root, source, target, stagingRoot);
+        var result = apply(yaml);
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isDirectory(source));
+        assertTrue(Files.isDirectory(stagingRoot));
+        assertTrue(Files.isDirectory(target));
     }
 
     @Test
@@ -134,13 +208,22 @@ class ApplyCommandTest {
     }
 
     private static String configuration(Path root, Path source, Path target, String decisions) {
+        return configuration(root, source, target, decisions, "");
+    }
+
+    private static String configuration(Path root, Path source, Path target, Path stagingRoot) {
+        return configuration(root, source, target, "", "  staging-root: " + stagingRoot + "\n");
+    }
+
+    private static String configuration(Path root, Path source, Path target, String decisions, String stagingRoot) {
         return """
                 homelight:
                   target-root: %s
+                %s\
                   relocations:
                     - source-path: %s
                       target-path: %s
-                %s""".formatted(root, source, target, indent(decisions));
+                %s""".formatted(root, stagingRoot, source, target, indent(decisions));
     }
 
     private static String indent(String text) {

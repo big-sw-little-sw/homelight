@@ -113,7 +113,7 @@ final class InlinePlanView {
                 return "Adopt target and replace source with a link";
             }
             if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
-                return "Warning: permanently discard both directory trees";
+                return "Discard configured: delete both directories, then create an empty target and source link";
             }
             if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
                 return "Already configured";

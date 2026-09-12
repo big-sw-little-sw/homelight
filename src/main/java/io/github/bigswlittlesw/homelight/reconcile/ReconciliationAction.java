@@ -72,7 +72,12 @@ public sealed interface ReconciliationAction {
     }
 
     /// Stages a verified source copy for target-local atomic publication.
-    record StageDirectoryForPublication(Path path, Path target) implements ReconciliationAction {
+    record StageDirectoryForPublication(Path path, Path target, java.util.Optional<Path> stagingRoot)
+            implements ReconciliationAction {
+        public StageDirectoryForPublication(Path path, Path target) {
+            this(path, target, java.util.Optional.empty());
+        }
+
         @Override
         public boolean destructive() {
             return false;

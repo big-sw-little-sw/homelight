@@ -56,10 +56,8 @@ public final class ReconciliationPlanner {
     private static RelocationPlan stageSourceForPublication(RelocationState state) {
         var relocation = state.relocation();
         return new RelocationPlan(relocation, RelocationOutcome.UNRESOLVED, List.of(
-                new ReconciliationAction.StageDirectoryForPublication(relocation.sourcePath(), relocation.targetPath()),
-                new ReconciliationAction.Blocked(relocation.sourcePath(),
-                        "moving an existing source directory is not available yet")),
-                List.of(), Optional.empty());
+                new ReconciliationAction.StageDirectoryForPublication(relocation.sourcePath(), relocation.targetPath(),
+                        relocation.stagingRoot())), List.of(), Optional.empty());
     }
 
     private static RelocationPlan onlyTargetExists(RelocationState state) {

@@ -115,7 +115,7 @@ final class PlanRenderer {
             return "Adopt the target and replace the source with a link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
-            return "Discard existing contents and create a link";
+            return "Discard configured: delete both source and target contents, then create an empty target and source link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repair the source link";

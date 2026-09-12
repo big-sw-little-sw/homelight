@@ -2,6 +2,7 @@
 set -euo pipefail
 
 fixture_root="$(mktemp -d "${TMPDIR:-/tmp}/homelight-smoke.XXXXXX")"
+fixture_root="$(cd "$fixture_root" && pwd -P)"
 home_root="$fixture_root/home"
 target_root="$fixture_root/local"
 config_path="$fixture_root/config.yaml"
@@ -23,6 +24,7 @@ ln -s "$fixture_root/external/entry" "$home_root/stage-cache/external-link"
 printf '%s\n' \
   'homelight:' \
   "  target-root: $target_root" \
+  "  staging-root: $target_root/.homelight-staging" \
   '  relocations:' \
   "    - source-path: $home_root/stage-cache" \
   "      target-path: $target_root/stage-cache" \
@@ -41,5 +43,11 @@ printf '%s\n' \
 printf 'Smoke fixture: %s\n' "$fixture_root"
 printf 'Configuration: %s\n\n' "$config_path"
 printf 'Plan:\n'
-printf '  mvn -q exec:java -Dexec.args="plan --config %s"\n' "$config_path"
-printf '\nThis fixture is for `plan`: staged publication execution arrives with ticket #13.\n'
+printf '  ./homelight plan --config %s\n' "$config_path"
+printf '\nApply:\n'
+printf '  ./homelight apply --yes --config %s\n' "$config_path"
+printf '\nAfter apply, verify staged publication:\n'
+printf '  test -d %q && test -f %q && test -d %q\n' \
+  "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache"
+printf '  test -z "$(find %q -mindepth 1 -print -quit)"\n' "$target_root/.homelight-staging"
+printf '\n#13 publishes the target safely. #14 will replace stage-cache with its symlink.\n'

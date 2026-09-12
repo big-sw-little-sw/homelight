@@ -36,6 +36,8 @@ final class ApplyRenderer {
             }
             if (!treeRendered) {
                 output.println(style.success("✓ " + description(relocation.relocation(), source, target)));
+                relocation.actions().stream().map(ReconciliationExecutor.ActionExecution::message)
+                        .filter(message -> !message.equals("completed")).forEach(message -> output.println("  " + message));
             }
         }
         var changed = result.relocations().stream().filter(this::changed).count();

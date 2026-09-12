@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReconciliationPlannerTest {
@@ -25,7 +26,7 @@ class ReconciliationPlannerTest {
 
         assertEquals(RelocationOutcome.UNRESOLVED, plan.relocations().getFirst().outcome());
         assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance));
-        assertTrue(plan.hasBlockedActions());
+        assertFalse(plan.hasBlockedActions());
     }
 
     @Test

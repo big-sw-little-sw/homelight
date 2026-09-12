@@ -33,8 +33,12 @@ public final class ConfigurationLoader {
             SmallRyeConfig config = builder.withMapping(HomeLightMapping.class).build();
             var mapping = config.getConfigMapping(HomeLightMapping.class);
             var targetRoot = resolve(mapping.targetRoot());
+            var stagingRoot = mapping.stagingRoot().map(ConfigurationLoader::resolve);
+            if (stagingRoot.filter(root -> !root.startsWith(targetRoot)).isPresent()) {
+                throw new ConfigurationException("staging-root must be under target-root");
+            }
             var relocations = mapping.relocations().stream()
-                    .map(relocation -> resolveRelocation(targetRoot, relocation))
+                    .map(relocation -> resolveRelocation(targetRoot, stagingRoot, relocation))
                     .toList();
             var ignoredSourcePaths = mapping.ignoredSourcePaths()
                     .orElse(List.of()).stream()
@@ -63,7 +67,8 @@ public final class ConfigurationLoader {
         return Path.of(expanded).toAbsolutePath().normalize();
     }
 
-    private static Relocation resolveRelocation(Path targetRoot, RelocationMapping mapping) {
+    private static Relocation resolveRelocation(Path targetRoot, java.util.Optional<Path> stagingRoot,
+            RelocationMapping mapping) {
         var sourcePath = resolve(mapping.sourcePath());
         var targetPath = mapping.targetPath()
                 .map(ConfigurationLoader::resolve)
@@ -75,7 +80,7 @@ public final class ConfigurationLoader {
         }
         return new Relocation(sourcePath, targetPath,
                 mapping.whenSourceAndTargetDirectoriesExist(), mapping.whenOnlyTargetExists(),
-                mapping.whenAdoptingTarget(), archiveRoot);
+                mapping.whenAdoptingTarget(), archiveRoot, stagingRoot);
     }
 
     private static Path deriveTarget(Path targetRoot, Path sourcePath) {

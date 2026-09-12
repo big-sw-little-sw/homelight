@@ -49,7 +49,7 @@ class PlanCommandTest {
     }
 
     @Test
-    void explainsWhenApplyIsUnavailable() throws Exception {
+    void explainsStagedPublication() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("source"));
         var config = root.resolve("config.yaml");
@@ -65,7 +65,30 @@ class PlanCommandTest {
         command.setOut(new PrintWriter(output, true));
 
         assertEquals(0, command.execute("plan", "--config", config.toString()));
-        assertTrue(output.toString().contains("Plan cannot be applied"));
-        assertTrue(output.toString().contains("Apply is unavailable: moving an existing source directory is not available yet."));
+        assertTrue(output.toString().contains("Stage, verify, and atomically publish the source directory"));
+        assertTrue(output.toString().contains("Plan outcome: unresolved"));
+    }
+
+    @Test
+    void explainsTheResultOfConfiguredDiscard() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("source"));
+        var target = Files.createDirectories(root.resolve("target"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                      when-source-and-target-directories-exist: discard
+                """.formatted(root, source, target));
+        var command = HomeLightCommand.createCommandLine();
+        var output = new StringWriter();
+        command.setOut(new PrintWriter(output, true));
+
+        assertEquals(0, command.execute("plan", "--no-color", "--config", config.toString()));
+        assertTrue(output.toString().contains(
+                "Discard configured: delete both source and target contents, then create an empty target and source link"));
     }
 }

@@ -11,16 +11,27 @@ public record Relocation(
         Optional<WhenSourceAndTargetDirectoriesExist> whenSourceAndTargetDirectoriesExist,
         Optional<WhenOnlyTargetExists> whenOnlyTargetExists,
         Optional<WhenAdoptingTarget> whenAdoptingTarget,
-        Optional<Path> sourceArchiveRoot) {
+        Optional<Path> sourceArchiveRoot,
+        Optional<Path> stagingRoot) {
     public Relocation {
         whenSourceAndTargetDirectoriesExist = Objects.requireNonNull(
                 whenSourceAndTargetDirectoriesExist, "whenSourceAndTargetDirectoriesExist");
         whenOnlyTargetExists = Objects.requireNonNull(whenOnlyTargetExists, "whenOnlyTargetExists");
         whenAdoptingTarget = Objects.requireNonNull(whenAdoptingTarget, "whenAdoptingTarget");
         sourceArchiveRoot = Objects.requireNonNull(sourceArchiveRoot, "sourceArchiveRoot");
+        stagingRoot = Objects.requireNonNull(stagingRoot, "stagingRoot");
     }
 
     public Relocation(Path sourcePath, Path targetPath) {
-        this(sourcePath, targetPath, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(sourcePath, targetPath, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public Relocation(Path sourcePath, Path targetPath,
+            Optional<WhenSourceAndTargetDirectoriesExist> whenSourceAndTargetDirectoriesExist,
+            Optional<WhenOnlyTargetExists> whenOnlyTargetExists,
+            Optional<WhenAdoptingTarget> whenAdoptingTarget,
+            Optional<Path> sourceArchiveRoot) {
+        this(sourcePath, targetPath, whenSourceAndTargetDirectoriesExist, whenOnlyTargetExists, whenAdoptingTarget,
+                sourceArchiveRoot, Optional.empty());
     }
 }
