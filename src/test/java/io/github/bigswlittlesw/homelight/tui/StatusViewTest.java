@@ -112,7 +112,7 @@ class StatusViewTest {
         assertTrue(text0.contains("[Pending]"));
         assertTrue(text0.contains("[Conflict]"));
         assertTrue(text0.contains("[Blocked]"));
-        assertTrue(text0.contains("RELOCATION DETAILS"));
+        assertTrue(text0.contains("Details"));
         assertTrue(text0.contains("Source:"));
         assertTrue(text0.contains("Target:"));
         assertTrue(text0.contains("Outcome: CONVERGED"));

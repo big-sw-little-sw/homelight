@@ -38,7 +38,7 @@ public final class StatusView {
                                 Toolkit.text("  3. Run ./homelight plan or ./homelight apply"),
                                 Toolkit.text("")
                         )
-                ),
+                ).fill(),
                 Toolkit.text(""),
                 renderFooter("q: Quit  ·  r: Refresh")
         );
@@ -57,7 +57,7 @@ public final class StatusView {
                                 Toolkit.text("  " + model.message()),
                                 Toolkit.text("")
                         )
-                ),
+                ).fill(),
                 Toolkit.text(""),
                 renderFooter("q: Quit  ·  r: Refresh")
         );
@@ -70,9 +70,10 @@ public final class StatusView {
         if (model.items().isEmpty()) {
             return Toolkit.column(
                     header,
+                    Toolkit.text(""),
                     summaryBar,
                     Toolkit.text(""),
-                    Toolkit.panel("Relocations", Toolkit.text("No relocations defined in configuration.").gray()),
+                    Toolkit.panel("Relocations", Toolkit.text("No relocations defined in configuration.").gray()).fill(),
                     Toolkit.text(""),
                     renderFooter("q: Quit  ·  r: Refresh")
             );
@@ -81,13 +82,14 @@ public final class StatusView {
         int clampedIndex = Math.clamp(selectedIndex, 0, model.items().size() - 1);
         var selectedItem = model.items().get(clampedIndex);
 
-        var listColumn = renderRelocationList(model.items(), clampedIndex).percent(45);
-        var detailsColumn = renderRelocationDetails(selectedItem).fill();
+        var listPanel = renderRelocationList(model.items(), clampedIndex).percent(45).fill();
+        var detailsPanel = renderRelocationDetails(selectedItem).fill();
 
-        var mainContent = Toolkit.row(listColumn, detailsColumn);
+        var mainContent = Toolkit.row(listPanel, detailsPanel).fill();
 
         return Toolkit.column(
                 header,
+                Toolkit.text(""),
                 summaryBar,
                 Toolkit.text(""),
                 mainContent,
@@ -97,13 +99,16 @@ public final class StatusView {
     }
 
     private static Element renderHeader(String title, String configPath, String targetRoot) {
-        var headerElements = new ArrayList<Element>();
-        headerElements.add(Toolkit.text("HomeLight · " + title).cyan().bold());
-        headerElements.add(Toolkit.text("  [" + configPath + "]").gray());
+        var titleElement = Toolkit.text("HomeLight · " + title).cyan().bold();
+        var metaElements = new ArrayList<Element>();
+        metaElements.add(Toolkit.text("Config: ").gray().dim());
+        metaElements.add(Toolkit.text(configPath).gray());
         if (targetRoot != null) {
-            headerElements.add(Toolkit.text("  Target Root: " + targetRoot).gray().dim());
+            metaElements.add(Toolkit.text("   Target Root: ").gray().dim());
+            metaElements.add(Toolkit.text(targetRoot).gray());
         }
-        return Toolkit.row(headerElements.toArray(new Element[0]));
+        var metaRow = Toolkit.row(metaElements.toArray(new Element[0]));
+        return Toolkit.column(titleElement, metaRow);
     }
 
     private static Element renderSummaryBar(StatusModel.Configured model) {
@@ -140,9 +145,8 @@ public final class StatusView {
         return Toolkit.row(badges.toArray(new Element[0]));
     }
 
-    private static dev.tamboui.toolkit.elements.Column renderRelocationList(List<RelocationStatusItem> items, int selectedIndex) {
+    private static dev.tamboui.toolkit.elements.Panel renderRelocationList(List<RelocationStatusItem> items, int selectedIndex) {
         var rows = new ArrayList<Element>();
-        rows.add(Toolkit.text("RELOCATIONS").gray().bold());
 
         for (int i = 0; i < items.size(); i++) {
             var item = items.get(i);
@@ -170,13 +174,11 @@ public final class StatusView {
             rows.add(itemRow);
         }
 
-        return Toolkit.column(rows.toArray(new Element[0]));
+        return Toolkit.panel("Relocations", Toolkit.column(rows.toArray(new Element[0])));
     }
 
     private static dev.tamboui.toolkit.elements.Panel renderRelocationDetails(RelocationStatusItem item) {
         var details = new ArrayList<Element>();
-        details.add(Toolkit.text("RELOCATION DETAILS").gray().bold());
-        details.add(Toolkit.text(""));
 
         // Source details
         details.add(Toolkit.text("Source:").cyan().bold());
