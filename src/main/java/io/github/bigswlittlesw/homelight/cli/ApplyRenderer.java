@@ -124,7 +124,7 @@ final class ApplyRenderer {
                 generator.writeStartObject();
                 generator.writeStringField("source", configuredRelocation.sourcePath().toString());
                 generator.writeStringField("target", configuredRelocation.targetPath().toString());
-                generator.writeStringField("outcome", relocation.relocation().outcome().value());
+                generator.writeStringField("outcome", relocation.outcome().value());
                 generator.writeArrayFieldStart("actions");
                 for (var action : relocation.actions()) {
                     generator.writeStartObject();

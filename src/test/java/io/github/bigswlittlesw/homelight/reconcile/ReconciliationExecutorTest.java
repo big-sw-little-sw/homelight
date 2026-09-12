@@ -6,8 +6,11 @@ import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesEx
 import io.github.bigswlittlesw.homelight.fs.PathInspector;
 import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
+import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +53,60 @@ class ReconciliationExecutorTest {
         assertTrue(Files.isSymbolicLink(source));
         assertTrue(Files.exists(archiveRoot.resolve(source.toAbsolutePath().getRoot().relativize(source.toAbsolutePath()))
                 .resolve("entry")));
+    }
+
+    @Test
+    void reportsFailedRecoveryWhenPublicationSucceedsButSourceReplacementCannotStart() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var sourceParent = Files.createDirectories(root.resolve("home"));
+        var source = Files.createDirectories(sourceParent.resolve("cache"));
+        Files.writeString(source.resolve("entry"), "source");
+        var target = root.resolve("local/cache");
+        var originalPermissions = Files.getPosixFilePermissions(sourceParent);
+        var result = new ReconciliationExecutor.ExecutionResult(List.of());
+
+        try {
+            result = new ReconciliationExecutor().execute(plan(new Relocation(source, target)),
+                    new ReconciliationExecutor.ProgressListener() {
+                        @Override
+                        public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
+                            if (action.action() instanceof ReconciliationAction.StageDirectoryForPublication) {
+                                try {
+                                    Files.setPosixFilePermissions(sourceParent, Set.of(
+                                            PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+                                } catch (java.io.IOException exception) {
+                                    throw new AssertionError(exception);
+                                }
+                            }
+                        }
+                    });
+        } finally {
+            Files.setPosixFilePermissions(sourceParent, originalPermissions);
+        }
+
+        assertEquals(ReconciliationExecutor.ExecutionOutcome.FAILED_RECOVERY, result.relocations().getFirst().outcome());
+        assertTrue(Files.isDirectory(source));
+        assertTrue(Files.isDirectory(target));
+        try (var stagingEntries = Files.list(target.getParent().resolve(".homelight-staging"))) {
+            assertTrue(stagingEntries.findAny().isEmpty());
+        }
+        assertTrue(plan(new Relocation(source, target)).hasConflicts());
+    }
+
+    @Test
+    void reportsAnUnresolvedResultWhenPlannedStateIsStale() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = root.resolve("source");
+        var target = root.resolve("target");
+        var relocation = new Relocation(source, target);
+        var plan = plan(relocation);
+        Files.createDirectories(target);
+
+        var result = new ReconciliationExecutor().execute(plan);
+
+        assertEquals(ReconciliationExecutor.ExecutionOutcome.UNRESOLVED, result.relocations().getFirst().outcome());
+        assertTrue(Files.isDirectory(target));
+        assertTrue(Files.notExists(source));
     }
 
     private static ReconciliationPlan plan(Relocation relocation) {

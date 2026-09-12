@@ -55,9 +55,11 @@ public final class ReconciliationPlanner {
 
     private static RelocationPlan stageSourceForPublication(RelocationState state) {
         var relocation = state.relocation();
-        return new RelocationPlan(relocation, RelocationOutcome.UNRESOLVED, List.of(
+        return new RelocationPlan(relocation, RelocationOutcome.CONVERGED, List.of(
                 new ReconciliationAction.StageDirectoryForPublication(relocation.sourcePath(), relocation.targetPath(),
-                        relocation.stagingRoot())), List.of(), Optional.empty());
+                        relocation.stagingRoot()),
+                new ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath(), relocation.targetPath())),
+                List.of(), Optional.empty());
     }
 
     private static RelocationPlan onlyTargetExists(RelocationState state) {

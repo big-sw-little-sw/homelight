@@ -24,7 +24,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    void stagesAndAtomicallyPublishesAnExistingSourceDirectory() throws Exception {
+    void stagesPublishesAndLinksAnExistingSourceDirectory() throws Exception {
         var root = Files.createTempDirectory("homelight").toRealPath();
         var source = Files.createDirectories(root.resolve("home/cache"));
         var target = root.resolve("local/cache");
@@ -33,7 +33,7 @@ class ApplyCommandTest {
         var result = apply(configuration(root, source, target));
 
         assertEquals(0, result.exitCode(), result.output());
-        assertTrue(Files.isDirectory(source));
+        assertTrue(Files.isSymbolicLink(source));
         assertEquals("source", Files.readString(target.resolve("entry")));
     }
 
@@ -125,6 +125,40 @@ class ApplyCommandTest {
         assertEquals(0, result.exitCode());
         assertTrue(Files.isSymbolicLink(source));
         assertEquals("target", Files.readString(target.resolve("entry")));
+        var repeated = apply(configuration(root, source, target, """
+                when-source-and-target-directories-exist: adopt
+                when-adopting-target: discard-source
+                """));
+        assertEquals(0, repeated.exitCode(), repeated.output());
+        assertTrue(repeated.output().contains("already configured"));
+    }
+
+    @Test
+    void archivesTheSourceWhenAdoptingAConfiguredTarget() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        Files.writeString(source.resolve("source-entry"), "source");
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        Files.writeString(target.resolve("target-entry"), "target");
+        var archiveRoot = root.resolve("archive");
+
+        var result = apply(configuration(root, source, target, """
+                when-source-and-target-directories-exist: adopt
+                when-adopting-target: archive-source
+                source-archive-root: %s
+                """.formatted(archiveRoot)));
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isSymbolicLink(source));
+        assertEquals("target", Files.readString(target.resolve("target-entry")));
+        assertEquals("source", Files.readString(archiveRoot.resolve(source.getRoot().relativize(source)).resolve("source-entry")));
+        var repeated = apply(configuration(root, source, target, """
+                when-source-and-target-directories-exist: adopt
+                when-adopting-target: archive-source
+                source-archive-root: %s
+                """.formatted(archiveRoot)));
+        assertEquals(0, repeated.exitCode(), repeated.output());
+        assertTrue(repeated.output().contains("already configured"));
     }
 
     @Test
@@ -187,6 +221,23 @@ class ApplyCommandTest {
         assertTrue(result.output().contains("already configured"));
     }
 
+    @Test
+    void jsonReportsConvergedResultsForPublicationAndItsNoOpRepeat() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = Files.createDirectories(root.resolve("home/cache"));
+        var target = root.resolve("local/cache");
+        Files.writeString(source.resolve("entry"), "source");
+        var yaml = configuration(root, source, target);
+
+        var first = applyJson(yaml);
+        var second = applyJson(yaml);
+
+        assertEquals(0, first.exitCode(), first.output());
+        assertTrue(first.output().contains("\"outcome\":\"converged\""));
+        assertEquals(0, second.exitCode(), second.output());
+        assertTrue(second.output().contains("\"outcome\":\"converged\""));
+    }
+
     private static Result apply(String yaml) throws Exception {
         var config = Files.createTempFile("homelight", ".yaml");
         Files.writeString(config, yaml);
@@ -194,6 +245,15 @@ class ApplyCommandTest {
         var command = HomeLightCommand.createCommandLine();
         command.setOut(new PrintWriter(output, true));
         return new Result(command.execute("apply", "--yes", "--config", config.toString()), output.toString());
+    }
+
+    private static Result applyJson(String yaml) throws Exception {
+        var config = Files.createTempFile("homelight", ".yaml");
+        Files.writeString(config, yaml);
+        var output = new StringWriter();
+        var command = HomeLightCommand.createCommandLine();
+        command.setOut(new PrintWriter(output, true));
+        return new Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString());
     }
 
     private static Result execute(String... arguments) {

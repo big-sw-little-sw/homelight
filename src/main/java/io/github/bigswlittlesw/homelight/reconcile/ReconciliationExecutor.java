@@ -469,6 +469,45 @@ public final class ReconciliationExecutor {
         public RelocationExecution {
             actions = List.copyOf(actions);
         }
+
+        /// Returns the execution outcome after accounting for an interrupted source replacement.
+        public ExecutionOutcome outcome() {
+            var notRun = actions.stream().anyMatch(action -> action.status() == ActionStatus.PENDING);
+            if (notRun) {
+                return ExecutionOutcome.UNRESOLVED;
+            }
+            var failed = actions.stream().anyMatch(action -> action.status() == ActionStatus.FAILED);
+            if (!failed) {
+                return switch (relocation.outcome()) {
+                    case CONVERGED -> ExecutionOutcome.CONVERGED;
+                    case UNCHANGED -> ExecutionOutcome.UNCHANGED;
+                    case UNRESOLVED -> ExecutionOutcome.UNRESOLVED;
+                };
+            }
+            var targetPublished = actions.stream()
+                    .anyMatch(action -> action.action() instanceof ReconciliationAction.StageDirectoryForPublication
+                            && action.status() == ActionStatus.COMPLETED);
+            return targetPublished ? ExecutionOutcome.FAILED_RECOVERY : ExecutionOutcome.UNRESOLVED;
+        }
+    }
+
+    /// The observed result of one relocation after its actions have run.
+    public enum ExecutionOutcome {
+        CONVERGED(RelocationOutcome.CONVERGED.value()),
+        UNCHANGED(RelocationOutcome.UNCHANGED.value()),
+        UNRESOLVED(RelocationOutcome.UNRESOLVED.value()),
+        FAILED_RECOVERY("failed-recovery");
+
+        private final String value;
+
+        ExecutionOutcome(String value) {
+            this.value = value;
+        }
+
+        /// Returns the stable machine-readable outcome name.
+        public String value() {
+            return value;
+        }
     }
 
     public record ExecutionResult(List<RelocationExecution> relocations) {

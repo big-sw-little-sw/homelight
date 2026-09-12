@@ -66,7 +66,7 @@ class PlanCommandTest {
 
         assertEquals(0, command.execute("plan", "--config", config.toString()));
         assertTrue(output.toString().contains("Stage, verify, and atomically publish the source directory"));
-        assertTrue(output.toString().contains("Plan outcome: unresolved"));
+        assertTrue(output.toString().contains("Plan outcome: converged"));
     }
 
     @Test
