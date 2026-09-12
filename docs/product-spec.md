@@ -43,13 +43,13 @@ externallyManagedSourceRoots:
 
 relocations:
   - source-path: ~/.m2
-    existing: move
+    when-source-and-target-directories-exist: prompt
 
   - source-path: ~/.cache/uv
-    existing: discard
+    when-source-and-target-directories-exist: discard
 
   - source-path: ~/.config/agent-tools
-    existing: move
+    when-source-and-target-directories-exist: prompt
 
 links:
   - path: ~/.config/agent-tools/AGENTS.md
@@ -166,17 +166,16 @@ The action model must be extensible and may include:
 
 Actions are implementation details of a plan, not configuration semantics.
 
-## Existing-content policies
+## Directory-state decisions
 
-Initial user-facing policies are:
+The configuration names the decision for the observed state:
 
-- `move`: copy and verify existing contents at an absent local target, leaving the source intact
-- `discard`: remove existing contents and create fresh local state
-- `preserve`: refuse destructive replacement when existing contents make the operation unsafe
-- `adopt`: explicitly accept an existing local target, then replace the source with a managed link
-- unmanaged or skip: leave the path outside HomeLight management
+- `when-source-and-target-directories-exist`: `prompt`, `adopt`, `leave-unchanged`, or `discard`
+- `when-only-target-exists`: `prompt` or `adopt-target`
+- `when-adopting-target`: `prompt`, `discard-source`, or `archive-source`
+- `source-archive-root`: required for `archive-source`
 
-A policy can produce multiple actions depending on actual state. For example, `move` copies and verifies the source at a newly created target. It deliberately leaves both directories present, so a later plan requires explicit `adopt` before it removes the source and creates its link. If copying fails, the source remains authoritative and the visible target is treated as a conflict for an operator to resolve.
+An absent target with a source directory is staged, verified, and atomically published as one relocation. `adopt` makes the target authoritative, but a separate source disposition remains mandatory. `leave-unchanged` is intentional success, not convergence or a no-op.
 
 HomeLight must be idempotent. Once the desired state is reached, repeated planning produces no unnecessary actions and repeated application is safe.
 
@@ -280,7 +279,7 @@ The first useful version supports:
 3. built-in candidate discovery
 4. interactive `init`
 5. directory relocation
-6. `move`, `discard`, `preserve`, and unmanaged policies
+6. state-specific directory decisions and unmanaged paths
 7. explicit actual-state detection
 8. correct, wrong, and broken symlink handling
 9. declarative managed links

@@ -28,5 +28,11 @@ interface RelocationMapping {
 
     Optional<String> targetPath();
 
-    Optional<ExistingContentPolicy> existing();
+    Optional<WhenSourceAndTargetDirectoriesExist> whenSourceAndTargetDirectoriesExist();
+
+    Optional<WhenOnlyTargetExists> whenOnlyTargetExists();
+
+    Optional<WhenAdoptingTarget> whenAdoptingTarget();
+
+    Optional<String> sourceArchiveRoot();
 }

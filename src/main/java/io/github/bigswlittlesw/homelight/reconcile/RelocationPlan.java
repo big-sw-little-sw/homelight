@@ -8,6 +8,7 @@ import java.util.Optional;
 /// The planned outcome for one configured relocation.
 public record RelocationPlan(
         Relocation relocation,
+        RelocationOutcome outcome,
         List<ReconciliationAction> actions,
         List<ReconciliationDiagnostic> diagnostics,
         Optional<ReconciliationConflict> conflict) {

@@ -16,12 +16,14 @@ public sealed interface ReconciliationAction {
             case CreateDirectory _ -> "create-directory";
             case EnsureDirectory _ -> "ensure-directory";
             case CopyDirectory _ -> "copy-directory";
+            case StageDirectoryForPublication _ -> "stage-directory-for-publication";
+            case ArchiveDirectory _ -> "archive-directory";
             case DeleteDirectory _ -> "delete-directory";
             case CreateSymlink _ -> "create-symlink";
             case ReplaceDirectoryWithSymlink _ -> "replace-directory-with-symlink";
             case ReplaceSymlink _ -> "replace-symlink";
             case NoOp _ -> "no-op";
-            case Skip _ -> "skip";
+            case LeaveUnchanged _ -> "leave-unchanged";
             case Blocked _ -> "blocked";
         };
     }
@@ -30,7 +32,7 @@ public sealed interface ReconciliationAction {
     default boolean mutatesFilesystem() {
         return switch (this) {
             case NoOp _ -> false;
-            case Skip _ -> false;
+            case LeaveUnchanged _ -> false;
             case Blocked _ -> false;
             default -> true;
         };
@@ -63,6 +65,22 @@ public sealed interface ReconciliationAction {
             this(path, target, PathState.DIRECTORY, PathState.ABSENT);
         }
 
+        @Override
+        public boolean destructive() {
+            return false;
+        }
+    }
+
+    /// Stages a verified source copy for target-local atomic publication.
+    record StageDirectoryForPublication(Path path, Path target) implements ReconciliationAction {
+        @Override
+        public boolean destructive() {
+            return false;
+        }
+    }
+
+    /// Moves a source directory into an unoccupied deterministic archive location.
+    record ArchiveDirectory(Path path, Path target) implements ReconciliationAction {
         @Override
         public boolean destructive() {
             return false;
@@ -129,8 +147,8 @@ public sealed interface ReconciliationAction {
         }
     }
 
-    /// Records an explicit decision to leave pre-existing content unmanaged.
-    record Skip(Path path) implements ReconciliationAction {
+    /// Records an explicit decision to leave source and target directories unmanaged.
+    record LeaveUnchanged(Path path) implements ReconciliationAction {
         @Override
         public boolean destructive() {
             return false;

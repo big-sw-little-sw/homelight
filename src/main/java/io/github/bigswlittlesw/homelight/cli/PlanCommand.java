@@ -42,7 +42,7 @@ final class PlanCommand implements Callable<Integer> {
         var overrides = sourcePath == null ? Map.<String, String>of() : Map.of(
                 "homelight.relocations[0].source-path", sourcePath.toString(),
                 "homelight.relocations[0].target-path", targetPath.toString());
-        return render(config, json, noColor, overrides, spec.commandLine().getOut());
+        return render(config, json, noColor, System.console() != null, overrides, spec.commandLine().getOut());
     }
 
     static int render(Path config, boolean json, Map<String, String> overrides, PrintWriter output) {
@@ -50,6 +50,11 @@ final class PlanCommand implements Callable<Integer> {
     }
 
     static int render(Path config, boolean json, boolean noColor, Map<String, String> overrides, PrintWriter output) {
+        return render(config, json, noColor, false, overrides, output);
+    }
+
+    private static int render(Path config, boolean json, boolean noColor, boolean interactive,
+            Map<String, String> overrides, PrintWriter output) {
         if (isMissingDefaultConfig(config)) {
             if (json) {
                 new PlanRenderer().render(new ReconciliationPlan(java.util.List.of(), java.util.List.of()), true, output);
@@ -59,7 +64,7 @@ final class PlanCommand implements Callable<Integer> {
             return 0;
         }
         var plan = new ReconciliationPlanning().plan(config, overrides);
-        new PlanRenderer().render(plan, json, noColor, output);
+        new PlanRenderer().render(plan, json, noColor, interactive, output);
         return 0;
     }
 

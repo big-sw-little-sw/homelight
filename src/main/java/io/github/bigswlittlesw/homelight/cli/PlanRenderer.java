@@ -13,18 +13,25 @@ final class PlanRenderer {
     private final JsonFactory jsonFactory = new JsonFactory();
 
     void render(ReconciliationPlan plan, boolean json, PrintWriter output) {
-        render(plan, json, false, output);
+        renderText(plan, json, false, true, output);
     }
 
     void render(ReconciliationPlan plan, boolean json, boolean noColor, PrintWriter output) {
-        render(plan, json, noColor, true, output);
+        render(plan, json, noColor, false, output);
+    }
+
+    void render(ReconciliationPlan plan, boolean json, boolean noColor, boolean interactive, PrintWriter output) {
+        if (interactive && !json && !noColor && InlinePlanView.show(plan)) {
+            return;
+        }
+        renderText(plan, json, noColor, true, output);
     }
 
     void renderForConfirmation(ReconciliationPlan plan, boolean noColor, PrintWriter output) {
-        render(plan, false, noColor, false, output);
+        renderText(plan, false, noColor, false, output);
     }
 
-    private void render(ReconciliationPlan plan, boolean json, boolean noColor, boolean showApplyHint, PrintWriter output) {
+    private void renderText(ReconciliationPlan plan, boolean json, boolean noColor, boolean showApplyHint, PrintWriter output) {
         if (json) {
             output.println(toJson(plan));
             return;
@@ -35,9 +42,7 @@ final class PlanRenderer {
         }
         var style = new TerminalStyle(noColor);
         var ready = plan.relocations().stream().filter(relocation -> relocation.conflict().isEmpty()).count();
-        var heading = plan.hasBlockedActions() || plan.hasConflicts()
-                ? "Plan: " + plan.relocations().size() + plural(plan.relocations().size(), "relocation") + " needs attention"
-                : "Plan: " + ready + plural((int) ready, "relocation") + " ready";
+        var heading = heading(plan, ready);
         output.println(style.heading(heading));
         output.println();
         for (var diagnostic : plan.diagnostics()) {
@@ -48,21 +53,42 @@ final class PlanRenderer {
                 renderDiagnostic(diagnostic, style, output);
             }
             output.println("  " + relocation.relocation().sourcePath() + " → " + relocation.relocation().targetPath());
-            relocation.relocation().existingContentPolicy().ifPresent(policy ->
-                    output.println("    Existing content: " + policy.value()));
+            output.println("    Plan outcome: " + relocation.outcome().value());
             relocation.conflict().ifPresentOrElse(
                     conflict -> output.println("    " + style.error("! " + conflict.reason())),
                     () -> output.println("    " + intent(relocation)));
         }
-        if (plan.hasBlockedActions() || plan.hasConflicts()) {
+        if (plan.hasBlockedActions()) {
             output.println();
-            output.println(style.error("No changes will be made until these items are resolved."));
+            output.println(style.error("Apply is unavailable: " + firstBlockedReason(plan) + "."));
+        } else if (plan.hasConflicts()) {
+            output.println();
+            output.println(style.error("No changes will be made until the required decisions are resolved."));
         } else {
             output.println();
             output.println(showApplyHint
                     ? "No changes have been made. Run `homelight apply --yes` to apply this plan."
                     : "No changes have been made. Confirm to apply this plan.");
         }
+    }
+
+    private static String heading(ReconciliationPlan plan, long ready) {
+        if (plan.hasBlockedActions()) {
+            return "Plan cannot be applied";
+        }
+        if (plan.hasConflicts()) {
+            return "Plan has unresolved decisions";
+        }
+        return "Plan: " + ready + plural((int) ready, "relocation") + " ready";
+    }
+
+    private static String firstBlockedReason(ReconciliationPlan plan) {
+        return plan.actions().stream()
+                .filter(ReconciliationAction.Blocked.class::isInstance)
+                .map(ReconciliationAction.Blocked.class::cast)
+                .map(ReconciliationAction.Blocked::reason)
+                .findFirst()
+                .orElseThrow();
     }
 
     private void renderDiagnostic(ReconciliationDiagnostic diagnostic, TerminalStyle style, PrintWriter output) {
@@ -79,14 +105,13 @@ final class PlanRenderer {
                     .filter(ReconciliationAction.Blocked.class::isInstance).findFirst().orElseThrow();
             return "Blocked: " + blocked.reason();
         }
-        if (actions.stream().anyMatch(ReconciliationAction.CopyDirectory.class::isInstance)) {
-            return "Copy existing contents to the target";
+        if (actions.stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance)) {
+            return "Stage, verify, and atomically publish the source directory";
         }
         if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured";
         }
-        if (relocation.relocation().existingContentPolicy()
-                .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
+        if (actions.stream().anyMatch(ReconciliationAction.ReplaceDirectoryWithSymlink.class::isInstance)) {
             return "Adopt the target and replace the source with a link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
@@ -95,8 +120,8 @@ final class PlanRenderer {
         if (actions.stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repair the source link";
         }
-        if (actions.stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
-            return "Leave existing content unchanged";
+        if (actions.stream().anyMatch(ReconciliationAction.LeaveUnchanged.class::isInstance)) {
+            return "Leave source and target unchanged";
         }
         return "Create a destination directory and link";
     }
@@ -121,10 +146,7 @@ final class PlanRenderer {
                 generator.writeStartObject();
                 generator.writeStringField("source", relocation.relocation().sourcePath().toString());
                 generator.writeStringField("target", relocation.relocation().targetPath().toString());
-                var existingContentPolicy = relocation.relocation().existingContentPolicy();
-                if (existingContentPolicy.isPresent()) {
-                    generator.writeStringField("existing", existingContentPolicy.orElseThrow().value());
-                }
+                generator.writeStringField("outcome", relocation.outcome().value());
                 generator.writeArrayFieldStart("diagnostics");
                 for (var diagnostic : relocation.diagnostics()) {
                     writeDiagnostic(generator, diagnostic);

@@ -4,13 +4,23 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 
-/// A source location, resolved storage destination, and optional durable existing-content decision.
-public record Relocation(Path sourcePath, Path targetPath, Optional<ExistingContentPolicy> existingContentPolicy) {
+/// A source location, storage destination, and state-specific reconciliation decisions.
+public record Relocation(
+        Path sourcePath,
+        Path targetPath,
+        Optional<WhenSourceAndTargetDirectoriesExist> whenSourceAndTargetDirectoriesExist,
+        Optional<WhenOnlyTargetExists> whenOnlyTargetExists,
+        Optional<WhenAdoptingTarget> whenAdoptingTarget,
+        Optional<Path> sourceArchiveRoot) {
     public Relocation {
-        existingContentPolicy = Objects.requireNonNull(existingContentPolicy, "existingContentPolicy");
+        whenSourceAndTargetDirectoriesExist = Objects.requireNonNull(
+                whenSourceAndTargetDirectoriesExist, "whenSourceAndTargetDirectoriesExist");
+        whenOnlyTargetExists = Objects.requireNonNull(whenOnlyTargetExists, "whenOnlyTargetExists");
+        whenAdoptingTarget = Objects.requireNonNull(whenAdoptingTarget, "whenAdoptingTarget");
+        sourceArchiveRoot = Objects.requireNonNull(sourceArchiveRoot, "sourceArchiveRoot");
     }
 
     public Relocation(Path sourcePath, Path targetPath) {
-        this(sourcePath, targetPath, Optional.empty());
+        this(sourcePath, targetPath, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 }

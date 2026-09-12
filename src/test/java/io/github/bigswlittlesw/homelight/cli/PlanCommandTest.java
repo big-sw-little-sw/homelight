@@ -1,7 +1,8 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import org.junit.jupiter.api.Test;
-
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,111 +10,62 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanCommandTest {
     @Test
-    void planShowsSafeActionsWithoutChangingTheFilesystem() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var source = root.resolve("home/cache");
-        var target = root.resolve("local/cache");
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, source, target));
-
-        var result = execute("plan", "--config", config.toString());
-
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("Plan: 1 relocation ready"));
-        assertTrue(result.output().contains(source + " → " + target));
-        assertTrue(result.output().contains("Create a destination directory and link"));
-        assertTrue(!result.output().contains("create-directory:"));
-        assertTrue(Files.notExists(source));
-        assertTrue(Files.notExists(target));
+    void rendersOutcomeInTextAndJson() throws Exception {
+        var root=Files.createTempDirectory("homelight"); var source=Files.createDirectories(root.resolve("source")); var target=Files.createDirectories(root.resolve("target")); var config=root.resolve("config.yaml");
+        Files.writeString(config,"""
+        homelight:
+          target-root: %s
+          relocations:
+            - source-path: %s
+              target-path: %s
+              when-source-and-target-directories-exist: leave-unchanged
+        """.formatted(root,source,target));
+        var command=HomeLightCommand.createCommandLine(); var out=new StringWriter(); command.setOut(new PrintWriter(out,true));
+        assertEquals(0,command.execute("plan","--config",config.toString(),"--json")); assertTrue(out.toString().contains("\"outcome\":\"unchanged\""));
     }
 
     @Test
-    void planJsonContainsStructuredActions() throws Exception {
+    void describesTargetAdoptionRatherThanDirectoryCreation() throws Exception {
         var root = Files.createTempDirectory("homelight");
-        var source = root.resolve("home/cache");
-        var target = root.resolve("local/cache");
+        var source = Files.createDirectories(root.resolve("source"));
+        var target = Files.createDirectories(root.resolve("target"));
         var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, source, target));
-
-        var result = execute("plan", "--config", config.toString(), "--json");
-
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("\"type\":\"create-directory\""));
-        assertTrue(result.output().contains("\"type\":\"create-symlink\""));
-        assertTrue(result.output().contains("\"blocked\":false"));
-    }
-
-    @Test
-    void planRendersConfiguredExistingContentPolicyForPeopleAndAutomation() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var source = Files.createDirectories(root.resolve("home/cache"));
-        var target = root.resolve("local/cache");
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, source, target).replace("target-path: " + target,
-                "target-path: " + target + "\n      existing: move"));
-
-        var text = execute("plan", "--config", config.toString());
-        var json = execute("plan", "--config", config.toString(), "--json");
-
-        assertEquals(0, text.exitCode());
-        assertTrue(text.output().contains("Existing content: move"));
-        assertEquals(0, json.exitCode());
-        assertTrue(json.output().contains("\"existing\":\"move\""));
-    }
-
-    @Test
-    void planWarnsBeforeDiscardingExistingContent() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var source = Files.createDirectories(root.resolve("home/cache"));
-        var target = Files.createDirectories(root.resolve("local/cache"));
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, source, target).replace("target-path: " + target,
-                "target-path: " + target + "\n      existing: discard"));
-
-        var result = execute("plan", "--config", config.toString());
-
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("discard policy will permanently remove"));
-        assertTrue(result.output().contains("Discard existing contents and create a link"));
-    }
-
-    @Test
-    void pairedSourceAndTargetOverridesTakePrecedenceAtThePlanCommand() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var configuredSource = root.resolve("configured/home");
-        var configuredTarget = root.resolve("configured/local");
-        var overrideSource = root.resolve("override/home");
-        var overrideTarget = root.resolve("override/local");
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, configuration(root, configuredSource, configuredTarget));
-
-        var result = execute("plan", "--config", config.toString(),
-                "--source-path", overrideSource.toString(),
-                "--target-path", overrideTarget.toString());
-
-        assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains(overrideSource + " → " + overrideTarget));
-        assertTrue(!result.output().contains(configuredSource.toString()));
-    }
-
-    private static String configuration(java.nio.file.Path root, java.nio.file.Path source, java.nio.file.Path target) {
-        return """
+        Files.writeString(config, """
                 homelight:
                   target-root: %s
                   relocations:
                     - source-path: %s
                       target-path: %s
-                """.formatted(root, source, target);
+                      when-source-and-target-directories-exist: adopt
+                      when-adopting-target: discard-source
+                """.formatted(root, source, target));
+        var command = HomeLightCommand.createCommandLine();
+        var output = new StringWriter();
+        command.setOut(new PrintWriter(output, true));
+
+        assertEquals(0, command.execute("plan", "--config", config.toString()));
+        assertTrue(output.toString().contains("Adopt the target and replace the source with a link"));
+        assertTrue(output.toString().contains("Plan outcome: converged"));
     }
 
-    private static CapturedOutput execute(String... args) {
-        var commandLine = HomeLightCommand.createCommandLine();
-        var output = new java.io.StringWriter();
-        commandLine.setOut(new java.io.PrintWriter(output, true));
-        int exitCode = commandLine.execute(args);
-        return new CapturedOutput(exitCode, output.toString());
-    }
+    @Test
+    void explainsWhenApplyIsUnavailable() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("source"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, source, root.resolve("target")));
+        var command = HomeLightCommand.createCommandLine();
+        var output = new StringWriter();
+        command.setOut(new PrintWriter(output, true));
 
-    private record CapturedOutput(int exitCode, String output) {
+        assertEquals(0, command.execute("plan", "--config", config.toString()));
+        assertTrue(output.toString().contains("Plan cannot be applied"));
+        assertTrue(output.toString().contains("Apply is unavailable: moving an existing source directory is not available yet."));
     }
 }

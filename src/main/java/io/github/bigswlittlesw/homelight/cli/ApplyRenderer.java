@@ -61,7 +61,7 @@ final class ApplyRenderer {
 
     private boolean skipped(ReconciliationExecutor.RelocationExecution relocation) {
         return relocation.actions().stream().map(ReconciliationExecutor.ActionExecution::action)
-                .anyMatch(ReconciliationAction.Skip.class::isInstance);
+                .anyMatch(ReconciliationAction.LeaveUnchanged.class::isInstance);
     }
 
     private static String summary(boolean succeeded, long changed, long skipped, long unchanged) {
@@ -96,18 +96,14 @@ final class ApplyRenderer {
         if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured " + source + " → " + target;
         }
-        if (relocation.relocation().existingContentPolicy()
-                .filter(io.github.bigswlittlesw.homelight.config.ExistingContentPolicy.ADOPT::equals).isPresent()) {
-            return "Adopted " + target + " and linked " + source;
-        }
-        if (relocation.actions().stream().anyMatch(ReconciliationAction.CopyDirectory.class::isInstance)) {
-            return "Copied " + source + " → " + target + "; inspect it and set existing: adopt to replace the source";
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance)) {
+            return "Staged publication is required before linking " + source + " to " + target;
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
             return "Discarded existing content and linked " + source + " → " + target;
         }
-        if (relocation.actions().stream().anyMatch(ReconciliationAction.Skip.class::isInstance)) {
-            return "Left existing content unchanged at " + source;
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.LeaveUnchanged.class::isInstance)) {
+            return "Left source and target unchanged";
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repaired link " + source + " → " + target;
@@ -126,10 +122,7 @@ final class ApplyRenderer {
                 generator.writeStartObject();
                 generator.writeStringField("source", configuredRelocation.sourcePath().toString());
                 generator.writeStringField("target", configuredRelocation.targetPath().toString());
-                var existingContentPolicy = configuredRelocation.existingContentPolicy();
-                if (existingContentPolicy.isPresent()) {
-                    generator.writeStringField("existing", existingContentPolicy.orElseThrow().value());
-                }
+                generator.writeStringField("outcome", relocation.relocation().outcome().value());
                 generator.writeArrayFieldStart("actions");
                 for (var action : relocation.actions()) {
                     generator.writeStartObject();

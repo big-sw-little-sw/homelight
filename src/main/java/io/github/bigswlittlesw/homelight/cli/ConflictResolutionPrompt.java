@@ -6,7 +6,6 @@ import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.InlineTuiConfig;
-import io.github.bigswlittlesw.homelight.config.ExistingContentPolicy;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 
@@ -47,7 +46,7 @@ final class ConflictResolutionPrompt {
         return app.selection();
     }
 
-    private record Choice(int relocationIndex, ExistingContentPolicy policy, String label,
+    private record Choice(int relocationIndex, Map<String, String> overrides, String label,
                           String conflict, String paths) {
     }
 
@@ -176,9 +175,9 @@ final class ConflictResolutionPrompt {
 
         private Map<String, String> overrides() {
             var overrides = new LinkedHashMap<String, String>();
-            selectedByRelocation.forEach((relocationIndex, choiceIndex) -> overrides.put(
-                    "homelight.relocations[" + relocationIndex + "].existing",
-                    choices.get(choiceIndex).policy().value()));
+            selectedByRelocation.forEach((relocationIndex, choiceIndex) -> choices.get(choiceIndex).overrides()
+                    .forEach((setting, value) -> overrides.put(
+                            "homelight.relocations[" + relocationIndex + "]." + setting, value)));
             return Map.copyOf(overrides);
         }
 
@@ -199,11 +198,24 @@ final class ConflictResolutionPrompt {
                 var context = configured.sourcePath().getFileName() + " → " + configured.targetPath().getFileName()
                         + ": " + conflict.reason();
                 var paths = configured.sourcePath() + " → " + configured.targetPath();
-                choices.add(new Choice(index, ExistingContentPolicy.ADOPT,
-                        "Adopt target: permanently remove the source and replace it with a link", context, paths));
-                choices.add(new Choice(index, ExistingContentPolicy.PRESERVE,
+                if (conflict.reason().contains("target directory requires")) {
+                    choices.add(new Choice(index, Map.of("when-only-target-exists", "adopt-target"),
+                            "Adopt the target and create the source link", context, paths));
+                    continue;
+                }
+                choices.add(new Choice(index, Map.of(
+                        "when-source-and-target-directories-exist", "adopt",
+                        "when-adopting-target", "discard-source"),
+                        "Adopt target and discard the source", context, paths));
+                if (configured.sourceArchiveRoot().isPresent()) {
+                    choices.add(new Choice(index, Map.of(
+                            "when-source-and-target-directories-exist", "adopt",
+                            "when-adopting-target", "archive-source"),
+                            "Adopt target and archive the source", context, paths));
+                }
+                choices.add(new Choice(index, Map.of("when-source-and-target-directories-exist", "leave-unchanged"),
                         "Leave source and target unchanged", context, paths));
-                choices.add(new Choice(index, ExistingContentPolicy.DISCARD,
+                choices.add(new Choice(index, Map.of("when-source-and-target-directories-exist", "discard"),
                         "Discard source and target contents, then create the link", context, paths));
             }
             return List.copyOf(choices);

@@ -58,12 +58,15 @@ public final class ReconciliationExecutor {
             case ReconciliationAction.CreateDirectory directory -> createDirectory(directory);
             case ReconciliationAction.EnsureDirectory directory -> ensureDirectory(directory);
             case ReconciliationAction.CopyDirectory copy -> copyDirectory(copy);
+            case ReconciliationAction.StageDirectoryForPublication _ ->
+                    throw new IllegalStateException("target-local staged publication is not available yet");
+            case ReconciliationAction.ArchiveDirectory archive -> archiveDirectory(archive);
             case ReconciliationAction.DeleteDirectory directory -> deleteDirectory(directory);
             case ReconciliationAction.CreateSymlink link -> createSymlink(link);
             case ReconciliationAction.ReplaceDirectoryWithSymlink link -> replaceDirectoryWithSymlink(link);
             case ReconciliationAction.ReplaceSymlink link -> replaceSymlink(link);
             case ReconciliationAction.NoOp _ -> { }
-            case ReconciliationAction.Skip _ -> { }
+            case ReconciliationAction.LeaveUnchanged _ -> { }
             case ReconciliationAction.Blocked blocked -> throw new IllegalStateException(blocked.reason());
         }
     }
@@ -97,6 +100,12 @@ public final class ReconciliationExecutor {
             throw new IllegalStateException("expected empty directory at " + action.path());
         }
         deleteTree(action.path());
+    }
+
+    private void archiveDirectory(ReconciliationAction.ArchiveDirectory action) throws IOException {
+        requireState(action.path(), PathState.DIRECTORY);
+        requireState(action.target(), PathState.ABSENT);
+        Files.move(action.path(), action.target(), StandardCopyOption.ATOMIC_MOVE);
     }
 
     private void createSymlink(ReconciliationAction.CreateSymlink action) throws IOException {

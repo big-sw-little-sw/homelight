@@ -68,7 +68,14 @@ public final class ConfigurationLoader {
         var targetPath = mapping.targetPath()
                 .map(ConfigurationLoader::resolve)
                 .orElseGet(() -> deriveTarget(targetRoot, sourcePath));
-        return new Relocation(sourcePath, targetPath, mapping.existing());
+        var archiveRoot = mapping.sourceArchiveRoot().map(ConfigurationLoader::resolve);
+        if (mapping.whenAdoptingTarget().filter(WhenAdoptingTarget.ARCHIVE_SOURCE::equals).isPresent()
+                && archiveRoot.isEmpty()) {
+            throw new ConfigurationException("source-archive-root is required when when-adopting-target is archive-source");
+        }
+        return new Relocation(sourcePath, targetPath,
+                mapping.whenSourceAndTargetDirectoriesExist(), mapping.whenOnlyTargetExists(),
+                mapping.whenAdoptingTarget(), archiveRoot);
     }
 
     private static Path deriveTarget(Path targetRoot, Path sourcePath) {

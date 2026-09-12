@@ -16,7 +16,12 @@ final class ReconciliationPlanning {
         var inspector = new PathInspector();
         var states = configuration.relocations().stream()
                 .map(relocation -> new RelocationState(relocation,
-                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath())))
+                        inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()),
+                        relocation.sourceArchiveRoot().map(root -> {
+                            var source = relocation.sourcePath().toAbsolutePath().normalize();
+                            var path = root.resolve(source.getRoot().relativize(source)).normalize();
+                            return new RelocationState.ArchiveDestination(path, inspector.inspect(path));
+                        })))
                 .toList();
         return new ReconciliationPlanner().plan(states);
     }
