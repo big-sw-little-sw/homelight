@@ -61,8 +61,10 @@ printf '\nPlan:\n'
 printf '  ./homelight plan --config %s\n' "$config_path"
 printf '\nApply:\n'
 printf '  ./homelight apply --yes --config %s\n' "$config_path"
-printf '\nAfter apply, verify staged publication:\n'
-printf '  test -d %q && test -f %q && test -d %q\n' \
-  "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache"
+printf '\nAfter apply, verify converged staged publication:\n'
+printf '  test -d %q && test -f %q && test -L %q && test "$(readlink %q)" = %q\n' \
+  "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache" \
+  "$home_root/stage-cache" "$target_root/stage-cache"
 printf '  test -z "$(find %q -mindepth 1 -print -quit)"\n' "$target_root/.homelight-staging"
-printf '\n#13 publishes the target safely. #14 will replace stage-cache with its symlink.\n'
+printf '\nRepeat apply (should report no changes):\n'
+printf '  ./homelight apply --yes --config %s\n' "$config_path"
