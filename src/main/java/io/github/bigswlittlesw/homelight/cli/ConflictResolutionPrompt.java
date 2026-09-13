@@ -214,7 +214,7 @@ final class ConflictResolutionPrompt {
                             "Adopt target and archive the source", context, paths));
                 }
                 choices.add(new Choice(index, Map.of("when-source-and-target-directories-exist", "leave-unchanged"),
-                        "Leave source and target unchanged", context, paths));
+                        "Leave source and target unmanaged", context, paths));
                 choices.add(new Choice(index, Map.of("when-source-and-target-directories-exist", "discard"),
                         "Discard source and target contents, then create the link", context, paths));
             }

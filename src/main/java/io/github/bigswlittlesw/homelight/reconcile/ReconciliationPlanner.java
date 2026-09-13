@@ -36,7 +36,7 @@ public final class ReconciliationPlanner {
                 default -> unsupportedTarget(state);
             };
             case DIRECTORY -> switch (state.target().state()) {
-                case ABSENT -> stageSourceForPublication(state);
+                case ABSENT -> migrateSourceForPublication(state);
                 case DIRECTORY -> bothDirectoriesExist(state);
                 default -> unsupportedTarget(state);
             };
@@ -53,10 +53,10 @@ public final class ReconciliationPlanner {
         };
     }
 
-    private static RelocationPlan stageSourceForPublication(RelocationState state) {
+    private static RelocationPlan migrateSourceForPublication(RelocationState state) {
         var relocation = state.relocation();
         return new RelocationPlan(relocation, RelocationOutcome.CONVERGED, List.of(
-                new ReconciliationAction.StageDirectoryForPublication(relocation.sourcePath(), relocation.targetPath(),
+                new ReconciliationAction.MigrateDirectoryForPublication(relocation.sourcePath(), relocation.targetPath(),
                         relocation.stagingRoot()),
                 new ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath(), relocation.targetPath())),
                 List.of(), Optional.empty());
@@ -72,10 +72,10 @@ public final class ReconciliationPlanner {
     private static RelocationPlan bothDirectoriesExist(RelocationState state) {
         return switch (state.relocation().whenSourceAndTargetDirectoriesExist()
                 .orElse(WhenSourceAndTargetDirectoriesExist.PROMPT)) {
-            case PROMPT -> unresolved(state, state.relocation().sourcePath(), "source and target directories require a decision");
+            case PROMPT -> unresolved(state, state.relocation().sourcePath(), "both source and target directories exist; choose which directory is authoritative");
+            case ADOPT -> adoptTarget(state);
             case LEAVE_UNCHANGED -> unchanged(state);
             case DISCARD -> discardDirectories(state);
-            case ADOPT -> adoptTarget(state);
         };
     }
 

@@ -110,7 +110,7 @@ class StatusViewTest {
         var source3 = Path.of("/home/user/.gradle");
         var target3 = Path.of("/local/home/user/.gradle");
         var rel3 = new Relocation(source3, target3, Optional.of(WhenSourceAndTargetDirectoriesExist.PROMPT), Optional.empty(), Optional.empty(), Optional.empty());
-        var conflict = new ReconciliationConflict(source3, "source and target directories require a decision",
+        var conflict = new ReconciliationConflict(source3, "both source and target directories exist; choose which directory is authoritative",
                 List.of(ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT));
         var plan3 = new RelocationPlan(rel3, RelocationOutcome.UNRESOLVED, List.of(), List.of(), Optional.of(conflict));
         var item3 = new RelocationStatusItem(rel3,
@@ -129,7 +129,9 @@ class StatusViewTest {
                 new PathObservation(PathState.DIRECTORY, Optional.empty(), SymlinkTargetAvailability.NOT_A_SYMLINK, false),
                 plan4, RelocationSourceState.FILE);
 
-        var items = List.of(item1, item2, item3, item4);
+        var items = List.of(item1, item2, item3, item4).stream()
+                .sorted(RelocationStatusItem.BY_URGENCY_AND_PATH)
+                .toList();
         var summary = StatusSummary.from(items);
         var model = new StatusModel.Configured(Path.of("/home/user/.config/homelight/homelight.yaml"), Path.of("/local/home/user"),
                 new ReconciliationPlan(List.of(plan1, plan2, plan3, plan4), List.of()), items, summary);
@@ -138,11 +140,11 @@ class StatusViewTest {
         var text0 = renderToString(model, 0, 100, 30);
 
         assertTrue(text0.contains("4 relocations"));
-        assertTrue(text0.contains("1 converged"));
+        assertTrue(text0.contains("1 in sync"));
         assertTrue(text0.contains("1 pending"));
         assertTrue(text0.contains("1 conflict"));
         assertTrue(text0.contains("1 blocked"));
-        assertTrue(text0.contains("[Converged]"));
+        assertTrue(text0.contains("[In Sync]"));
         assertTrue(text0.contains("[Pending]"));
         assertTrue(text0.contains("[Conflict]"));
         assertTrue(text0.contains("[Blocked]"));
@@ -154,9 +156,9 @@ class StatusViewTest {
         assertTrue(text0.contains("Outcome: UNRESOLVED"));
 
         // Test with selectedIndex = 1 (conflict item with custom policy)
-        var text1 = renderToString(model, 1, 120, 30);
+        var text1 = renderToString(model, 1, 200, 30);
         assertTrue(text1.contains("Conflict:"));
-        assertTrue(text1.contains("source and target directories require a decision"));
+        assertTrue(text1.contains("both source and target directories exist"));
         assertTrue(text1.contains("when-source-and-target-directories-exist: prompt"));
 
         // Test with selectedIndex = 3 (converged item)
@@ -192,11 +194,11 @@ class StatusViewTest {
         var model = new StatusModel.Configured(Path.of("/config.yaml"), Path.of("/local"),
                 new ReconciliationPlan(List.of(plan1, plan2), List.of()), items, summary);
 
-        // Render with showConverged = false
+        // Render with showInSync = false
         var text = renderToString(model, 0, false, 100, 30);
         assertTrue(text.contains("[Conflict]"));
-        assertTrue(text.contains("1 converged item hidden"));
-        assertTrue(text.contains("Toggle Converged"));
+        assertTrue(text.contains("1 in sync item hidden"));
+        assertTrue(text.contains("Toggle In Sync"));
     }
 
     @Test

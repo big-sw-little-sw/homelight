@@ -23,20 +23,34 @@ public final class PlanView {
     private PlanView() {
     }
 
-    public static Element render(PlanModel model, int selectedIndex, boolean showConverged) {
+    public static Element render(PlanModel model, int selectedIndex) {
+        return render(model, selectedIndex, true, PaneFocus.MASTER, 0);
+    }
+
+    public static Element render(PlanModel model, int selectedIndex, boolean showInSync) {
+        return render(model, selectedIndex, showInSync, PaneFocus.MASTER, 0);
+    }
+
+    public static Element render(
+            PlanModel model,
+            int selectedIndex,
+            boolean showInSync,
+            PaneFocus paneFocus,
+            int detailSelectedIndex
+    ) {
         return switch (model) {
             case PlanModel.Unconfigured unconfigured -> renderUnconfigured(unconfigured);
             case PlanModel.Invalid invalid -> renderInvalid(invalid);
-            case PlanModel.Configured configured -> renderConfigured(configured, selectedIndex, showConverged);
+            case PlanModel.Configured configured -> renderConfigured(configured, selectedIndex, showInSync, paneFocus, detailSelectedIndex);
         };
     }
 
-    public static List<PlanRelocationItem> visibleItems(PlanModel.Configured model, boolean showConverged) {
-        if (showConverged) {
+    public static List<PlanRelocationItem> visibleItems(PlanModel.Configured model, boolean showInSync) {
+        if (showInSync) {
             return model.items();
         }
         var active = model.items().stream()
-                .filter(item -> item.badge() != PlanBadge.CONVERGED && item.badge() != PlanBadge.UNCHANGED)
+                .filter(item -> item.badge() != PlanBadge.IN_SYNC)
                 .toList();
         return active.isEmpty() ? model.items() : active;
     }
@@ -70,32 +84,45 @@ public final class PlanView {
         return Toolkit.column(header, Toolkit.text(""), body, Toolkit.text(""), footer);
     }
 
-    private static Element renderConfigured(PlanModel.Configured model, int selectedIndex, boolean showConverged) {
+    private static Element renderConfigured(
+            PlanModel.Configured model,
+            int selectedIndex,
+            boolean showInSync,
+            PaneFocus paneFocus,
+            int detailSelectedIndex
+    ) {
         var header = renderHeader("2: Plan", abbreviateHome(model.configPath()), abbreviateHome(model.targetRoot()));
         var summaryBar = renderSummaryBar(model);
 
-        var visibleItems = visibleItems(model, showConverged);
+        var masterBorder = paneFocus == PaneFocus.MASTER ? Color.CYAN : Color.DARK_GRAY;
+        var detailBorder = paneFocus == PaneFocus.DETAIL ? Color.CYAN : Color.DARK_GRAY;
+
+        var visibleItems = visibleItems(model, showInSync);
         Element listPanel;
         Element detailsPanel;
 
         if (visibleItems.isEmpty()) {
-            listPanel = renderRelocationList(model, visibleItems, 0, showConverged).percent(45).fill();
+            listPanel = renderRelocationList(model, visibleItems, 0, showInSync, paneFocus, masterBorder).percent(45).fill();
             detailsPanel = Toolkit.panel("Plan Details",
                     Toolkit.column(
-                            Toolkit.text("All relocations are converged.").green().bold(),
+                            Toolkit.text("All relocations are in sync.").green().bold(),
                             Toolkit.text(""),
-                            Toolkit.text("Press 'c' to view converged relocations.").gray()
+                            Toolkit.text("Press 'c' to view in sync relocations.").gray()
                     )
-            ).fill();
+            ).borderColor(detailBorder).fill();
         } else {
             int clampedIndex = Math.clamp(selectedIndex, 0, visibleItems.size() - 1);
             var selectedItem = visibleItems.get(clampedIndex);
 
-            listPanel = renderRelocationList(model, visibleItems, clampedIndex, showConverged).percent(45).fill();
-            detailsPanel = renderRelocationDetails(selectedItem).fill();
+            listPanel = renderRelocationList(model, visibleItems, clampedIndex, showInSync, paneFocus, masterBorder).percent(45).fill();
+            detailsPanel = renderRelocationDetails(selectedItem, paneFocus, detailSelectedIndex, detailBorder).fill();
         }
 
         var mainContent = Toolkit.row(listPanel, detailsPanel).fill();
+
+        var footerText = paneFocus == PaneFocus.DETAIL
+                ? "↑/↓/j/k: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  q: Quit"
+                : "↑/↓/j/k: Select  ·  →/l: Details  ·  c: Toggle In Sync  ·  r: Refresh  ·  a: Apply  ·  1: Status  ·  q: Quit";
 
         return Toolkit.column(
                 header,
@@ -104,7 +131,7 @@ public final class PlanView {
                 Toolkit.text(""),
                 mainContent,
                 Toolkit.text(""),
-                renderFooter("↑/↓/j/k: Select  ·  Space: Resolve / Toggle  ·  r: Refresh  ·  Enter/a: Apply  ·  1: Status  ·  q: Quit")
+                renderFooter(footerText)
         );
     }
 
@@ -142,9 +169,9 @@ public final class PlanView {
 
         badges.add(Toolkit.text(summary.total() + (summary.total() == 1 ? " relocation" : " relocations")).bold());
 
-        if (summary.stage() > 0) {
+        if (summary.migrate() > 0) {
             badges.add(Toolkit.text(" · "));
-            badges.add(Toolkit.text("⚡ " + summary.stage() + " stage").cyan().bold());
+            badges.add(Toolkit.text("⚡ " + summary.migrate() + " migrate").cyan().bold());
         }
         if (summary.adopt() > 0) {
             badges.add(Toolkit.text(" · "));
@@ -162,13 +189,13 @@ public final class PlanView {
             badges.add(Toolkit.text(" · "));
             badges.add(Toolkit.text("⚡ " + summary.discard() + " discard").cyan().bold());
         }
-        if (summary.converged() > 0) {
+        if (summary.inSync() > 0) {
             badges.add(Toolkit.text(" · "));
-            badges.add(Toolkit.text("✔ " + summary.converged() + " converged").green());
+            badges.add(Toolkit.text("✔ " + summary.inSync() + " in sync").green());
         }
-        if (summary.unchanged() > 0) {
+        if (summary.skipped() > 0) {
             badges.add(Toolkit.text(" · "));
-            badges.add(Toolkit.text("— " + summary.unchanged() + " unchanged").gray());
+            badges.add(Toolkit.text("— " + summary.skipped() + " skipped").gray());
         }
         if (summary.conflicts() > 0) {
             badges.add(Toolkit.text(" · "));
@@ -194,10 +221,13 @@ public final class PlanView {
             PlanModel.Configured model,
             List<PlanRelocationItem> visibleItems,
             int selectedIndex,
-            boolean showConverged
+            boolean showInSync,
+            PaneFocus paneFocus,
+            Color borderColor
     ) {
         var listElement = new ListElement<>()
                 .title("Plan")
+                .borderColor(borderColor)
                 .scrollbar(ScrollBarPolicy.AS_NEEDED)
                 .scrollbarThumbColor(Color.CYAN)
                 .scrollbarTrackColor(Color.DARK_GRAY)
@@ -206,8 +236,8 @@ public final class PlanView {
                 .autoScroll();
 
         if (visibleItems.isEmpty()) {
-            int convergedCount = model.summary().converged() + model.summary().unchanged();
-            listElement.add(Toolkit.text("  ▶ " + convergedCount + " item" + (convergedCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray());
+            int inSyncCount = model.summary().inSync() + model.summary().skipped();
+            listElement.add(Toolkit.text("  ▶ " + inSyncCount + " in sync items hidden (press 'c' to reveal)").gray());
             return listElement;
         }
 
@@ -225,7 +255,11 @@ public final class PlanView {
 
             var prefixElement = Toolkit.text(prefix);
             if (isSelected) {
-                prefixElement = prefixElement.cyan().bold();
+                if (paneFocus == PaneFocus.MASTER) {
+                    prefixElement = prefixElement.cyan().bold();
+                } else {
+                    prefixElement = prefixElement.gray();
+                }
             }
 
             var badgeElement = Toolkit.text(badgeText + " ").fg(badgeColor);
@@ -237,23 +271,28 @@ public final class PlanView {
             listElement.add(itemRow);
         }
 
-        if (!showConverged && (model.summary().converged() + model.summary().unchanged()) > 0) {
-            int hiddenCount = model.summary().converged() + model.summary().unchanged();
-            listElement.add(Toolkit.text("  ▶ " + hiddenCount + " converged/unchanged item" + (hiddenCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray().dim());
+        if (!showInSync && model.summary().inSync() > 0) {
+            int hiddenCount = model.summary().inSync();
+            listElement.add(Toolkit.text("  ▶ " + hiddenCount + " in sync items hidden (press 'c' to reveal)").gray().dim());
         }
 
         listElement.selected(selectedIndex);
         return listElement;
     }
 
-    private static dev.tamboui.toolkit.elements.Panel renderRelocationDetails(PlanRelocationItem item) {
+    private static dev.tamboui.toolkit.elements.Panel renderRelocationDetails(
+            PlanRelocationItem item,
+            PaneFocus paneFocus,
+            int detailSelectedIndex,
+            Color borderColor
+    ) {
         var details = new ArrayList<Element>();
 
         // Paths & Status
         details.add(Toolkit.text("Relocation:").cyan().bold());
         details.add(Toolkit.text("  Source: " + item.relocation().sourcePath()));
         details.add(Toolkit.text("  Target: " + item.relocation().targetPath()));
-        details.add(Toolkit.text("  Outcome: " + item.plan().outcome().name())
+        details.add(Toolkit.text("  Action: " + item.badge().label())
                 .fg(colorForBadge(item.badge())).bold());
         details.add(Toolkit.text(""));
 
@@ -291,9 +330,11 @@ public final class PlanView {
             details.add(Toolkit.text(""));
             details.add(Toolkit.text("Diagnostics:").yellow().bold());
             for (var diagnostic : item.plan().diagnostics()) {
-                var diagElement = Toolkit.text("  [" + diagnostic.code() + "] " + diagnostic.message());
-                if (diagnostic.severity() == ReconciliationDiagnostic.Severity.ERROR) {
-                    diagElement = diagElement.red();
+                var isError = diagnostic.severity() == ReconciliationDiagnostic.Severity.ERROR;
+                var prefix = isError ? "  ✖ " : "  ⚠ ";
+                var diagElement = Toolkit.text(prefix + diagnostic.message());
+                if (isError) {
+                    diagElement = diagElement.red().bold();
                 } else {
                     diagElement = diagElement.yellow();
                 }
@@ -302,26 +343,69 @@ public final class PlanView {
         }
 
         // Conflict & Available Resolutions
-        if (item.hasConflict()) {
-            details.add(Toolkit.text(""));
-            details.add(Toolkit.text("Conflict:").yellow().bold());
-            if (item.plan().conflict().isPresent()) {
-                var conflict = item.plan().conflict().get();
-                details.add(Toolkit.text("  Reason: " + conflict.reason()).yellow());
+        if (item.hasConflict() || !item.availableResolutions().isEmpty()) {
+            if (item.hasConflict()) {
+                details.add(Toolkit.text(""));
+                details.add(Toolkit.text("Conflict:").yellow().bold());
+                if (item.plan().conflict().isPresent()) {
+                    var conflict = item.plan().conflict().get();
+                    var wrappedReason = wrapText(conflict.reason(), 45);
+                    if (!wrappedReason.isEmpty()) {
+                        details.add(Toolkit.text("  Reason: " + wrappedReason.getFirst()).yellow());
+                        for (int r = 1; r < wrappedReason.size(); r++) {
+                            details.add(Toolkit.text("          " + wrappedReason.get(r)).yellow());
+                        }
+                    }
+                }
             }
 
             if (!item.availableResolutions().isEmpty()) {
                 details.add(Toolkit.text(""));
                 details.add(Toolkit.text("Available Resolutions:").cyan().bold());
-                for (var resolution : item.availableResolutions()) {
-                    details.add(Toolkit.text("  ▶ " + resolution.label()).bold());
-                    details.add(Toolkit.text("    " + resolution.description()).gray());
+                var chosen = item.selectedResolution().orElse(null);
+                for (int i = 0; i < item.availableResolutions().size(); i++) {
+                    var resolution = item.availableResolutions().get(i);
+                    boolean isChosen = (chosen == resolution);
+                    var radio = isChosen ? "(●)" : "(○)";
+                    boolean isCursor = (paneFocus == PaneFocus.DETAIL && i == detailSelectedIndex);
+
+                    var prefixText = isCursor ? "  ❯ " : "    ";
+                    var prefixElem = Toolkit.text(prefixText);
+                    if (isCursor) {
+                        prefixElem = prefixElem.cyan().bold();
+                    }
+
+                    var radioElem = Toolkit.text(radio + " ");
+                    if (isChosen) {
+                        radioElem = radioElem.green().bold();
+                    } else if (isCursor) {
+                        radioElem = radioElem.bold();
+                    } else {
+                        radioElem = radioElem.gray();
+                    }
+
+                    var labelElem = Toolkit.text(resolution.label());
+                    if (isCursor) {
+                        labelElem = labelElem.bold();
+                    }
+
+                    var row = Toolkit.row(prefixElem, radioElem, labelElem);
+                    details.add(row);
+                    var wrappedDesc = wrapText(resolution.description(), 45);
+                    for (var line : wrappedDesc) {
+                        details.add(Toolkit.text("        " + line).gray());
+                    }
                 }
-                details.add(Toolkit.text("  (Press Space / Enter to resolve)").gray().dim());
+                if (paneFocus == PaneFocus.DETAIL) {
+                    details.add(Toolkit.text("  (Press Space / Enter to select, ← / h to return to list)").gray().dim());
+                } else {
+                    details.add(Toolkit.text("  (Press → / l to choose resolution)").gray().dim());
+                }
             }
         }
 
-        return Toolkit.panel("Plan Details", Toolkit.column(details.toArray(new Element[0])));
+        return Toolkit.panel("Plan Details", Toolkit.column(details.toArray(new Element[0])))
+                .borderColor(borderColor);
     }
 
     private static String describeAction(ReconciliationAction action) {
@@ -329,25 +413,25 @@ public final class PlanView {
             case ReconciliationAction.CreateDirectory cd -> "Create directory " + abbreviateHome(cd.path());
             case ReconciliationAction.EnsureDirectory ed -> "Ensure directory " + abbreviateHome(ed.path());
             case ReconciliationAction.CopyDirectory cp -> "Copy directory " + abbreviateHome(cp.path()) + " to " + abbreviateHome(cp.target());
-            case ReconciliationAction.StageDirectoryForPublication st -> "Stage " + abbreviateHome(st.path()) + " -> " + abbreviateHome(st.target()) + " (atomic publication)";
+            case ReconciliationAction.MigrateDirectoryForPublication st -> "Migrate " + abbreviateHome(st.path()) + " -> " + abbreviateHome(st.target()) + " (atomic publication)";
             case ReconciliationAction.ArchiveDirectory ar -> "Archive " + abbreviateHome(ar.path()) + " -> " + abbreviateHome(ar.target());
             case ReconciliationAction.DeleteDirectory dd -> "Delete directory " + abbreviateHome(dd.path());
             case ReconciliationAction.CreateSymlink cs -> "Create symlink " + abbreviateHome(cs.path()) + " -> " + abbreviateHome(cs.target());
             case ReconciliationAction.ReplaceDirectoryWithSymlink rd -> "Replace directory with symlink " + abbreviateHome(rd.path()) + " -> " + abbreviateHome(rd.target());
             case ReconciliationAction.ReplaceSymlink rs -> "Replace symlink " + abbreviateHome(rs.path()) + " -> " + abbreviateHome(rs.target());
-            case ReconciliationAction.NoOp no -> "No operation (converged) on " + abbreviateHome(no.path());
-            case ReconciliationAction.LeaveUnchanged lu -> "Leave unchanged at " + abbreviateHome(lu.path());
+            case ReconciliationAction.NoOp no -> "No operation (in sync) on " + abbreviateHome(no.path());
+            case ReconciliationAction.LeaveUnchanged lu -> "Leave unmanaged at " + abbreviateHome(lu.path());
             case ReconciliationAction.Blocked b -> "Blocked: " + b.reason();
         };
     }
 
     public static Color colorForBadge(PlanBadge badge) {
         return switch (badge) {
-            case CONVERGED -> Color.GREEN;
-            case STAGE, ADOPT, LINK, BACKUP, DISCARD -> Color.CYAN;
+            case IN_SYNC -> Color.GREEN;
+            case MIGRATE, ADOPT, LINK, BACKUP, DISCARD -> Color.CYAN;
             case CONFLICT, WARNING -> Color.YELLOW;
             case BLOCKED, INACCESSIBLE -> Color.RED;
-            case UNCHANGED -> Color.DARK_GRAY;
+            case SKIPPED -> Color.DARK_GRAY;
         };
     }
 
@@ -384,5 +468,28 @@ public final class PlanView {
         }
         int keep = (maxLength - 3) / 2;
         return path.substring(0, keep) + "..." + path.substring(path.length() - keep);
+    }
+
+    static List<String> wrapText(String text, int maxLineLength) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        var lines = new ArrayList<String>();
+        var words = text.split("\\s+");
+        var currentLine = new StringBuilder();
+        for (var word : words) {
+            if (currentLine.isEmpty()) {
+                currentLine.append(word);
+            } else if (currentLine.length() + 1 + word.length() <= maxLineLength) {
+                currentLine.append(" ").append(word);
+            } else {
+                lines.add(currentLine.toString());
+                currentLine = new StringBuilder(word);
+            }
+        }
+        if (!currentLine.isEmpty()) {
+            lines.add(currentLine.toString());
+        }
+        return lines;
     }
 }

@@ -238,6 +238,48 @@ class ApplyCommandTest {
         assertTrue(second.output().contains("\"outcome\":\"converged\""));
     }
 
+    @Test
+    void appliesWithTopLevelConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = Files.createTempFile("homelight", ".yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("--config", config.toString(), "apply", "--yes");
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isSymbolicLink(source));
+    }
+
+    @Test
+    void appliesWithTopLevelShortConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = Files.createTempFile("homelight", ".yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("-c", config.toString(), "apply", "--yes");
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isSymbolicLink(source));
+    }
+
+    @Test
+    void appliesWithSubcommandShortConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = Files.createTempFile("homelight", ".yaml");
+        Files.writeString(config, configuration(root, source, target));
+
+        var result = execute("apply", "-c", config.toString(), "--yes");
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(Files.isSymbolicLink(source));
+    }
+
     private static Result apply(String yaml) throws Exception {
         var config = Files.createTempFile("homelight", ".yaml");
         Files.writeString(config, yaml);

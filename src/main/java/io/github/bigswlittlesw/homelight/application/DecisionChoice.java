@@ -22,7 +22,7 @@ public enum DecisionChoice {
                     "when-adopting-target", "archive-source")),
 
     LEAVE_UNCHANGED(
-            "Leave source and target unchanged",
+            "Leave source and target unmanaged",
             "Leave existing source and target directories in place without managing them.",
             Map.of("when-source-and-target-directories-exist", "leave-unchanged")),
 

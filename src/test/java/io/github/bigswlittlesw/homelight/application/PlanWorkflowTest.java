@@ -59,9 +59,9 @@ class PlanWorkflowTest {
         assertEquals(1, configured.items().size());
         var item = configured.items().getFirst();
 
-        assertEquals(PlanBadge.STAGE, item.badge());
+        assertEquals(PlanBadge.MIGRATE, item.badge());
         assertEquals(RelocationOutcome.CONVERGED, item.plan().outcome());
-        assertTrue(item.plan().actions().stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance));
+        assertTrue(item.plan().actions().stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication.class::isInstance));
         assertTrue(item.plan().actions().stream().anyMatch(ReconciliationAction.ReplaceDirectoryWithSymlink.class::isInstance));
         assertTrue(item.hasDestructiveActions());
         assertFalse(item.hasConflict());
@@ -214,9 +214,9 @@ class PlanWorkflowTest {
         var configured = (PlanModel.Configured) model;
         var item = configured.items().getFirst();
 
-        assertEquals(PlanBadge.CONVERGED, item.badge());
+        assertEquals(PlanBadge.IN_SYNC, item.badge());
         assertEquals(RelocationOutcome.CONVERGED, item.plan().outcome());
-        assertEquals(1, configured.summary().converged());
+        assertEquals(1, configured.summary().inSync());
         assertEquals(0, configured.summary().destructive());
     }
 }

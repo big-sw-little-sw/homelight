@@ -5,7 +5,7 @@ import java.util.List;
 /// Summary statistics for configured relocations.
 public record StatusSummary(
         int total,
-        int converged,
+        int inSync,
         int pending,
         int conflicts,
         int blocked,
@@ -13,7 +13,7 @@ public record StatusSummary(
         int inaccessible
 ) {
     public static StatusSummary from(List<RelocationStatusItem> items) {
-        int converged = 0;
+        int inSync = 0;
         int pending = 0;
         int conflicts = 0;
         int blocked = 0;
@@ -22,15 +22,15 @@ public record StatusSummary(
 
         for (var item : items) {
             switch (item.badge()) {
-                case CONVERGED -> converged++;
+                case IN_SYNC -> inSync++;
                 case PENDING -> pending++;
                 case CONFLICT -> conflicts++;
                 case BLOCKED -> blocked++;
                 case WARNING -> warnings++;
                 case INACCESSIBLE -> inaccessible++;
-                case UNCHANGED -> { }
+                case SKIPPED -> { }
             }
         }
-        return new StatusSummary(items.size(), converged, pending, conflicts, blocked, warnings, inaccessible);
+        return new StatusSummary(items.size(), inSync, pending, conflicts, blocked, warnings, inaccessible);
     }
 }

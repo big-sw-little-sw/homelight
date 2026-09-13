@@ -22,6 +22,7 @@ class HomeLightCommandTest {
         assertTrue(output.contains("Usage: homelight"));
         assertTrue(output.contains("--help"));
         assertTrue(output.contains("--version"));
+        assertTrue(output.contains("--config"));
     }
 
     @Test
@@ -58,6 +59,14 @@ class HomeLightCommandTest {
     }
 
     @Test
+    void shouldFailClearlyWhenInvokedNonInteractivelyWithTopLevelConfig() {
+        var result = execute("--config", "/tmp/custom.yaml");
+
+        assertEquals(2, result.exitCode());
+        assertTrue(result.errorOutput().contains("HomeLight TUI requires an interactive terminal"));
+    }
+
+    @Test
     void shouldFailClearlyWhenStatusInvokedNonInteractivelyWithoutJson() {
         var result = execute("status");
 
@@ -85,6 +94,57 @@ class HomeLightCommandTest {
         Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + sourcePath + "\n      target-path: " + targetPath + "\n");
 
         var result = execute("status", "--config", config.toString(), "--json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"state\":\"correct_symlink\""));
+        assertTrue(result.output().contains("\"sourcePath\":\"" + sourcePath));
+    }
+
+    @Test
+    void statusReportsJsonFilesystemStateWithShortConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var sourcePath = root.resolve("home");
+        var targetPath = root.resolve("local");
+        Files.createDirectories(targetPath);
+        Files.createSymbolicLink(sourcePath, targetPath);
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + sourcePath + "\n      target-path: " + targetPath + "\n");
+
+        var result = execute("status", "-c", config.toString(), "--json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"state\":\"correct_symlink\""));
+        assertTrue(result.output().contains("\"sourcePath\":\"" + sourcePath));
+    }
+
+    @Test
+    void statusReportsJsonFilesystemStateWithTopLevelConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var sourcePath = root.resolve("home");
+        var targetPath = root.resolve("local");
+        Files.createDirectories(targetPath);
+        Files.createSymbolicLink(sourcePath, targetPath);
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + sourcePath + "\n      target-path: " + targetPath + "\n");
+
+        var result = execute("--config", config.toString(), "status", "--json");
+
+        assertEquals(0, result.exitCode());
+        assertTrue(result.output().contains("\"state\":\"correct_symlink\""));
+        assertTrue(result.output().contains("\"sourcePath\":\"" + sourcePath));
+    }
+
+    @Test
+    void statusReportsJsonFilesystemStateWithTopLevelShortConfigOption() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var sourcePath = root.resolve("home");
+        var targetPath = root.resolve("local");
+        Files.createDirectories(targetPath);
+        Files.createSymbolicLink(sourcePath, targetPath);
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n    - source-path: " + sourcePath + "\n      target-path: " + targetPath + "\n");
+
+        var result = execute("-c", config.toString(), "status", "--json");
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("\"state\":\"correct_symlink\""));

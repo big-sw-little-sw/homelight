@@ -6,13 +6,13 @@ public enum PlanBadge {
     BLOCKED("Blocked", 1),
     INACCESSIBLE("Inaccessible", 1),
     WARNING("Warning", 2),
-    STAGE("Stage", 3),
+    MIGRATE("Migrate", 3),
     ADOPT("Adopt", 3),
     LINK("Link", 3),
     BACKUP("Backup", 3),
     DISCARD("Discard", 3),
-    UNCHANGED("Unchanged", 4),
-    CONVERGED("Converged", 5);
+    SKIPPED("Skipped", 4),
+    IN_SYNC("In Sync", 5);
 
     private final String label;
     private final int priority;

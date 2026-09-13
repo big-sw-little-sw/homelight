@@ -38,6 +38,84 @@ class PlanCommandTest {
     }
 
     @Test
+    void rendersPlanAsJsonWithSubcommandShortConfig() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("source"));
+        var target = Files.createDirectories(root.resolve("target"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                      when-source-and-target-directories-exist: leave-unchanged
+                """.formatted(root, source, target));
+
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+
+        assertEquals(0, command.execute("plan", "-c", config.toString(), "--json"));
+        var output = out.toString();
+        assertTrue(output.contains("\"outcome\":\"unchanged\""));
+        assertTrue(output.contains("\"relocations\":["));
+        assertTrue(output.contains("\"actions\":["));
+    }
+
+    @Test
+    void rendersPlanAsJsonWithTopLevelConfig() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("source"));
+        var target = Files.createDirectories(root.resolve("target"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                      when-source-and-target-directories-exist: leave-unchanged
+                """.formatted(root, source, target));
+
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+
+        assertEquals(0, command.execute("--config", config.toString(), "plan", "--json"));
+        var output = out.toString();
+        assertTrue(output.contains("\"outcome\":\"unchanged\""));
+        assertTrue(output.contains("\"relocations\":["));
+        assertTrue(output.contains("\"actions\":["));
+    }
+
+    @Test
+    void rendersPlanAsJsonWithTopLevelShortConfig() throws Exception {
+        var root = Files.createTempDirectory("homelight");
+        var source = Files.createDirectories(root.resolve("source"));
+        var target = Files.createDirectories(root.resolve("target"));
+        var config = root.resolve("config.yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                      when-source-and-target-directories-exist: leave-unchanged
+                """.formatted(root, source, target));
+
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+
+        assertEquals(0, command.execute("-c", config.toString(), "plan", "--json"));
+        var output = out.toString();
+        assertTrue(output.contains("\"outcome\":\"unchanged\""));
+        assertTrue(output.contains("\"relocations\":["));
+        assertTrue(output.contains("\"actions\":["));
+    }
+
+    @Test
     void nonInteractivePlanWithoutJsonFailsGracefully() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("source"));

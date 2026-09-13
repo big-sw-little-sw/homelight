@@ -64,23 +64,32 @@ public class PlanWorkflow {
     }
 
     public List<DecisionChoice> availableResolutions(Relocation relocation, RelocationState state, RelocationPlan plan) {
-        if (plan.conflict().isEmpty()) {
-            return List.of();
-        }
-        var conflict = plan.conflict().get();
-        var resolutions = conflict.resolutions();
         var choices = new ArrayList<DecisionChoice>();
-
-        if (resolutions.contains(ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT)) {
-            if (state.source().state() == PathState.ABSENT && state.target().state() == PathState.DIRECTORY) {
+        if (state.source().state() == PathState.DIRECTORY && state.target().state() == PathState.DIRECTORY) {
+            choices.add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE);
+            if (relocation.sourceArchiveRoot().isPresent()) {
+                choices.add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE);
+            }
+            choices.add(DecisionChoice.LEAVE_UNCHANGED);
+            choices.add(DecisionChoice.DISCARD_BOTH);
+        } else if (state.source().state() == PathState.ABSENT && state.target().state() == PathState.DIRECTORY) {
+            if (plan.conflict().isPresent() || relocation.whenOnlyTargetExists().isPresent()) {
                 choices.add(DecisionChoice.ADOPT_TARGET);
-            } else if (state.source().state() == PathState.DIRECTORY && state.target().state() == PathState.DIRECTORY) {
-                choices.add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE);
-                if (relocation.sourceArchiveRoot().isPresent()) {
-                    choices.add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE);
+            }
+        } else if (plan.conflict().isPresent()) {
+            var conflict = plan.conflict().get();
+            var resolutions = conflict.resolutions();
+            if (resolutions.contains(ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT)) {
+                if (state.source().state() == PathState.ABSENT && state.target().state() == PathState.DIRECTORY) {
+                    choices.add(DecisionChoice.ADOPT_TARGET);
+                } else if (state.source().state() == PathState.DIRECTORY && state.target().state() == PathState.DIRECTORY) {
+                    choices.add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE);
+                    if (relocation.sourceArchiveRoot().isPresent()) {
+                        choices.add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE);
+                    }
+                    choices.add(DecisionChoice.LEAVE_UNCHANGED);
+                    choices.add(DecisionChoice.DISCARD_BOTH);
                 }
-                choices.add(DecisionChoice.LEAVE_UNCHANGED);
-                choices.add(DecisionChoice.DISCARD_BOTH);
             }
         }
         return List.copyOf(choices);

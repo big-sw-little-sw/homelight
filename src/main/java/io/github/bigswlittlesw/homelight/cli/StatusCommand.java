@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 
 import java.nio.file.Files;
@@ -14,8 +15,8 @@ import java.util.concurrent.Callable;
 
 @Command(name = "status", description = "Show the state of the configured relocations.")
 public final class StatusCommand implements Callable<Integer> {
-    @Option(names = "--config", description = "Configuration file.")
-    private Path config = ConfigurationLoader.DEFAULT_PATH;
+    @ParentCommand
+    private HomeLightCommand parent;
 
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
@@ -23,14 +24,19 @@ public final class StatusCommand implements Callable<Integer> {
     @Spec
     private CommandLine.Model.CommandSpec commandSpec;
 
+    private Path config() {
+        return parent != null ? parent.config() : ConfigurationLoader.DEFAULT_PATH;
+    }
+
     @Override
     public Integer call() {
+        var configPath = config();
         if (json) {
-            if (isMissingDefaultConfig(config)) {
-                new StatusRenderer().renderUnconfiguredJson(config, commandSpec.commandLine().getOut());
+            if (isMissingDefaultConfig(configPath)) {
+                new StatusRenderer().renderUnconfiguredJson(configPath, commandSpec.commandLine().getOut());
                 return CommandLine.ExitCode.OK;
             }
-            var configuration = new ConfigurationLoader().load(config);
+            var configuration = new ConfigurationLoader().load(configPath);
             var snapshots = configuration.relocations().stream()
                     .map(relocation -> new StatusSnapshot(relocation.sourcePath(), relocation.targetPath(),
                             new PathInspector().inspectRelocationSource(relocation.sourcePath(), relocation.targetPath())))
@@ -38,7 +44,7 @@ public final class StatusCommand implements Callable<Integer> {
             new StatusRenderer().renderJson(snapshots, commandSpec.commandLine().getOut());
             return CommandLine.ExitCode.OK;
         }
-        return TuiLauncher.launchStatus(config, commandSpec.commandLine().getErr());
+        return TuiLauncher.launchStatus(configPath, commandSpec.commandLine().getErr());
     }
 
     private static boolean isMissingDefaultConfig(Path config) {

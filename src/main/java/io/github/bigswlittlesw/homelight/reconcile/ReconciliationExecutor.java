@@ -65,7 +65,7 @@ public final class ReconciliationExecutor {
             case ReconciliationAction.CreateDirectory directory -> { createDirectory(directory); yield "completed"; }
             case ReconciliationAction.EnsureDirectory directory -> { ensureDirectory(directory); yield "completed"; }
             case ReconciliationAction.CopyDirectory copy -> { copyDirectory(copy); yield "completed"; }
-            case ReconciliationAction.StageDirectoryForPublication stage -> stageDirectoryForPublication(stage);
+            case ReconciliationAction.MigrateDirectoryForPublication migrate -> migrateDirectoryForPublication(migrate);
             case ReconciliationAction.ArchiveDirectory archive -> { archiveDirectory(archive); yield "completed"; }
             case ReconciliationAction.DeleteDirectory directory -> { deleteDirectory(directory); yield "completed"; }
             case ReconciliationAction.CreateSymlink link -> { createSymlink(link); yield "completed"; }
@@ -100,7 +100,7 @@ public final class ReconciliationExecutor {
         verifyCopy(action.path(), action.target());
     }
 
-    private String stageDirectoryForPublication(ReconciliationAction.StageDirectoryForPublication action) throws IOException {
+    private String migrateDirectoryForPublication(ReconciliationAction.MigrateDirectoryForPublication action) throws IOException {
         requireState(action.path(), PathState.DIRECTORY);
         requireState(action.target(), PathState.ABSENT);
         var targetParent = action.target().getParent();
@@ -485,7 +485,7 @@ public final class ReconciliationExecutor {
                 };
             }
             var targetPublished = actions.stream()
-                    .anyMatch(action -> action.action() instanceof ReconciliationAction.StageDirectoryForPublication
+                    .anyMatch(action -> action.action() instanceof ReconciliationAction.MigrateDirectoryForPublication
                             && action.status() == ActionStatus.COMPLETED);
             return targetPublished ? ExecutionOutcome.FAILED_RECOVERY : ExecutionOutcome.UNRESOLVED;
         }

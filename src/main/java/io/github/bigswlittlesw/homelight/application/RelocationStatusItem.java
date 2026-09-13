@@ -43,9 +43,9 @@ public record RelocationStatusItem(
             if (plan.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem)) {
                 return StatusBadge.PENDING;
             }
-            return StatusBadge.CONVERGED;
+            return StatusBadge.IN_SYNC;
         }
-        return StatusBadge.UNCHANGED;
+        return StatusBadge.SKIPPED;
     }
 
     public enum StatusBadge {
@@ -54,8 +54,8 @@ public record RelocationStatusItem(
         INACCESSIBLE("Inaccessible", 1),
         WARNING("Warning", 2),
         PENDING("Pending", 3),
-        UNCHANGED("Unchanged", 4),
-        CONVERGED("Converged", 5);
+        SKIPPED("Skipped", 4),
+        IN_SYNC("In Sync", 5);
 
         private final String label;
         private final int priority;

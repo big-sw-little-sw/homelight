@@ -25,7 +25,7 @@ class ReconciliationPlannerTest {
         var plan = plan(new Relocation(source, root.resolve("local/cache")));
 
         assertEquals(RelocationOutcome.CONVERGED, plan.relocations().getFirst().outcome());
-        assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance));
+        assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication.class::isInstance));
         assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.ReplaceDirectoryWithSymlink.class::isInstance));
         assertFalse(plan.hasBlockedActions());
     }

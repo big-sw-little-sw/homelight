@@ -19,12 +19,12 @@ import java.util.List;
 /// Declarative element builder for the HomeLight status view.
 public final class StatusView {
 
-    public static List<RelocationStatusItem> visibleItems(StatusModel.Configured model, boolean showConverged) {
-        if (showConverged) {
+    public static List<RelocationStatusItem> visibleItems(StatusModel.Configured model, boolean showInSync) {
+        if (showInSync) {
             return model.items();
         }
         return model.items().stream()
-                .filter(item -> item.badge() != RelocationStatusItem.StatusBadge.CONVERGED)
+                .filter(item -> item.badge() != RelocationStatusItem.StatusBadge.IN_SYNC)
                 .toList();
     }
 
@@ -32,11 +32,11 @@ public final class StatusView {
         return render(model, selectedIndex, true);
     }
 
-    public static Element render(StatusModel model, int selectedIndex, boolean showConverged) {
+    public static Element render(StatusModel model, int selectedIndex, boolean showInSync) {
         return switch (model) {
             case StatusModel.Unconfigured unconfigured -> renderUnconfigured(unconfigured);
             case StatusModel.Invalid invalid -> renderInvalid(invalid);
-            case StatusModel.Configured configured -> renderConfigured(configured, selectedIndex, showConverged);
+            case StatusModel.Configured configured -> renderConfigured(configured, selectedIndex, showInSync);
         };
     }
 
@@ -79,7 +79,7 @@ public final class StatusView {
         );
     }
 
-    private static Element renderConfigured(StatusModel.Configured model, int selectedIndex, boolean showConverged) {
+    private static Element renderConfigured(StatusModel.Configured model, int selectedIndex, boolean showInSync) {
         var header = renderHeader("Status", abbreviateHome(model.configPath()), abbreviateHome(model.targetRoot()));
         var summaryBar = renderSummaryBar(model);
 
@@ -95,24 +95,24 @@ public final class StatusView {
             );
         }
 
-        var visibleItems = visibleItems(model, showConverged);
+        var visibleItems = visibleItems(model, showInSync);
         Element listPanel;
         Element detailsPanel;
 
         if (visibleItems.isEmpty()) {
-            listPanel = renderRelocationList(model, visibleItems, 0, showConverged).percent(45).fill();
+            listPanel = renderRelocationList(model, visibleItems, 0, showInSync).percent(45).fill();
             detailsPanel = Toolkit.panel("Details",
                     Toolkit.column(
-                            Toolkit.text("All relocations are converged.").green().bold(),
+                            Toolkit.text("All relocations are in sync.").green().bold(),
                             Toolkit.text(""),
-                            Toolkit.text("Press 'c' or Space to view converged relocations.").gray()
+                            Toolkit.text("Press 'c' or Space to view in sync relocations.").gray()
                     )
-            ).fill();
+            ).borderColor(Color.DARK_GRAY).fill();
         } else {
             int clampedIndex = Math.clamp(selectedIndex, 0, visibleItems.size() - 1);
             var selectedItem = visibleItems.get(clampedIndex);
 
-            listPanel = renderRelocationList(model, visibleItems, clampedIndex, showConverged).percent(45).fill();
+            listPanel = renderRelocationList(model, visibleItems, clampedIndex, showInSync).percent(45).fill();
             detailsPanel = renderRelocationDetails(selectedItem).fill();
         }
 
@@ -125,7 +125,7 @@ public final class StatusView {
                 Toolkit.text(""),
                 mainContent,
                 Toolkit.text(""),
-                renderFooter("↑/↓/j/k: Select  ·  c: Toggle Converged  ·  r: Refresh  ·  2: Plan  ·  q: Quit")
+                renderFooter("↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit")
         );
     }
 
@@ -163,9 +163,9 @@ public final class StatusView {
 
         badges.add(Toolkit.text(summary.total() + (summary.total() == 1 ? " relocation" : " relocations")).bold());
 
-        if (summary.converged() > 0) {
+        if (summary.inSync() > 0) {
             badges.add(Toolkit.text(" · "));
-            badges.add(Toolkit.text("✔ " + summary.converged() + " converged").green());
+            badges.add(Toolkit.text("✔ " + summary.inSync() + " in sync").green());
         }
         if (summary.pending() > 0) {
             badges.add(Toolkit.text(" · "));
@@ -195,10 +195,11 @@ public final class StatusView {
             StatusModel.Configured model,
             List<RelocationStatusItem> visibleItems,
             int selectedIndex,
-            boolean showConverged
+            boolean showInSync
     ) {
         var listElement = new ListElement<>()
                 .title("Relocations")
+                .borderColor(Color.CYAN)
                 .scrollbar(ScrollBarPolicy.AS_NEEDED)
                 .scrollbarThumbColor(Color.CYAN)
                 .scrollbarTrackColor(Color.DARK_GRAY)
@@ -207,8 +208,8 @@ public final class StatusView {
                 .autoScroll();
 
         if (visibleItems.isEmpty()) {
-            int convergedCount = model.summary().converged();
-            listElement.add(Toolkit.text("  ▶ " + convergedCount + " converged item" + (convergedCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray());
+            int inSyncCount = model.summary().inSync();
+            listElement.add(Toolkit.text("  ▶ " + inSyncCount + " in sync item" + (inSyncCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray());
             return listElement;
         }
 
@@ -238,9 +239,9 @@ public final class StatusView {
             listElement.add(itemRow);
         }
 
-        if (!showConverged && model.summary().converged() > 0) {
-            int convergedCount = model.summary().converged();
-            listElement.add(Toolkit.text("  ▶ " + convergedCount + " converged item" + (convergedCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray().dim());
+        if (!showInSync && model.summary().inSync() > 0) {
+            int inSyncCount = model.summary().inSync();
+            listElement.add(Toolkit.text("  ▶ " + inSyncCount + " in sync item" + (inSyncCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray().dim());
         }
 
         listElement.selected(selectedIndex);
@@ -326,7 +327,8 @@ public final class StatusView {
             }
         }
 
-        return Toolkit.panel("Details", Toolkit.column(details.toArray(new Element[0])));
+        return Toolkit.panel("Details", Toolkit.column(details.toArray(new Element[0])))
+                .borderColor(Color.DARK_GRAY);
     }
 
     private static Element renderFooter(String helpText) {
@@ -335,13 +337,13 @@ public final class StatusView {
 
     private static Color colorForBadge(RelocationStatusItem.StatusBadge badge) {
         return switch (badge) {
-            case CONVERGED -> Color.GREEN;
+            case IN_SYNC -> Color.GREEN;
             case PENDING -> Color.CYAN;
             case CONFLICT -> Color.YELLOW;
             case BLOCKED -> Color.RED;
             case WARNING -> Color.YELLOW;
             case INACCESSIBLE -> Color.RED;
-            case UNCHANGED -> Color.MAGENTA;
+            case SKIPPED -> Color.MAGENTA;
         };
     }
 
@@ -367,8 +369,8 @@ public final class StatusView {
             case ReconciliationAction.ReplaceDirectoryWithSymlink replaceDir -> "Replace directory " + abbreviateHome(replaceDir.path()) + " with symlink → " + abbreviateHome(replaceDir.target());
             case ReconciliationAction.DeleteDirectory deleteDir -> "Delete directory " + abbreviateHome(deleteDir.path());
             case ReconciliationAction.ArchiveDirectory archiveDir -> "Archive directory " + abbreviateHome(archiveDir.path()) + " to " + abbreviateHome(archiveDir.target());
-            case ReconciliationAction.StageDirectoryForPublication stageDir -> "Stage directory " + abbreviateHome(stageDir.path()) + " for publication";
-            case ReconciliationAction.LeaveUnchanged leaveUnchanged -> "Leave unchanged: " + abbreviateHome(leaveUnchanged.path());
+            case ReconciliationAction.MigrateDirectoryForPublication migrateDir -> "Migrate directory " + abbreviateHome(migrateDir.path()) + " for publication";
+            case ReconciliationAction.LeaveUnchanged leaveUnchanged -> "Leave unmanaged: " + abbreviateHome(leaveUnchanged.path());
             case ReconciliationAction.Blocked blocked -> "Blocked: " + blocked.reason();
             case ReconciliationAction.CopyDirectory copyDir -> "Copy directory " + abbreviateHome(copyDir.path()) + " to " + abbreviateHome(copyDir.target());
         };

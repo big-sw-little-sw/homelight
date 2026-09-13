@@ -16,7 +16,7 @@ public sealed interface ReconciliationAction {
             case CreateDirectory _ -> "create-directory";
             case EnsureDirectory _ -> "ensure-directory";
             case CopyDirectory _ -> "copy-directory";
-            case StageDirectoryForPublication _ -> "stage-directory-for-publication";
+            case MigrateDirectoryForPublication _ -> "migrate-directory-for-publication";
             case ArchiveDirectory _ -> "archive-directory";
             case DeleteDirectory _ -> "delete-directory";
             case CreateSymlink _ -> "create-symlink";
@@ -71,10 +71,10 @@ public sealed interface ReconciliationAction {
         }
     }
 
-    /// Stages a verified source copy for target-local atomic publication.
-    record StageDirectoryForPublication(Path path, Path target, java.util.Optional<Path> stagingRoot)
+    /// Migrates a verified source copy for target-local atomic publication.
+    record MigrateDirectoryForPublication(Path path, Path target, java.util.Optional<Path> stagingRoot)
             implements ReconciliationAction {
-        public StageDirectoryForPublication(Path path, Path target) {
+        public MigrateDirectoryForPublication(Path path, Path target) {
             this(path, target, java.util.Optional.empty());
         }
 

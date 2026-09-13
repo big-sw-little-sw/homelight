@@ -16,7 +16,7 @@ final class ActionJson {
         generator.writeBooleanField("destructive", action.destructive());
         switch (action) {
             case ReconciliationAction.CopyDirectory copy -> generator.writeStringField("target", copy.target().toString());
-            case ReconciliationAction.StageDirectoryForPublication stage -> generator.writeStringField("target", stage.target().toString());
+            case ReconciliationAction.MigrateDirectoryForPublication stage -> generator.writeStringField("target", stage.target().toString());
             case ReconciliationAction.ArchiveDirectory archive -> generator.writeStringField("target", archive.target().toString());
             case ReconciliationAction.CreateSymlink link -> generator.writeStringField("target", link.target().toString());
             case ReconciliationAction.ReplaceDirectoryWithSymlink link -> generator.writeStringField("target", link.target().toString());

@@ -11,6 +11,7 @@ import dev.tamboui.tui.event.KeyEvent;
 import io.github.bigswlittlesw.homelight.application.DecisionChoice;
 import io.github.bigswlittlesw.homelight.application.HomeLightSession;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
+import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
 import io.github.bigswlittlesw.homelight.application.PlanWorkflow;
 import io.github.bigswlittlesw.homelight.application.Screen;
 import io.github.bigswlittlesw.homelight.application.StatusModel;
@@ -25,8 +26,10 @@ public final class HomeLightApp extends ToolkitApp {
     private final TuiConfig customTuiConfig;
 
     private int selectedIndex;
-    private boolean showConverged;
-    private Boolean userShowConverged;
+    private PaneFocus paneFocus = PaneFocus.MASTER;
+    private int detailSelectedIndex = 0;
+    private boolean showInSync;
+    private Boolean userShowInSync;
 
     public HomeLightApp(Path configPath) {
         this(configPath, Screen.STATUS);
@@ -51,7 +54,7 @@ public final class HomeLightApp extends ToolkitApp {
     public HomeLightApp(HomeLightSession session, TuiConfig customTuiConfig) {
         this.session = Objects.requireNonNull(session, "session");
         this.customTuiConfig = customTuiConfig;
-        syncConvergedSetting();
+        syncInSyncSetting();
     }
 
     @Override
@@ -69,8 +72,8 @@ public final class HomeLightApp extends ToolkitApp {
     @Override
     protected Element render() {
         var view = switch (session.activeScreen()) {
-            case STATUS -> StatusView.render(session.statusModel(), selectedIndex, showConverged);
-            case PLAN -> PlanView.render(session.planModel(), selectedIndex, showConverged);
+            case STATUS -> StatusView.render(session.statusModel(), selectedIndex, showInSync);
+            case PLAN -> PlanView.render(session.planModel(), selectedIndex, showInSync, paneFocus, detailSelectedIndex);
             case APPLY -> renderApplyPlaceholder();
             case CONFIG -> renderConfigPlaceholder();
         };
@@ -124,6 +127,13 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     public EventResult handleKeyEvent(KeyEvent key) {
+        if (session.activeScreen() == Screen.PLAN && paneFocus == PaneFocus.DETAIL) {
+            return handleDetailKeyEvent(key);
+        }
+        return handleMasterKeyEvent(key);
+    }
+
+    private EventResult handleMasterKeyEvent(KeyEvent key) {
         if (key.isQuit() || key.isCharIgnoreCase('q') || key.isKey(KeyCode.ESCAPE)) {
             quit();
             return EventResult.HANDLED;
@@ -140,20 +150,35 @@ public final class HomeLightApp extends ToolkitApp {
             switchScreen(Screen.PLAN);
             return EventResult.HANDLED;
         }
-        if (key.isChar('3') || key.isCharIgnoreCase('a')) {
+        if (key.isChar('3')) {
+            switchScreen(Screen.APPLY);
+            return EventResult.HANDLED;
+        }
+        if (key.isCharIgnoreCase('a')) {
+            if (session.activeScreen() == Screen.PLAN && !session.isPlanReady()) {
+                return EventResult.HANDLED;
+            }
             switchScreen(Screen.APPLY);
             return EventResult.HANDLED;
         }
         if (key.isCharIgnoreCase('c')) {
-            toggleConverged();
+            toggleInSync();
             return EventResult.HANDLED;
         }
+        boolean isTabOrRight = key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusNext() || key.isRight() || key.isCharIgnoreCase('l');
+        if (session.activeScreen() == Screen.PLAN && isTabOrRight) {
+            var item = selectedPlanItem();
+            if (item != null && !item.availableResolutions().isEmpty()) {
+                enterDetailPane(item);
+                return EventResult.HANDLED;
+            }
+        }
         if (key.isChar(' ')) {
-            handleSpace();
+            handleSpaceInMaster();
             return EventResult.HANDLED;
         }
         if (key.isKey(KeyCode.ENTER)) {
-            handleEnter();
+            handleEnterInMaster();
             return EventResult.HANDLED;
         }
         if (key.isUp() || key.isCharIgnoreCase('k')) {
@@ -175,10 +200,75 @@ public final class HomeLightApp extends ToolkitApp {
         return EventResult.UNHANDLED;
     }
 
+    private EventResult handleDetailKeyEvent(KeyEvent key) {
+        if (key.isQuit() || key.isCharIgnoreCase('q')) {
+            quit();
+            return EventResult.HANDLED;
+        }
+        boolean isBack = key.isKey(KeyCode.ESCAPE) || key.isLeft() || key.isCharIgnoreCase('h')
+                || key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusPrevious();
+        if (isBack) {
+            paneFocus = PaneFocus.MASTER;
+            return EventResult.HANDLED;
+        }
+        if (key.isCharIgnoreCase('r')) {
+            refresh();
+            return EventResult.HANDLED;
+        }
+        var item = selectedPlanItem();
+        if (item == null || item.availableResolutions().isEmpty()) {
+            paneFocus = PaneFocus.MASTER;
+            return EventResult.HANDLED;
+        }
+        int maxIndex = item.availableResolutions().size() - 1;
+        if (key.isUp() || key.isCharIgnoreCase('k')) {
+            if (detailSelectedIndex > 0) {
+                detailSelectedIndex--;
+            }
+            return EventResult.HANDLED;
+        }
+        if (key.isDown() || key.isCharIgnoreCase('j')) {
+            if (detailSelectedIndex < maxIndex) {
+                detailSelectedIndex++;
+            }
+            return EventResult.HANDLED;
+        }
+        if (key.isHome() || key.isChar('g')) {
+            detailSelectedIndex = 0;
+            return EventResult.HANDLED;
+        }
+        if (key.isEnd() || key.isChar('G')) {
+            detailSelectedIndex = maxIndex;
+            return EventResult.HANDLED;
+        }
+        if (key.isChar(' ') || key.isKey(KeyCode.ENTER)) {
+            if (detailSelectedIndex >= 0 && detailSelectedIndex <= maxIndex) {
+                var choice = item.availableResolutions().get(detailSelectedIndex);
+                var sourcePath = item.relocation().sourcePath();
+                session.resolveDecision(item.relocation(), choice);
+                restoreSelectionBySourcePath(sourcePath, choice);
+            }
+            return EventResult.HANDLED;
+        }
+        return EventResult.UNHANDLED;
+    }
+
+    private void enterDetailPane(PlanRelocationItem item) {
+        paneFocus = PaneFocus.DETAIL;
+        if (item.selectedResolution().isPresent()) {
+            int idx = item.availableResolutions().indexOf(item.selectedResolution().get());
+            detailSelectedIndex = Math.max(0, idx);
+        } else {
+            detailSelectedIndex = 0;
+        }
+    }
+
     public void switchScreen(Screen screen) {
         session.setActiveScreen(screen);
         selectedIndex = 0;
-        syncConvergedSetting();
+        paneFocus = PaneFocus.MASTER;
+        detailSelectedIndex = 0;
+        syncInSyncSetting();
     }
 
     public void refresh() {
@@ -186,24 +276,22 @@ public final class HomeLightApp extends ToolkitApp {
         clampSelectedIndex();
     }
 
-    private void handleSpace() {
+    private void handleSpaceInMaster() {
         if (session.activeScreen() == Screen.PLAN) {
             var selectedItem = selectedPlanItem();
-            if (selectedItem != null && selectedItem.hasConflict() && !selectedItem.availableResolutions().isEmpty()) {
-                session.resolveDecision(selectedItem.relocation(), selectedItem.availableResolutions().getFirst());
-                clampSelectedIndex();
+            if (selectedItem != null && !selectedItem.availableResolutions().isEmpty()) {
+                enterDetailPane(selectedItem);
                 return;
             }
         }
-        toggleConverged();
+        toggleInSync();
     }
 
-    private void handleEnter() {
+    private void handleEnterInMaster() {
         if (session.activeScreen() == Screen.PLAN) {
             var selectedItem = selectedPlanItem();
-            if (selectedItem != null && selectedItem.hasConflict() && !selectedItem.availableResolutions().isEmpty()) {
-                session.resolveDecision(selectedItem.relocation(), selectedItem.availableResolutions().getFirst());
-                clampSelectedIndex();
+            if (selectedItem != null && !selectedItem.availableResolutions().isEmpty() && selectedItem.hasConflict()) {
+                enterDetailPane(selectedItem);
                 return;
             }
             if (session.isPlanReady()) {
@@ -217,15 +305,16 @@ public final class HomeLightApp extends ToolkitApp {
         if (session.activeScreen() == Screen.PLAN) {
             var selectedItem = selectedPlanItem();
             if (selectedItem != null) {
+                var sourcePath = selectedItem.relocation().sourcePath();
                 session.resolveDecision(selectedItem.relocation(), choice);
-                clampSelectedIndex();
+                restoreSelectionBySourcePath(sourcePath, choice);
             }
         }
     }
 
     private io.github.bigswlittlesw.homelight.application.PlanRelocationItem selectedPlanItem() {
         if (session.planModel() instanceof PlanModel.Configured configured) {
-            var visible = PlanView.visibleItems(configured, showConverged);
+            var visible = PlanView.visibleItems(configured, showInSync);
             if (!visible.isEmpty() && selectedIndex >= 0 && selectedIndex < visible.size()) {
                 return visible.get(selectedIndex);
             }
@@ -233,15 +322,16 @@ public final class HomeLightApp extends ToolkitApp {
         return null;
     }
 
-    public void toggleConverged() {
-        userShowConverged = !showConverged;
-        showConverged = userShowConverged;
+    public void toggleInSync() {
+        userShowInSync = !showInSync;
+        showInSync = userShowInSync;
         clampSelectedIndex();
     }
 
     public void selectPrevious() {
         if (selectedIndex > 0) {
             selectedIndex--;
+            resetDetailSelection();
         }
     }
 
@@ -249,17 +339,30 @@ public final class HomeLightApp extends ToolkitApp {
         int maxIndex = visibleItemCount() - 1;
         if (selectedIndex < maxIndex) {
             selectedIndex++;
+            resetDetailSelection();
         }
     }
 
     public void selectFirst() {
         selectedIndex = 0;
+        resetDetailSelection();
     }
 
     public void selectLast() {
         int maxIndex = visibleItemCount() - 1;
         if (maxIndex >= 0) {
             selectedIndex = maxIndex;
+            resetDetailSelection();
+        }
+    }
+
+    private void resetDetailSelection() {
+        var item = selectedPlanItem();
+        if (item != null && item.selectedResolution().isPresent()) {
+            int idx = item.availableResolutions().indexOf(item.selectedResolution().get());
+            detailSelectedIndex = Math.max(0, idx);
+        } else {
+            detailSelectedIndex = 0;
         }
     }
 
@@ -279,21 +382,29 @@ public final class HomeLightApp extends ToolkitApp {
         return selectedIndex;
     }
 
-    public boolean showConverged() {
-        return showConverged;
+    public PaneFocus paneFocus() {
+        return paneFocus;
+    }
+
+    public int detailSelectedIndex() {
+        return detailSelectedIndex;
+    }
+
+    public boolean showInSync() {
+        return showInSync;
     }
 
     private int visibleItemCount() {
         return switch (session.activeScreen()) {
             case STATUS -> {
                 if (session.statusModel() instanceof StatusModel.Configured configured) {
-                    yield StatusView.visibleItems(configured, showConverged).size();
+                    yield StatusView.visibleItems(configured, showInSync).size();
                 }
                 yield 0;
             }
             case PLAN -> {
                 if (session.planModel() instanceof PlanModel.Configured configured) {
-                    yield PlanView.visibleItems(configured, showConverged).size();
+                    yield PlanView.visibleItems(configured, showInSync).size();
                 }
                 yield 0;
             }
@@ -301,19 +412,37 @@ public final class HomeLightApp extends ToolkitApp {
         };
     }
 
-    private void syncConvergedSetting() {
-        if (userShowConverged != null) {
-            this.showConverged = userShowConverged;
+    private void syncInSyncSetting() {
+        if (userShowInSync != null) {
+            this.showInSync = userShowInSync;
         } else {
             if (session.activeScreen() == Screen.STATUS && session.statusModel() instanceof StatusModel.Configured configured) {
-                this.showConverged = configured.summary().converged() == configured.summary().total();
+                this.showInSync = configured.summary().inSync() == configured.summary().total();
             } else if (session.activeScreen() == Screen.PLAN && session.planModel() instanceof PlanModel.Configured configured) {
-                this.showConverged = (configured.summary().converged() + configured.summary().unchanged()) == configured.summary().total();
+                this.showInSync = configured.summary().inSync() == configured.summary().total();
             } else {
-                this.showConverged = false;
+                this.showInSync = false;
             }
         }
         clampSelectedIndex();
+    }
+
+    private void restoreSelectionBySourcePath(Path sourcePath, DecisionChoice choice) {
+        if (session.planModel() instanceof PlanModel.Configured configured) {
+            var visible = PlanView.visibleItems(configured, showInSync);
+            for (int i = 0; i < visible.size(); i++) {
+                if (visible.get(i).relocation().sourcePath().equals(sourcePath)) {
+                    selectedIndex = i;
+                    var item = visible.get(i);
+                    int choiceIdx = item.availableResolutions().indexOf(choice);
+                    if (choiceIdx >= 0) {
+                        detailSelectedIndex = choiceIdx;
+                    }
+                    return;
+                }
+            }
+            clampSelectedIndex();
+        }
     }
 
     private void clampSelectedIndex() {
@@ -323,5 +452,6 @@ public final class HomeLightApp extends ToolkitApp {
         } else {
             selectedIndex = Math.clamp(selectedIndex, 0, count - 1);
         }
+        resetDetailSelection();
     }
 }

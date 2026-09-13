@@ -43,8 +43,8 @@ class StatusWorkflowTest {
         assertInstanceOf(StatusModel.Configured.class, model);
         var configured = (StatusModel.Configured) model;
         assertEquals(1, configured.items().size());
-        assertEquals(RelocationStatusItem.StatusBadge.CONVERGED, configured.items().getFirst().badge());
-        assertEquals(1, configured.summary().converged());
+        assertEquals(RelocationStatusItem.StatusBadge.IN_SYNC, configured.items().getFirst().badge());
+        assertEquals(1, configured.summary().inSync());
     }
 
     @Test
@@ -206,7 +206,7 @@ class StatusWorkflowTest {
                 || first.badge() == RelocationStatusItem.StatusBadge.CONFLICT);
         assertTrue(second.badge() == RelocationStatusItem.StatusBadge.BLOCKED
                 || second.badge() == RelocationStatusItem.StatusBadge.CONFLICT);
-        assertEquals(RelocationStatusItem.StatusBadge.CONVERGED, third.badge());
+        assertEquals(RelocationStatusItem.StatusBadge.IN_SYNC, third.badge());
     }
 
     @Test

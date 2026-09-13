@@ -82,7 +82,7 @@ final class ApplyRenderer {
                 result.append(' ');
             }
             result.append("Left ").append(skipped).append(plural((int) skipped, "relocation"))
-                    .append(" unchanged by policy.");
+                    .append(" unmanaged by policy.");
         }
         if (unchanged > 0) {
             if (!result.isEmpty()) {
@@ -98,14 +98,14 @@ final class ApplyRenderer {
         if (relocation.actions().stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured " + source + " → " + target;
         }
-        if (relocation.actions().stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance)) {
-            return "Staged publication is required before linking " + source + " to " + target;
+        if (relocation.actions().stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication.class::isInstance)) {
+            return "Migrated publication is required before linking " + source + " to " + target;
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.DeleteDirectory.class::isInstance)) {
             return "Discarded existing content and linked " + source + " → " + target;
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.LeaveUnchanged.class::isInstance)) {
-            return "Left source and target unchanged";
+            return "Left source and target unmanaged";
         }
         if (relocation.actions().stream().anyMatch(ReconciliationAction.ReplaceSymlink.class::isInstance)) {
             return "Repaired link " + source + " → " + target;

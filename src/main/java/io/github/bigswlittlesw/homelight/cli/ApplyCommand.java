@@ -8,6 +8,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
 
@@ -19,8 +20,8 @@ import java.util.concurrent.Callable;
 
 @Command(name = "apply", description = "Apply a fully resolved reconciliation plan.")
 final class ApplyCommand implements Callable<Integer> {
-    @Option(names = "--config", description = "Configuration file.")
-    private Path config = ConfigurationLoader.DEFAULT_PATH;
+    @ParentCommand
+    private HomeLightCommand parent;
 
     @Option(names = "--yes", description = "Apply without an interactive confirmation prompt.")
     private boolean yes;
@@ -38,12 +39,16 @@ final class ApplyCommand implements Callable<Integer> {
     @Spec
     private CommandSpec spec;
 
+    private Path config() {
+        return parent != null ? parent.config() : ConfigurationLoader.DEFAULT_PATH;
+    }
+
     @Override
     public Integer call() {
         if (debugStepDelayMillis < 0 || debugStepDelayMillis > 60_000) {
             throw new ParameterException(spec.commandLine(), "--debug-step-delay-ms must be between 0 and 60000");
         }
-        return render(config, json, noColor, debugStepDelayMillis, yes, System.console() != null, null,
+        return render(config(), json, noColor, debugStepDelayMillis, yes, System.console() != null, null,
                 spec.commandLine().getOut());
     }
 

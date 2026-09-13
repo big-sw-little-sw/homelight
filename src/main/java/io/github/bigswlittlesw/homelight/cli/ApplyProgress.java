@@ -104,15 +104,15 @@ final class ApplyProgress implements ReconciliationExecutor.ProgressListener {
             case ReconciliationAction.EnsureDirectory ensure -> "Ensure " + ensure.path();
             case ReconciliationAction.CreateDirectory create -> "Create " + create.path();
             case ReconciliationAction.CopyDirectory copy -> "Copy " + copy.path() + " → " + copy.target();
-            case ReconciliationAction.StageDirectoryForPublication stage ->
-                    "Stage and publish " + stage.path() + " → " + stage.target();
+            case ReconciliationAction.MigrateDirectoryForPublication migrate ->
+                    "Migrate and publish " + migrate.path() + " → " + migrate.target();
             case ReconciliationAction.ArchiveDirectory archive -> "Archive " + archive.path() + " → " + archive.target();
             case ReconciliationAction.DeleteDirectory delete -> "Discard contents at " + delete.path();
             case ReconciliationAction.CreateSymlink _ -> "Create source link";
             case ReconciliationAction.ReplaceDirectoryWithSymlink _ -> "Adopt target and replace source link";
             case ReconciliationAction.ReplaceSymlink _ -> "Replace source link";
             case ReconciliationAction.NoOp _ -> "Already configured";
-            case ReconciliationAction.LeaveUnchanged _ -> "Leave source and target unchanged";
+            case ReconciliationAction.LeaveUnchanged _ -> "Leave source and target unmanaged";
             case ReconciliationAction.Blocked blocked -> "Blocked: " + blocked.reason();
         };
     }

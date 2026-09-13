@@ -7,6 +7,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 
 import java.nio.file.Files;
@@ -17,8 +18,8 @@ import java.util.concurrent.Callable;
 
 @Command(name = "plan", description = "Show the filesystem actions required to converge configured relocations.")
 final class PlanCommand implements Callable<Integer> {
-    @Option(names = "--config", description = "Configuration file.")
-    private Path config = ConfigurationLoader.DEFAULT_PATH;
+    @ParentCommand
+    private HomeLightCommand parent;
 
     @Option(names = "--json", description = "Emit JSON.")
     private boolean json;
@@ -35,6 +36,10 @@ final class PlanCommand implements Callable<Integer> {
     @Spec
     private CommandSpec spec;
 
+    private Path config() {
+        return parent != null ? parent.config() : ConfigurationLoader.DEFAULT_PATH;
+    }
+
     @Override
     public Integer call() {
         if ((sourcePath == null) != (targetPath == null)) {
@@ -44,17 +49,18 @@ final class PlanCommand implements Callable<Integer> {
                 "homelight.relocations[0].source-path", sourcePath.toString(),
                 "homelight.relocations[0].target-path", targetPath.toString());
 
+        var configPath = config();
         if (json) {
-            if (isMissingDefaultConfig(config)) {
+            if (isMissingDefaultConfig(configPath)) {
                 new PlanRenderer().renderJson(new ReconciliationPlan(List.of(), List.of()), spec.commandLine().getOut());
                 return 0;
             }
-            var plan = new ReconciliationPlanning().plan(config, overrides);
+            var plan = new ReconciliationPlanning().plan(configPath, overrides);
             new PlanRenderer().renderJson(plan, spec.commandLine().getOut());
             return 0;
         }
 
-        return TuiLauncher.launchPlan(config, spec.commandLine().getErr());
+        return TuiLauncher.launchPlan(configPath, spec.commandLine().getErr());
     }
 
     private static boolean isMissingDefaultConfig(Path config) {

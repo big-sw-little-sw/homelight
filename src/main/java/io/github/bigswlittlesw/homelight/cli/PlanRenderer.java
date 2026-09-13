@@ -97,8 +97,8 @@ final class PlanRenderer {
                     .filter(ReconciliationAction.Blocked.class::isInstance).findFirst().orElseThrow();
             return "Blocked: " + blocked.reason();
         }
-        if (actions.stream().anyMatch(ReconciliationAction.StageDirectoryForPublication.class::isInstance)) {
-            return "Stage, verify, and atomically publish the source directory";
+        if (actions.stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication.class::isInstance)) {
+            return "Migrate, verify, and atomically publish the source directory";
         }
         if (actions.stream().anyMatch(ReconciliationAction.NoOp.class::isInstance)) {
             return "Already configured";
@@ -113,7 +113,7 @@ final class PlanRenderer {
             return "Repair the source link";
         }
         if (actions.stream().anyMatch(ReconciliationAction.LeaveUnchanged.class::isInstance)) {
-            return "Leave source and target unchanged";
+            return "Leave source and target unmanaged";
         }
         return "Create a destination directory and link";
     }

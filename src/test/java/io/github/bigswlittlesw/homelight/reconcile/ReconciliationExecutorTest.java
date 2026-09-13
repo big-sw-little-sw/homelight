@@ -70,7 +70,7 @@ class ReconciliationExecutorTest {
                     new ReconciliationExecutor.ProgressListener() {
                         @Override
                         public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
-                            if (action.action() instanceof ReconciliationAction.StageDirectoryForPublication) {
+                            if (action.action() instanceof ReconciliationAction.MigrateDirectoryForPublication) {
                                 try {
                                     Files.setPosixFilePermissions(sourceParent, Set.of(
                                             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
