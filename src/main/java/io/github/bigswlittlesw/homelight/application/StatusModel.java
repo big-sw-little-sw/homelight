@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.application;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /// State representation for the status workflow.
@@ -23,7 +24,9 @@ public sealed interface StatusModel permits StatusModel.Unconfigured, StatusMode
             StatusSummary summary
     ) implements StatusModel {
         public Configured {
-            items = List.copyOf(items);
+            var sorted = new ArrayList<>(items);
+            sorted.sort(RelocationStatusItem.BY_URGENCY_AND_PATH);
+            items = List.copyOf(sorted);
         }
     }
 

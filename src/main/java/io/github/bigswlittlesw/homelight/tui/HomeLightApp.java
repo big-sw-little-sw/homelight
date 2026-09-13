@@ -21,6 +21,8 @@ public final class HomeLightApp extends ToolkitApp {
 
     private StatusModel statusModel;
     private int selectedIndex;
+    private boolean showConverged;
+    private Boolean userShowConverged;
 
     public HomeLightApp(Path configPath) {
         this(configPath, new StatusWorkflow(), null);
@@ -47,12 +49,11 @@ public final class HomeLightApp extends ToolkitApp {
 
     @Override
     protected void onStart() {
-        setWindowTitle("HomeLight · Status");
     }
 
     @Override
     protected Element render() {
-        var view = StatusView.render(statusModel, selectedIndex);
+        var view = StatusView.render(statusModel, selectedIndex, showConverged);
         if (view instanceof Column col) {
             return col.onKeyEvent(this::handleKeyEvent).focusable();
         }
@@ -66,6 +67,10 @@ public final class HomeLightApp extends ToolkitApp {
         }
         if (key.isCharIgnoreCase('r')) {
             refresh();
+            return EventResult.HANDLED;
+        }
+        if (key.isCharIgnoreCase('c') || key.isChar(' ')) {
+            toggleConverged();
             return EventResult.HANDLED;
         }
         if (key.isUp() || key.isCharIgnoreCase('k')) {
@@ -91,6 +96,19 @@ public final class HomeLightApp extends ToolkitApp {
         refreshStatus();
     }
 
+    public void toggleConverged() {
+        userShowConverged = !showConverged;
+        showConverged = userShowConverged;
+        if (statusModel instanceof StatusModel.Configured configured) {
+            var visible = StatusView.visibleItems(configured, showConverged);
+            if (visible.isEmpty()) {
+                selectedIndex = 0;
+            } else {
+                selectedIndex = Math.clamp(selectedIndex, 0, visible.size() - 1);
+            }
+        }
+    }
+
     public void selectPrevious() {
         if (selectedIndex > 0) {
             selectedIndex--;
@@ -99,7 +117,8 @@ public final class HomeLightApp extends ToolkitApp {
 
     public void selectNext() {
         if (statusModel instanceof StatusModel.Configured configured) {
-            if (selectedIndex < configured.items().size() - 1) {
+            var visible = StatusView.visibleItems(configured, showConverged);
+            if (!visible.isEmpty() && selectedIndex < visible.size() - 1) {
                 selectedIndex++;
             }
         }
@@ -110,8 +129,11 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     public void selectLast() {
-        if (statusModel instanceof StatusModel.Configured configured && !configured.items().isEmpty()) {
-            selectedIndex = configured.items().size() - 1;
+        if (statusModel instanceof StatusModel.Configured configured) {
+            var visible = StatusView.visibleItems(configured, showConverged);
+            if (!visible.isEmpty()) {
+                selectedIndex = visible.size() - 1;
+            }
         }
     }
 
@@ -123,13 +145,23 @@ public final class HomeLightApp extends ToolkitApp {
         return selectedIndex;
     }
 
+    public boolean showConverged() {
+        return showConverged;
+    }
+
     private void refreshStatus() {
         this.statusModel = statusWorkflow.loadStatus(configPath);
         if (this.statusModel instanceof StatusModel.Configured configured) {
-            if (configured.items().isEmpty()) {
+            if (userShowConverged != null) {
+                this.showConverged = userShowConverged;
+            } else {
+                this.showConverged = configured.summary().converged() == configured.summary().total();
+            }
+            var visible = StatusView.visibleItems(configured, showConverged);
+            if (visible.isEmpty()) {
                 this.selectedIndex = 0;
             } else {
-                this.selectedIndex = Math.clamp(this.selectedIndex, 0, configured.items().size() - 1);
+                this.selectedIndex = Math.clamp(this.selectedIndex, 0, visible.size() - 1);
             }
         } else {
             this.selectedIndex = 0;

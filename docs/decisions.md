@@ -72,7 +72,7 @@ The TUI retains the exact structured plan shown during review. Immediately befor
 
 The TUI must be intentionally designed around HomeLight's relocation workflows. It will not use a generic dashboard-card composition, gratuitous gradients, excessive borders, decorative clutter, or canned interface copy. Hierarchy, typography, spacing, color, keyboard behavior, empty and failure states, and narrow-terminal behavior are part of the product contract.
 
-A runnable full-screen prototype will establish this language and verify the TamboUI lifecycle before the complete TUI workflow is implemented.
+The complete visual language, color ergonomics, progress indicators, and screen layouts are codified in [docs/tui-design.md](tui-design.md).
 
 ## 2026-09-08: Keep initial reconciliation stateless and directory-only
 

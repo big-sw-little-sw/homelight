@@ -9,6 +9,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationDiagnostic;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 
+import java.util.Comparator;
 import java.util.List;
 
 /// An evaluated relocation item combining configuration, observations, and plan.
@@ -19,6 +20,10 @@ public record RelocationStatusItem(
         RelocationPlan plan,
         RelocationSourceState sourceState
 ) {
+    public static final Comparator<RelocationStatusItem> BY_URGENCY_AND_PATH = Comparator
+            .comparingInt((RelocationStatusItem item) -> item.badge().priority())
+            .thenComparing(item -> item.relocation().sourcePath().toString());
+
     public StatusBadge badge() {
         if (sourceObservation.state() == PathState.INACCESSIBLE || targetObservation.state() == PathState.INACCESSIBLE) {
             return StatusBadge.INACCESSIBLE;
@@ -44,22 +49,28 @@ public record RelocationStatusItem(
     }
 
     public enum StatusBadge {
-        CONVERGED("Converged"),
-        PENDING("Pending"),
-        CONFLICT("Conflict"),
-        BLOCKED("Blocked"),
-        WARNING("Warning"),
-        INACCESSIBLE("Inaccessible"),
-        UNCHANGED("Unchanged");
+        CONFLICT("Conflict", 1),
+        BLOCKED("Blocked", 1),
+        INACCESSIBLE("Inaccessible", 1),
+        WARNING("Warning", 2),
+        PENDING("Pending", 3),
+        UNCHANGED("Unchanged", 4),
+        CONVERGED("Converged", 5);
 
         private final String label;
+        private final int priority;
 
-        StatusBadge(String label) {
+        StatusBadge(String label, int priority) {
             this.label = label;
+            this.priority = priority;
         }
 
         public String label() {
             return label;
+        }
+
+        public int priority() {
+            return priority;
         }
     }
 }

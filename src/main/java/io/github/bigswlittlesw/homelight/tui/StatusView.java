@@ -1,8 +1,11 @@
 package io.github.bigswlittlesw.homelight.tui;
 
 import dev.tamboui.style.Color;
+import dev.tamboui.style.Style;
 import dev.tamboui.toolkit.Toolkit;
 import dev.tamboui.toolkit.element.Element;
+import dev.tamboui.toolkit.elements.ListElement;
+import dev.tamboui.widgets.common.ScrollBarPolicy;
 import io.github.bigswlittlesw.homelight.application.RelocationStatusItem;
 import io.github.bigswlittlesw.homelight.application.StatusModel;
 import io.github.bigswlittlesw.homelight.fs.PathObservation;
@@ -16,17 +19,30 @@ import java.util.List;
 /// Declarative element builder for the HomeLight status view.
 public final class StatusView {
 
+    public static List<RelocationStatusItem> visibleItems(StatusModel.Configured model, boolean showConverged) {
+        if (showConverged) {
+            return model.items();
+        }
+        return model.items().stream()
+                .filter(item -> item.badge() != RelocationStatusItem.StatusBadge.CONVERGED)
+                .toList();
+    }
+
     public static Element render(StatusModel model, int selectedIndex) {
+        return render(model, selectedIndex, true);
+    }
+
+    public static Element render(StatusModel model, int selectedIndex, boolean showConverged) {
         return switch (model) {
             case StatusModel.Unconfigured unconfigured -> renderUnconfigured(unconfigured);
             case StatusModel.Invalid invalid -> renderInvalid(invalid);
-            case StatusModel.Configured configured -> renderConfigured(configured, selectedIndex);
+            case StatusModel.Configured configured -> renderConfigured(configured, selectedIndex, showConverged);
         };
     }
 
     private static Element renderUnconfigured(StatusModel.Unconfigured model) {
         return Toolkit.column(
-                renderHeader("Status", model.configPath().toString(), null),
+                renderHeader("Status", abbreviateHome(model.configPath()), null),
                 Toolkit.text(""),
                 Toolkit.panel("HomeLight Not Configured",
                         Toolkit.column(
@@ -46,7 +62,7 @@ public final class StatusView {
 
     private static Element renderInvalid(StatusModel.Invalid model) {
         return Toolkit.column(
-                renderHeader("Status (Configuration Error)", model.configPath().toString(), null),
+                renderHeader("Status (Configuration Error)", abbreviateHome(model.configPath()), null),
                 Toolkit.text(""),
                 Toolkit.panel("Error",
                         Toolkit.column(
@@ -63,7 +79,7 @@ public final class StatusView {
         );
     }
 
-    private static Element renderConfigured(StatusModel.Configured model, int selectedIndex) {
+    private static Element renderConfigured(StatusModel.Configured model, int selectedIndex, boolean showConverged) {
         var header = renderHeader("Status", abbreviateHome(model.configPath()), abbreviateHome(model.targetRoot()));
         var summaryBar = renderSummaryBar(model);
 
@@ -79,11 +95,26 @@ public final class StatusView {
             );
         }
 
-        int clampedIndex = Math.clamp(selectedIndex, 0, model.items().size() - 1);
-        var selectedItem = model.items().get(clampedIndex);
+        var visibleItems = visibleItems(model, showConverged);
+        Element listPanel;
+        Element detailsPanel;
 
-        var listPanel = renderRelocationList(model.items(), clampedIndex).percent(45).fill();
-        var detailsPanel = renderRelocationDetails(selectedItem).fill();
+        if (visibleItems.isEmpty()) {
+            listPanel = renderRelocationList(model, visibleItems, 0, showConverged).percent(45).fill();
+            detailsPanel = Toolkit.panel("Details",
+                    Toolkit.column(
+                            Toolkit.text("All relocations are converged.").green().bold(),
+                            Toolkit.text(""),
+                            Toolkit.text("Press 'c' or Space to view converged relocations.").gray()
+                    )
+            ).fill();
+        } else {
+            int clampedIndex = Math.clamp(selectedIndex, 0, visibleItems.size() - 1);
+            var selectedItem = visibleItems.get(clampedIndex);
+
+            listPanel = renderRelocationList(model, visibleItems, clampedIndex, showConverged).percent(45).fill();
+            detailsPanel = renderRelocationDetails(selectedItem).fill();
+        }
 
         var mainContent = Toolkit.row(listPanel, detailsPanel).fill();
 
@@ -94,21 +125,36 @@ public final class StatusView {
                 Toolkit.text(""),
                 mainContent,
                 Toolkit.text(""),
-                renderFooter("↑/↓/j/k: Select  ·  r: Refresh  ·  q: Quit")
+                renderFooter("↑/↓/j/k: Select  ·  c: Toggle Converged  ·  r: Refresh  ·  q: Quit")
         );
     }
 
-    private static Element renderHeader(String title, String configPath, String targetRoot) {
-        var titleElement = Toolkit.text("HomeLight · " + title).cyan().bold();
-        var metaElements = new ArrayList<Element>();
-        metaElements.add(Toolkit.text("Config: ").gray().dim());
-        metaElements.add(Toolkit.text(configPath).gray());
-        if (targetRoot != null) {
-            metaElements.add(Toolkit.text("   Target Root: ").gray().dim());
-            metaElements.add(Toolkit.text(targetRoot).gray());
+    private static Element renderHeader(String activeScreen, String configPath, String targetRoot) {
+        var headerElements = new ArrayList<Element>();
+
+        var brandElement = Toolkit.text("⌂ HOMELIGHT  ").cyan().bold();
+        var tab1 = activeScreen.contains("Error")
+                ? Toolkit.text("[1: Status (Error)]").red().bold()
+                : Toolkit.text("[1: Status]").cyan().bold();
+        var tab2 = Toolkit.text("  [2: Plan]").gray().dim();
+        var tab3 = Toolkit.text("  [3: Apply]").gray().dim();
+
+        var tabRow = Toolkit.row(brandElement, tab1, tab2, tab3);
+        headerElements.add(tabRow);
+
+        headerElements.add(Toolkit.row(
+                Toolkit.text("Config:      ").gray().dim(),
+                Toolkit.text(configPath).gray()
+        ));
+
+        if (targetRoot != null && !targetRoot.isBlank()) {
+            headerElements.add(Toolkit.row(
+                    Toolkit.text("Target Root: ").gray().dim(),
+                    Toolkit.text(targetRoot).gray()
+            ));
         }
-        var metaRow = Toolkit.row(metaElements.toArray(new Element[0]));
-        return Toolkit.column(titleElement, metaRow);
+
+        return Toolkit.column(headerElements.toArray(new Element[0]));
     }
 
     private static Element renderSummaryBar(StatusModel.Configured model) {
@@ -145,17 +191,35 @@ public final class StatusView {
         return Toolkit.row(badges.toArray(new Element[0]));
     }
 
-    private static dev.tamboui.toolkit.elements.Panel renderRelocationList(List<RelocationStatusItem> items, int selectedIndex) {
-        var rows = new ArrayList<Element>();
+    private static ListElement<?> renderRelocationList(
+            StatusModel.Configured model,
+            List<RelocationStatusItem> visibleItems,
+            int selectedIndex,
+            boolean showConverged
+    ) {
+        var listElement = new ListElement<>()
+                .title("Relocations")
+                .scrollbar(ScrollBarPolicy.AS_NEEDED)
+                .scrollbarThumbColor(Color.CYAN)
+                .scrollbarTrackColor(Color.DARK_GRAY)
+                .highlightSymbol("")
+                .highlightStyle(Style.EMPTY)
+                .autoScroll();
 
-        for (int i = 0; i < items.size(); i++) {
-            var item = items.get(i);
+        if (visibleItems.isEmpty()) {
+            int convergedCount = model.summary().converged();
+            listElement.add(Toolkit.text("  ▶ " + convergedCount + " converged item" + (convergedCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray());
+            return listElement;
+        }
+
+        for (int i = 0; i < visibleItems.size(); i++) {
+            var item = visibleItems.get(i);
             boolean isSelected = (i == selectedIndex);
             var prefix = isSelected ? "❯ " : "  ";
             var badgeText = "[" + item.badge().label() + "]";
             var badgeColor = colorForBadge(item.badge());
 
-            var pathElement = Toolkit.text(abbreviateHome(item.relocation().sourcePath()));
+            var pathElement = Toolkit.text(formatListPath(item.relocation().sourcePath()));
             if (isSelected) {
                 pathElement = pathElement.bold();
             }
@@ -171,10 +235,16 @@ public final class StatusView {
             }
 
             var itemRow = Toolkit.row(prefixElement, badgeElement, pathElement);
-            rows.add(itemRow);
+            listElement.add(itemRow);
         }
 
-        return Toolkit.panel("Relocations", Toolkit.column(rows.toArray(new Element[0])));
+        if (!showConverged && model.summary().converged() > 0) {
+            int convergedCount = model.summary().converged();
+            listElement.add(Toolkit.text("  ▶ " + convergedCount + " converged item" + (convergedCount == 1 ? "" : "s") + " hidden (press 'c' to reveal)").gray().dim());
+        }
+
+        listElement.selected(selectedIndex);
+        return listElement;
     }
 
     private static dev.tamboui.toolkit.elements.Panel renderRelocationDetails(RelocationStatusItem item) {
@@ -194,14 +264,26 @@ public final class StatusView {
 
         // Policies
         details.add(Toolkit.text("Configuration:").gray().bold());
-        item.relocation().whenOnlyTargetExists().ifPresent(p ->
-                details.add(Toolkit.text("  when-only-target-exists: " + p.value())));
-        item.relocation().whenSourceAndTargetDirectoriesExist().ifPresent(p ->
-                details.add(Toolkit.text("  when-source-and-target-directories-exist: " + p.value())));
-        item.relocation().whenAdoptingTarget().ifPresent(p ->
-                details.add(Toolkit.text("  when-adopting-target: " + p.value())));
-        item.relocation().sourceArchiveRoot().ifPresent(r ->
-                details.add(Toolkit.text("  source-archive-root: " + r)));
+        boolean hasCustomPolicy = false;
+        if (item.relocation().whenOnlyTargetExists().isPresent()) {
+            hasCustomPolicy = true;
+            details.add(Toolkit.text("  when-only-target-exists: " + item.relocation().whenOnlyTargetExists().get().value()));
+        }
+        if (item.relocation().whenSourceAndTargetDirectoriesExist().isPresent()) {
+            hasCustomPolicy = true;
+            details.add(Toolkit.text("  when-source-and-target-directories-exist: " + item.relocation().whenSourceAndTargetDirectoriesExist().get().value()));
+        }
+        if (item.relocation().whenAdoptingTarget().isPresent()) {
+            hasCustomPolicy = true;
+            details.add(Toolkit.text("  when-adopting-target: " + item.relocation().whenAdoptingTarget().get().value()));
+        }
+        if (item.relocation().sourceArchiveRoot().isPresent()) {
+            hasCustomPolicy = true;
+            details.add(Toolkit.text("  source-archive-root: " + item.relocation().sourceArchiveRoot().get()));
+        }
+        if (!hasCustomPolicy) {
+            details.add(Toolkit.text("  Policy: Default").gray());
+        }
         details.add(Toolkit.text(""));
 
         // Planned outcome & actions
@@ -293,6 +375,9 @@ public final class StatusView {
     }
 
     public static String abbreviateHome(Path path) {
+        if (path == null) {
+            return "";
+        }
         var userHome = System.getProperty("user.home");
         if (userHome == null || userHome.isBlank()) {
             return path.toString();
@@ -303,5 +388,24 @@ public final class StatusView {
             return "~" + normalizedPath.substring(normalizedHome.length());
         }
         return path.toString();
+    }
+
+    public static String formatListPath(Path path) {
+        return formatListPath(path, 40);
+    }
+
+    public static String formatListPath(Path path, int maxLength) {
+        var abbreviated = abbreviateHome(path);
+        return truncateMiddle(abbreviated, maxLength);
+    }
+
+    public static String truncateMiddle(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength || maxLength <= 5) {
+            return text;
+        }
+        int available = maxLength - 3;
+        int prefixLen = available / 2;
+        int suffixLen = available - prefixLen;
+        return text.substring(0, prefixLen) + "..." + text.substring(text.length() - suffixLen);
     }
 }
