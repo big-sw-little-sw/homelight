@@ -2,15 +2,16 @@ package io.github.bigswlittlesw.homelight.cli;
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
+import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Spec;
-import picocli.CommandLine.Model.CommandSpec;
 
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -42,30 +43,18 @@ final class PlanCommand implements Callable<Integer> {
         var overrides = sourcePath == null ? Map.<String, String>of() : Map.of(
                 "homelight.relocations[0].source-path", sourcePath.toString(),
                 "homelight.relocations[0].target-path", targetPath.toString());
-        return render(config, json, noColor, System.console() != null, overrides, spec.commandLine().getOut());
-    }
 
-    static int render(Path config, boolean json, Map<String, String> overrides, PrintWriter output) {
-        return render(config, json, false, overrides, output);
-    }
-
-    static int render(Path config, boolean json, boolean noColor, Map<String, String> overrides, PrintWriter output) {
-        return render(config, json, noColor, false, overrides, output);
-    }
-
-    private static int render(Path config, boolean json, boolean noColor, boolean interactive,
-            Map<String, String> overrides, PrintWriter output) {
-        if (isMissingDefaultConfig(config)) {
-            if (json) {
-                new PlanRenderer().render(new ReconciliationPlan(java.util.List.of(), java.util.List.of()), true, output);
-            } else {
-                output.println("No configuration available for planning.");
+        if (json) {
+            if (isMissingDefaultConfig(config)) {
+                new PlanRenderer().renderJson(new ReconciliationPlan(List.of(), List.of()), spec.commandLine().getOut());
+                return 0;
             }
+            var plan = new ReconciliationPlanning().plan(config, overrides);
+            new PlanRenderer().renderJson(plan, spec.commandLine().getOut());
             return 0;
         }
-        var plan = new ReconciliationPlanning().plan(config, overrides);
-        new PlanRenderer().render(plan, json, noColor, interactive, output);
-        return 0;
+
+        return TuiLauncher.launchPlan(config, spec.commandLine().getErr());
     }
 
     private static boolean isMissingDefaultConfig(Path config) {

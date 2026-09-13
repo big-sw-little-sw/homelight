@@ -125,7 +125,7 @@ public final class StatusView {
                 Toolkit.text(""),
                 mainContent,
                 Toolkit.text(""),
-                renderFooter("↑/↓/j/k: Select  ·  c: Toggle Converged  ·  r: Refresh  ·  q: Quit")
+                renderFooter("↑/↓/j/k: Select  ·  c: Toggle Converged  ·  r: Refresh  ·  2: Plan  ·  q: Quit")
         );
     }
 

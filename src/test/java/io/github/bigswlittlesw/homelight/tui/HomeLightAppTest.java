@@ -2,7 +2,14 @@ package io.github.bigswlittlesw.homelight.tui;
 
 import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.tui.event.KeyEvent;
+import io.github.bigswlittlesw.homelight.application.DecisionChoice;
+import io.github.bigswlittlesw.homelight.application.HomeLightSession;
+import io.github.bigswlittlesw.homelight.application.PlanBadge;
+import io.github.bigswlittlesw.homelight.application.PlanModel;
+import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
+import io.github.bigswlittlesw.homelight.application.PlanWorkflow;
 import io.github.bigswlittlesw.homelight.application.RelocationStatusItem;
+import io.github.bigswlittlesw.homelight.application.Screen;
 import io.github.bigswlittlesw.homelight.application.StatusModel;
 import io.github.bigswlittlesw.homelight.application.StatusSummary;
 import io.github.bigswlittlesw.homelight.application.StatusWorkflow;
@@ -17,11 +24,13 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome;
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HomeLightAppTest {
@@ -119,7 +128,7 @@ class HomeLightAppTest {
         var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
 
         // When there is an unresolved item, showConverged defaults to false
-        org.junit.jupiter.api.Assertions.assertFalse(app.showConverged());
+        assertFalse(app.showConverged());
         assertEquals(0, app.selectedIndex());
 
         // Moving down stays at 0 because only 1 active item is visible
@@ -138,7 +147,7 @@ class HomeLightAppTest {
 
         // Press SPACE to toggle showConverged back to false
         app.handleKeyEvent(KeyEvent.ofChar(' '));
-        org.junit.jupiter.api.Assertions.assertFalse(app.showConverged());
+        assertFalse(app.showConverged());
         assertEquals(0, app.selectedIndex());
     }
 
@@ -164,6 +173,57 @@ class HomeLightAppTest {
         var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
         assertTrue(app.showConverged());
         assertEquals(0, app.selectedIndex());
+    }
+
+    @Test
+    void switchesScreensViaKeys() {
+        var app = new HomeLightApp(Path.of("/nonexistent/config.yaml"));
+        assertEquals(Screen.STATUS, app.session().activeScreen());
+
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertEquals(Screen.PLAN, app.session().activeScreen());
+
+        app.handleKeyEvent(KeyEvent.ofChar('3'));
+        assertEquals(Screen.APPLY, app.session().activeScreen());
+
+        app.handleKeyEvent(KeyEvent.ofChar('1'));
+        assertEquals(Screen.STATUS, app.session().activeScreen());
+
+        app.handleKeyEvent(KeyEvent.ofChar('p'));
+        assertEquals(Screen.PLAN, app.session().activeScreen());
+
+        app.handleKeyEvent(KeyEvent.ofChar('s'));
+        assertEquals(Screen.STATUS, app.session().activeScreen());
+    }
+
+    @Test
+    void resolvesConflictOnPlanScreenWithSpaceOrEnter() throws Exception {
+        var root = Files.createTempDirectory("homelight-app-test").toRealPath();
+        var source = root.resolve("home/cache");
+        var target = Files.createDirectories(root.resolve("local/cache"));
+        Files.writeString(target.resolve("file.txt"), "target content");
+
+        var config = Files.createTempFile("homelight", ".yaml");
+        Files.writeString(config, """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, source, target));
+
+        var app = new HomeLightApp(config, Screen.PLAN);
+        assertEquals(Screen.PLAN, app.session().activeScreen());
+        assertTrue(app.session().hasConflicts());
+
+        // Press SPACE to resolve first available decision
+        app.handleKeyEvent(KeyEvent.ofChar(' '));
+        assertFalse(app.session().hasConflicts());
+        assertTrue(app.session().isPlanReady());
+
+        // Press ENTER now that plan is ready -> transitions to APPLY screen
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        assertEquals(Screen.APPLY, app.session().activeScreen());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationDiagnostic;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
@@ -13,29 +14,22 @@ final class PlanRenderer {
     private final JsonFactory jsonFactory = new JsonFactory();
 
     void render(ReconciliationPlan plan, boolean json, PrintWriter output) {
-        renderText(plan, json, false, true, output);
+        render(plan, json, false, output);
     }
 
     void render(ReconciliationPlan plan, boolean json, boolean noColor, PrintWriter output) {
-        render(plan, json, noColor, false, output);
-    }
-
-    void render(ReconciliationPlan plan, boolean json, boolean noColor, boolean interactive, PrintWriter output) {
-        if (interactive && !json && !noColor && InlinePlanView.show(plan)) {
-            return;
-        }
-        renderText(plan, json, noColor, true, output);
-    }
-
-    void renderForConfirmation(ReconciliationPlan plan, boolean noColor, PrintWriter output) {
-        renderText(plan, false, noColor, false, output);
-    }
-
-    private void renderText(ReconciliationPlan plan, boolean json, boolean noColor, boolean showApplyHint, PrintWriter output) {
         if (json) {
             output.println(toJson(plan));
             return;
         }
+        renderForConfirmation(plan, noColor, output);
+    }
+
+    void renderJson(ReconciliationPlan plan, PrintWriter output) {
+        output.println(toJson(plan));
+    }
+
+    void renderForConfirmation(ReconciliationPlan plan, boolean noColor, PrintWriter output) {
         if (plan.actions().isEmpty() && plan.diagnostics().isEmpty() && !plan.hasConflicts()) {
             output.println(new TerminalStyle(noColor).success("Plan is already up to date."));
             return;
@@ -66,9 +60,7 @@ final class PlanRenderer {
             output.println(style.error("No changes will be made until the required decisions are resolved."));
         } else {
             output.println();
-            output.println(showApplyHint
-                    ? "No changes have been made. Run `homelight apply --yes` to apply this plan."
-                    : "No changes have been made. Confirm to apply this plan.");
+            output.println("No changes have been made. Confirm to apply this plan.");
         }
     }
 
@@ -130,7 +122,7 @@ final class PlanRenderer {
         return count == 1 ? " " + noun : " " + noun + "s";
     }
 
-    private String toJson(ReconciliationPlan plan) {
+    public String toJson(ReconciliationPlan plan) {
         var json = new StringWriter();
         try (var generator = jsonFactory.createGenerator(json)) {
             generator.writeStartObject();
@@ -187,7 +179,7 @@ final class PlanRenderer {
         return json.toString();
     }
 
-    private void writeDiagnostic(com.fasterxml.jackson.core.JsonGenerator generator, ReconciliationDiagnostic diagnostic)
+    private void writeDiagnostic(JsonGenerator generator, ReconciliationDiagnostic diagnostic)
             throws IOException {
         generator.writeStartObject();
         generator.writeStringField("severity", diagnostic.severity().name().toLowerCase());
@@ -197,10 +189,9 @@ final class PlanRenderer {
         generator.writeEndObject();
     }
 
-    private void writeAction(com.fasterxml.jackson.core.JsonGenerator generator, ReconciliationAction action) throws IOException {
+    private void writeAction(JsonGenerator generator, ReconciliationAction action) throws IOException {
         generator.writeStartObject();
         ActionJson.writeFields(generator, action);
         generator.writeEndObject();
     }
-
 }

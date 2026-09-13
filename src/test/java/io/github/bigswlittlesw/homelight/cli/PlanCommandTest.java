@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import org.junit.jupiter.api.Test;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -9,23 +10,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanCommandTest {
-    @Test
-    void rendersOutcomeInTextAndJson() throws Exception {
-        var root=Files.createTempDirectory("homelight"); var source=Files.createDirectories(root.resolve("source")); var target=Files.createDirectories(root.resolve("target")); var config=root.resolve("config.yaml");
-        Files.writeString(config,"""
-        homelight:
-          target-root: %s
-          relocations:
-            - source-path: %s
-              target-path: %s
-              when-source-and-target-directories-exist: leave-unchanged
-        """.formatted(root,source,target));
-        var command=HomeLightCommand.createCommandLine(); var out=new StringWriter(); command.setOut(new PrintWriter(out,true));
-        assertEquals(0,command.execute("plan","--config",config.toString(),"--json")); assertTrue(out.toString().contains("\"outcome\":\"unchanged\""));
-    }
 
     @Test
-    void describesTargetAdoptionRatherThanDirectoryCreation() throws Exception {
+    void rendersPlanAsJson() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("source"));
         var target = Files.createDirectories(root.resolve("target"));
@@ -36,41 +23,22 @@ class PlanCommandTest {
                   relocations:
                     - source-path: %s
                       target-path: %s
-                      when-source-and-target-directories-exist: adopt
-                      when-adopting-target: discard-source
+                      when-source-and-target-directories-exist: leave-unchanged
                 """.formatted(root, source, target));
-        var command = HomeLightCommand.createCommandLine();
-        var output = new StringWriter();
-        command.setOut(new PrintWriter(output, true));
 
-        assertEquals(0, command.execute("plan", "--config", config.toString()));
-        assertTrue(output.toString().contains("Adopt the target and replace the source with a link"));
-        assertTrue(output.toString().contains("Plan outcome: converged"));
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+
+        assertEquals(0, command.execute("plan", "--config", config.toString(), "--json"));
+        var output = out.toString();
+        assertTrue(output.contains("\"outcome\":\"unchanged\""));
+        assertTrue(output.contains("\"relocations\":["));
+        assertTrue(output.contains("\"actions\":["));
     }
 
     @Test
-    void explainsStagedPublication() throws Exception {
-        var root = Files.createTempDirectory("homelight");
-        var source = Files.createDirectories(root.resolve("source"));
-        var config = root.resolve("config.yaml");
-        Files.writeString(config, """
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                """.formatted(root, source, root.resolve("target")));
-        var command = HomeLightCommand.createCommandLine();
-        var output = new StringWriter();
-        command.setOut(new PrintWriter(output, true));
-
-        assertEquals(0, command.execute("plan", "--config", config.toString()));
-        assertTrue(output.toString().contains("Stage, verify, and atomically publish the source directory"));
-        assertTrue(output.toString().contains("Plan outcome: converged"));
-    }
-
-    @Test
-    void explainsTheResultOfConfiguredDiscard() throws Exception {
+    void nonInteractivePlanWithoutJsonFailsGracefully() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("source"));
         var target = Files.createDirectories(root.resolve("target"));
@@ -81,14 +49,23 @@ class PlanCommandTest {
                   relocations:
                     - source-path: %s
                       target-path: %s
-                      when-source-and-target-directories-exist: discard
                 """.formatted(root, source, target));
-        var command = HomeLightCommand.createCommandLine();
-        var output = new StringWriter();
-        command.setOut(new PrintWriter(output, true));
 
-        assertEquals(0, command.execute("plan", "--no-color", "--config", config.toString()));
-        assertTrue(output.toString().contains(
-                "Discard configured: delete both source and target contents, then create an empty target and source link"));
+        var command = HomeLightCommand.createCommandLine();
+        var err = new StringWriter();
+        command.setErr(new PrintWriter(err, true));
+
+        assertEquals(2, command.execute("plan", "--config", config.toString()));
+        assertTrue(err.toString().contains("HomeLight TUI requires an interactive terminal. Use --json for automation."));
+    }
+
+    @Test
+    void rendersUnconfiguredPlanAsJson() {
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+
+        assertEquals(0, command.execute("plan", "--config", io.github.bigswlittlesw.homelight.config.ConfigurationLoader.DEFAULT_PATH.toString(), "--json"));
+        assertTrue(out.toString().contains("\"relocations\":[]"));
     }
 }
