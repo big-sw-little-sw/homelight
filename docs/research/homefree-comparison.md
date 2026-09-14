@@ -44,7 +44,7 @@ and `.oh/proto-tui/README.md`.
   archive `CONTEXT.md` and `.oh/proto-tui/src/model.rs`.
 - **Existing outside-home support.** An explicit target allows a source
   outside `$HOME`; the proposal's config is home-relative only. This is useful
-  groundwork, but is not yet root-independent catalog mapping. See
+  groundwork, but is not yet root-independent shared-candidate discovery. See
   [ConfigurationLoader](../../src/main/java/io/github/bigswlittlesw/homelight/config/ConfigurationLoader.java);
   archive `docs/adr/0001-config-format-and-location.md`.
 
@@ -87,9 +87,12 @@ not execute such a test.
 - **Permissions and capacity:** borrow the explicit permission checklist, but
   do not adopt the assertion that free-space checking is too expensive without
   measurements. Distinguish querying capacity from estimating source size.
-- **Corporate catalog:** the proposal explicitly excludes shared config and
-  multi-user concerns. It does not settle catalog trust, local overrides,
-  root mapping, unavailable NFS, or whether new entries become managed.
+- **Shared candidate list:** the proposal explicitly excludes shared config and
+  multi-user concerns. HomeLight's requested feature is narrower: a central list
+  of potentially bulky directories used only as discovery candidates. Users
+  explicitly select what becomes configured; shared-list changes never change
+  existing managed relocations. Root mapping, duplicate handling, and unavailable
+  NFS behavior still need specifying, not enforcement or policy precedence.
 
 Sources: archive `.oh/requirements-rough.md`,
 `docs/adr/0004-safety-check-scope.md`, and
@@ -104,9 +107,11 @@ Sources: archive `.oh/requirements-rough.md`,
    complete paths, change a choice, and reach confirmation from any pane.
 3. Slow serial apply, failure partway through, stale reviewed plan, and a
    no-change replan: distinguish execution history from the next plan.
-4. Missing config plus an optional NFS catalog: show entry provenance, an
-   outside-home source root, a duplicate local override, and unavailable NFS.
-   Decide and save the effective managed set before considering mutation.
+4. Missing config plus an optional shared candidate list on NFS: show candidate
+   provenance, sizes and states, an outside-home root, a duplicate built-in entry,
+   and unavailable NFS. Select candidates and save relocations explicitly before
+   considering mutation. Refreshing the list must not change those selections or
+   existing configured relocations.
 
 Use fixture-only UI experiments for navigation questions. Preserve the real
 executor and use temporary filesystem integration tests for safety questions.

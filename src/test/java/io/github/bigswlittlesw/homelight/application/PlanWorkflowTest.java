@@ -101,7 +101,7 @@ class PlanWorkflowTest {
         assertEquals(DecisionChoice.ADOPT_TARGET, item.availableResolutions().getFirst());
 
         // Test resolving through HomeLightSession
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         assertTrue(session.hasConflicts());
         assertFalse(session.isPlanReady());
 
@@ -139,7 +139,7 @@ class PlanWorkflowTest {
                       source-archive-root: %s
                 """.formatted(root, source, target, archiveRoot));
 
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         assertTrue(session.hasConflicts());
 
         var configured = (PlanModel.Configured) session.planModel();
@@ -178,7 +178,7 @@ class PlanWorkflowTest {
                       target-path: %s
                 """.formatted(root, source, target));
 
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         var item = ((PlanModel.Configured) session.planModel()).items().getFirst();
 
         session.resolveDecision(item.relocation(), DecisionChoice.DISCARD_BOTH);

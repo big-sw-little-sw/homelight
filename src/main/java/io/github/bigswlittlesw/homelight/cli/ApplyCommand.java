@@ -1,6 +1,9 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation;
+import io.github.bigswlittlesw.homelight.application.ApplyModel;
+import io.github.bigswlittlesw.homelight.application.ReviewedExecution;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine;
@@ -9,13 +12,25 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 
-import java.nio.file.Files;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 
 @Command(name = "apply", description = "Review and apply a fully resolved reconciliation plan.")
 final class ApplyCommand implements Callable<Integer> {
+    private final Executor worker;
+
+    ApplyCommand() {
+        this(Runnable::run);
+    }
+
+    ApplyCommand(Executor worker) {
+        this.worker = worker;
+    }
+
     @ParentCommand
     private HomeLightCommand parent;
 
@@ -39,17 +54,32 @@ final class ApplyCommand implements Callable<Integer> {
             return CommandLine.ExitCode.USAGE;
         }
         var output = spec.commandLine().getOut();
-        if (config.toAbsolutePath().normalize().equals(ConfigurationLoader.DEFAULT_PATH.toAbsolutePath().normalize())
-                && !Files.isRegularFile(config)) {
+        if (ConfigurationEvaluation.isUnconfiguredDefault(config)) {
             new ApplyRenderer().renderJson(new ReconciliationExecutor.ExecutionResult(List.of()), output);
             return 0;
         }
-        var plan = new ReconciliationPlanning().plan(config, Map.of());
+        var plan = new ConfigurationEvaluation().loadRequired(config, Map.of()).plan();
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
             new PlanRenderer().renderJson(plan, output);
             return 1;
         }
-        var result = new ReconciliationExecutor().execute(plan);
+        var execution = new ReviewedExecution(plan);
+        execution.start(worker);
+        return renderCompletion(execution, output);
+    }
+
+    static int renderCompletion(ReviewedExecution execution, PrintWriter output) {
+        try {
+            execution.awaitExecution();
+        } catch (CompletionException exception) {
+            // Completion failure must not hide evidence already published by the worker.
+            if (execution.snapshot() instanceof ApplyModel.Result result && !result.succeeded()) {
+                new ApplyRenderer().renderJson(result, output);
+                return 1;
+            }
+            throw exception;
+        }
+        var result = (ApplyModel.Result) execution.snapshot();
         new ApplyRenderer().renderJson(result, output);
         return result.succeeded() ? 0 : 1;
     }

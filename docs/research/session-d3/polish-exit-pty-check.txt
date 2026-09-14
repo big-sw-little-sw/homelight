@@ -1,0 +1,913 @@
+JAVA /Library/Java/JavaVirtualMachines/temurin-25.jdk/Contents/Home/bin/java
+
+80x24: detail pane before Escape
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-zrjv
+pdpk/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Conflict] /private/...ome/cache││❯ (○) Adopt target and create source link││
+│                                  ││Use the existing target directory as     ││
+│                                  ││authoritative and create the symlink in  ││
+│                                  ││source.                                  ││
+│                                  ││                                         ││
+│                                  ││Paths                                    █│
+│                                  ││Source:                                  █│
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd█│
+│                                  ││pk/home/cache                            █│
+│                                  ││Target:                                  █│
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Choose · Space/Enter: Select · Tab/Esc: Back · [/]: Scroll
+r: Re-plan · q: Quit
+
+80x24: Escape returns to master
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-zrjv
+pdpk/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Conflict] /private/...ome/cache││  (○) Adopt target and create source link││
+│                                  ││Use the existing target directory as     ││
+│                                  ││authoritative and create the symlink in  ││
+│                                  ││source.                                  ││
+│                                  ││                                         ││
+│                                  ││Paths                                    █│
+│                                  ││Source:                                  █│
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd█│
+│                                  ││pk/home/cache                            █│
+│                                  ││Target:                                  █│
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+r: Re-plan · q: Quit
+
+80x24: Ctrl-C and q open safe default; Escape cancels
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-zrjv
+pdpk/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/2 actions completed
+Mutations: 0 completed · 0 failed · 1 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions──────────────────┐┌Action details────────────────────────────┐
+│/private/var/fol...pdpk/home/cache││Ensure parent directory                  █│
+│❯ ⠧ Ensure parent directory       ││Running                                  ││
+│  ○ Create source link            ││Parent directory:                        ││
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl││
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details · [/]: Scroll
+q: Quit options
+┌Quit HomeLight?───────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                      │
+│Results are session-local and won't remain available after exit.              │
+│❯ Keep running                                                                │
+│  Exit when execution finishes                                                │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+80x24: completion leaves the dialog and selection intact
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-zrjv
+pdpk/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions──────────────────┐┌Action details────────────────────────────┐
+│/private/var/fol...pdpk/home/cache││Create source link                       █│
+│  ✔ Ensure parent directory       ││completed                                █│
+│❯ ✔ Create source link            ││Link at:                                 ││
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl││
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-zrjvpd││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details · [/]: Scroll
+1/Enter: Workspace · r: Re-plan · q: Quit
+┌Quit HomeLight?───────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                      │
+│Results are session-local and won't remain available after exit.              │
+│❯ Keep running                                                                │
+│  Exit when execution finishes                                                │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+80x24: Keep running retains results; result Escape does nothing
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-zrjv
+pdpk/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions──────────────────┐┌Action details────────────────────────────┐
+│/private/var/fol...pdpk/home/cache││Create source link                        │
+│  ✔ Ensure parent directory       ││completed                                 │
+│❯ ✔ Create source link            ││Link at:                                  │
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl4│
+│                                  ││4jby4h0000gn/T/homelight-exit-pty-zrjvpdpk│
+│                                  ││/home/cache                               │
+│                                  ││Link to:                                  │
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl4│
+│                                  ││4jby4h0000gn/T/homelight-exit-pty-zrjvpdpk│
+│                                  ││/local/cache                              │
+│                                  ││                                          │
+│                                  ││                                          │
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+1/Enter: Workspace · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+80x24: deferred exit during success fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-k_s_
+cq5a/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/4 actions completed
+Mutations: 0 completed · 0 failed · 3 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions──────────────────┐┌Action details────────────────────────────┐
+│/private/var/fol...cq5a/home/cache││Ensure parent directory                  █│
+│❯ ⠇ Ensure parent directory       ││Running                                  █│
+│  ○ Create directory              ││Parent directory:                        █│
+│  ○ Ensure parent directory       ││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│  ○ Create source link            ││44jby4h0000gn/T/homelight-exit-pty-k_s_cq█│
+│                                  ││5a/local                                 █│
+│                                  ││Source:                                  █│
+│                                  ││/private/var/folders/6w/52q5tjyd6s7dh19nl││
+│                                  ││44jby4h0000gn/T/homelight-exit-pty-k_s_cq││
+│                                  ││5a/home/cache                            ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details · [/]: Scroll
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: all operations finished without interruption
+
+80x24: deferred exit during partial failure fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-yxus
+liuo/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/10 actions completed
+Mutations: 0 completed · 0 failed · 9 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions──────────────────┐┌Action details────────────────────────────┐
+│/private/var/fo...liuo/home/first█││Ensure parent directory                  █│
+│❯ ⠇ Ensure parent directory      █││Running                                  █│
+│  ○ Create directory             █││Parent directory:                        █│
+│  ○ Ensure parent directory      █││/private/var/folders/6w/52q5tjyd6s7dh19nl█│
+│  ○ Create source link           █││44jby4h0000gn/T/homelight-exit-pty-yxusli█│
+│/private/var/fo...iuo/home/second█││uo/local                                 █│
+│  ○ Copy, verify and publish     █││Source:                                  █│
+│  ○ Replace directory with link ⚠█││/private/var/folders/6w/52q5tjyd6s7dh19nl││
+│/private/var/fo...liuo/home/third│││44jby4h0000gn/T/homelight-exit-pty-yxusli││
+│  ○ Ensure parent directory      │││uo/home/first                            ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details · [/]: Scroll
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: completed first relocation; failed migration preserved payload; third not run
+
+80x24: missing configuration: Escape does nothing in Status and Plan
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+┌Configuration─────────────────────────────────────────────────────────────────┐
+│Config:                                                                       │
+│/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-bj8xi18v/m│
+│issing.yaml                                                                   │
+│Configuration file does not exist:                                            │
+│/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-bj8xi18v/m│
+│issing.yaml                                                                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Tab/l: Details
+r: Reload · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: detail pane before Escape
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-cynlx6lj/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Conflict] /private/var/folde...ynlx6lj/home/cache││Current: Source Absent; target Empty directory.                 │
+│                                                    ││Saved policy: Ask before adopting the existing target.          │
+│                                                    ││Draft (not saved): None; using saved policy                     │
+│                                                    ││Expected outcome: Choose a decision to see planned changes.     │
+│                                                    ││                                                                │
+│                                                    ││❯ (○) Adopt target and create source link                       │
+│                                                    ││Use the existing target directory as authoritative and create   │
+│                                                    ││the symlink in source.                                          │
+│                                                    ││                                                                │
+│                                                    ││Paths                                                           │
+│                                                    ││Source:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home/cache                                 │
+│                                                    ││Target:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Choose · Space/Enter: Select · Tab/Esc: Back
+r: Re-plan · q: Quit
+
+120x30: Escape returns to master
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-cynlx6lj/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Conflict] /private/var/folde...ynlx6lj/home/cache││Current: Source Absent; target Empty directory.                 │
+│                                                    ││Saved policy: Ask before adopting the existing target.          │
+│                                                    ││Draft (not saved): None; using saved policy                     │
+│                                                    ││Expected outcome: Choose a decision to see planned changes.     │
+│                                                    ││                                                                │
+│                                                    ││  (○) Adopt target and create source link                       │
+│                                                    ││Use the existing target directory as authoritative and create   │
+│                                                    ││the symlink in source.                                          │
+│                                                    ││                                                                │
+│                                                    ││Paths                                                           │
+│                                                    ││Source:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home/cache                                 │
+│                                                    ││Target:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Select · Tab/l: Details · c: In sync
+r: Re-plan · q: Quit
+
+120x30: Ctrl-C and q open safe default; Escape cancels
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-cynlx6lj/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/2 actions completed
+Mutations: 0 completed · 0 failed · 1 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────┐┌Action details──────────────────────────────────────────────────┐
+│/private/var/folders/6w/5...-pty-cynlx6lj/home/cache││Ensure parent directory                                         │
+│❯ ⠇ Ensure parent directory                         ││Running                                                         │
+│  ○ Create source link                              ││Parent directory:                                               │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home                                       │
+│                                                    ││Source:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home/cache                                 │
+│                                                    ││Target:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+┌Quit HomeLight?───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                                                              │
+│Results are session-local and won't remain available after exit.                                                      │
+│❯ Keep running                                                                                                        │
+│  Exit when execution finishes                                                                                        │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+120x30: completion leaves the dialog and selection intact
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-cynlx6lj/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────┐┌Action details──────────────────────────────────────────────────┐
+│/private/var/folders/6w/5...-pty-cynlx6lj/home/cache││Create source link                                              │
+│  ✔ Ensure parent directory                         ││completed                                                       │
+│❯ ✔ Create source link                              ││Link at:                                                        │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home/cache                                 │
+│                                                    ││Link to:                                                        │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+1/Enter: Workspace · r: Re-plan · q: Quit
+┌Quit HomeLight?───────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                                                              │
+│Results are session-local and won't remain available after exit.                                                      │
+│❯ Keep running                                                                                                        │
+│  Exit when execution finishes                                                                                        │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+120x30: Keep running retains results; result Escape does nothing
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-cynlx6lj/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────┐┌Action details──────────────────────────────────────────────────┐
+│/private/var/folders/6w/5...-pty-cynlx6lj/home/cache││Create source link                                              │
+│  ✔ Ensure parent directory                         ││completed                                                       │
+│❯ ✔ Create source link                              ││Link at:                                                        │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/home/cache                                 │
+│                                                    ││Link to:                                                        │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-cynlx6lj/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+1/Enter: Workspace · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: deferred exit during success fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-adk3k_jc/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/4 actions completed
+Mutations: 0 completed · 0 failed · 3 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────┐┌Action details──────────────────────────────────────────────────┐
+│/private/var/folders/6w/5...-pty-adk3k_jc/home/cache││Ensure parent directory                                         │
+│❯ ⠇ Ensure parent directory                         ││Running                                                         │
+│  ○ Create directory                                ││Parent directory:                                               │
+│  ○ Ensure parent directory                         ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│  ○ Create source link                              ││ht-exit-pty-adk3k_jc/local                                      │
+│                                                    ││Source:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-adk3k_jc/home/cache                                 │
+│                                                    ││Target:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-exit-pty-adk3k_jc/local/cache                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: all operations finished without interruption
+
+120x30: deferred exit during partial failure fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-5nse31u4/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/10 actions completed
+Mutations: 0 completed · 0 failed · 9 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────┐┌Action details──────────────────────────────────────────────────┐
+│/private/var/folders/6w/5...-pty-5nse31u4/home/first││Ensure parent directory                                         │
+│❯ ⠧ Ensure parent directory                         ││Running                                                         │
+│  ○ Create directory                                ││Parent directory:                                               │
+│  ○ Ensure parent directory                         ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│  ○ Create source link                              ││ht-exit-pty-5nse31u4/local                                      │
+│/private/var/folders/6w/5...pty-5nse31u4/home/second││Source:                                                         │
+│  ○ Copy, verify and publish                        ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│  ○ Replace directory with link ⚠                   ││ht-exit-pty-5nse31u4/home/first                                 │
+│/private/var/folders/6w/5...-pty-5nse31u4/home/third││Target:                                                         │
+│  ○ Ensure parent directory                         ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│  ○ Create directory                                ││ht-exit-pty-5nse31u4/local/first                                │
+│  ○ Ensure parent directory                         ││                                                                │
+│  ○ Create source link                              ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: completed first relocation; failed migration preserved payload; third not run
+
+120x30: missing configuration: Escape does nothing in Status and Plan
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+┌Configuration─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Config: /var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-bm51_qhf/missing.yaml                     │
+│Configuration file does not exist:                                                                                    │
+│/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-bm51_qhf/missing.yaml                             │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Tab/l: Details
+r: Reload · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+200x50: detail pane before Escape
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations─────────────────────────────────────────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] /private/var/folders/6w/52q5tjyd6s7d...melight-exit-pty-2qjvo0o2/home/cache││Current: Source Absent; target Empty directory.                                                             │
+│                                                                                        ││Saved policy: Ask before adopting the existing target.                                                      │
+│                                                                                        ││Draft (not saved): None; using saved policy                                                                 │
+│                                                                                        ││Expected outcome: Choose a decision to see planned changes.                                                 │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││❯ (○) Adopt target and create source link                                                                   │
+│                                                                                        ││Use the existing target directory as authoritative and create the symlink in source.                        │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││Paths                                                                                                       │
+│                                                                                        ││Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home/cache     │
+│                                                                                        ││Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/local/cache    │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Choose · Space/Enter: Select · Tab/Esc: Back
+r: Re-plan · q: Quit
+
+200x50: Escape returns to master
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/config.yaml
+1 relocations · ⚡ 0 actionable · ⚠ 1 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations─────────────────────────────────────────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] /private/var/folders/6w/52q5tjyd6s7d...melight-exit-pty-2qjvo0o2/home/cache││Current: Source Absent; target Empty directory.                                                             │
+│                                                                                        ││Saved policy: Ask before adopting the existing target.                                                      │
+│                                                                                        ││Draft (not saved): None; using saved policy                                                                 │
+│                                                                                        ││Expected outcome: Choose a decision to see planned changes.                                                 │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││  (○) Adopt target and create source link                                                                   │
+│                                                                                        ││Use the existing target directory as authoritative and create the symlink in source.                        │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││Paths                                                                                                       │
+│                                                                                        ││Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home/cache     │
+│                                                                                        ││Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/local/cache    │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Review unavailable: choose a decision for each conflict.
+↑/↓: Select · Tab/l: Details · c: In sync
+r: Re-plan · q: Quit
+
+200x50: Ctrl-C and q open safe default; Escape cancels
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/2 actions completed
+Mutations: 0 completed · 0 failed · 1 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────────────────────────────────────────┐┌Action details──────────────────────────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-2qjvo0o2/home/cache││Ensure parent directory                                                                                     │
+│❯ ⠧ Ensure parent directory                                                             ││Running                                                                                                     │
+│  ○ Create source link                                                                  ││Parent directory: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home │
+│                                                                                        ││Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home/cache     │
+│                                                                                        ││Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/local/cache    │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+┌Quit HomeLight?───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                                                                                                                                              │
+│Results are session-local and won't remain available after exit.                                                                                                                                      │
+│❯ Keep running                                                                                                                                                                                        │
+│  Exit when execution finishes                                                                                                                                                                        │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                                                                                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+200x50: completion leaves the dialog and selection intact
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────────────────────────────────────────┐┌Action details──────────────────────────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-2qjvo0o2/home/cache││Create source link                                                                                          │
+│  ✔ Ensure parent directory                                                             ││completed                                                                                                   │
+│❯ ✔ Create source link                                                                  ││Link at: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home/cache    │
+│                                                                                        ││Link to: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/local/cache   │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+1/Enter: Workspace · r: Re-plan · q: Quit
+┌Quit HomeLight?───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Filesystem operations will finish, including on failure.                                                                                                                                              │
+│Results are session-local and won't remain available after exit.                                                                                                                                      │
+│❯ Keep running                                                                                                                                                                                        │
+│  Exit when execution finishes                                                                                                                                                                        │
+│↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel                                                                                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+200x50: Keep running retains results; result Escape does nothing
+⌂ HOMELIGHT  [1: Workspace]  [2: Results]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/config.yaml
+Application complete. Observations refreshed. Results retained.
+[████████████████████] 2/2 actions completed
+Mutations: 2 completed · 0 failed · 0 not run · 0 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────────────────────────────────────────┐┌Action details──────────────────────────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-2qjvo0o2/home/cache││Create source link                                                                                          │
+│  ✔ Ensure parent directory                                                             ││completed                                                                                                   │
+│❯ ✔ Create source link                                                                  ││Link at: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/home/cache    │
+│                                                                                        ││Link to: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-2qjvo0o2/local/cache   │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+1/Enter: Workspace · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+200x50: deferred exit during success fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-r79op9x0/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/4 actions completed
+Mutations: 0 completed · 0 failed · 3 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────────────────────────────────────────┐┌Action details──────────────────────────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-r79op9x0/home/cache││Ensure parent directory                                                                                     │
+│❯ ⠇ Ensure parent directory                                                             ││Running                                                                                                     │
+│  ○ Create directory                                                                    ││Parent directory: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-r79op9x0/local│
+│  ○ Ensure parent directory                                                             ││Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-r79op9x0/home/cache     │
+│  ○ Create source link                                                                  ││Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-r79op9x0/local/cache    │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: all operations finished without interruption
+
+200x50: deferred exit during partial failure fixture
+⌂ HOMELIGHT  [Workspace unavailable]  [Applying]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-ge3rsoxx/config.yaml
+Applying reviewed plan. Wait for execution to finish.
+[░░░░░░░░░░░░░░░░░░░░] 0/10 actions completed
+Mutations: 0 completed · 0 failed · 9 pending · 1 running
+No change: 0 in sync · 0 intentionally unchanged
+┌Reviewed actions────────────────────────────────────────────────────────────────────────┐┌Action details──────────────────────────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-ge3rsoxx/home/first││Ensure parent directory                                                                                     │
+│❯ ⠇ Ensure parent directory                                                             ││Running                                                                                                     │
+│  ○ Create directory                                                                    ││Parent directory: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-ge3rsoxx/local│
+│  ○ Ensure parent directory                                                             ││Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-ge3rsoxx/home/first     │
+│  ○ Create source link                                                                  ││Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-ge3rsoxx/local/first    │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44.../T/homelight-exit-pty-ge3rsoxx/home/second││                                                                                                            │
+│  ○ Copy, verify and publish                                                            ││                                                                                                            │
+│  ○ Replace directory with link ⚠                                                       ││                                                                                                            │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44...n/T/homelight-exit-pty-ge3rsoxx/home/third││                                                                                                            │
+│  ○ Ensure parent directory                                                             ││                                                                                                            │
+│  ○ Create directory                                                                    ││                                                                                                            │
+│  ○ Ensure parent directory                                                             ││                                                                                                            │
+│  ○ Create source link                                                                  ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+│                                                                                        ││                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Inspect · Tab/l: Details
+q: Quit options
+Will exit after execution settles, including failure.
+Session-local results won't remain available after exit.
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+PASS: completed first relocation; failed migration preserved payload; third not run
+
+200x50: missing configuration: Escape does nothing in Status and Plan
+⌂ HOMELIGHT  [1: Workspace]  [Review unavailable]
+┌Configuration─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Config: /var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-xglgd735/missing.yaml                                                                                                     │
+│Configuration file does not exist: /var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-exit-pty-xglgd735/missing.yaml                                                                          │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Tab/l: Details
+r: Reload · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+PASS: all twelve real PTY sessions

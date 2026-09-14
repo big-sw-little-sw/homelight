@@ -1,96 +1,72 @@
 package io.github.bigswlittlesw.homelight.tui;
 
 import dev.tamboui.toolkit.Toolkit;
-import dev.tamboui.toolkit.app.ToolkitApp;
 import dev.tamboui.toolkit.element.Element;
-import dev.tamboui.toolkit.elements.Column;
 import dev.tamboui.toolkit.event.EventResult;
 import dev.tamboui.tui.TuiConfig;
 import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.tui.event.KeyEvent;
-import io.github.bigswlittlesw.homelight.application.DecisionChoice;
 import io.github.bigswlittlesw.homelight.application.ApplyModel;
+import io.github.bigswlittlesw.homelight.application.DecisionChoice;
 import io.github.bigswlittlesw.homelight.application.HomeLightSession;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
-import io.github.bigswlittlesw.homelight.application.PlanWorkflow;
-import io.github.bigswlittlesw.homelight.application.Screen;
-import io.github.bigswlittlesw.homelight.application.StatusModel;
-import io.github.bigswlittlesw.homelight.application.StatusWorkflow;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
-
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 
-/// Full-screen TamboUI application for HomeLight interactive terminal workflows.
-public final class HomeLightApp extends ToolkitApp {
+/// Owns navigation and inspection; the session owns decisions and guarded execution.
+public final class HomeLightApp {
     private final HomeLightSession session;
     private final TuiConfig customTuiConfig;
-
+    private Screen activeScreen = Screen.WORKSPACE;
     private int selectedIndex;
+    private int actionIndex;
+    private Path reviewedSource;
     private PaneFocus paneFocus = PaneFocus.MASTER;
-    private int detailSelectedIndex = 0;
+    private PaneFocus actionFocus = PaneFocus.MASTER;
+    private int detailSelectedIndex;
     private boolean showInSync;
     private Boolean userShowInSync;
     private int spinnerFrame;
     private ReconciliationAction followedAction;
     private ApplyModel.Result displayedResult;
+    private final DetailViewport workspaceDetails = new DetailViewport();
+    private final DetailViewport actionDetails = new DetailViewport();
+    private ExitIntent exitIntent = ExitIntent.STAY;
+    private enum ExitIntent { STAY, CONFIRM_KEEP, CONFIRM_EXIT, AFTER_EXECUTION, EXIT }
 
-    public HomeLightApp(Path configPath) {
-        this(configPath, Screen.STATUS);
-    }
-
-    public HomeLightApp(Path configPath, Screen initialScreen) {
-        this(new HomeLightSession(configPath, initialScreen), null);
-    }
-
-    public HomeLightApp(Path configPath, StatusWorkflow statusWorkflow) {
-        this(new HomeLightSession(configPath, Screen.STATUS, statusWorkflow, new PlanWorkflow(), new io.github.bigswlittlesw.homelight.config.ConfigurationLoader()), null);
-    }
-
-    public HomeLightApp(Path configPath, PlanWorkflow planWorkflow) {
-        this(new HomeLightSession(configPath, Screen.PLAN, new StatusWorkflow(), planWorkflow, new io.github.bigswlittlesw.homelight.config.ConfigurationLoader()), null);
-    }
-
-    public HomeLightApp(HomeLightSession session) {
-        this(session, null);
-    }
-
+    public HomeLightApp(Path configPath) { this(new HomeLightSession(configPath)); }
+    public HomeLightApp(HomeLightSession session) { this(session, null); }
     public HomeLightApp(HomeLightSession session, TuiConfig customTuiConfig) {
-        this.session = Objects.requireNonNull(session, "session");
+        this.session = Objects.requireNonNull(session);
         this.customTuiConfig = customTuiConfig;
         syncInSyncSetting();
     }
+    protected TuiConfig configure() { return customTuiConfig == null ? TuiConfig.defaults() : customTuiConfig; }
+    public void run() throws Exception { TuiLauncher.run(this); }
+    boolean exitRequested() { return exitIntent == ExitIntent.EXIT; }
+    Screen activeScreen() { return activeScreen; }
 
-    @Override
-    protected TuiConfig configure() {
-        if (customTuiConfig != null) {
-            return customTuiConfig;
-        }
-        return super.configure();
-    }
-
-    @Override
-    protected void onStart() {
-    }
-
-    @Override
-    protected void onStop() {
-        session.awaitExecution();
-    }
-
-    @Override
     protected Element render() {
-        var view = switch (session.activeScreen()) {
-            case STATUS -> StatusView.render(session.statusModel(), selectedIndex, showInSync);
-            case PLAN -> PlanView.render(session.planModel(), selectedIndex, showInSync, paneFocus, detailSelectedIndex);
-            case APPLY -> renderApply();
-            case CONFIG -> renderConfigPlaceholder();
-        };
-        if (view instanceof Column col) {
-            return col.id("homelight-screen").onKeyEvent(this::handleKeyEvent).focusable();
+        settleDeferredExit();
+        var view = activeScreen == Screen.APPLY ? renderApply()
+                : WorkspaceView.render(session, selectedIndex, showInSync, paneFocus, detailSelectedIndex, workspaceDetails);
+        var content = view instanceof dev.tamboui.toolkit.elements.Column column ? column.fill() : Toolkit.column(view).fill();
+        if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) {
+            content = Toolkit.column(content, Toolkit.panel("Quit HomeLight?", Toolkit.column(
+                    Toolkit.text("Filesystem operations will finish, including on failure."),
+                    Toolkit.text("Results are session-local and won't remain available after exit."),
+                    Toolkit.text((exitIntent == ExitIntent.CONFIRM_KEEP ? "❯ " : "  ") + "Keep running"),
+                    Toolkit.text((exitIntent == ExitIntent.CONFIRM_EXIT ? "❯ " : "  ") + "Exit when execution finishes"),
+                    Toolkit.text("↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel").gray()
+            )).length(7));
+        } else if (exitIntent == ExitIntent.AFTER_EXECUTION) {
+            content = Toolkit.column(content, Toolkit.text("Will exit after execution settles, including failure.").yellow(),
+                    Toolkit.text("Session-local results won't remain available after exit.").gray());
         }
-        return view;
+        return content.id("homelight-screen").onKeyEvent(this::handleKeyEvent).focusable();
     }
 
     private Element renderApply() {
@@ -100,8 +76,9 @@ public final class HomeLightApp extends ToolkitApp {
                 for (int i = 0; i < running.steps().size(); i++) {
                     var step = running.steps().get(i);
                     if (step.status() == ApplyModel.StepStatus.RUNNING && step.action() != followedAction) {
-                        // Follow action transitions, while allowing inspection between transitions.
-                        selectedIndex = i;
+                        // Manual inspection lasts until the next action transition.
+                        actionIndex = i;
+                        actionDetails.reset();
                         followedAction = step.action();
                         break;
                     }
@@ -111,13 +88,10 @@ public final class HomeLightApp extends ToolkitApp {
                 if (result != displayedResult) {
                     for (int i = 0; i < result.steps().size(); i++) {
                         var status = result.steps().get(i).status();
-                        if (status == ApplyModel.StepStatus.COMPLETED || status == ApplyModel.StepStatus.FAILED) {
-                            selectedIndex = i;
-                        }
-                        if (status == ApplyModel.StepStatus.FAILED) {
-                            break;
-                        }
+                        if (status == ApplyModel.StepStatus.COMPLETED || status == ApplyModel.StepStatus.FAILED) actionIndex = i;
+                        if (status == ApplyModel.StepStatus.FAILED) break;
                     }
+                    actionDetails.reset();
                     displayedResult = result;
                 }
             }
@@ -126,406 +100,185 @@ public final class HomeLightApp extends ToolkitApp {
                 displayedResult = null;
             }
         }
-        return ApplyView.render(session.configPath(), model, selectedIndex, spinnerFrame++);
-    }
-
-    private Element renderConfigPlaceholder() {
-        return Toolkit.column(
-                Toolkit.row(
-                        Toolkit.text("⌂ HOMELIGHT  ").cyan().bold(),
-                        Toolkit.text("[1: Status]").gray().dim(),
-                        Toolkit.text("  [2: Plan]").gray().dim(),
-                        Toolkit.text("  [3: Apply]").gray().dim(),
-                        Toolkit.text("  [4: Config]").cyan().bold()
-                ),
-                Toolkit.text(""),
-                Toolkit.panel("Configuration",
-                        Toolkit.column(
-                                Toolkit.text("Configuration path: " + session.configPath()).bold()
-                        )
-                ).fill(),
-                Toolkit.text(""),
-                Toolkit.row(Toolkit.text("1: Status  ·  2: Plan  ·  q: Quit").gray().dim())
-        );
+        return ApplyView.render(session.configPath(), model, actionIndex, spinnerFrame++, actionFocus, actionDetails);
     }
 
     public EventResult handleKeyEvent(KeyEvent key) {
-        if (session.activeScreen() == Screen.APPLY) {
-            return handleApplyKeyEvent(key);
-        }
-        if (session.activeScreen() == Screen.PLAN && paneFocus == PaneFocus.DETAIL) {
-            return handleDetailKeyEvent(key);
-        }
-        return handleMasterKeyEvent(key);
-    }
-
-    private EventResult handleApplyKeyEvent(KeyEvent key) {
-        var model = session.applyModel();
-        if (key.isUp() || key.isCharIgnoreCase('k')) {
-            selectPrevious();
-        } else if (key.isDown() || key.isCharIgnoreCase('j')) {
-            selectNext();
-        } else if (model instanceof ApplyModel.Running) {
-            // Mutation has no safe cancellation contract yet, including terminal quit shortcuts.
-            return EventResult.HANDLED;
-        } else if (model instanceof ApplyModel.Result
-                || model instanceof ApplyModel.Confirmation confirmation && !confirmation.plan().hasChanges()) {
-            if (key.isKey(KeyCode.ENTER) || key.isChar('1') || key.isCharIgnoreCase('s')) {
-                switchScreen(Screen.STATUS);
-            } else if (key.isCharIgnoreCase('r') || key.isChar('2') || key.isCharIgnoreCase('p')) {
-                refresh();
-            } else if (key.isQuit() || key.isCharIgnoreCase('q') || key.isKey(KeyCode.ESCAPE)) {
-                quit();
-            }
-        } else if (model instanceof ApplyModel.Confirmation) {
-            if (key.isChar('y')) {
-                session.confirmApply();
-            } else if (key.isCharIgnoreCase('n') || key.isKey(KeyCode.ESCAPE) || key.isQuit() || key.isCharIgnoreCase('q')) {
+        if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) return handleExitDialog(key);
+        if (key.isKey(KeyCode.ESCAPE)) {
+            if (activeScreen == Screen.APPLY && session.applyModel() instanceof ApplyModel.Confirmation) {
                 session.cancelApply();
-            }
-        } else {
-            return handleMasterKeyEvent(key);
+                activeScreen = Screen.WORKSPACE;
+            } else if (activeScreen == Screen.APPLY) actionFocus = PaneFocus.MASTER;
+            else paneFocus = PaneFocus.MASTER;
+            return EventResult.HANDLED;
+        }
+        if (key.isQuit() || key.isCharIgnoreCase('q')) {
+            if (exitIntent == ExitIntent.STAY) exitIntent = session.isApplying() || !session.executionSettled()
+                    ? ExitIntent.CONFIRM_KEEP : ExitIntent.EXIT;
+            return EventResult.HANDLED;
+        }
+        if (exitIntent == ExitIntent.EXIT) return EventResult.HANDLED;
+        if (key.isChar('1')) { switchScreen(Screen.WORKSPACE); return EventResult.HANDLED; }
+        if (key.isChar('2')) { switchScreen(Screen.APPLY); return EventResult.HANDLED; }
+        if (activeScreen == Screen.APPLY) return handleApplyKeyEvent(key);
+        if (key.isCharIgnoreCase('r')) { refresh(); return EventResult.HANDLED; }
+        if (key.isCharIgnoreCase('a')) { switchScreen(Screen.APPLY); return EventResult.HANDLED; }
+        if (key.isCharIgnoreCase('c')) { toggleInSync(); return EventResult.HANDLED; }
+        if (key.isChar('[') || key.isChar(']')) {
+            workspaceDetails.scroll(key.isChar(']') ? 1 : -1);
+            return EventResult.HANDLED;
+        }
+        if (isTab(key) || key.isRight() || key.isCharIgnoreCase('l')) {
+            paneFocus = isTab(key) && paneFocus == PaneFocus.DETAIL ? PaneFocus.MASTER : PaneFocus.DETAIL;
+            if (paneFocus == PaneFocus.DETAIL) workspaceDetails.followChoice();
+            return EventResult.HANDLED;
+        }
+        if (key.isLeft() || key.isCharIgnoreCase('h')) { paneFocus = PaneFocus.MASTER; return EventResult.HANDLED; }
+        var item = selectedPlanItem();
+        boolean choices = paneFocus == PaneFocus.DETAIL && item != null && !item.availableResolutions().isEmpty()
+                && !(session.applyModel() instanceof ApplyModel.Result);
+        if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j')) {
+            int delta = key.isUp() || key.isCharIgnoreCase('k') ? -1 : 1;
+            if (choices) {
+                detailSelectedIndex = Math.clamp(detailSelectedIndex + delta, 0, item.availableResolutions().size() - 1);
+                workspaceDetails.followChoice();
+            } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(delta);
+            else if (delta < 0) selectPrevious(); else selectNext();
+        } else if (key.isHome() || key.isChar('g') || key.isEnd() || key.isChar('G')) {
+            boolean end = key.isEnd() || key.isChar('G');
+            if (choices) {
+                detailSelectedIndex = end ? item.availableResolutions().size() - 1 : 0;
+                workspaceDetails.followChoice();
+            } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(end ? Integer.MAX_VALUE : -Integer.MAX_VALUE);
+            else if (end) selectLast(); else selectFirst();
+        } else if (key.isChar(' ') || key.isKey(KeyCode.ENTER)) {
+            if (choices) resolveSelected(item.availableResolutions().get(detailSelectedIndex));
+            else { paneFocus = PaneFocus.DETAIL; workspaceDetails.followChoice(); }
         }
         return EventResult.HANDLED;
     }
 
-    private EventResult handleMasterKeyEvent(KeyEvent key) {
-        if (key.isQuit() || key.isCharIgnoreCase('q') || key.isKey(KeyCode.ESCAPE)) {
-            quit();
-            return EventResult.HANDLED;
-        }
-        if (key.isCharIgnoreCase('r')) {
-            refresh();
-            return EventResult.HANDLED;
-        }
-        if (key.isChar('1') || key.isCharIgnoreCase('s')) {
-            switchScreen(Screen.STATUS);
-            return EventResult.HANDLED;
-        }
-        if (key.isChar('2') || key.isCharIgnoreCase('p')) {
-            switchScreen(Screen.PLAN);
-            return EventResult.HANDLED;
-        }
-        if (key.isChar('3')) {
-            switchScreen(Screen.APPLY);
-            return EventResult.HANDLED;
-        }
-        if (key.isCharIgnoreCase('a')) {
-            if (session.activeScreen() == Screen.PLAN && !session.isPlanReady()) {
-                return EventResult.HANDLED;
+    private EventResult handleApplyKeyEvent(KeyEvent key) {
+        var model = session.applyModel();
+        if (isTab(key) || key.isRight() || key.isCharIgnoreCase('l')) {
+            actionFocus = isTab(key) && actionFocus == PaneFocus.DETAIL ? PaneFocus.MASTER : PaneFocus.DETAIL;
+        } else if (key.isLeft() || key.isCharIgnoreCase('h')) actionFocus = PaneFocus.MASTER;
+        else if (key.isChar('[') || key.isChar(']')) actionDetails.scroll(key.isChar(']') ? 1 : -1);
+        else if (key.isUp() || key.isCharIgnoreCase('k')) {
+            if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(-1); else selectPrevious();
+        } else if (key.isDown() || key.isCharIgnoreCase('j')) {
+            if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(1); else selectNext();
+        } else if (model instanceof ApplyModel.Running || exitIntent == ExitIntent.AFTER_EXECUTION) return EventResult.HANDLED;
+        else if (model instanceof ApplyModel.Confirmation confirmation) {
+            if (key.isChar('y') && confirmation.plan().hasChanges()) session.confirmApply();
+            else if (key.isCharIgnoreCase('n') || !confirmation.plan().hasChanges() && key.isKey(KeyCode.ENTER)) {
+                session.cancelApply();
+                activeScreen = Screen.WORKSPACE;
             }
-            switchScreen(Screen.APPLY);
-            return EventResult.HANDLED;
+        } else if (model instanceof ApplyModel.Result) {
+            if (key.isKey(KeyCode.ENTER) || key.isChar('1')) switchScreen(Screen.WORKSPACE);
+            else if (key.isCharIgnoreCase('r')) refresh();
         }
-        if (key.isCharIgnoreCase('c')) {
-            toggleInSync();
-            return EventResult.HANDLED;
-        }
-        boolean isTabOrRight = key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusNext() || key.isRight() || key.isCharIgnoreCase('l');
-        if (session.activeScreen() == Screen.PLAN && isTabOrRight) {
-            var item = selectedPlanItem();
-            if (item != null && !item.availableResolutions().isEmpty()) {
-                enterDetailPane(item);
-                return EventResult.HANDLED;
-            }
-        }
-        if (key.isChar(' ')) {
-            handleSpaceInMaster();
-            return EventResult.HANDLED;
-        }
-        if (key.isKey(KeyCode.ENTER)) {
-            handleEnterInMaster();
-            return EventResult.HANDLED;
-        }
-        if (key.isUp() || key.isCharIgnoreCase('k')) {
-            selectPrevious();
-            return EventResult.HANDLED;
-        }
-        if (key.isDown() || key.isCharIgnoreCase('j')) {
-            selectNext();
-            return EventResult.HANDLED;
-        }
-        if (key.isHome() || key.isChar('g')) {
-            selectFirst();
-            return EventResult.HANDLED;
-        }
-        if (key.isEnd() || key.isChar('G')) {
-            selectLast();
-            return EventResult.HANDLED;
-        }
-        return EventResult.UNHANDLED;
+        return EventResult.HANDLED;
     }
 
-    private EventResult handleDetailKeyEvent(KeyEvent key) {
-        if (key.isChar('1') || key.isChar('2') || key.isChar('3')) {
-            if (key.isChar('3') && !session.isPlanReady()) {
-                return EventResult.HANDLED;
-            }
-            return handleMasterKeyEvent(key);
+    private EventResult handleExitDialog(KeyEvent key) {
+        if (key.isKey(KeyCode.ESCAPE)) exitIntent = ExitIntent.STAY;
+        else if (key.isUp() || key.isCharIgnoreCase('k')) exitIntent = ExitIntent.CONFIRM_KEEP;
+        else if (key.isDown() || key.isCharIgnoreCase('j')) exitIntent = ExitIntent.CONFIRM_EXIT;
+        else if (isTab(key)) exitIntent = exitIntent == ExitIntent.CONFIRM_KEEP ? ExitIntent.CONFIRM_EXIT : ExitIntent.CONFIRM_KEEP;
+        else if (key.isKey(KeyCode.ENTER)) {
+            exitIntent = exitIntent == ExitIntent.CONFIRM_KEEP ? ExitIntent.STAY : ExitIntent.AFTER_EXECUTION;
+            settleDeferredExit();
         }
-        if (key.isQuit() || key.isCharIgnoreCase('q')) {
-            quit();
-            return EventResult.HANDLED;
-        }
-        boolean isBack = key.isKey(KeyCode.ESCAPE) || key.isLeft() || key.isCharIgnoreCase('h')
-                || key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusPrevious();
-        if (isBack) {
-            paneFocus = PaneFocus.MASTER;
-            return EventResult.HANDLED;
-        }
-        if (key.isCharIgnoreCase('r')) {
-            refresh();
-            return EventResult.HANDLED;
-        }
-        var item = selectedPlanItem();
-        if (item == null || item.availableResolutions().isEmpty()) {
-            paneFocus = PaneFocus.MASTER;
-            return EventResult.HANDLED;
-        }
-        int maxIndex = item.availableResolutions().size() - 1;
-        if (key.isUp() || key.isCharIgnoreCase('k')) {
-            if (detailSelectedIndex > 0) {
-                detailSelectedIndex--;
-            }
-            return EventResult.HANDLED;
-        }
-        if (key.isDown() || key.isCharIgnoreCase('j')) {
-            if (detailSelectedIndex < maxIndex) {
-                detailSelectedIndex++;
-            }
-            return EventResult.HANDLED;
-        }
-        if (key.isHome() || key.isChar('g')) {
-            detailSelectedIndex = 0;
-            return EventResult.HANDLED;
-        }
-        if (key.isEnd() || key.isChar('G')) {
-            detailSelectedIndex = maxIndex;
-            return EventResult.HANDLED;
-        }
-        if (key.isChar(' ') || key.isKey(KeyCode.ENTER)) {
-            if (detailSelectedIndex >= 0 && detailSelectedIndex <= maxIndex) {
-                var choice = item.availableResolutions().get(detailSelectedIndex);
-                var sourcePath = item.relocation().sourcePath();
-                session.resolveDecision(item.relocation(), choice);
-                restoreSelectionBySourcePath(sourcePath, choice);
-            }
-            return EventResult.HANDLED;
-        }
-        return EventResult.UNHANDLED;
+        return EventResult.HANDLED;
     }
-
-    private void enterDetailPane(PlanRelocationItem item) {
-        paneFocus = PaneFocus.DETAIL;
-        if (item.selectedResolution().isPresent()) {
-            int idx = item.availableResolutions().indexOf(item.selectedResolution().get());
-            detailSelectedIndex = Math.max(0, idx);
-        } else {
-            detailSelectedIndex = 0;
-        }
+    private static boolean isTab(KeyEvent key) {
+        return key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusNext() || key.isFocusPrevious();
     }
-
-    public void switchScreen(Screen screen) {
-        if (session.isApplying()) {
-            return;
-        }
-        if (screen == Screen.APPLY && session.applyModel() instanceof ApplyModel.Idle) {
-            if (session.activeScreen() != Screen.PLAN || !session.requestApply()) {
-                screen = Screen.PLAN;
+    private void settleDeferredExit() {
+        // Result publication alone does not imply that post-execution refresh has settled.
+        if (exitIntent == ExitIntent.AFTER_EXECUTION && session.executionSettled()) exitIntent = ExitIntent.EXIT;
+    }
+    void switchScreen(Screen screen) {
+        if (session.isApplying() || !session.executionSettled()) return;
+        if (screen == activeScreen) return;
+        if (screen == Screen.APPLY) {
+            if (session.applyModel() instanceof ApplyModel.Idle && !session.requestApply()) return;
+            if (activeScreen == Screen.WORKSPACE && selectedPlanItem() != null) reviewedSource = selectedPlanItem().relocation().sourcePath();
+            if (activeScreen != Screen.APPLY && session.applyModel() instanceof ApplyModel.Confirmation) {
+                actionIndex = 0;
+                actionFocus = PaneFocus.MASTER;
+                actionDetails.reset();
             }
-        }
-        if (screen == Screen.PLAN && session.applyModel() instanceof ApplyModel.Result) {
-            session.refresh();
-        }
-        session.setActiveScreen(screen);
-        selectedIndex = 0;
-        paneFocus = PaneFocus.MASTER;
-        detailSelectedIndex = 0;
-        syncInSyncSetting();
+        } else { session.cancelApply(); restoreSelection(reviewedSource); }
+        activeScreen = screen;
     }
-
     public void refresh() {
+        if (session.isApplying() || !session.executionSettled()) return;
+        var source = selectedPlanItem() == null ? null : selectedPlanItem().relocation().sourcePath();
         session.refresh();
-        clampSelectedIndex();
+        activeScreen = Screen.WORKSPACE;
+        syncInSyncSetting();
+        restoreSelection(source);
+        resetDetailSelection();
     }
-
-    private void handleSpaceInMaster() {
-        if (session.activeScreen() == Screen.PLAN) {
-            var selectedItem = selectedPlanItem();
-            if (selectedItem != null && !selectedItem.availableResolutions().isEmpty()) {
-                enterDetailPane(selectedItem);
-                return;
-            }
-        }
-        toggleInSync();
-    }
-
-    private void handleEnterInMaster() {
-        if (session.activeScreen() == Screen.PLAN) {
-            var selectedItem = selectedPlanItem();
-            if (selectedItem != null && !selectedItem.availableResolutions().isEmpty() && selectedItem.hasConflict()) {
-                enterDetailPane(selectedItem);
-                return;
-            }
-            if (session.isPlanReady()) {
-                switchScreen(Screen.APPLY);
-                return;
-            }
-        }
-    }
-
     public void resolveSelected(DecisionChoice choice) {
-        if (session.activeScreen() == Screen.PLAN) {
-            var selectedItem = selectedPlanItem();
-            if (selectedItem != null) {
-                var sourcePath = selectedItem.relocation().sourcePath();
-                session.resolveDecision(selectedItem.relocation(), choice);
-                restoreSelectionBySourcePath(sourcePath, choice);
-            }
-        }
+        var item = selectedPlanItem();
+        if (item == null || session.applyModel() instanceof ApplyModel.Result) return;
+        session.choose(item.relocation().sourcePath(), choice);
+        restoreSelection(item.relocation().sourcePath());
+        detailSelectedIndex = selectedPlanItem().availableResolutions().indexOf(choice);
+        workspaceDetails.followChoice();
     }
-
-    private io.github.bigswlittlesw.homelight.application.PlanRelocationItem selectedPlanItem() {
-        if (session.planModel() instanceof PlanModel.Configured configured) {
-            var visible = PlanView.visibleItems(configured, showInSync);
-            if (!visible.isEmpty() && selectedIndex >= 0 && selectedIndex < visible.size()) {
-                return visible.get(selectedIndex);
-            }
-        }
-        return null;
+    private List<PlanRelocationItem> visibleItems() {
+        return session.planModel() instanceof PlanModel.Configured model ? WorkspaceView.visibleItems(model, showInSync) : List.of();
     }
-
+    private PlanRelocationItem selectedPlanItem() {
+        var items = visibleItems();
+        return items.isEmpty() ? null : items.get(Math.clamp(selectedIndex, 0, items.size() - 1));
+    }
     public void toggleInSync() {
+        var source = selectedPlanItem() == null ? null : selectedPlanItem().relocation().sourcePath();
         userShowInSync = !showInSync;
         showInSync = userShowInSync;
-        clampSelectedIndex();
+        restoreSelection(source);
     }
-
-    public void selectPrevious() {
-        if (selectedIndex > 0) {
-            selectedIndex--;
+    public void selectPrevious() { select(-1, false); }
+    public void selectNext() { select(1, false); }
+    public void selectFirst() { select(0, true); }
+    public void selectLast() { select(Integer.MAX_VALUE, true); }
+    private void select(int value, boolean absolute) {
+        if (activeScreen == Screen.APPLY) {
+            actionIndex = Math.clamp(absolute ? value : actionIndex + value, 0, Math.max(0, ApplyView.steps(session.applyModel()).size() - 1));
+            actionDetails.reset();
+        } else {
+            selectedIndex = Math.clamp(absolute ? value : selectedIndex + value, 0, Math.max(0, visibleItems().size() - 1));
             resetDetailSelection();
         }
     }
-
-    public void selectNext() {
-        int maxIndex = visibleItemCount() - 1;
-        if (selectedIndex < maxIndex) {
-            selectedIndex++;
-            resetDetailSelection();
-        }
-    }
-
-    public void selectFirst() {
-        selectedIndex = 0;
-        resetDetailSelection();
-    }
-
-    public void selectLast() {
-        int maxIndex = visibleItemCount() - 1;
-        if (maxIndex >= 0) {
-            selectedIndex = maxIndex;
-            resetDetailSelection();
-        }
-    }
-
     private void resetDetailSelection() {
         var item = selectedPlanItem();
-        if (item != null && item.selectedResolution().isPresent()) {
-            int idx = item.availableResolutions().indexOf(item.selectedResolution().get());
-            detailSelectedIndex = Math.max(0, idx);
-        } else {
-            detailSelectedIndex = 0;
-        }
+        detailSelectedIndex = item == null ? 0 : item.selectedResolution()
+                .map(choice -> Math.max(0, item.availableResolutions().indexOf(choice))).orElse(0);
+        workspaceDetails.reset();
     }
-
-    public HomeLightSession session() {
-        return session;
+    private void restoreSelection(Path source) {
+        var items = visibleItems();
+        for (int i = 0; i < items.size(); i++) if (items.get(i).relocation().sourcePath().equals(source)) { selectedIndex = i; return; }
+        clampSelection();
     }
-
-    public StatusModel statusModel() {
-        return session.statusModel();
-    }
-
-    public PlanModel planModel() {
-        return session.planModel();
-    }
-
-    public int selectedIndex() {
-        return selectedIndex;
-    }
-
-    public PaneFocus paneFocus() {
-        return paneFocus;
-    }
-
-    public int detailSelectedIndex() {
-        return detailSelectedIndex;
-    }
-
-    public boolean showInSync() {
-        return showInSync;
-    }
-
-    private int visibleItemCount() {
-        return switch (session.activeScreen()) {
-            case STATUS -> {
-                if (session.statusModel() instanceof StatusModel.Configured configured) {
-                    yield StatusView.visibleItems(configured, showInSync).size();
-                }
-                yield 0;
-            }
-            case PLAN -> {
-                if (session.planModel() instanceof PlanModel.Configured configured) {
-                    yield PlanView.visibleItems(configured, showInSync).size();
-                }
-                yield 0;
-            }
-            case APPLY -> ApplyView.steps(session.applyModel()).size();
-            default -> 0;
-        };
-    }
-
+    private void clampSelection() { selectedIndex = Math.clamp(selectedIndex, 0, Math.max(0, visibleItems().size() - 1)); }
     private void syncInSyncSetting() {
-        if (userShowInSync != null) {
-            this.showInSync = userShowInSync;
-        } else {
-            if (session.activeScreen() == Screen.STATUS && session.statusModel() instanceof StatusModel.Configured configured) {
-                this.showInSync = configured.summary().inSync() == configured.summary().total();
-            } else if (session.activeScreen() == Screen.PLAN && session.planModel() instanceof PlanModel.Configured configured) {
-                this.showInSync = configured.summary().inSync() == configured.summary().total();
-            } else {
-                this.showInSync = false;
-            }
-        }
-        clampSelectedIndex();
+        showInSync = userShowInSync != null ? userShowInSync : session.planModel() instanceof PlanModel.Configured model
+                && model.summary().inSync() == model.summary().total();
+        clampSelection();
     }
-
-    private void restoreSelectionBySourcePath(Path sourcePath, DecisionChoice choice) {
-        if (session.planModel() instanceof PlanModel.Configured configured) {
-            var visible = PlanView.visibleItems(configured, showInSync);
-            for (int i = 0; i < visible.size(); i++) {
-                if (visible.get(i).relocation().sourcePath().equals(sourcePath)) {
-                    selectedIndex = i;
-                    var item = visible.get(i);
-                    int choiceIdx = item.availableResolutions().indexOf(choice);
-                    if (choiceIdx >= 0) {
-                        detailSelectedIndex = choiceIdx;
-                    }
-                    return;
-                }
-            }
-            clampSelectedIndex();
-        }
-    }
-
-    private void clampSelectedIndex() {
-        int count = visibleItemCount();
-        if (count == 0) {
-            selectedIndex = 0;
-        } else {
-            selectedIndex = Math.clamp(selectedIndex, 0, count - 1);
-        }
-        resetDetailSelection();
-    }
+    public HomeLightSession session() { return session; }
+    public PlanModel planModel() { return session.planModel(); }
+    public int selectedIndex() { return activeScreen == Screen.APPLY ? actionIndex : selectedIndex; }
+    public PaneFocus paneFocus() { return activeScreen == Screen.APPLY ? actionFocus : paneFocus; }
+    public int detailSelectedIndex() { return detailSelectedIndex; }
+    public boolean showInSync() { return showInSync; }
 }

@@ -1,7 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
-import io.github.bigswlittlesw.homelight.fs.PathInspector;
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation;
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -9,9 +9,9 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
+import java.util.Map;
 
 @Command(name = "status", description = "Show the state of the configured relocations.")
 public final class StatusCommand implements Callable<Integer> {
@@ -32,14 +32,14 @@ public final class StatusCommand implements Callable<Integer> {
     public Integer call() {
         var configPath = config();
         if (json) {
-            if (isMissingDefaultConfig(configPath)) {
+            if (ConfigurationEvaluation.isUnconfiguredDefault(configPath)) {
                 new StatusRenderer().renderUnconfiguredJson(configPath, commandSpec.commandLine().getOut());
                 return CommandLine.ExitCode.OK;
             }
-            var configuration = new ConfigurationLoader().load(configPath);
-            var snapshots = configuration.relocations().stream()
-                    .map(relocation -> new StatusSnapshot(relocation.sourcePath(), relocation.targetPath(),
-                            new PathInspector().inspectRelocationSource(relocation.sourcePath(), relocation.targetPath())))
+            var evaluation = new ConfigurationEvaluation().loadRequired(configPath, Map.of());
+            var snapshots = evaluation.observations().stream()
+                    .map(state -> new StatusSnapshot(state.relocation().sourcePath(), state.relocation().targetPath(),
+                            state.source().sourceStateForTarget(state.relocation().targetPath())))
                     .toList();
             new StatusRenderer().renderJson(snapshots, commandSpec.commandLine().getOut());
             return CommandLine.ExitCode.OK;
@@ -47,8 +47,4 @@ public final class StatusCommand implements Callable<Integer> {
         return TuiLauncher.launchStatus(configPath, parent.debugStepDelayMillis(), commandSpec.commandLine().getErr());
     }
 
-    private static boolean isMissingDefaultConfig(Path config) {
-        return config.toAbsolutePath().normalize().equals(ConfigurationLoader.DEFAULT_PATH.toAbsolutePath().normalize())
-                && !Files.isRegularFile(config);
-    }
 }

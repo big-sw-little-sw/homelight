@@ -1,0 +1,1007 @@
+
+=== launch [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────┐┌Details───────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflic││Source:                               │
+│  [Warning] /home/demo/.cache/discard-││  Path: /home/demo/.cache/conflict-cac│
+│  [Pending] /home/demo/.cache/new-cach││  State: Directory (contains files)   │
+│  [Pending] /home/demo/.cache/stage-ca││                                      │
+│  [Skipped] /home/demo/.cache/unmanage││Target:                               │
+│  ▶ 1 in sync item hidden (press 'c' t││  Path: /mnt/storage/conflict-cache   │
+│                                      ││  State: Directory (contains files)   │
+│                                      ││                                      │
+│                                      ││Configuration:                        │
+│                                      ││  source-archive-root: /mnt/archive   │
+│                                      ││                                      │
+│                                      ││Reconciliation:                       │
+│                                      ││  Expected outcome: Not determined    │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== workspace compact rows and hidden count [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││Current state                                █│
+│  [Discard] discard-cache ⚠   ││  Source: directory · Target: directory      █│
+│  [Link] new-cache            ││  Source: /home/demo/.cache/conflict-cache   █│
+│  [Migrate] stage-cache ⚠     ││  Target: /mnt/storage/conflict-cache        █│
+│  [Unchanged] unmanaged-cache ││                                             █│
+│                              ││Decision                                     █│
+│                              ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: None                                ││
+│                              ││  Expected outcome: Needs a decision         ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││    (○) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== in sync revealed [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││Current state                                █│
+│  [Discard] discard-cache ⚠   ││  Source: directory · Target: directory      █│
+│  [Link] new-cache            ││  Source: /home/demo/.cache/conflict-cache   █│
+│  [Migrate] stage-cache ⚠     ││  Target: /mnt/storage/conflict-cache        █│
+│  [Unchanged] unmanaged-cache ││                                             █│
+│  [In Sync] linked-cache      ││Decision                                     █│
+│                              ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: None                                ││
+│                              ││  Expected outcome: Needs a decision         ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││    (○) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+c: Hide/show in sync            └──────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== first radio choice [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││Current state                                █│
+│  [Discard] discard-cache ⚠   ││  Source: directory · Target: directory      █│
+│  [Link] new-cache            ││  Source: /home/demo/.cache/conflict-cache   █│
+│  [Migrate] stage-cache ⚠     ││  Target: /mnt/storage/conflict-cache        █│
+│  [Unchanged] unmanaged-cache ││                                             █│
+│                              ││Decision                                     █│
+│                              ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: None                                ││
+│                              ││  Expected outcome: Needs a decision         ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (○) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== archive choice and consequence [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││  Draft: None                                ││
+│  [Discard] discard-cache ⚠   ││  Expected outcome: Needs a decision         ││
+│  [Link] new-cache            ││                                             ││
+│  [Migrate] stage-cache ⚠     ││Available resolutions                        █│
+│  [Unchanged] unmanaged-cache ││    (○) Adopt target and discard source      █│
+│                              ││        Use existing target directory as     █│
+│                              ││        authoritative and delete the         █│
+│                              ││        existing source directory.           █│
+│                              ││                                             █│
+│                              ││  ❯ (○) Adopt target and archive source      █│
+│                              ││        Use existing target directory as     █│
+│                              ││        authoritative and move existing      ││
+│                              ││        source directory to archive root.    ││
+│                              ││        Archive:                             ││
+│                              ││        /mnt/archive/home/demo/.cache/confli ││
+└──────────────────────────────┘│        ct-cache                             ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== unchanged choice [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││        Use existing target directory as     ││
+│  [Discard] discard-cache ⚠   ││        authoritative and delete the         ││
+│  [Link] new-cache            ││        existing source directory.           ││
+│  [Migrate] stage-cache ⚠     ││                                             ││
+│  [Unchanged] unmanaged-cache ││    (○) Adopt target and archive source      ││
+│                              ││        Use existing target directory as     █│
+│                              ││        authoritative and move existing      █│
+│                              ││        source directory to archive root.    █│
+│                              ││        Archive:                             █│
+│                              ││        /mnt/archive/home/demo/.cache/confli █│
+│                              ││        ct-cache                             █│
+│                              ││                                             █│
+│                              ││  ❯ (○) Leave source and target unmanaged    █│
+│                              ││        Leave existing source and target     ││
+│                              ││        directories in place without         ││
+└──────────────────────────────┘│        managing them.                       ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== discard both choice [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││        Use existing target directory as     ││
+│  [Discard] discard-cache ⚠   ││        authoritative and move existing      ││
+│  [Link] new-cache            ││        source directory to archive root.    ││
+│  [Migrate] stage-cache ⚠     ││        Archive:                             ││
+│  [Unchanged] unmanaged-cache ││        /mnt/archive/home/demo/.cache/confli ││
+│                              ││        ct-cache                             ││
+│                              ││                                             ││
+│                              ││    (○) Leave source and target unmanaged    ││
+│                              ││        Leave existing source and target     █│
+│                              ││        directories in place without         █│
+│                              ││        managing them.                       █│
+│                              ││                                             █│
+│                              ││  ❯ (○) Discard source and target contents   █│
+│                              ││        Delete existing contents in both     █│
+│                              ││        locations, then recreate empty       █│
+└──────────────────────────────┘│        target and source link.              █│
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== resize preserves choice [80x24] ===
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== selected radio [80x24] ===
+
+
+                0                             3
+
+ ❯ [Adopt] conflict-cache ⚠        Source: /home/demo/.cache/conflict-cache   │
+                                   Target: /mnt/storage/conflict-cache        █
+                                                                              █
+                                 Decision                                     █
+                                   Saved policy: Ask when both directories    █
+                                 exist                                        █
+                                   Draft: Adopt target and discard source     █
+                                   Expected outcome: In sync                  █
+                                   ⚠ Destructive actions: existing content or │
+                                 links will be removed.                       │
+                                                                              │
+                                 Available resolutions                        │
+                                   ❯ (●) Adopt target and discard source      │
+                                         Use existing target directory as     │
+                                         authoritative and delete the         │
+                                         existing source directory.           │
+
+
+Draft: Adopt targe  and discard source. Saved policy u changed.
+
+
+=== cancel retains radio focus [80x24] ===
+             [Workspace]   3  Review]  [4: Setup]
+
+6 relocations · 0 conflicts · 1 unchanged · ⚠ 3 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Adopt] conflict-cache ⚠    ││  Source: /home/demo/.cache/conflict-cache   ││
+│  [Discard] discard-cache ⚠   ││  Target: /mnt/storage/conflict-cache        █│
+│  [Link] new-cache            ││                                             █│
+│  [Migrate] stage-cache ⚠     ││Decision                                     █│
+│  [Unchanged] unmanaged-cache ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: Adopt target and discard source     █│
+│                              ││  Expected outcome: In sync                  █│
+│                              ││  ⚠ Destructive actions: existing content or ││
+│                              ││links will be removed.                       ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (●) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └      ────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Draft: Adopt target and discard source. Saved policy unchanged.
+
+TERMINAL_RESTORED True
+
+=== launch [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflict-cache             ││Source:                                                   │
+│  [Warning] /home/demo/.cache/discard-cache               ││  Path: /home/demo/.cache/conflict-cache                  │
+│  [Pending] /home/demo/.cache/new-cache                   ││  State: Directory (contains files)                       │
+│  [Pending] /home/demo/.cache/stage-cache                 ││                                                          │
+│  [Skipped] /home/demo/.cache/unmanaged-cache             ││Target:                                                   │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)           ││  Path: /mnt/storage/conflict-cache                       │
+│                                                          ││  State: Directory (contains files)                       │
+│                                                          ││                                                          │
+│                                                          ││Configuration:                                            │
+│                                                          ││  source-archive-root: /mnt/archive                       │
+│                                                          ││                                                          │
+│                                                          ││Reconciliation:                                           │
+│                                                          ││  Expected outcome: Not determined                        │
+│                                                          ││                                                          │
+│                                                          ││Conflict:                                                 │
+│                                                          ││  Path: /home/demo/.cache/conflict-cache                  │
+│                                                          ││  Reason: both source and target directories exist; choose│
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== workspace compact rows and hidden count [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││Current state                                                                █│
+│  [Discard] discard-cache ⚠           ││  Source: directory · Target: directory                                      █│
+│  [Link] new-cache                    ││  Source: /home/demo/.cache/conflict-cache                                   █│
+│  [Migrate] stage-cache ⚠             ││  Target: /mnt/storage/conflict-cache                                        █│
+│  [Unchanged] unmanaged-cache         ││                                                                             █│
+│                                      ││Decision                                                                     █│
+│                                      ││  Saved policy: Ask when both directories exist                              █│
+│                                      ││  Draft: None                                                                █│
+│                                      ││  Expected outcome: Needs a decision                                         █│
+│                                      ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││    (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                ││
+│                                      ││                                                                             ││
+│                                      ││    (○) Leave source and target unmanaged                                    ││
+└──────────────────────────────────────┘│        Leave existing source and target directories in place without        ││
+▶ 1 in sync hidden · c: Show            └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== in sync revealed [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││Current state                                                                █│
+│  [Discard] discard-cache ⚠           ││  Source: directory · Target: directory                                      █│
+│  [Link] new-cache                    ││  Source: /home/demo/.cache/conflict-cache                                   █│
+│  [Migrate] stage-cache ⚠             ││  Target: /mnt/storage/conflict-cache                                        █│
+│  [Unchanged] unmanaged-cache         ││                                                                             █│
+│  [In Sync] linked-cache              ││Decision                                                                     █│
+│                                      ││  Saved policy: Ask when both directories exist                              █│
+│                                      ││  Draft: None                                                                █│
+│                                      ││  Expected outcome: Needs a decision                                         █│
+│                                      ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││    (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                ││
+│                                      ││                                                                             ││
+│                                      ││    (○) Leave source and target unmanaged                                    ││
+└──────────────────────────────────────┘│        Leave existing source and target directories in place without        ││
+c: Hide/show in sync                    └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== first radio choice [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││Current state                                                                █│
+│  [Discard] discard-cache ⚠           ││  Source: directory · Target: directory                                      █│
+│  [Link] new-cache                    ││  Source: /home/demo/.cache/conflict-cache                                   █│
+│  [Migrate] stage-cache ⚠             ││  Target: /mnt/storage/conflict-cache                                        █│
+│  [Unchanged] unmanaged-cache         ││                                                                             █│
+│                                      ││Decision                                                                     █│
+│                                      ││  Saved policy: Ask when both directories exist                              █│
+│                                      ││  Draft: None                                                                █│
+│                                      ││  Expected outcome: Needs a decision                                         █│
+│                                      ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││  ❯ (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                ││
+│                                      ││                                                                             ││
+│                                      ││    (○) Leave source and target unmanaged                                    ││
+└──────────────────────────────────────┘│        Leave existing source and target directories in place without        ││
+▶ 1 in sync hidden · c: Show            └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== archive choice and consequence [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││Current state                                                                █│
+│  [Discard] discard-cache ⚠           ││  Source: directory · Target: directory                                      █│
+│  [Link] new-cache                    ││  Source: /home/demo/.cache/conflict-cache                                   █│
+│  [Migrate] stage-cache ⚠             ││  Target: /mnt/storage/conflict-cache                                        █│
+│  [Unchanged] unmanaged-cache         ││                                                                             █│
+│                                      ││Decision                                                                     █│
+│                                      ││  Saved policy: Ask when both directories exist                              █│
+│                                      ││  Draft: None                                                                █│
+│                                      ││  Expected outcome: Needs a decision                                         █│
+│                                      ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││    (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││  ❯ (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                ││
+│                                      ││                                                                             ││
+│                                      ││    (○) Leave source and target unmanaged                                    ││
+└──────────────────────────────────────┘│        Leave existing source and target directories in place without        ││
+▶ 1 in sync hidden · c: Show            └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== unchanged choice [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││  Source: directory · Target: directory                                      ││
+│  [Discard] discard-cache ⚠           ││  Source: /home/demo/.cache/conflict-cache                                   █│
+│  [Link] new-cache                    ││  Target: /mnt/storage/conflict-cache                                        █│
+│  [Migrate] stage-cache ⚠             ││                                                                             █│
+│  [Unchanged] unmanaged-cache         ││Decision                                                                     █│
+│                                      ││  Saved policy: Ask when both directories exist                              █│
+│                                      ││  Draft: None                                                                █│
+│                                      ││  Expected outcome: Needs a decision                                         █│
+│                                      ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││    (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                █│
+│                                      ││                                                                             █│
+│                                      ││  ❯ (○) Leave source and target unmanaged                                    ││
+│                                      ││        Leave existing source and target directories in place without        ││
+└──────────────────────────────────────┘│        managing them.                                                       ││
+▶ 1 in sync hidden · c: Show            └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== discard both choice [120x30] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache           ││Decision                                                                     ││
+│  [Discard] discard-cache ⚠           ││  Saved policy: Ask when both directories exist                              ││
+│  [Link] new-cache                    ││  Draft: None                                                                ││
+│  [Migrate] stage-cache ⚠             ││  Expected outcome: Needs a decision                                         █│
+│  [Unchanged] unmanaged-cache         ││                                                                             █│
+│                                      ││Available resolutions                                                        █│
+│                                      ││    (○) Adopt target and discard source                                      █│
+│                                      ││        Use existing target directory as authoritative and delete the        █│
+│                                      ││        existing source directory.                                           █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Adopt target and archive source                                      █│
+│                                      ││        Use existing target directory as authoritative and move existing     █│
+│                                      ││        source directory to archive root.                                    █│
+│                                      ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                █│
+│                                      ││                                                                             █│
+│                                      ││    (○) Leave source and target unmanaged                                    █│
+│                                      ││        Leave existing source and target directories in place without        █│
+│                                      ││        managing them.                                                       █│
+│                                      ││                                                                             █│
+│                                      ││  ❯ (○) Discard source and target contents                                   █│
+│                                      ││        Delete existing contents in both locations, then recreate empty      █│
+└──────────────────────────────────────┘│        target and source link.                                              ││
+▶ 1 in sync hidden · c: Show            └──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== resize preserves choice [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││        Use existing target directory as     ││
+│  [Discard] discard-cache ⚠   ││        authoritative and move existing      ││
+│  [Link] new-cache            ││        source directory to archive root.    ││
+│  [Migrate] stage-cache ⚠     ││        Archive:                             ││
+│  [Unchanged] unmanaged-cache ││        /mnt/archive/home/demo/.cache/confli ││
+│                              ││        ct-cache                             ││
+│                              ││                                             ││
+│                              ││    (○) Leave source and target unmanaged    ││
+│                              ││        Leave existing source and target     █│
+│                              ││        directories in place without         █│
+│                              ││        managing them.                       █│
+│                              ││                                             █│
+│                              ││  ❯ (○) Discard source and target contents   █│
+│                              ││        Delete existing contents in both     █│
+│                              ││        locations, then recreate empty       █│
+└──────────────────────────────┘│        target and source link.              █│
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== selected radio [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 0 conflicts · 1 unchanged · ⚠ 3 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Adopt] conflict-cache ⚠    ││  Source: /home/demo/.cache/conflict-cache   ││
+│  [Discard] discard-cache ⚠   ││  Target: /mnt/storage/conflict-cache        █│
+│  [Link] new-cache            ││                                             █│
+│  [Migrate] stage-cache ⚠     ││Decision                                     █│
+│  [Unchanged] unmanaged-cache ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: Adopt target and discard source     █│
+│                              ││  Expected outcome: In sync                  █│
+│                              ││  ⚠ Destructive actions: existing content or ││
+│                              ││links will be removed.                       ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (●) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== cancel retains radio focus [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 0 conflicts · 1 unchanged · ⚠ 3 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Adopt] conflict-cache ⚠    ││  Source: /home/demo/.cache/conflict-cache   ││
+│  [Discard] discard-cache ⚠   ││  Target: /mnt/storage/conflict-cache        █│
+│  [Link] new-cache            ││                                             █│
+│  [Migrate] stage-cache ⚠     ││Decision                                     █│
+│  [Unchanged] unmanaged-cache ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: Adopt target and discard source     █│
+│                              ││  Expected outcome: In sync                  █│
+│                              ││  ⚠ Destructive actions: existing content or ││
+│                              ││links will be removed.                       ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (●) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+TERMINAL_RESTORED True
+
+=== launch [200x50] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflict-cache                                                     ││Source:                                                                                           │
+│  [Warning] /home/demo/.cache/discard-cache                                                       ││  Path: /home/demo/.cache/conflict-cache                                                          │
+│  [Pending] /home/demo/.cache/new-cache                                                           ││  State: Directory (contains files)                                                               │
+│  [Pending] /home/demo/.cache/stage-cache                                                         ││                                                                                                  │
+│  [Skipped] /home/demo/.cache/unmanaged-cache                                                     ││Target:                                                                                           │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)                                                   ││  Path: /mnt/storage/conflict-cache                                                               │
+│                                                                                                  ││  State: Directory (contains files)                                                               │
+│                                                                                                  ││                                                                                                  │
+│                                                                                                  ││Configuration:                                                                                    │
+│                                                                                                  ││  source-archive-root: /mnt/archive                                                               │
+│                                                                                                  ││                                                                                                  │
+│                                                                                                  ││Reconciliation:                                                                                   │
+│                                                                                                  ││  Expected outcome: Not determined                                                                │
+│                                                                                                  ││                                                                                                  │
+│                                                                                                  ││Conflict:                                                                                         │
+│                                                                                                  ││  Path: /home/demo/.cache/conflict-cache                                                          │
+│                                                                                                  ││  Reason: both source and target directories exist; choose which directory is authoritative       │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== workspace compact rows and hidden count [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│                                              ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││    (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+▶ 1 in sync hidden · c: Show                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== in sync revealed [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│  [In Sync] linked-cache                      ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││    (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+c: Hide/show in sync                            └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Select · l: Decisions · c: In sync · 3: Review · r: Re-plan
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== first radio choice [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│                                              ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││  ❯ (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+▶ 1 in sync hidden · c: Show                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== archive choice and consequence [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│                                              ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││    (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││  ❯ (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+▶ 1 in sync hidden · c: Show                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== unchanged choice [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│                                              ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││    (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││  ❯ (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+▶ 1 in sync hidden · c: Show                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== discard both choice [200x50] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────────────────────┐┌Relocation details────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│❯ [Conflict] conflict-cache                   ││Current state                                                                                                                                         │
+│  [Discard] discard-cache ⚠                   ││  Source: directory · Target: directory                                                                                                               │
+│  [Link] new-cache                            ││  Source: /home/demo/.cache/conflict-cache                                                                                                            │
+│  [Migrate] stage-cache ⚠                     ││  Target: /mnt/storage/conflict-cache                                                                                                                 │
+│  [Unchanged] unmanaged-cache                 ││                                                                                                                                                      │
+│                                              ││Decision                                                                                                                                              │
+│                                              ││  Saved policy: Ask when both directories exist                                                                                                       │
+│                                              ││  Draft: None                                                                                                                                         │
+│                                              ││  Expected outcome: Needs a decision                                                                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││Available resolutions                                                                                                                                 │
+│                                              ││    (○) Adopt target and discard source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and delete the existing source directory.                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Adopt target and archive source                                                                                                               │
+│                                              ││        Use existing target directory as authoritative and move existing source directory to archive root.                                            │
+│                                              ││        Archive: /mnt/archive/home/demo/.cache/conflict-cache                                                                                         │
+│                                              ││                                                                                                                                                      │
+│                                              ││    (○) Leave source and target unmanaged                                                                                                             │
+│                                              ││        Leave existing source and target directories in place without managing them.                                                                  │
+│                                              ││                                                                                                                                                      │
+│                                              ││  ❯ (○) Discard source and target contents                                                                                                            │
+│                                              ││        Delete existing contents in both locations, then recreate empty target and source link.                                                       │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+│                                              ││                                                                                                                                                      │
+└──────────────────────────────────────────────┘│                                                                                                                                                      │
+▶ 1 in sync hidden · c: Show                    └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== resize preserves choice [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 1 conflicts · 1 unchanged · ⚠ 2 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Conflict] conflict-cache   ││        Use existing target directory as     ││
+│  [Discard] discard-cache ⚠   ││        authoritative and move existing      ││
+│  [Link] new-cache            ││        source directory to archive root.    ││
+│  [Migrate] stage-cache ⚠     ││        Archive:                             ││
+│  [Unchanged] unmanaged-cache ││        /mnt/archive/home/demo/.cache/confli ││
+│                              ││        ct-cache                             ││
+│                              ││                                             ││
+│                              ││    (○) Leave source and target unmanaged    ││
+│                              ││        Leave existing source and target     █│
+│                              ││        directories in place without         █│
+│                              ││        managing them.                       █│
+│                              ││                                             █│
+│                              ││  ❯ (○) Discard source and target contents   █│
+│                              ││        Delete existing contents in both     █│
+│                              ││        locations, then recreate empty       █│
+└──────────────────────────────┘│        target and source link.              █│
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== selected radio [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 0 conflicts · 1 unchanged · ⚠ 3 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Adopt] conflict-cache ⚠    ││  Source: /home/demo/.cache/conflict-cache   ││
+│  [Discard] discard-cache ⚠   ││  Target: /mnt/storage/conflict-cache        █│
+│  [Link] new-cache            ││                                             █│
+│  [Migrate] stage-cache ⚠     ││Decision                                     █│
+│  [Unchanged] unmanaged-cache ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: Adopt target and discard source     █│
+│                              ││  Expected outcome: In sync                  █│
+│                              ││  ⚠ Destructive actions: existing content or ││
+│                              ││links will be removed.                       ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (●) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== cancel retains radio focus [80x24] ===
+⌂ HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations · 0 conflicts · 1 unchanged · ⚠ 3 destructive
+┌Relocations───────────────────┐┌Relocation details────────────────────────────┐
+│❯ [Adopt] conflict-cache ⚠    ││  Source: /home/demo/.cache/conflict-cache   ││
+│  [Discard] discard-cache ⚠   ││  Target: /mnt/storage/conflict-cache        █│
+│  [Link] new-cache            ││                                             █│
+│  [Migrate] stage-cache ⚠     ││Decision                                     █│
+│  [Unchanged] unmanaged-cache ││  Saved policy: Ask when both directories    █│
+│                              ││exist                                        █│
+│                              ││  Draft: Adopt target and discard source     █│
+│                              ││  Expected outcome: In sync                  █│
+│                              ││  ⚠ Destructive actions: existing content or ││
+│                              ││links will be removed.                       ││
+│                              ││                                             ││
+│                              ││Available resolutions                        ││
+│                              ││  ❯ (●) Adopt target and discard source      ││
+│                              ││        Use existing target directory as     ││
+│                              ││        authoritative and delete the         ││
+└──────────────────────────────┘│        existing source directory.           ││
+▶ 1 in sync hidden · c: Show    └──────────────────────────────────────────────┘
+↑/↓: Choose · Space: Select · h: Back · [/]: Scroll · 3: Review
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+TERMINAL_RESTORED True

@@ -76,6 +76,11 @@ public record PlanRelocationItem(
         return plan.actions().stream().anyMatch(ReconciliationAction::destructive);
     }
 
+    public boolean hasWarnings() {
+        return sourceState == RelocationSourceState.WRONG_SYMLINK || sourceState == RelocationSourceState.BROKEN_SYMLINK
+                || plan.diagnostics().stream().anyMatch(diagnostic -> diagnostic.severity() == ReconciliationDiagnostic.Severity.WARNING);
+    }
+
     public boolean hasConflict() {
         return plan.conflict().isPresent() || plan.outcome() == RelocationOutcome.UNRESOLVED;
     }

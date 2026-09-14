@@ -1,0 +1,1916 @@
+
+=== A actual Status view [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────┐┌Details───────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflic││Source:                               │
+│  [Warning] /home/demo/.cache/discard-││  Path: /home/demo/.cache/conflict-cac│
+│  [Pending] /home/demo/.cache/new-cach││  State: Directory (contains files)   │
+│  [Pending] /home/demo/.cache/stage-ca││                                      │
+│  [Skipped] /home/demo/.cache/unmanage││Target:                               │
+│  ▶ 1 in sync item hidden (press 'c' t││  Path: /mnt/storage/conflict-cache   │
+│                                      ││  State: Directory (contains files)   │
+│                                      ││                                      │
+│                                      ││Configuration:                        │
+│                                      ││  source-archive-root: /mnt/archive   │
+│                                      ││                                      │
+│                                      ││Reconciliation:                       │
+│                                      ││  Expected outcome: Not determined    │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A actual Plan choices [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ⚡  · ⚡  ·nc ⚡  · ✔ 1 · — 1 ski · ⚠ 1 conflict · ⚠ 2 destructive
+
+┌Plan──────────────────────────────────┐┌Plan Details──────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflic││Relocation:                           │
+│  [Discard] /home/demo/.cache/discard-││  Source: /home/demo/.cache/conflict-c│
+│  [Link] /home/demo/.cache/new-cache  ││  Target: /mnt/storage/conflict-cache │
+│  [Migrate] /home/demo/.cache/stage-ca││  Action: Conflict                    │
+│  [Skipped] /home/demo/.cache/unmanage││                                      │
+│  ▶ 1 in sync items hidden (press 'c' ││Actions (dry-run):                    │
+│                                      ││  (no actions planned)                │
+│                                      ││                                      │
+│                                      ││Conflict:                             │
+│                                      ││  Reason: both source and target direc│
+│                                      ││          choose which directory is au│
+│                                      ││                                      │
+│                                      ││Available Resolutions:                │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  3: Apply  ·  q: Qui
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== full details escape hatch [80x24] ===
+HomeLight prototype | inspect | page 1/2
+Current source: PathObservation[state=DIRECTORY, symlinkTarget=Optional.empt
+y, symlinkTargetAvailability=NOT_A_SYMLINK, emptyDirectory=false]
+Current target: PathObservation[state=DIRECTORY, symlinkTarget=Optional.empt
+y, symlinkTargetAvailability=NOT_A_SYMLINK, emptyDirectory=false]
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Saved policy: Ask when both directories exist
+Draft: none
+Expected outcome with draft: UNRESOLVED
+Adopt target and discard source
+Use existing target directory as authoritative and delete the existing sourc
+e directory.
+Adopt target and archive source
+Use existing target directory as authoritative and move existing source dire
+ctory to archive root.
+Leave source and target unmanaged
+Leave existing source and target directories in place without managing them.
+Discard source and target contents
+Delete existing contents in both locations, then recreate empty target and s
+[/]: page | n or Esc: return
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B workspace same relocation [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Observe & decide: l to choose───────────────────────┐
+│❯ conflict-cache        ││CURRENT: source directory, target directory        █│
+│  Conflict              ││Source: /home/demo/.cache/conflict-cache           █│
+│  discard-cache         ││Target: /mnt/storage/conflict-cache                █│
+│  Discard / destructive ││SAVED policy: Ask when both directories exist      █│
+│  new-cache             ││DRAFT: none                                        █│
+│  Link                  ││EXPECTED: Needs a decision                         █│
+│  stage-cache           ││                                                   █│
+│  Migrate / destructive ││  [ ] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B first choice [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││CURRENT: source directory, target directory        █│
+│  Conflict              ││Source: /home/demo/.cache/conflict-cache           █│
+│  discard-cache         ││Target: /mnt/storage/conflict-cache                █│
+│  Discard / destructive ││SAVED policy: Ask when both directories exist      █│
+│  new-cache             ││DRAFT: none                                        █│
+│  Link                  ││EXPECTED: Needs a decision                         █│
+│  stage-cache           ││                                                   █│
+│  Migrate / destructive ││> [ ] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 2 [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││CURRENT: source directory, target directory        █│
+│  Conflict              ││Source: /home/demo/.cache/conflict-cache           █│
+│  discard-cache         ││Target: /mnt/storage/conflict-cache                █│
+│  Discard / destructive ││SAVED policy: Ask when both directories exist      █│
+│  new-cache             ││DRAFT: none                                        █│
+│  Link                  ││EXPECTED: Needs a decision                         █│
+│  stage-cache           ││                                                   █│
+│  Migrate / destructive ││  [ ] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││> [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 3 [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││Source: /home/demo/.cache/conflict-cache           ││
+│  Conflict              ││Target: /mnt/storage/conflict-cache                █│
+│  discard-cache         ││SAVED policy: Ask when both directories exist      █│
+│  Discard / destructive ││DRAFT: none                                        █│
+│  new-cache             ││EXPECTED: Needs a decision                         █│
+│  Link                  ││                                                   █│
+│  stage-cache           ││  [ ] Adopt target and discard source              █│
+│  Migrate / destructive ││    Use existing target directory as authoritativ  █│
+│  unmanaged-cache       ││e and delete the existing source directory.        █│
+│  Skipped               ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  █│
+│                        ││oot.                                               █│
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+│                        ││> [ ] Leave source and target unmanaged            ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 4 [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││DRAFT: none                                        ││
+│  Conflict              ││EXPECTED: Needs a decision                         ││
+│  discard-cache         ││                                                   ││
+│  Discard / destructive ││  [ ] Adopt target and discard source              █│
+│  new-cache             ││    Use existing target directory as authoritativ  █│
+│  Link                  ││e and delete the existing source directory.        █│
+│  stage-cache           ││  [ ] Adopt target and archive source              █│
+│  Migrate / destructive ││    Use existing target directory as authoritativ  █│
+│  unmanaged-cache       ││e and move existing source directory to archive r  █│
+│  Skipped               ││oot.                                               █│
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  █│
+│                        ││ct-cache                                           █│
+│                        ││  [ ] Leave source and target unmanaged            █│
+│                        ││    Leave existing source and target directories   █│
+│                        ││in place without managing them.                    █│
+│                        ││> [ ] Discard source and target contents           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== resize selected fourth choice [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││  [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││> [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B draft selected [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 3 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││CURRENT: source directory, target directory        █│
+│  Adopt / destructive   ││Source: /home/demo/.cache/conflict-cache           █│
+│  discard-cache         ││Target: /mnt/storage/conflict-cache                █│
+│  Discard / destructive ││SAVED policy: Ask when both directories exist      █│
+│  new-cache             ││DRAFT: Adopt target and discard source             █│
+│  Link                  ││EXPECTED: In sync | WARNING: destructive           █│
+│  stage-cache           ││                                                   █│
+│  Migrate / destructive ││> [x] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== same existing Apply review [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Confirm reviewed plan: 4 destructive action(s). Content may be permanently
+removed.
+[░░░░░░░░░░░░░░░░░░░░] 0/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Replace directory with link           │
+│❯ ○ Replace directory with link ⚠    █││Not started                           │
+│/home/demo/.cache/discard-cache      █││                                      │
+│  ○ Delete directory ⚠               █││Source: /home/demo/.cache/conflict-cac│
+│  ○ Delete directory ⚠               █││he                                    │
+│  ○ Ensure parent directory          █││Target: /mnt/storage/conflict-cache   │
+│  ○ Create directory                 █││Step path: /home/demo/.cache/conflict-│
+│  ○ Ensure parent directory          █││cache                                 │
+│  ○ Create source link               █││Link to: /mnt/storage/conflict-cache  │
+│/home/demo/.cache/stage-cache        █││                                      │
+│  ○ Copy, verify and publish         │││                                      │
+│  ○ Replace directory with link ⚠    │││                                      │
+│/home/demo/.cache/new-cache          │││⚠ Destructive: existing content or    │
+│  ○ Ensure parent directory          │││link will be removed.                 │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  y: Confirm destructive plan  ·  n/Esc: Cancel
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B cancel retains focus [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 3 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││CURRENT: source directory, target directory        █│
+│  Adopt / destructive   ││Source: /home/demo/.cache/conflict-cache           █│
+│  discard-cache         ││Target: /mnt/storage/conflict-cache                █│
+│  Discard / destructive ││SAVED policy: Ask when both directories exist      █│
+│  new-cache             ││DRAFT: Adopt target and discard source             █│
+│  Link                  ││EXPECTED: In sync | WARNING: destructive           █│
+│  stage-cache           ││                                                   █│
+│  Migrate / destructive ││> [x] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  ││
+│                        ││ct-cache                                           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A Status saved policy same session [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending · ⚠ 1 conflict · ! 1 warning         │
+
+┌Relocations───────────────────────────┐┌Details───────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflic││Source:                               │
+│  [Warning] /home/demo/.cache/discard-││  Path: /home/demo/.cache/conflict-cac│
+│  [Pending] /home/demo/.cache/new-cach││  State: Directory (contains files)   │
+│  [Pending] /home/demo/.cache/stage-ca││                                      │
+│  [Skipped] /home/demo/.cache/unmanage││Target:                               │
+│  ▶ 1 in sync item hidden (press 'c' t││  Path: /mnt/storage/conflict-cache   │
+│                                      ││  State: Directory (contains files)   │
+│                                      ││                                      │
+│                                      ││Configuration:                        │
+│                                      ││  source-archive-root: /mnt/archive   │
+│                                      ││                                      │
+│                                      ││Reconciliation:                       │
+│                                      ││  Expected outcome: Not determined    │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A Plan retains same draft [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ⚡  · ⚡  ·nc ⚡  · ⚡  · ✔ 1 in s · — 1 skipped · ⚠ 3 destructive │
+
+┌Plan──────────────────────────────────┐┌Plan Details──────────────────────────┐
+│❯ [Adopt] /home/demo/.cache/conflict-c││Relocation:                           │
+│  [Discard] /home/demo/.cache/discard-││  Source: /home/demo/.cache/conflict-c│
+│  [Link] /home/demo/.cache/new-cache  ││  Target: /mnt/storage/conflict-cache │
+│  [Migrate] /home/demo/.cache/stage-ca││  Action: Adopt                       │
+│  [Skipped] /home/demo/.cache/unmanage││                                      │
+│  ▶ 1 in sync items hidden (press 'c' ││Actions (dry-run):                    │
+│                                      ││  • Replace directory with symlink /ho│
+│                                      ││                                      │
+│                                      ││⚠ Safety Warning: This relocation incl│
+│                                      ││                                      │
+│                                      ││Available Resolutions:                │
+│                                      ││    (●) Adopt target and discard sourc│
+│                                      ││        Use existing target directory │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  →/l: Details  ·  c: Toggle In Sync  ·  r: Refresh  ·  a: App
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== manual action inspection [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Applying reviewed plan. Wait for execution to finish.
+
+[███░░░░░░░░░░░░░░░░░] 2/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Delete directory                      │
+│  ✔ Replace directory with link ⚠    █││Simulated completion; disk unchanged  │
+│/home/demo/.cache/discard-cache      █││                                      │
+│❯ ✔ Delete directory ⚠               █││Source: /home/demo/.cache/discard-cach│
+│  ⠋ Delete directory ⚠               █││e                                     │
+│  ○ Ensure parent directory          █││Target: /mnt/storage/discard-cache    │
+│  ○ Create directory                 █││Step path: /home/demo/.cache/discard-c│
+│  ○ Ensure parent directory          █││ache                                  │
+│  ○ Create source link               █││                                      │
+│/home/demo/.cache/stage-cache        █││                                      │
+│  ○ Copy, verify and publish         │││                                      │
+│  ○ Replace directory with link ⚠    │││                                      │
+│/home/demo/.cache/new-cache          │││⚠ Destructive: existing content or    │
+│  ○ Ensure parent directory          │││link will be removed.                 │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Execution in progress; leaving is disabled
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== follow next action [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Applying reviewed plan. Wait for execution to finish.
+
+[████░░░░░░░░░░░░░░░░] 3/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Ensure parent directory               │
+│  ✔ Replace directory with link ⚠    █││Simulating, no filesystem mutation    │
+│/home/demo/.cache/discard-cache      █││                                      │
+│  ✔ Delete directory ⚠               █││Source: /home/demo/.cache/discard-cach│
+│  ✔ Delete directory ⚠               █││e                                     │
+│❯ ⠋ Ensure parent directory          █││Target: /mnt/storage/discard-cache    │
+│  ○ Create directory                 █││Step path: /mnt/storage               │
+│  ○ Ensure parent directory          █││                                      │
+│  ○ Create source link               █││                                      │
+│/home/demo/.cache/stage-cache        █││                                      │
+│  ○ Copy, verify and publish         │││                                      │
+│  ○ Replace directory with link ⚠    │││                                      │
+│/home/demo/.cache/new-cache          │││                                      │
+│  ○ Ensure parent directory          │││                                      │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Execution in progress; leaving is disabled
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== successful result [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application complete. Status refreshed.
+
+[████████████████████] 13/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│  ✔ Ensure parent directory          │││Leave unchanged                       │
+│  ✔ Create source link               │││No filesystem change required         │
+│/home/demo/.cache/stage-cache        │││                                      │
+│  ✔ Copy, verify and publish         │││Source: /home/demo/.cache/unmanaged-ca│
+│  ✔ Replace directory with link ⚠    █││che                                   │
+│/home/demo/.cache/new-cache          █││Target: /mnt/storage/unmanaged-cache  │
+│  ✔ Ensure parent directory          █││Step path: /home/demo/.cache/unmanaged│
+│  ✔ Create directory                 █││-cache                                │
+│  ✔ Ensure parent directory          █││                                      │
+│  ✔ Create source link               █││                                      │
+│/home/demo/.cache/linked-cache       █││                                      │
+│  ─ Already in sync                  █││                                      │
+│/home/demo/.cache/unmanaged-cache    █││                                      │
+│❯ ─ Leave unchanged                  █││                                      │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== workspace updated observations [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 0 destructive actions
+┌Relocations─────────────┐┌Observe & decide: l to choose───────────────────────┐
+│❯ unmanaged-cache       ││CURRENT: source directory, target directory        █│
+│  Skipped               ││Source: /home/demo/.cache/unmanaged-cache          █│
+│                        ││Target: /mnt/storage/unmanaged-cache               █│
+│                        ││SAVED policy: LEAVE_UNCHANGED                      █│
+│                        ││DRAFT: none                                        █│
+│                        ││EXPECTED: Left unmanaged                           █│
+│                        ││                                                   █│
+│                        ││  [ ] Adopt target and discard source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/unmana  ││
+│                        ││ged-cache                                          ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== retained result [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application complete. Status refreshed.
+
+[████████████████████] 13/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Replace directory with link           │
+│❯ ✔ Replace directory with link ⚠    █││Simulated completion; disk unchanged  │
+│/home/demo/.cache/discard-cache      █││                                      │
+│  ✔ Delete directory ⚠               █││Source: /home/demo/.cache/conflict-cac│
+│  ✔ Delete directory ⚠               █││he                                    │
+│  ✔ Ensure parent directory          █││Target: /mnt/storage/conflict-cache   │
+│  ✔ Create directory                 █││Step path: /home/demo/.cache/conflict-│
+│  ✔ Ensure parent directory          █││cache                                 │
+│  ✔ Create source link               █││Link to: /mnt/storage/conflict-cache  │
+│/home/demo/.cache/stage-cache        █││                                      │
+│  ✔ Copy, verify and publish         │││                                      │
+│  ✔ Replace directory with link ⚠    │││                                      │
+│/home/demo/.cache/new-cache          │││⚠ Destructive: existing content or    │
+│  ✔ Ensure parent directory          │││link will be removed.                 │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== no change review [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+No changes to apply.
+
+
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Already in sync                       │
+│❯ ─ Already in sync                  █││No filesystem change required         │
+│/home/demo/.cache/discard-cache      █││                                      │
+│  ─ Already in sync                  █││Source: /home/demo/.cache/conflict-cac│
+│/home/demo/.cache/stage-cache        █││he                                    │
+│  ─ Already in sync                  █││Target: /mnt/storage/conflict-cache   │
+│/home/demo/.cache/new-cache          █││Step path: /home/demo/.cache/conflict-│
+│  ─ Already in sync                  █││cache                                 │
+│/home/demo/.cache/linked-cache       █││                                      │
+│  ─ Already in sync                  █││                                      │
+│/home/demo/.cache/unmanaged-cache    █││                                      │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== preflight rejected [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Plan stale. Review filesystem changes and re-plan.
+
+[░░░░░░░░░░░░░░░░░░░░] 0/13 actions completed
+SIMULATED preflight rejection: target appeared after review. ZERO mutations. Rep
+lan to inspect the new conflict.
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Replace directory with link           │
+│❯ ○ Replace directory with link ⚠    █││Not run                               │
+│/home/demo/.cache/discard-cache      █││                                      │
+│  ○ Delete directory ⚠               █││Source: /home/demo/.cache/conflict-cac│
+│  ○ Delete directory ⚠               █││he                                    │
+│  ○ Ensure parent directory          █││Target: /mnt/storage/conflict-cache   │
+│  ○ Create directory                 █││Step path: /home/demo/.cache/conflict-│
+│  ○ Ensure parent directory          │││cache                                 │
+│  ○ Create source link               │││Link to: /mnt/storage/conflict-cache  │
+│/home/demo/.cache/stage-cache        │││                                      │
+│  ○ Copy, verify and publish         │││⚠ Destructive: existing content or    │
+│  ○ Replace directory with link ⚠    │││link will be removed.                 │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== preflight explicit zero changes [80x24] ===
+HomeLight prototype | inspect | page 1/5
+REVIEW / EXECUTION DETAIL (same actual plan as the Apply screen)
+0 completed; 0 failed; 13 not run
+SIMULATED preflight rejection: target appeared after review. ZERO mutations.
+ Replan to inspect the new conflict.
+PENDING: Replace directory with link
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Affected action: ReplaceDirectoryWithSymlink[path=/home/demo/.cache/conflict
+-cache, target=/mnt/storage/conflict-cache, expectedTargetState=DIRECTORY]
+Not run
+PENDING: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/home/demo/.cache/discard-cache, expec
+tedPathState=DIRECTORY, expectedEmpty=false]
+Not run
+PENDING: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== recovery replan [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ stage-cache           ││CURRENT: source directory, target directory        █│
+│  Conflict              ││Source: /home/demo/.cache/stage-cache              █│
+│  conflict-cache        ││Target: /mnt/storage/stage-cache                   █│
+│  Adopt / destructive   ││SAVED policy: Ask when both directories exist      █│
+│  discard-cache         ││DRAFT: none                                        █│
+│  Discard / destructive ││EXPECTED: Needs a decision                         █│
+│  new-cache             ││                                                   █│
+│  Link                  ││> [ ] Adopt target and discard source              █│
+│  unmanaged-cache       ││    Use existing target directory as authoritativ  █│
+│  Skipped               ││e and delete the existing source directory.        █│
+│                        ││  [ ] Adopt target and archive source              █│
+│                        ││    Use existing target directory as authoritativ  █│
+│                        ││e and move existing source directory to archive r  ││
+│                        ││oot.                                               ││
+│                        ││    Archive: /mnt/archive/home/demo/.cache/stage-  ││
+│                        ││cache                                              ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Fresh plan blocked: external obstruction remains. Use ! to reset the fixture.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial failure existing Apply view [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application stopped. Inspect failed and pending actions, then re-plan.
+
+[██████░░░░░░░░░░░░░░] 4/13 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/home/demo/.cache/conflict-cache     █││Create directory                      │
+│  ✔ Replace directory with link ⚠    █││SIMULATED obstruction at              │
+│/home/demo/.cache/discard-cache      █││/mnt/storage/discard-cache. Earlier   │
+│  ✔ Delete directory ⚠               █││Source: /home/demo/.cache/discard-cach│
+│  ✔ Delete directory ⚠               █││e                                     │
+│  ✔ Ensure parent directory          █││Target: /mnt/storage/discard-cache    │
+│❯ ✖ Create directory                 █││Step path: /mnt/storage/discard-cache │
+│  ○ Ensure parent directory          █││                                      │
+│  ○ Create source link               █││                                      │
+│/home/demo/.cache/stage-cache        █││                                      │
+│  ○ Copy, verify and publish         │││                                      │
+│  ○ Replace directory with link ⚠    │││                                      │
+│/home/demo/.cache/new-cache          │││                                      │
+│  ○ Ensure parent directory          │││                                      │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial explicit counts [80x24] ===
+HomeLight prototype | inspect | page 1/5
+REVIEW / EXECUTION DETAIL (same actual plan as the Apply screen)
+4 completed; 1 failed; 8 not run
+COMPLETED: Replace directory with link
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Affected action: ReplaceDirectoryWithSymlink[path=/home/demo/.cache/conflict
+-cache, target=/mnt/storage/conflict-cache, expectedTargetState=DIRECTORY]
+Simulated completion; disk unchanged
+COMPLETED: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/home/demo/.cache/discard-cache, expec
+tedPathState=DIRECTORY, expectedEmpty=false]
+Simulated completion; disk unchanged
+COMPLETED: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/mnt/storage/discard-cache, expectedPa
+thState=DIRECTORY, expectedEmpty=false]
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial full messages [80x24] ===
+HomeLight prototype | inspect | page 2/5
+Simulated completion; disk unchanged
+COMPLETED: Ensure parent directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: EnsureDirectory[path=/mnt/storage]
+Simulated completion; disk unchanged
+FAILED: Create directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: CreateDirectory[path=/mnt/storage/discard-cache, expectedPa
+thState=ABSENT]
+SIMULATED obstruction at /mnt/storage/discard-cache. Earlier completed actio
+ns remain changed; later actions did not run. Inspect current observations b
+efore replanning.
+PENDING: Ensure parent directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: EnsureDirectory[path=/home/demo/.cache]
+Not run
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== missing default manual candidate selected [80x24] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: UNAVAILABLE; manual / built-in choices still work  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== refresh retains candidate [80x24] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: available  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== cancel no save [80x24] ===
+HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+┌Configuration missing─────────────────────────────────────────────────────────┐
+│/home/demo/.homelight.yaml                                                    │
+│Press 4 to set up manually. No save occurs until you confirm.                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== explicit save review [80x24] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Save explicitly selected relocations to /home/demo/.homelight.yaml?
+/home/demo/manual-cache -> /mnt/storage
+IN MEMORY ONLY. This does not apply relocations. y saves; n cancels.
+Setup cancelled; nothing saved.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== saved entries feed actual planner [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+1 relocations | 0 conflicts | 0 unchanged | 1 destructive actions
+┌Relocations─────────────┐┌Observe & decide: l to choose───────────────────────┐
+│❯ manual-cache          ││CURRENT: source directory, target absent            │
+│  Migrate / destructive ││Source: /home/demo/manual-cache                     │
+│                        ││Target: /mnt/storage/manual-cache                   │
+│                        ││SAVED policy: Ask when both directories exist       │
+│                        ││DRAFT: none                                         │
+│                        ││EXPECTED: In sync | WARNING: destructive            │
+│                        ││                                                    │
+│                        ││Planned: Copy, verify and publish                   │
+│                        ││Planned: Replace directory with link                │
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Saved 1 explicitly selected relocations IN MEMORY. Nothing applied.
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== refresh preserves configured entries [80x24] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: UNAVAILABLE; manual / built-in choices still work  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 1 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== missing explicit setup [80x24] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /tmp/explicit-demo.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: available  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [ ] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+TERMINAL_RESTORED True
+
+=== A actual Status view [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflict-cache             ││Source:                                                   │
+│  [Warning] /home/demo/.cache/discard-cache               ││  Path: /home/demo/.cache/conflict-cache                  │
+│  [Pending] /home/demo/.cache/new-cache                   ││  State: Directory (contains files)                       │
+│  [Pending] /home/demo/.cache/stage-cache                 ││                                                          │
+│  [Skipped] /home/demo/.cache/unmanaged-cache             ││Target:                                                   │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)           ││  Path: /mnt/storage/conflict-cache                       │
+│                                                          ││  State: Directory (contains files)                       │
+│                                                          ││                                                          │
+│                                                          ││Configuration:                                            │
+│                                                          ││  source-archive-root: /mnt/archive                       │
+│                                                          ││                                                          │
+│                                                          ││Reconciliation:                                           │
+│                                                          ││  Expected outcome: Not determined                        │
+│                                                          ││                                                          │
+│                                                          ││Conflict:                                                 │
+│                                                          ││  Path: /home/demo/.cache/conflict-cache                  │
+│                                                          ││  Reason: both source and target directories exist; choose│
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A actual Plan choices [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ⚡ 1 migrate · ⚡ 1 link ·g  ⚡ 1 discard ·t ✔ 1 in sync · — 1 skipped · ⚠ 1 conflict · ⚠ 2 destructive
+
+┌Plan──────────────────────────────────────────────────────┐┌Plan Details──────────────────────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflict-cache             ││Relocation:                                               │
+│  [Discard] /home/demo/.cache/discard-cache               ││  Source: /home/demo/.cache/conflict-cache                │
+│  [Link] /home/demo/.cache/new-cache                      ││  Target: /mnt/storage/conflict-cache                     │
+│  [Migrate] /home/demo/.cache/stage-cache                 ││  Action: Conflict                                        │
+│  [Skipped] /home/demo/.cache/unmanaged-cache             ││                                                          │
+│  ▶ 1 in sync items hidden (press 'c' to reveal)          ││Actions (dry-run):                                        │
+│                                                          ││  (no actions planned)                                    │
+│                                                          ││                                                          │
+│                                                          ││Conflict:                                                 │
+│                                                          ││  Reason: both source and target directories exist;       │
+│                                                          ││          choose which directory is authoritative         │
+│                                                          ││                                                          │
+│                                                          ││Available Resolutions:                                    │
+│                                                          ││  ❯ (○) Adopt target and discard source                   │
+│                                                          ││        Use existing target directory as                  │
+│                                                          ││        authoritative and delete the existing source      │
+│                                                          ││        directory.                                        │
+│                                                          ││    (○) Adopt target and archive source                   │
+│                                                          ││        Use existing target directory as                  │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  3: Apply  ·  q: Quit
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== full details escape hatch [120x30] ===
+HomeLight prototype | inspect | page 1/1
+Current source: PathObservation[state=DIRECTORY, symlinkTarget=Optional.empty, symlinkTargetAvailability=NOT_A_SYMLI
+NK, emptyDirectory=false]
+Current target: PathObservation[state=DIRECTORY, symlinkTarget=Optional.empty, symlinkTargetAvailability=NOT_A_SYMLI
+NK, emptyDirectory=false]   · ⚡         g              ·
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Saved policy: Ask when both directories exist
+Draft: none
+Expected outcome with draft: UNRESOLVED
+Adopt target and discard source
+Use existing target directory as authoritative and delete the existing source directory.
+Adopt target and archive source
+Use existing target directory as authoritative and move existing source directory to archive root.
+Leave source and target unmanaged
+Leave existing source and target directories in place without managing them.
+Discard source and target contents
+Delete existing contents in both locations, then recreate empty target and source link.
+[/]: page | n or Esc: return
+
+
+
+
+
+
+
+
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B workspace same relocation [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Observe & decide: l to choose─────────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││  [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B first choice [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││> [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 2 [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││  [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││> [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 3 [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││  [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││> [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B choice 4 [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: none                                                                   │
+│  Link                                ││EXPECTED: Needs a decision                                                    │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││  [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││> [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== resize selected fourth choice [80x24] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations─────────────┐┌Decide: j/k options, Space selects──────────────────┐
+│❯ conflict-cache        ││DRAFT: none                                        ││
+│  Conflict              ││EXPECTED: Needs a decision                         ││
+│  discard-cache         ││                                                   ││
+│  Discard / destructive ││  [ ] Adopt target and discard source              █│
+│  new-cache             ││    Use existing target directory as authoritativ  █│
+│  Link                  ││e and delete the existing source directory.        █│
+│  stage-cache           ││  [ ] Adopt target and archive source              █│
+│  Migrate / destructive ││    Use existing target directory as authoritativ  █│
+│  unmanaged-cache       ││e and move existing source directory to archive r  █│
+│  Skipped               ││oot.                                               █│
+│                        ││    Archive: /mnt/archive/home/demo/.cache/confli  █│
+│                        ││ct-cache                                           █│
+│                        ││  [ ] Leave source and target unmanaged            █│
+│                        ││    Leave existing source and target directories   █│
+│                        ││in place without managing them.                    █│
+│                        ││> [ ] Discard source and target contents           ││
+└────────────────────────┘└────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Same fixture in both views. v switches views; ? explains the comparison.
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B draft selected [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 3 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Adopt / destructive                 ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: Adopt target and discard source                                        │
+│  Link                                ││EXPECTED: In sync | WARNING: destructive                                      │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││> [x] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== same existing Apply review [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Confirm reviewed plan: 4 destructive action(s). Content may be permanently removed.
+
+[░░░░░░░░░░░░░░░░░░░░] 0/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Replace directory with link                               │
+│❯ ○ Replace directory with link ⚠                        █││Not started                                               │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│  ○ Delete directory ⚠                                   █││Source: /home/demo/.cache/conflict-cache                  │
+│  ○ Delete directory ⚠                                   █││Target: /mnt/storage/conflict-cache                       │
+│  ○ Ensure parent directory                              █││Step path: /home/demo/.cache/conflict-cache               │
+│  ○ Create directory                                     █││Link to: /mnt/storage/conflict-cache                      │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ○ Copy, verify and publish                             █││                                                          │
+│  ○ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││⚠ Destructive: existing content or link will be removed.  │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  y: Confirm destructive plan  ·  n/Esc: Cancel
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== B cancel retains focus [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 3 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ conflict-cache                      ││CURRENT: source directory, target directory                                   │
+│  Adopt / destructive                 ││Source: /home/demo/.cache/conflict-cache                                      │
+│  discard-cache                       ││Target: /mnt/storage/conflict-cache                                           │
+│  Discard / destructive               ││SAVED policy: Ask when both directories exist                                 │
+│  new-cache                           ││DRAFT: Adopt target and discard source                                        │
+│  Link                                ││EXPECTED: In sync | WARNING: destructive                                      │
+│  stage-cache                         ││                                                                              │
+│  Migrate / destructive               ││> [x] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/conflict-cache                     │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A Status saved policy same session [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ✔ 1 in sync · ⚡  2 pending · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────┐
+│❯ [Conflict] /home/demo/.cache/conflict-cache             ││Source:                                                   │
+│  [Warning] /home/demo/.cache/discard-cache               ││  Path: /home/demo/.cache/conflict-cache                  │
+│  [Pending] /home/demo/.cache/new-cache                   ││  State: Directory (contains files)                       │
+│  [Pending] /home/demo/.cache/stage-cache                 ││                                                          │
+│  [Skipped] /home/demo/.cache/unmanaged-cache             ││Target:                                                   │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)           ││  Path: /mnt/storage/conflict-cache                       │
+│                                                          ││  State: Directory (contains files)                       │
+│                                                          ││                                                          │
+│                                                          ││Configuration:                                            │
+│                                                          ││  source-archive-root: /mnt/archive                       │
+│                                                          ││                                                          │
+│                                                          ││Reconciliation:                                           │
+│                                                          ││  Expected outcome: Not determined                        │
+│                                                          ││                                                          │
+│                                                          ││Conflict:                                                 │
+│                                                          ││  Path: /home/demo/.cache/conflict-cache                  │
+│                                                          ││  Reason: both source and target directories exist; choose│
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== A Plan retains same draft [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /home/demo/.homelight.yaml
+Target Root: /mnt/storage
+
+6 relocations · ⚡ 1 migrate · ⚡ 1 adopt · ⚡ 1 link · ⚡ 1 discard · ✔ 1 in sync     · — 1 skipped · ⚠ 3 destructive
+
+┌Plan──────────────────────────────────────────────────────┐┌Plan Details──────────────────────────────────────────────┐
+│❯ [Adopt] /home/demo/.cache/conflict-cache                ││Relocation:                                               │
+│  [Discard] /home/demo/.cache/discard-cache               ││  Source: /home/demo/.cache/conflict-cache                │
+│  [Link] /home/demo/.cache/new-cache                      ││  Target: /mnt/storage/conflict-cache                     │
+│  [Migrate] /home/demo/.cache/stage-cache                 ││  Action: Adopt                                           │
+│  [Skipped] /home/demo/.cache/unmanaged-cache             ││                                                          │
+│  ▶ 1 in sync items hidden (press 'c' to reveal)          ││Actions (dry-run):                                        │
+│                                                          ││  • Replace directory with symlink /home/demo/.cache/confl│
+│                                                          ││                                                          │
+│                                                          ││⚠ Safety Warning: This relocation includes destructive act│
+│                                                          ││                                                          │
+│                                                          ││Available Resolutions:                                    │
+│                                                          ││    (●) Adopt target and discard source                   │
+│                                                          ││        Use existing target directory as                  │
+│                                                          ││        authoritative and delete the existing source      │
+│                                                          ││        directory.                                        │
+│                                                          ││    (○) Adopt target and archive source                   │
+│                                                          ││        Use existing target directory as                  │
+│                                                          ││        authoritative and move existing source            │
+│                                                          ││        directory to archive root.                        │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  →/l: Details  ·  c: Toggle In Sync  ·  r: Refresh  ·  a: Apply  ·  1: Status  ·  q: Quit
+DEMO A existing tabs | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== manual action inspection [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Applying reviewed plan. Wait for execution to finish.
+
+[███░░░░░░░░░░░░░░░░░] 2/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Delete directory                                          │
+│  ✔ Replace directory with link ⚠                        █││Simulated completion; disk unchanged                      │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│❯ ✔ Delete directory ⚠                                   █││Source: /home/demo/.cache/discard-cache                   │
+│  ⠙ Delete directory ⚠                                   █││Target: /mnt/storage/discard-cache                        │
+│  ○ Ensure parent directory                              █││Step path: /home/demo/.cache/discard-cache                │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ○ Copy, verify and publish                             █││                                                          │
+│  ○ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││⚠ Destructive: existing content or link will be removed.  │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Execution in progress; leaving is disabled
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== follow next action [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Applying reviewed plan. Wait for execution to finish.
+
+[████░░░░░░░░░░░░░░░░] 3/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Ensure parent directory                                   │
+│  ✔ Replace directory with link ⚠                        █││Simulating, no filesystem mutation                        │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│  ✔ Delete directory ⚠                                   █││Source: /home/demo/.cache/discard-cache                   │
+│  ✔ Delete directory ⚠                                   █││Target: /mnt/storage/discard-cache                        │
+│❯ ⠹ Ensure parent directory                              █││Step path: /mnt/storage                                   │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ○ Copy, verify and publish                             █││                                                          │
+│  ○ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││                                                          │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Execution in progress; leaving is disabled
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== successful result [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application complete. Status refreshed.
+
+[████████████████████] 13/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│  ✔ Replace directory with link ⚠                        █││Leave unchanged                                           │
+│/home/demo/.cache/discard-cache                          █││No filesystem change required                             │
+│  ✔ Delete directory ⚠                                   █││                                                          │
+│  ✔ Delete directory ⚠                                   █││Source: /home/demo/.cache/unmanaged-cache                 │
+│  ✔ Ensure parent directory                              █││Target: /mnt/storage/unmanaged-cache                      │
+│  ✔ Create directory                                     █││Step path: /home/demo/.cache/unmanaged-cache              │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ✔ Copy, verify and publish                             █││                                                          │
+│  ✔ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create directory                                     █││                                                          │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││                                                          │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+│❯ ─ Leave unchanged                                      █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== workspace updated observations [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 0 conflicts | 1 unchanged | 0 destructive actions
+┌Relocations───────────────────────────┐┌Observe & decide: l to choose─────────────────────────────────────────────────┐
+│❯ unmanaged-cache                     ││CURRENT: source directory, target directory                                   │
+│  Skipped                             ││Source: /home/demo/.cache/unmanaged-cache                                     │
+│                                      ││Target: /mnt/storage/unmanaged-cache                                          │
+│                                      ││SAVED policy: LEAVE_UNCHANGED                                                 │
+│                                      ││DRAFT: none                                                                   │
+│                                      ││EXPECTED: Left unmanaged                                                      │
+│                                      ││                                                                              │
+│                                      ││  [ ] Adopt target and discard source                                         │
+│                                      ││    Use existing target directory as authoritative and delete the existing    │
+│                                      ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/unmanaged-cache                    │
+│                                      ││  [x] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Draft: Adopt target and discard source. Saved policy unchanged.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== retained result [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application complete. Status refreshed.
+
+[████████████████████] 13/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Replace directory with link                               │
+│❯ ✔ Replace directory with link ⚠                        █││Simulated completion; disk unchanged                      │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│  ✔ Delete directory ⚠                                   █││Source: /home/demo/.cache/conflict-cache                  │
+│  ✔ Delete directory ⚠                                   █││Target: /mnt/storage/conflict-cache                       │
+│  ✔ Ensure parent directory                              █││Step path: /home/demo/.cache/conflict-cache               │
+│  ✔ Create directory                                     █││Link to: /mnt/storage/conflict-cache                      │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ✔ Copy, verify and publish                             █││                                                          │
+│  ✔ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create directory                                     █││                                                          │
+│  ✔ Ensure parent directory                              █││                                                          │
+│  ✔ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││⚠ Destructive: existing content or link will be removed.  │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== no change review [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+No changes to apply.
+
+
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Already in sync                                           │
+│❯ ─ Already in sync                                      █││No filesystem change required                             │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│  ─ Already in sync                                      █││Source: /home/demo/.cache/conflict-cache                  │
+│/home/demo/.cache/stage-cache                            █││Target: /mnt/storage/conflict-cache                       │
+│  ─ Already in sync                                      █││Step path: /home/demo/.cache/conflict-cache               │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ─ Already in sync                                      █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││                                                          │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== preflight rejected [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Plan stale. Review filesystem changes and re-plan.
+
+[░░░░░░░░░░░░░░░░░░░░] 0/13 actions completed
+SIMULATED preflight rejection: target appeared after review. ZERO mutations. Replan to inspect the new conflict.
+
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Replace directory with link                               │
+│❯ ○ Replace directory with link ⚠                        █││Not run                                                   │
+│/home/demo/.cache/discard-cache                          █││                                                          │
+│  ○ Delete directory ⚠                                   █││Source: /home/demo/.cache/conflict-cache                  │
+│  ○ Delete directory ⚠                                   █││Target: /mnt/storage/conflict-cache                       │
+│  ○ Ensure parent directory                              █││Step path: /home/demo/.cache/conflict-cache               │
+│  ○ Create directory                                     █││Link to: /mnt/storage/conflict-cache                      │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ○ Copy, verify and publish                             █││                                                          │
+│  ○ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   │││⚠ Destructive: existing content or link will be removed.  │
+│/home/demo/.cache/linked-cache                           │││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== preflight explicit zero changes [120x30] ===
+HomeLight prototype | inspect | page 1/4
+REVIEW / EXECUTION DETAIL (same actual plan as the Apply screen)
+0 completed; 0 failed; 13 not run
+SIMULATED preflight rejection: target appeared after review. ZERO mutations. Replan to inspect the new conflict.
+PENDING: Replace directory with link
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Affected action: ReplaceDirectoryWithSymlink[path=/home/demo/.cache/conflict-cache, target=/mnt/storage/conflict-cac
+he, expectedTargetState=DIRECTORY]
+Not run
+PENDING: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/home/demo/.cache/discard-cache, expectedPathState=DIRECTORY, expectedEmpty=fa
+lse]
+Not run
+PENDING: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/mnt/storage/discard-cache, expectedPathState=DIRECTORY, expectedEmpty=false]
+Not run
+PENDING: Ensure parent directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: EnsureDirectory[path=/mnt/storage]
+Not run
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== recovery replan [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+6 relocations | 1 conflicts | 1 unchanged | 2 destructive actions
+┌Relocations───────────────────────────┐┌Decide: j/k options, Space selects────────────────────────────────────────────┐
+│❯ stage-cache                         ││CURRENT: source directory, target directory                                   │
+│  Conflict                            ││Source: /home/demo/.cache/stage-cache                                         │
+│  conflict-cache                      ││Target: /mnt/storage/stage-cache                                              │
+│  Adopt / destructive                 ││SAVED policy: Ask when both directories exist                                 │
+│  discard-cache                       ││DRAFT: none                                                                   │
+│  Discard / destructive               ││EXPECTED: Needs a decision                                                    │
+│  new-cache                           ││                                                                              │
+│  Link                                ││> [ ] Adopt target and discard source                                         │
+│  unmanaged-cache                     ││    Use existing target directory as authoritative and delete the existing    │
+│  Skipped                             ││source directory.                                                             │
+│                                      ││  [ ] Adopt target and archive source                                         │
+│                                      ││    Use existing target directory as authoritative and move existing source   │
+│                                      ││ directory to archive root.                                                   │
+│                                      ││    Archive: /mnt/archive/home/demo/.cache/stage-cache                        │
+│                                      ││  [ ] Leave source and target unmanaged                                       │
+│                                      ││    Leave existing source and target directories in place without managing    │
+│                                      ││them.                                                                         │
+│                                      ││  [ ] Discard source and target contents                                      │
+│                                      ││    Delete existing contents in both locations, then recreate empty target    │
+│                                      ││and source link.                                                              │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Fresh plan blocked: external obstruction remains. Use ! to reset the fixture.
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial failure existing Apply view [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /home/demo/.homelight.yaml
+Application stopped. Inspect failed and pending actions, then re-plan.
+
+[██████░░░░░░░░░░░░░░] 4/13 actions completed
+┌Reviewed actions──────────────────────────────────────────┐┌Action details────────────────────────────────────────────┐
+│/home/demo/.cache/conflict-cache                         █││Create directory                                          │
+│  ✔ Replace directory with link ⚠                        █││SIMULATED obstruction at /mnt/storage/discard-cache.      │
+│/home/demo/.cache/discard-cache                          █││Earlier completed actions remain changed; later actions   │
+│  ✔ Delete directory ⚠                                   █││Source: /home/demo/.cache/discard-cache                   │
+│  ✔ Delete directory ⚠                                   █││Target: /mnt/storage/discard-cache                        │
+│  ✔ Ensure parent directory                              █││Step path: /mnt/storage/discard-cache                     │
+│❯ ✖ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/stage-cache                            █││                                                          │
+│  ○ Copy, verify and publish                             █││                                                          │
+│  ○ Replace directory with link ⚠                        █││                                                          │
+│/home/demo/.cache/new-cache                              █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create directory                                     █││                                                          │
+│  ○ Ensure parent directory                              █││                                                          │
+│  ○ Create source link                                   █││                                                          │
+│/home/demo/.cache/linked-cache                           █││                                                          │
+│  ─ Already in sync                                      █││                                                          │
+│/home/demo/.cache/unmanaged-cache                        █││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+↑/↓: Inspect  ·  Enter: Status  ·  r: Re-plan  ·  q: Quit
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial explicit counts [120x30] ===
+HomeLight prototype | inspect | page 1/4
+REVIEW / EXECUTION DETAIL (same actual plan as the Apply screen)
+4 completed; 1 failed; 8 not run
+COMPLETED: Replace directory with link
+Source: /home/demo/.cache/conflict-cache
+Target: /mnt/storage/conflict-cache
+Affected action: ReplaceDirectoryWithSymlink[path=/home/demo/.cache/conflict-cache, target=/mnt/storage/conflict-cac
+he, expectedTargetState=DIRECTORY]
+Simulated completion; disk unchanged
+COMPLETED: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/home/demo/.cache/discard-cache, expectedPathState=DIRECTORY, expectedEmpty=fa
+lse]
+Simulated completion; disk unchanged
+COMPLETED: Delete directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: DeleteDirectory[path=/mnt/storage/discard-cache, expectedPathState=DIRECTORY, expectedEmpty=false]
+Simulated completion; disk unchanged
+COMPLETED: Ensure parent directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: EnsureDirectory[path=/mnt/storage]
+Simulated completion; disk unchanged
+FAILED: Create directory
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== partial full messages [120x30] ===
+HomeLight prototype | inspect | page 2/4
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: CreateDirectory[path=/mnt/storage/discard-cache, expectedPathState=ABSENT]
+SIMULATED obstruction at /mnt/storage/discard-cache. Earlier completed actions remain changed; later actions did not
+ run. Inspect current observations before replanning.
+PENDING: Ensure parent directory
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: EnsureDirectory[path=/home/demo/.cache]
+Not run
+PENDING: Create source link
+Source: /home/demo/.cache/discard-cache
+Target: /mnt/storage/discard-cache
+Affected action: CreateSymlink[path=/home/demo/.cache/discard-cache, target=/mnt/storage/discard-cache, expectedSour
+ceState=ABSENT, expectedTargetState=DIRECTORY]
+Not run
+PENDING: Copy, verify and publish
+Source: /home/demo/.cache/stage-cache
+Target: /mnt/storage/stage-cache
+Affected action: MigrateDirectoryForPublication[path=/home/demo/.cache/stage-cache, target=/mnt/storage/stage-cache,
+ stagingRoot=Optional[/mnt/staging]]
+Not run
+PENDING: Replace directory with link
+Source: /home/demo/.cache/stage-cache
+Target: /mnt/storage/stage-cache
+[/]: page | n or Esc: return
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== missing default manual candidate selected [120x30] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: UNAVAILABLE; manual / built-in choices still work  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== refresh retains candidate [120x30] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: available  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== cancel no save [120x30] ===
+HOMELIGHT  [Workspace]  [3: Review]  [4: Setup]
+┌Configuration missing─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│/home/demo/.homelight.yaml                                                                                            │
+│Press 4 to set up manually. No save occurs until you confirm.                                                         │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== explicit save review [120x30] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Save explicitly selected relocations to /home/demo/.homelight.yaml?
+/home/demo/manual-cache -> /mnt/storage
+IN MEMORY ONLY. This does not apply relocations. y saves; n cancels.
+Setup cancelled; nothing saved.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== saved entries feed actual planner [120x30] ===
+⌂ HOMELIGHT  [Workspace: observe + decide]  [3: Review]  [4: Setup]
+Config: /home/demo/.homelight.yaml
+1 relocations | 0 conflicts | 0 unchanged | 1 destructive actions
+┌Relocations───────────────────────────┐┌Observe & decide: l to choose─────────────────────────────────────────────────┐
+│❯ manual-cache                        ││CURRENT: source directory, target absent                                      │
+│  Migrate / destructive               ││Source: /home/demo/manual-cache                                               │
+│                                      ││Target: /mnt/storage/manual-cache                                             │
+│                                      ││SAVED policy: Ask when both directories exist                                 │
+│                                      ││DRAFT: none                                                                   │
+│                                      ││EXPECTED: In sync | WARNING: destructive                                      │
+│                                      ││                                                                              │
+│                                      ││Planned: Copy, verify and publish                                             │
+│                                      ││Planned: Replace directory with link                                          │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+j/k: Select  l/h: Pane  Space: Choose  [/]: Scroll  3: Review  c: In sync
+Saved 1 explicitly selected relocations IN MEMORY. Nothing applied.
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== refresh preserves configured entries [120x30] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /home/demo/.homelight.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: UNAVAILABLE; manual / built-in choices still work  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [x] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 1 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Suggestions refreshed. Draft selections and configured relocations unchanged.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+
+=== missing explicit setup [120x30] ===
+⌂ HOMELIGHT  Configuration / simulated save
+Config: /tmp/explicit-demo.yaml
+Source root: /home/demo  (o edit)
+Target root: /mnt/storage  (t edit)
+Optional shared list: /net/team/candidates.txt  (e edit)
+Shared list: available  (u toggle)
+Candidates are suggestions; approximate sizes are simulated.
+> [ ] manual-cache  manual  ~1 GiB
+  [ ] build-cache  built-in + shared  ~8 GiB
+  [ ] team-cache  shared  ~3 GiB
+Configured entries: 0 (refresh never changes these)
+j/k select | Space toggle | f refresh list | s review save | n cancel
+Same fixture in both views. v switches views; ? explains the comparison.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DEMO B workspace | v Compare | ? Help | ! Scenarios | i Inspect
+TERMINAL_RESTORED True

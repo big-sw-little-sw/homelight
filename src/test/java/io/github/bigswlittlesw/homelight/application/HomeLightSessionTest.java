@@ -16,9 +16,42 @@ class HomeLightSessionTest {
     Path directory;
 
     @Test
+    void rejectedWorkerRetainsResultAndRefreshesStatusWithoutMutation() throws Exception {
+        var root = directory.toRealPath();
+        var session = new HomeLightSession(configuration(root, "", "cache"));
+        assertTrue(session.requestApply());
+        Files.createDirectories(root.resolve("local/cache"));
+        var completion = session.confirmApply(task -> {
+            throw new java.util.concurrent.RejectedExecutionException("worker unavailable");
+        });
+        completion.join();
+        session.awaitExecution();
+        var result = assertInstanceOf(ApplyModel.Result.class, session.applyModel());
+        assertEquals("worker unavailable", result.diagnostics().getFirst());
+        assertTrue(result.execution().isEmpty());
+        assertFalse(session.isApplying());
+        assertSame(completion, session.confirmApply(task -> fail("Must not restart")));
+        assertFalse(Files.exists(root.resolve("home")));
+        assertEquals(1, assertInstanceOf(PlanModel.Configured.class, session.planModel()).items().size());
+    }
+
+    @Test
+    void invalidConfigurationAtStatusRefreshDoesNotEraseExecutionResult() throws Exception {
+        var root = directory.toRealPath();
+        var config = configuration(root, "", "cache");
+        var session = new HomeLightSession(config);
+        assertTrue(session.requestApply());
+        Files.writeString(config, "homelight: [invalid");
+        session.confirmApply(Runnable::run).join();
+        assertTrue(assertInstanceOf(ApplyModel.Result.class, session.applyModel()).succeeded());
+        assertInstanceOf(PlanModel.Invalid.class, session.planModel());
+        assertTrue(Files.isSymbolicLink(root.resolve("home/cache")));
+    }
+
+    @Test
     void visualDelayHoldsEachActionBeforeCompletion() throws Exception {
         var root = directory.toRealPath();
-        var session = new HomeLightSession(configuration(root, "", "cache"), Screen.PLAN, 20);
+        var session = new HomeLightSession(configuration(root, "", "cache"), 20);
         var actionCount = assertInstanceOf(PlanModel.Configured.class, session.planModel()).plan().actions().size();
         session.requestApply();
         long started = System.nanoTime();
@@ -33,7 +66,7 @@ class HomeLightSessionTest {
         var source = Files.createDirectories(root.resolve("home/cache"));
         Files.writeString(source.resolve("entry"), "keep this content");
         var config = configuration(root, "", "cache");
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         var reviewed = assertInstanceOf(PlanModel.Configured.class, session.planModel()).plan();
 
         assertTrue(session.requestApply());
@@ -54,13 +87,13 @@ class HomeLightSessionTest {
         assertFalse(session.requestApply());
         session.confirmApply(Runnable::run);
         assertSame(result, session.applyModel());
-        session.setActiveScreen(Screen.STATUS);
+        session.cancelApply();
         assertSame(result, session.applyModel());
 
         configuration(root, "", "cache");
         session.refresh();
         assertInstanceOf(ApplyModel.Idle.class, session.applyModel());
-        assertEquals(1, assertInstanceOf(StatusModel.Configured.class, session.statusModel()).summary().inSync());
+        assertEquals(1, assertInstanceOf(PlanModel.Configured.class, session.planModel()).summary().inSync());
         var repeated = assertInstanceOf(PlanModel.Configured.class, session.planModel()).plan();
         assertNotSame(reviewed, repeated);
         assertFalse(repeated.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem));
@@ -72,14 +105,13 @@ class HomeLightSessionTest {
     @Test
     void cancellationAndLeavingConfirmationDoNotMutate() throws Exception {
         var root = directory.toRealPath();
-        var session = new HomeLightSession(configuration(root, "", "cache"), Screen.PLAN);
+        var session = new HomeLightSession(configuration(root, "", "cache"));
         session.requestApply();
         session.cancelApply();
         session.confirmApply(Runnable::run);
-        assertEquals(Screen.PLAN, session.activeScreen());
         assertInstanceOf(ApplyModel.Idle.class, session.applyModel());
         assertTrue(session.requestApply());
-        session.setActiveScreen(Screen.STATUS);
+        session.cancelApply();
         session.confirmApply(Runnable::run);
         assertFalse(Files.exists(root.resolve("home/cache")));
         assertFalse(Files.exists(root.resolve("local/cache")));
@@ -89,7 +121,7 @@ class HomeLightSessionTest {
     void unresolvedAndBlockedPlansCannotBeConfirmed() throws Exception {
         var root = directory.toRealPath();
         Files.createDirectories(root.resolve("local/cache"));
-        var session = new HomeLightSession(configuration(root, "", "cache"), Screen.PLAN);
+        var session = new HomeLightSession(configuration(root, "", "cache"));
         assertFalse(session.requestApply());
         session.confirmApply(Runnable::run);
         assertFalse(Files.exists(root.resolve("home/cache")));
@@ -105,7 +137,7 @@ class HomeLightSessionTest {
     @Test
     void preflightsEveryRelocationBeforeAnyMutationAndRequiresExplicitReplanning() throws Exception {
         var root = directory.toRealPath();
-        var session = new HomeLightSession(configuration(root, "", "first", "second"), Screen.PLAN);
+        var session = new HomeLightSession(configuration(root, "", "first", "second"));
         session.requestApply();
         Files.createDirectories(root.resolve("local/second"));
         session.confirmApply(Runnable::run).join();
@@ -120,7 +152,6 @@ class HomeLightSessionTest {
         assertFalse(session.requestApply());
 
         session.refresh();
-        assertEquals(Screen.PLAN, session.activeScreen());
         assertTrue(session.hasConflicts());
         var second = assertInstanceOf(PlanModel.Configured.class, session.planModel()).items().stream()
                 .filter(item -> item.relocation().sourcePath().endsWith("second")).findFirst().orElseThrow();
@@ -128,7 +159,7 @@ class HomeLightSessionTest {
         assertTrue(session.requestApply());
         session.confirmApply(Runnable::run).join();
         assertTrue(assertInstanceOf(ApplyModel.Result.class, session.applyModel()).succeeded());
-        assertEquals(2, assertInstanceOf(StatusModel.Configured.class, session.statusModel()).summary().inSync());
+        assertEquals(2, assertInstanceOf(PlanModel.Configured.class, session.planModel()).summary().inSync());
     }
 
     @Test
@@ -143,7 +174,7 @@ class HomeLightSessionTest {
                       when-adopting-target: archive-source
                       source-archive-root: %s
                 """.formatted(root.resolve("archive")));
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         assertTrue(session.requestApply());
         var archive = root.resolve("archive").resolve(source.getRoot().relativize(source));
         Files.createDirectories(archive);
@@ -158,7 +189,7 @@ class HomeLightSessionTest {
     @Test
     void runningSnapshotIsImmutableAndRepeatedIntentsCannotStartOrReplaceExecution() throws Exception {
         var root = directory.toRealPath();
-        var session = new HomeLightSession(configuration(root, "", "cache"), Screen.PLAN);
+        var session = new HomeLightSession(configuration(root, "", "cache"));
         var tasks = new ArrayList<Runnable>();
         session.requestApply();
         var execution = session.confirmApply(tasks::add);
@@ -166,11 +197,10 @@ class HomeLightSessionTest {
         assertEquals(1, tasks.size());
         assertSame(execution, session.confirmApply(tasks::add));
         session.refresh();
-        session.setActiveScreen(Screen.STATUS);
+        session.cancelApply();
         session.cancelApply();
         assertFalse(session.requestApply());
         assertSame(running, session.applyModel());
-        assertEquals(Screen.APPLY, session.activeScreen());
         assertEquals(1, tasks.size());
 
         tasks.getFirst().run();
@@ -178,7 +208,7 @@ class HomeLightSessionTest {
         assertTrue(running.steps().stream().allMatch(step -> step.status() == ApplyModel.StepStatus.PENDING));
         var result = assertInstanceOf(ApplyModel.Result.class, session.applyModel());
         assertTrue(result.steps().stream().allMatch(step -> step.status() == ApplyModel.StepStatus.COMPLETED));
-        assertEquals(1, assertInstanceOf(StatusModel.Configured.class, session.statusModel()).summary().inSync());
+        assertEquals(1, assertInstanceOf(PlanModel.Configured.class, session.planModel()).summary().inSync());
     }
 
     @Test
@@ -187,7 +217,7 @@ class HomeLightSessionTest {
         Files.createDirectories(root.resolve("home/second"));
         var staging = Files.createDirectories(root.resolve("local")).resolve("staging-file");
         var config = configuration(root, "  staging-root: " + staging + "\n", "first", "second", "third");
-        var session = new HomeLightSession(config, Screen.PLAN);
+        var session = new HomeLightSession(config);
         assertTrue(session.requestApply(), session.planModel().toString());
         Files.writeString(staging, "not a directory");
         session.confirmApply(Runnable::run).join();
@@ -210,7 +240,7 @@ class HomeLightSessionTest {
         var retried = assertInstanceOf(ApplyModel.Result.class, session.applyModel());
         assertNotSame(result.plan(), retried.plan());
         assertTrue(retried.succeeded());
-        assertEquals(3, assertInstanceOf(StatusModel.Configured.class, session.statusModel()).summary().inSync());
+        assertEquals(3, assertInstanceOf(PlanModel.Configured.class, session.planModel()).summary().inSync());
     }
 
     private Path configuration(Path root, String globals, String... names) throws Exception {

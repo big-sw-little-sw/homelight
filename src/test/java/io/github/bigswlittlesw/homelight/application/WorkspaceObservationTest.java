@@ -10,15 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class StatusWorkflowTest {
+class WorkspaceObservationTest {
 
     @Test
     void unconfiguredWhenDefaultPathDoesNotExist(@TempDir Path tempDir) {
-        var workflow = new StatusWorkflow();
-        var result = workflow.loadStatus(tempDir.resolve(".homelight.yaml"));
+        var workflow = new PlanWorkflow();
+        var result = workflow.loadPlan(tempDir.resolve(".homelight.yaml"));
 
         // If it's not the default path and doesn't exist, it's invalid
-        assertInstanceOf(StatusModel.Invalid.class, result);
+        assertInstanceOf(PlanModel.Invalid.class, result);
     }
 
     @Test
@@ -37,13 +37,13 @@ class StatusWorkflowTest {
                       target-path: %s
                 """.formatted(root, source, root));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
         assertEquals(1, configured.items().size());
-        assertEquals(RelocationStatusItem.StatusBadge.IN_SYNC, configured.items().getFirst().badge());
+        assertEquals(PlanBadge.IN_SYNC, configured.items().getFirst().badge());
         assertEquals(1, configured.summary().inSync());
     }
 
@@ -63,13 +63,13 @@ class StatusWorkflowTest {
                       when-only-target-exists: adopt-target
                 """.formatted(root, source, root));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
-        assertEquals(RelocationStatusItem.StatusBadge.PENDING, configured.items().getFirst().badge());
-        assertEquals(1, configured.summary().pending());
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
+        assertEquals(PlanBadge.LINK, configured.items().getFirst().badge());
+        assertEquals(1, configured.summary().link());
     }
 
     @Test
@@ -89,12 +89,12 @@ class StatusWorkflowTest {
                       when-source-and-target-directories-exist: prompt
                 """.formatted(root, source, root));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
-        assertEquals(RelocationStatusItem.StatusBadge.CONFLICT, configured.items().getFirst().badge());
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
+        assertEquals(PlanBadge.CONFLICT, configured.items().getFirst().badge());
         assertEquals(1, configured.summary().conflicts());
     }
 
@@ -113,12 +113,12 @@ class StatusWorkflowTest {
                       target-path: %s
                 """.formatted(root, source, root));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
-        assertEquals(RelocationStatusItem.StatusBadge.BLOCKED, configured.items().getFirst().badge());
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
+        assertEquals(PlanBadge.BLOCKED, configured.items().getFirst().badge());
         assertEquals(1, configured.summary().blocked());
     }
 
@@ -139,12 +139,12 @@ class StatusWorkflowTest {
                       target-path: %s
                 """.formatted(root, source, root));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
-        assertEquals(RelocationStatusItem.StatusBadge.WARNING, configured.items().getFirst().badge());
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
+        assertEquals(PlanBadge.LINK, configured.items().getFirst().badge());
         assertEquals(1, configured.summary().warnings());
     }
 
@@ -190,11 +190,11 @@ class StatusWorkflowTest {
                 sourceB, targetB,
                 sourceC, targetC));
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Configured.class, model);
-        var configured = (StatusModel.Configured) model;
+        assertInstanceOf(PlanModel.Configured.class, model);
+        var configured = (PlanModel.Configured) model;
         assertEquals(3, configured.items().size());
 
         // Blocked and Conflict have priority 1 (ordered by path), Converged has priority 5
@@ -202,11 +202,11 @@ class StatusWorkflowTest {
         var second = configured.items().get(1);
         var third = configured.items().get(2);
 
-        assertTrue(first.badge() == RelocationStatusItem.StatusBadge.BLOCKED
-                || first.badge() == RelocationStatusItem.StatusBadge.CONFLICT);
-        assertTrue(second.badge() == RelocationStatusItem.StatusBadge.BLOCKED
-                || second.badge() == RelocationStatusItem.StatusBadge.CONFLICT);
-        assertEquals(RelocationStatusItem.StatusBadge.IN_SYNC, third.badge());
+        assertTrue(first.badge() == PlanBadge.BLOCKED
+                || first.badge() == PlanBadge.CONFLICT);
+        assertTrue(second.badge() == PlanBadge.BLOCKED
+                || second.badge() == PlanBadge.CONFLICT);
+        assertEquals(PlanBadge.IN_SYNC, third.badge());
     }
 
     @Test
@@ -214,9 +214,9 @@ class StatusWorkflowTest {
         var config = tempDir.resolve("config.yaml");
         Files.writeString(config, "invalid: : yaml");
 
-        var workflow = new StatusWorkflow();
-        var model = workflow.loadStatus(config);
+        var workflow = new PlanWorkflow();
+        var model = workflow.loadPlan(config);
 
-        assertInstanceOf(StatusModel.Invalid.class, model);
+        assertInstanceOf(PlanModel.Invalid.class, model);
     }
 }

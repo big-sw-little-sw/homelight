@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli;
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader;
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher;
 import picocli.CommandLine.Command;
@@ -10,7 +11,6 @@ import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.ParentCommand;
 import picocli.CommandLine.Spec;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -51,11 +51,11 @@ final class PlanCommand implements Callable<Integer> {
 
         var configPath = config();
         if (json) {
-            if (isMissingDefaultConfig(configPath)) {
+            if (ConfigurationEvaluation.isUnconfiguredDefault(configPath)) {
                 new PlanRenderer().renderJson(new ReconciliationPlan(List.of(), List.of()), spec.commandLine().getOut());
                 return 0;
             }
-            var plan = new ReconciliationPlanning().plan(configPath, overrides);
+            var plan = new ConfigurationEvaluation().loadRequired(configPath, overrides).plan();
             new PlanRenderer().renderJson(plan, spec.commandLine().getOut());
             return 0;
         }
@@ -63,8 +63,4 @@ final class PlanCommand implements Callable<Integer> {
         return TuiLauncher.launchPlan(configPath, parent.debugStepDelayMillis(), spec.commandLine().getErr());
     }
 
-    private static boolean isMissingDefaultConfig(Path config) {
-        return config.toAbsolutePath().normalize().equals(ConfigurationLoader.DEFAULT_PATH.toAbsolutePath().normalize())
-                && !Files.isRegularFile(config);
-    }
 }

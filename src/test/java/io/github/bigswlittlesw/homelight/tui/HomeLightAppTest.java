@@ -9,12 +9,6 @@ import io.github.bigswlittlesw.homelight.application.PlanBadge;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
 import io.github.bigswlittlesw.homelight.application.PlanSummary;
-import io.github.bigswlittlesw.homelight.application.PlanWorkflow;
-import io.github.bigswlittlesw.homelight.application.RelocationStatusItem;
-import io.github.bigswlittlesw.homelight.application.Screen;
-import io.github.bigswlittlesw.homelight.application.StatusModel;
-import io.github.bigswlittlesw.homelight.application.StatusSummary;
-import io.github.bigswlittlesw.homelight.application.StatusWorkflow;
 import io.github.bigswlittlesw.homelight.config.Relocation;
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState;
 import io.github.bigswlittlesw.homelight.fs.PathObservation;
@@ -48,13 +42,14 @@ class HomeLightAppTest {
                 List.of(new ReconciliationAction.CreateDirectory(second.targetPath())), List.of(), Optional.empty());
         var plan = new ReconciliationPlan(List.of(firstPlan, secondPlan), List.of());
         var progress = new java.util.concurrent.atomic.AtomicReference<ApplyModel>(new ApplyModel.Confirmation(plan));
-        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml"), Screen.APPLY) {
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
             public ApplyModel applyModel() {
                 return progress.get();
             }
         };
         var app = new HomeLightApp(session);
+        app.switchScreen(Screen.APPLY);
         app.render();
 
         for (int active = 0; active < 3; active++) {
@@ -106,24 +101,26 @@ class HomeLightAppTest {
                     - source-path: %s
                       target-path: %s
                 """.formatted(root, source, target));
-        var app = new HomeLightApp(config, Screen.PLAN);
+        var app = new HomeLightApp(config);
 
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
-        assertEquals(Screen.APPLY, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertEquals(Screen.APPLY, app.activeScreen());
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
         assertTrue(app.session().applyModel() instanceof io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation);
         assertFalse(Files.exists(source));
         app.handleKeyEvent(KeyEvent.ofChar('n'));
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
         app.handleKeyEvent(KeyEvent.ofChar('a'));
         app.handleKeyEvent(KeyEvent.ofChar('y'));
         app.session().awaitExecution();
         assertTrue(Files.isSymbolicLink(source));
         assertTrue(app.session().applyModel() instanceof io.github.bigswlittlesw.homelight.application.ApplyModel.Result);
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
-        assertEquals(Screen.STATUS, app.session().activeScreen());
-        assertEquals(1, ((StatusModel.Configured) app.statusModel()).summary().inSync());
-        app.handleKeyEvent(KeyEvent.ofChar('p'));
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
+        assertEquals(1, ((PlanModel.Configured) app.planModel()).summary().inSync());
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertTrue(app.session().applyModel() instanceof ApplyModel.Result);
+        app.handleKeyEvent(KeyEvent.ofChar('r'));
         assertTrue(app.session().isPlanReady());
         assertFalse(((PlanModel.Configured) app.planModel()).plan().actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem));
         app.handleKeyEvent(KeyEvent.ofChar('a'));
@@ -132,7 +129,7 @@ class HomeLightAppTest {
         org.junit.jupiter.api.Assertions.assertSame(unchanged, app.session().applyModel());
         assertFalse(app.session().isApplying());
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
-        assertEquals(Screen.STATUS, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
     }
 
     @Test
@@ -145,14 +142,14 @@ class HomeLightAppTest {
                     - source-path: %s
                       target-path: %s
                 """.formatted(root, root.resolve("source"), root.resolve("target")));
-        var app = new HomeLightApp(config, Screen.PLAN);
+        var app = new HomeLightApp(config);
         app.handleKeyEvent(KeyEvent.ofChar('a'));
         var tasks = new java.util.ArrayList<Runnable>();
         app.session().confirmApply(tasks::add);
         var running = app.session().applyModel();
-        for (char key : new char[] {'q', 'r', 'y', 'a', '1', '2'}) {
+        for (char key : new char[] {'r', 'y', 'a', '1', '2', 'q'}) {
             assertEquals(dev.tamboui.toolkit.event.EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)));
-            assertEquals(Screen.APPLY, app.session().activeScreen());
+            assertEquals(Screen.APPLY, app.activeScreen());
             org.junit.jupiter.api.Assertions.assertSame(running, app.session().applyModel());
         }
         tasks.getFirst().run();
@@ -170,23 +167,23 @@ class HomeLightAppTest {
         var plan3 = new RelocationPlan(rel3, RelocationOutcome.CONVERGED, List.of(new ReconciliationAction.NoOp(rel3.sourcePath())), List.of(), Optional.empty());
 
         var obs = new PathObservation(PathState.DIRECTORY, Optional.empty(), SymlinkTargetAvailability.NOT_A_SYMLINK, false);
-        var item1 = new RelocationStatusItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY);
-        var item2 = new RelocationStatusItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY);
-        var item3 = new RelocationStatusItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY);
+        var item1 = new PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, List.of());
+        var item2 = new PlanRelocationItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY, List.of());
+        var item3 = new PlanRelocationItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY, List.of());
 
         var items = List.of(item1, item2, item3);
-        var summary = StatusSummary.from(items);
-        var configured = new StatusModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        var summary = PlanSummary.from(items);
+        var configured = new PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
                 new ReconciliationPlan(List.of(plan1, plan2, plan3), List.of()), items, summary);
 
-        var mockWorkflow = new StatusWorkflow() {
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
-            public StatusModel loadStatus(Path configPath) {
+            public PlanModel planModel() {
                 return configured;
             }
         };
 
-        var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
+        var app = new HomeLightApp(session);
 
         assertEquals(0, app.selectedIndex());
 
@@ -233,23 +230,23 @@ class HomeLightAppTest {
         var plan3 = new RelocationPlan(rel3, RelocationOutcome.CONVERGED, List.of(new ReconciliationAction.NoOp(rel3.sourcePath())), List.of(), Optional.empty());
 
         var obs = new PathObservation(PathState.DIRECTORY, Optional.empty(), SymlinkTargetAvailability.NOT_A_SYMLINK, false);
-        var item1 = new RelocationStatusItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY);
-        var item2 = new RelocationStatusItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY);
-        var item3 = new RelocationStatusItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY);
+        var item1 = new PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, List.of());
+        var item2 = new PlanRelocationItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY, List.of());
+        var item3 = new PlanRelocationItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY, List.of());
 
         var items = List.of(item1, item2, item3);
-        var summary = StatusSummary.from(items);
-        var configured = new StatusModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        var summary = PlanSummary.from(items);
+        var configured = new PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
                 new ReconciliationPlan(List.of(plan1, plan2, plan3), List.of()), items, summary);
 
-        var mockWorkflow = new StatusWorkflow() {
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
-            public StatusModel loadStatus(Path configPath) {
+            public PlanModel planModel() {
                 return configured;
             }
         };
 
-        var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
+        var app = new HomeLightApp(session);
 
         // When there is an unresolved item, showInSync defaults to false
         assertFalse(app.showInSync());
@@ -270,7 +267,7 @@ class HomeLightAppTest {
         assertEquals(2, app.selectedIndex());
 
         // Press SPACE to toggle showInSync back to false
-        app.handleKeyEvent(KeyEvent.ofChar(' '));
+        app.handleKeyEvent(KeyEvent.ofChar('c'));
         assertFalse(app.showInSync());
         assertEquals(0, app.selectedIndex());
     }
@@ -280,21 +277,21 @@ class HomeLightAppTest {
         var rel1 = new Relocation(Path.of("/source1"), Path.of("/target1"));
         var plan1 = new RelocationPlan(rel1, RelocationOutcome.CONVERGED, List.of(new ReconciliationAction.NoOp(rel1.sourcePath())), List.of(), Optional.empty());
         var obs = new PathObservation(PathState.DIRECTORY, Optional.empty(), SymlinkTargetAvailability.NOT_A_SYMLINK, false);
-        var item1 = new RelocationStatusItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY);
+        var item1 = new PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, List.of());
 
         var items = List.of(item1);
-        var summary = StatusSummary.from(items);
-        var configured = new StatusModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        var summary = PlanSummary.from(items);
+        var configured = new PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
                 new ReconciliationPlan(List.of(plan1), List.of()), items, summary);
 
-        var mockWorkflow = new StatusWorkflow() {
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
-            public StatusModel loadStatus(Path configPath) {
+            public PlanModel planModel() {
                 return configured;
             }
         };
 
-        var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
+        var app = new HomeLightApp(session);
         assertTrue(app.showInSync());
         assertEquals(0, app.selectedIndex());
     }
@@ -302,22 +299,22 @@ class HomeLightAppTest {
     @Test
     void switchesScreensViaKeys() {
         var app = new HomeLightApp(Path.of("/nonexistent/config.yaml"));
-        assertEquals(Screen.STATUS, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('2'));
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
 
-        app.handleKeyEvent(KeyEvent.ofChar('3'));
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('1'));
-        assertEquals(Screen.STATUS, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('p'));
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('s'));
-        assertEquals(Screen.STATUS, app.session().activeScreen());
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
     }
 
     @Test
@@ -336,8 +333,8 @@ class HomeLightAppTest {
                       target-path: %s
                 """.formatted(root, source, target));
 
-        var app = new HomeLightApp(config, Screen.PLAN);
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        var app = new HomeLightApp(config);
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
         assertTrue(app.session().hasConflicts());
         assertEquals(PaneFocus.MASTER, app.paneFocus());
 
@@ -346,8 +343,8 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus());
         assertEquals(0, app.detailSelectedIndex());
 
-        app.handleKeyEvent(KeyEvent.ofChar('3'));
-        assertEquals(Screen.PLAN, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertEquals(Screen.WORKSPACE, app.activeScreen());
         assertEquals(PaneFocus.DETAIL, app.paneFocus());
 
         // Press SPACE in detail pane to resolve highlighted decision
@@ -355,8 +352,8 @@ class HomeLightAppTest {
         assertFalse(app.session().hasConflicts());
         assertTrue(app.session().isPlanReady());
 
-        app.handleKeyEvent(KeyEvent.ofChar('3'));
-        assertEquals(Screen.APPLY, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofChar('2'));
+        assertEquals(Screen.APPLY, app.activeScreen());
         assertEquals(PaneFocus.MASTER, app.paneFocus());
         assertTrue(app.session().applyModel() instanceof ApplyModel.Confirmation);
         assertFalse(Files.exists(source));
@@ -386,7 +383,7 @@ class HomeLightAppTest {
                       target-path: %s
                 """.formatted(root, source1, target1, source2, target2));
 
-        var app = new HomeLightApp(config, Screen.PLAN);
+        var app = new HomeLightApp(config);
         assertEquals(PaneFocus.MASTER, app.paneFocus());
         assertEquals(0, app.selectedIndex());
 
@@ -437,7 +434,7 @@ class HomeLightAppTest {
     }
 
     @Test
-    void cannotEnterDetailPaneWhenNoResolutionsAvailable() {
+    void canInspectDetailsWhenNoResolutionsAvailable() {
         var rel1 = new Relocation(Path.of("/source1"), Path.of("/target1"));
         var plan1 = new RelocationPlan(rel1, RelocationOutcome.CONVERGED, List.of(new ReconciliationAction.NoOp(rel1.sourcePath())), List.of(), Optional.empty());
         var obs = new PathObservation(PathState.DIRECTORY, Optional.empty(), SymlinkTargetAvailability.NOT_A_SYMLINK, false);
@@ -448,22 +445,22 @@ class HomeLightAppTest {
         var configured = new PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
                 new ReconciliationPlan(List.of(plan1), List.of()), items, summary);
 
-        var mockWorkflow = new PlanWorkflow() {
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
-            public PlanModel loadPlan(Path configPath, java.util.Map<String, String> overrides) {
+            public PlanModel planModel() {
                 return configured;
             }
         };
 
-        var app = new HomeLightApp(Path.of("/config.yaml"), mockWorkflow);
+        var app = new HomeLightApp(session);
         assertEquals(PaneFocus.MASTER, app.paneFocus());
 
-        // Pressing Tab or Right arrow remains in MASTER pane because item has no resolutions
+        // Read-only details remain accessible without choices.
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
-        assertEquals(PaneFocus.MASTER, app.paneFocus());
+        assertEquals(PaneFocus.DETAIL, app.paneFocus());
 
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT));
-        assertEquals(PaneFocus.MASTER, app.paneFocus());
+        assertEquals(PaneFocus.DETAIL, app.paneFocus());
     }
 
     @Test
@@ -490,7 +487,7 @@ class HomeLightAppTest {
                       target-path: %s
                 """.formatted(root, source1, target1, source2, target2));
 
-        var app = new HomeLightApp(config, Screen.PLAN);
+        var app = new HomeLightApp(config);
         assertEquals(0, app.selectedIndex());
         assertEquals(PaneFocus.MASTER, app.paneFocus());
 
@@ -509,7 +506,7 @@ class HomeLightAppTest {
 
         // The item must stay selected and visible as SKIPPED
         if (app.planModel() instanceof PlanModel.Configured configured) {
-            var visible = PlanView.visibleItems(configured, app.showInSync());
+            var visible = WorkspaceView.visibleItems(configured, app.showInSync());
             assertTrue(visible.size() >= 2);
             var currentItem = visible.get(app.selectedIndex());
             assertEquals(source1, currentItem.relocation().sourcePath());
@@ -538,7 +535,7 @@ class HomeLightAppTest {
 
         // The second item must stay selected and have DISCARD badge
         if (app.planModel() instanceof PlanModel.Configured configured) {
-            var visible = PlanView.visibleItems(configured, app.showInSync());
+            var visible = WorkspaceView.visibleItems(configured, app.showInSync());
             var currentItem = visible.get(app.selectedIndex());
             assertEquals(source2, currentItem.relocation().sourcePath());
             assertEquals(PlanBadge.DISCARD, currentItem.badge());
@@ -547,15 +544,15 @@ class HomeLightAppTest {
 
     @Test
     void rendersAppElement() {
-        var unconfigured = new StatusModel.Unconfigured(Path.of("/tmp/.homelight.yaml"));
-        var mockWorkflow = new StatusWorkflow() {
+        var unconfigured = new PlanModel.Unconfigured(Path.of("/tmp/.homelight.yaml"));
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml")) {
             @Override
-            public StatusModel loadStatus(Path configPath) {
+            public PlanModel planModel() {
                 return unconfigured;
             }
         };
 
-        var app = new HomeLightApp(Path.of("/tmp/.homelight.yaml"), mockWorkflow);
+        var app = new HomeLightApp(session);
         var element = app.render();
         assertTrue(element.isFocusable());
     }

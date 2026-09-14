@@ -1,0 +1,302 @@
+
+=== isolated missing default status [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      ~/.homelight.yaml
+
+┌HomeLight Not Configured──────────────────────────────────────────────────────────────────────────────────────────────┐
+│No paths are currently managed.                                                                                       │
+│                                                                                                                      │
+│To get started with HomeLight:                                                                                        │
+│  1. Run ./homelight init to create a configuration file                                                              │
+│  2. Add relocations to ~/.homelight.yaml                                                                             │
+│  3. Run ./homelight plan or ./homelight apply                                                                        │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+q: Quit  ·  r: Refresh
+
+=== isolated missing default plan [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      ~/.homelight.yaml
+
+┌HomeLight Not Configured──────────────────────────────────────────────────────────────────────────────────────────────┐
+│No configuration file found at:                                                                                       │
+│  /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-smoke.I1qZHX/.homelight.yaml                     │
+│                                                                                                                      │
+│Run 'homelight init' or create ~/.homelight.yaml to get started.                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+q: Quit  ·  r: Refresh
+TERMINAL_RESTORED True
+
+=== status warning at 120x30 [120x30] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-smoke.I1qZHX/config.yaml
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-smoke.I1qZHX/local
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────┐
+│  [Conflict] /private/var/folde...home/conflict-cache     ││Source:                                                   │
+│❯ [Warning] /private/var/folde.../home/discard-cache      ││  Path: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h00│
+│  [Pending] /private/var/folde...HX/home/adopt-cache      ││  State: Directory (contains files)                       │
+│  [Pending] /private/var/folde...HX/home/stage-cache      ││                                                          │
+│  [Skipped] /private/var/folde...ave-unchanged-cache      ││Target:                                                   │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)           ││  Path: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h00│
+│                                                          ││  State: Directory (contains files)                       │
+│                                                          ││                                                          │
+│                                                          ││Configuration:                                            │
+│                                                          ││  when-source-and-target-directories-exist: discard       │
+│                                                          ││                                                          │
+│                                                          ││Reconciliation:                                           │
+│                                                          ││  Expected outcome: In sync                               │
+│                                                          ││  Actions:                                                │
+│                                                          ││    • Delete directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Delete directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Ensure directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Create directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Ensure directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Create symlink /private/var/folders/6w/52q5tjyd6s7dh│
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+=== status diagnostic wording expanded for inspection [120x45] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-smoke.I1qZHX/config.yaml
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-smoke.I1qZHX/local
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────────────────────────┐┌Details───────────────────────────────────────────────────┐
+│  [Conflict] /private/var/folde...home/conflict-cache     ││Source:                                                   │
+│❯ [Warning] /private/var/folde.../home/discard-cache      ││  Path: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h00│
+│  [Pending] /private/var/folde...HX/home/adopt-cache      ││  State: Directory (contains files)                       │
+│  [Pending] /private/var/folde...HX/home/stage-cache      ││                                                          │
+│  [Skipped] /private/var/folde...ave-unchanged-cache      ││Target:                                                   │
+│  ▶ 1 in sync item hidden (press 'c' to reveal)           ││  Path: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h00│
+│                                                          ││  State: Directory (contains files)                       │
+│                                                          ││                                                          │
+│                                                          ││Configuration:                                            │
+│                                                          ││  when-source-and-target-directories-exist: discard       │
+│                                                          ││                                                          │
+│                                                          ││Reconciliation:                                           │
+│                                                          ││  Expected outcome: In sync                               │
+│                                                          ││  Actions:                                                │
+│                                                          ││    • Delete directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Delete directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Ensure directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Create directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Ensure directory /private/var/folders/6w/52q5tjyd6s7│
+│                                                          ││    • Create symlink /private/var/folders/6w/52q5tjyd6s7dh│
+│                                                          ││                                                          │
+│                                                          ││Diagnostics:                                              │
+│                                                          ││  [DIRECTORIES_DISCARDED] discard will permanently remove │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+│                                                          ││                                                          │
+└──────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+=== status warning at 80x24 [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending  · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────┐┌Details───────────────────────────────┐
+│  [Conflict] /private/var/folde...home││Source:                               │
+│❯ [Warning] /private/var/folde.../home││  Path: /private/var/folders/6w/52q5tj│
+│  [Pending] /private/var/folde...HX/ho││  State: Directory (contains files)   │
+│  [Pending] /private/var/folde...HX/ho││                                      │
+│  [Skipped] /private/var/folde...ave-u││Target:                               │
+│  ▶ 1 in sync item hidden (press 'c' t││  Path: /private/var/folders/6w/52q5tj│
+│                                      ││  State: Directory (contains files)   │
+│                                      ││                                      │
+│                                      ││Configuration:                        │
+│                                      ││  when-source-and-target-directories-e│
+│                                      ││                                      │
+│                                      ││Reconciliation:                       │
+│                                      ││  Expected outcome: In sync           │
+│                                      ││  Actions:                            │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+=== resolved plan before switching status [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+
+6 relocations · ⚡  · ⚡  ·nc ⚡  1 d · ✔ 1 in sync · — 1 skipped· ⚠ 34destructive
+
+┌Plan──────────────────────────────────┐┌Plan Details──────────────────────────┐
+│  [Adopt] /private/var/fol...home/adop││Relocation:                           │
+│❯ [Adopt] /private/var/fol...e/conflic││  Source: /private/var/folders/6w/52q5│
+│  [Discard] /private/var/fol...me/disc││  Target: /private/var/folders/6w/52q5│
+│  [Migrate] /private/var/fol...home/st││  Action: Adopt                       │
+│  [Skipped] /private/var/fol...-unchan││                                      │
+│  ▶ 1 in sync items hidden (press 'c' ││Actions (dry-run):                    │
+│                                      ││  • Replace directory with symlink /pr│
+│                                      ││                                      │
+│                                      ││⚠ Safety Warning: This relocation incl│
+│                                      ││                                      │
+│                                      ││Available Resolutions:                │
+│                                      ││  ❯ (●) Adopt target and discard sourc│
+│                                      ││        Use existing target directory │
+│                                      ││        authoritative and delete the e│
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  3: Apply  ·  q: Qui
+
+=== status still reflects saved prompt policy [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+
+6 relocations · ✔ 1 in sync · ⚡ 2 pending · ⚠ 1 conflict · ! 1 warning
+
+┌Relocations───────────────────────────┐┌Details───────────────────────────────┐
+│❯ [Conflict] /private/var/folde...home││Source:                               │
+│  [Warning] /private/var/folde.../home││  Path: /private/var/folders/6w/52q5tj│
+│  [Pending] /private/var/folde...HX/ho││  State: Directory (contains files)   │
+│  [Pending] /private/var/folde...HX/ho││                                      │
+│  [Skipped] /private/var/folde...ave-u││Target:                               │
+│  ▶ 1 in sync item hidden (press 'c' t││  Path: /private/var/folders/6w/52q5tj│
+│                                      ││  State: Directory (contains files)   │
+│                                      ││                                      │
+│                                      ││Configuration:                        │
+│                                      ││  when-source-and-target-directories-e│
+│                                      ││                                      │
+│                                      ││Reconciliation:                       │
+│                                      ││  Expected outcome: Not determined    │
+│                                      ││                                      │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  c: Toggle In Sync  ·  r: Refresh  ·  2: Plan  ·  q: Quit
+
+=== plan retains draft resolution [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config:      /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+Target Root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-
+
+6 relocations · ⚡  · ⚡  ·nc ⚡ 1 d · ✔ 1 in sync · — 1 skipped · ⚠ 4 destructive
+
+┌Plan──────────────────────────────────┐┌Plan Details──────────────────────────┐
+│❯ [Adopt] /private/var/fol...home/adop││Relocation:                           │
+│  [Adopt] /private/var/fol...e/conflic││  Source: /private/var/folders/6w/52q5│
+│  [Discard] /private/var/fol...me/disc││  Target: /private/var/folders/6w/52q5│
+│  [Migrate] /private/var/fol...home/st││  Action: Adopt                       │
+│  [Skipped] /private/var/fol...-unchan││                                      │
+│  ▶ 1 in sync items hidden (press 'c' ││Actions (dry-run):                    │
+│                                      ││  • Replace directory with symlink /pr│
+│                                      ││                                      │
+│                                      ││⚠ Safety Warning: This relocation incl│
+│                                      ││                                      │
+│                                      ││Available Resolutions:                │
+│                                      ││    (●) Adopt target and discard sourc│
+│                                      ││        Use existing target directory │
+│                                      ││        authoritative and delete the e│
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+
+↑/↓/j/k: Select  ·  →/l: Details  ·  c: Toggle In Sync  ·  r: Refresh  ·  a: App
+
+=== long migration details at 80x24 [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /private/var/folders/6w/52q5tjy...n/T/homelight-smoke.I1qZHX/config.yaml
+Confirm reviewed plan: 5 destructive action(s). Content may be permanently
+removed.
+[░░░░░░░░░░░░░░░░░░░░] 0/10 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/private/var/fold...e/converged-cache█││Copy, verify and publish              │
+│  ─ Already in sync                  █││Not started                           │
+│/private/var/fold.../home/stage-cache█││                                      │
+│❯ ○ Copy, verify and publish         █││Source: /private/var/folders/6w/52q5tj│
+│  ○ Replace directory with link ⚠    █││yd6s7dh19nl44jby4h0000gn/T/homelight-s│
+│/private/var/fold.../home/adopt-cache█││moke.I1qZHX/home/stage-cache          │
+│  ○ Replace directory with link ⚠    █││Target: /private/var/folders/6w/52q5tj│
+│/private/var/fold...e-unchanged-cache█││yd6s7dh19nl44jby4h0000gn/T/homelight-s│
+│  ─ Leave unchanged                  █││moke.I1qZHX/local/stage-cache         │
+│/private/var/fold...ome/discard-cache█││Step path: /private/var/folders/6w/52q│
+│  ○ Delete directory ⚠               █││5tjyd6s7dh19nl44jby4h0000gn/T/homeligh│
+│  ○ Delete directory ⚠               █││t-smoke.I1qZHX/home/stage-cache       │
+│  ○ Ensure parent directory          █││Publish to: /private/var/folders/6w/52│
+│  ○ Create directory                 │││q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│  ○ Ensure parent directory          │││ht-smoke.I1qZHX/local/stage-cache     │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  y: Confirm destructive plan  ·  n/Esc: Cancel
+
+
+=== long destructive replacement details at 80x24 [80x24] ===
+⌂ HOMELIGHT  [1: Status]  [2: Plan]  [3: Apply]
+Config: /private/var/folders/6w/52q5tjy...n/T/homelight-smoke.I1qZHX/config.yaml
+Confirm reviewed plan: 5 destructive action(s). Content may be permanently
+removed.
+[░░░░░░░░░░░░░░░░░░░░] 0/10 actions completed
+┌Reviewed actions──────────────────────┐┌Action details────────────────────────┐
+│/private/var/fold...e/converged-cache█││Replace directory with link           │
+│  ─ Already in sync                  █││Not started                           │
+│/private/var/fold.../home/stage-cache█││                                      │
+│  ○ Copy, verify and publish         █││Source: /private/var/folders/6w/52q5tj│
+│❯ ○ Replace directory with link ⚠    █││yd6s7dh19nl44jby4h0000gn/T/homelight-s│
+│/private/var/fold.../home/adopt-cache█││moke.I1qZHX/home/stage-cache          │
+│  ○ Replace directory with link ⚠    █││Target: /private/var/folders/6w/52q5tj│
+│/private/var/fold...e-unchanged-cache█││yd6s7dh19nl44jby4h0000gn/T/homelight-s│
+│  ─ Leave unchanged                  █││moke.I1qZHX/local/stage-cache         │
+│/private/var/fold...ome/discard-cache█││Step path: /private/var/folders/6w/52q│
+│  ○ Delete directory ⚠               █││5tjyd6s7dh19nl44jby4h0000gn/T/homeligh│
+│  ○ Delete directory ⚠               █││t-smoke.I1qZHX/home/stage-cache       │
+│  ○ Ensure parent directory          █││Link to: /private/var/folders/6w/52q5t│
+│  ○ Create directory                 │││⚠ Destructive: existing content or    │
+│  ○ Ensure parent directory          │││link will be removed.                 │
+└──────────────────────────────────────┘└──────────────────────────────────────┘
+↑/↓: Inspect  ·  y: Confirm destructive plan  ·  n/Esc: Cancel
+
+TERMINAL_RESTORED True
+CTRL_C_RESTORED True

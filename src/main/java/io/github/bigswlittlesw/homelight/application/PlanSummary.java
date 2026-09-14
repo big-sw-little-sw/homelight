@@ -39,6 +39,9 @@ public record PlanSummary(
             if (item.hasDestructiveActions()) {
                 destructive++;
             }
+            if (item.hasWarnings()) {
+                warnings++;
+            }
             if (item.badge() != PlanBadge.CONFLICT && item.badge() != PlanBadge.BLOCKED && item.badge() != PlanBadge.INACCESSIBLE) {
                 ready++;
             }
@@ -52,7 +55,7 @@ public record PlanSummary(
                 case SKIPPED -> skipped++;
                 case CONFLICT -> conflicts++;
                 case BLOCKED, INACCESSIBLE -> blocked++;
-                case WARNING -> warnings++;
+                case WARNING -> { }
             }
         }
         return new PlanSummary(

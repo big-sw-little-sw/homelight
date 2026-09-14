@@ -12,6 +12,47 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlanCommandTest {
 
     @Test
+    void pathOverridesAffectOnlyFirstRelocationAndPreserveJsonContract(@org.junit.jupiter.api.io.TempDir java.nio.file.Path temporary) throws Exception {
+        var root = temporary.toRealPath();
+        var config = root.resolve("config.yaml");
+        var yaml = """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, root.resolve("old-source"), root.resolve("old-target"),
+                root.resolve("second-source"), root.resolve("second-target"));
+        Files.writeString(config, yaml);
+        var source = root.resolve("new-source");
+        var target = root.resolve("new-target");
+        var command = HomeLightCommand.createCommandLine();
+        var out = new StringWriter();
+        var err = new StringWriter();
+        command.setOut(new PrintWriter(out, true));
+        command.setErr(new PrintWriter(err, true));
+
+        assertEquals(0, command.execute("plan", "-c", config.toString(), "--json",
+                "--source-path", source.toString(), "--target-path", target.toString()));
+        var expected = new io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().loadRequired(config,
+                java.util.Map.of("homelight.relocations[0].source-path", source.toString(),
+                        "homelight.relocations[0].target-path", target.toString()));
+        var rendered = new StringWriter();
+        new PlanRenderer().renderJson(expected.plan(), new PrintWriter(rendered, true));
+        assertEquals(rendered.toString(), out.toString());
+        assertEquals(source, expected.plan().relocations().getFirst().relocation().sourcePath());
+        assertEquals(root.resolve("second-source"), expected.plan().relocations().getLast().relocation().sourcePath());
+        assertEquals(yaml, Files.readString(config));
+        assertTrue(Files.notExists(source));
+        assertTrue(Files.notExists(target));
+
+        assertEquals(2, command.execute("plan", "-c", config.toString(), "--json", "--source-path", source.toString()));
+        assertTrue(err.toString().contains("must be provided together"));
+    }
+
+    @Test
     void rendersPlanAsJson() throws Exception {
         var root = Files.createTempDirectory("homelight");
         var source = Files.createDirectories(root.resolve("source"));

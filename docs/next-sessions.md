@@ -4,6 +4,19 @@ Coordination baseline: 2026-09-14, implementation commit `fd25b68`.
 GitHub issues own current scope and completion status; this document owns the
 session sequence and handoff process. Re-read the selected ticket before starting.
 
+Current coordinator handoff: D3/#30 is accepted, including the user's polished
+UX walkthrough and the typed-comparison correction. Independent Java 25 clean
+verification passed all 155 tests; standards/spec review found no remaining
+actionable findings in the correction. #30/#26/#27 are complete. See
+[the D3 handoff](research/session-d3-implementation-handoff.md) for evidence.
+The [maintained TUI design](tui-design.md) remains the contract.
+
+Next product slice: #31 manual first-run configuration
+creation. #21 shared candidate-list specification can proceed independently.
+No first-run/discovery implementation, commit or push is authorized by this
+handoff. Earlier session descriptions below are sequence/history, not a request
+to repeat completed work.
+
 ## Recommendation
 
 Decide the human journey before reorganizing code. Compare the existing tabs
@@ -36,9 +49,9 @@ for the human to implement code.
 | Session | Ticket | Agent work | Human gate / completion |
 | --- | --- | --- | --- |
 | A: evidence and UX audit | #20 | Exercise current TUI and compare the proposal; rank keep/change/remove findings | Agree prototype questions and priority |
-| B: catalog and first-run contract | #21 | Prepare concrete local/shared/effective config examples and failure scenarios | Choose catalog authority, root mapping, merge and offline behavior |
-| C: workflow prototype | #22 | Build a throwaway runnable comparison using A and B scenarios | Walk through and choose the user journey |
-| D: semantic compression | #23 | Trace accepted journeys, propose and implement bounded extractions | Approve materially changed boundaries; verify preserved behavior |
+| B: shared candidate list and first-run contract | #21 | Specify discovery inputs, path resolution, duplicate handling, and failure scenarios | Review examples and first-run UX; candidates-only purpose is settled |
+| C: workflow prototype | #22 | Build a throwaway runnable comparison using A findings and the candidates-only scenarios below | Walk through and choose the user journey |
+| D: semantic compression | #23 | Trace accepted journeys, propose boundaries and tested implementation slices | Review the design before production edits |
 | E: Java modernization | #24 | Audit Java 25 compatibility and ranked behavior-preserving improvements | Only needed for behavior changes, dependencies, or preview proposals |
 | F: production vertical slices | Refined #7, #17, #8, #19 and children | Implement accepted behavior in separately verified slices | Smoke-test each user-visible slice |
 
@@ -47,8 +60,9 @@ directory permission preservation. It can proceed independently of A/B.
 Leave #11 open until its integration contract, including any confirmed safety
 gap, is independently checked.
 
-A and B can run in separate sessions concurrently. C needs their findings and
-the human policy choices. E's read-only audit can run early; coordinate its edits
+A and B can run in separate sessions concurrently. C needs A's findings; it can
+simulate candidate discovery without waiting for B's input-format details.
+E's read-only audit can run early; coordinate its edits
 with D. Do not let simultaneous sessions edit the same files or rewrite shared
 ticket bodies. Use separate branches/worktrees for concurrent implementation.
 
@@ -71,31 +85,50 @@ skipped summary counts, clipped paths, policy-key wording, and “Step path.”
 `Expected outcome` and action-following are already implemented; evaluate their
 behavior rather than reopening the old bugs without evidence.
 
-## B: corporate catalog and init decisions
+## B: shared candidate list and init
 
-Treat a shared catalog as configuration input, not as proof that a directory is
-safe to delete or an external dotfile ownership registry. Prepare examples for
-the same relative source under home and a non-home root, duplicate entries, local
-overrides/exclusions, and collisions in derived target paths.
+The user clarified the purpose: a central list of potentially bulky source
+directories to consider for migration. It supplements built-in discovery
+candidates, not managed relocation configuration. Discovery checks existence,
+approximate size, and current state under home or another chosen root. Users
+select candidates; only explicitly selected and saved entries become configured
+relocations. Shared-list additions/removals do not alter existing relocations,
+draft selections, or reviewed plans. There is no enforcement or inherited
+relocation policy to design.
 
-Questions requiring user decisions:
+Specify the remaining discovery details with examples:
 
-- Are entries suggestions, inherited managed defaults, or mandatory policy?
-- How are relative entries bound to roots? Are absolute entries also allowed?
-- Can local config override or disable shared entries? Which source wins?
-- What happens on unavailable NFS, malformed data, changed/removed entries, or a
-  shared list changing after review? Is cached data allowed, and how is it shown?
-- Should init save a reference, a selected snapshot, or both? What happens when
-  the default versus an explicitly requested config path does not exist?
+- List format and root-relative path resolution, including the same entry under
+  home and a non-home root; validate unsafe paths.
+- Deduplication across built-in and shared candidates, visible provenance, and
+  recognition of already-configured relocations.
+- Missing, unreadable, malformed, or unavailable NFS input: report clearly and
+  preserve access to manual setup and other available candidates.
+- Init entry of the optional shared-list location as a discovery setting;
+  behavior when the default or explicitly selected config path is absent.
 
-Start discussion with optional catalog input, visible provenance, explicit
-review of newly managed entries, and offline manual setup as a conservative
-candidate, not a decided corporate policy. Use fixture examples to settle it.
-Distinguish candidate discovery, configuration save, and filesystem apply.
-Ensure cancel never writes, save is validated and atomic, and Apply uses the
-reviewed effective configuration rather than rereading new shared instructions.
+Keep reading the list, selecting candidates, saving configuration, and applying
+relocations separate. Cancel never writes; save validates selected relocations
+and is atomic. Tests must show that refreshing the shared list cannot silently
+add, remove, or change configured relocations. #7 owns discovery, #8 consumes it,
+and #17 persists discovery settings and explicit relocation selections.
 
 ## C: prototype gate
+
+Completed: the user chose B's unified workspace. The accepted requirements and
+remaining prototype limitations are recorded in
+[the prototype handoff](research/session-c-prototype/README.md#accepted-workflow-and-implementation-handoff).
+Use A's pane proportions/styling as the production starting point, not B's capped
+list width. The scope description below records the experiment that led here.
+
+The user approved the prototype priorities after session A. #20's audit gate is
+complete; #22 owns the current approved scope. Read
+[the audit](research/session-a-tui-audit.md) for evidence, not as authorization to
+implement every proposed experiment. Prioritize readable decisions, clear
+state/recovery, preservation of working review/apply behavior, and minimal
+first-run setup. Defer the 100-item comparison and new follow/skip options.
+This approval authorizes a throwaway prototype only; the human chooses the
+preferred workflow after trying it.
 
 Use the repository prototype skill. Simulate mutation. Compare a unified
 workspace against the baseline tabs using the same scenarios and record task
@@ -103,11 +136,25 @@ completion, confusing state, navigation cost, and recovery clarity.
 
 Show current state, expected result, and execution history as different things.
 Keep explicit destructive review and confirmation even if Status and Plan merge.
-Include missing-config and catalog entry points so the design is not limited to
+Include missing-config and shared-candidate-list entry points so the design is not limited to
 already-configured users. The human chooses the workflow before production
 restructuring. Record rejected alternatives and why.
 
 ## D: extract what the prototype demonstrates
+
+The design-only session is complete and the user accepted the proposal with
+constraints. Read [the accepted design](research/session-d-application-design.md)
+and #28 for the next implementation session. Start with shared evaluation and
+typed draft decisions only; hand off before #29 execution/lifecycle or #30 layout.
+No commit/push is implied by implementation authorization.
+
+Original design-session scope (completed): read the prototype handoff and #23.
+Produce a before/after boundary proposal, map each accepted requirement to an
+owner and tests, and split implementation into bounded tickets. In particular,
+separate safe exit-after-execution from cancellation and keep Escape navigation
+out of execution policy. These keyboard requirements are not implemented yet.
+Stop for coordinator review before production edits; do not transplant the
+prototype controller or begin a package-wide rewrite.
 
 Use the repository codebase-design vocabulary. Inspect `StatusWorkflow`,
 `PlanWorkflow`, CLI `ReconciliationPlanning`, `HomeLightSession`, and their callers.
@@ -146,9 +193,10 @@ After C/D, split production work so each fresh session produces one tested journ
 
 1. Accepted returning-user workspace with current configuration, preserving the
    guarded review/apply lifecycle.
-2. Shared-catalog parsing, root resolution, merge/provenance, validation, and
-   failure semantics as a presentation-independent slice with fixtures.
-3. Missing-config/manual init and explicit save, including optional catalog input.
+2. Shared-candidate-list parsing, root resolution, deduplication/provenance,
+   validation, and failure semantics as a discovery slice with fixtures.
+3. Missing-config/manual init and explicit save, including an optional shared-list
+   location and explicit candidate selection.
 4. Discovery/sizing enhancements and richer configuration editing as needed.
 5. Stable JSON envelopes and shared application behavior in #19. UI screens need
    not map one-to-one to these commands.

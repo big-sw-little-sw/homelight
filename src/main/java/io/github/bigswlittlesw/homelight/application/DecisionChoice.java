@@ -1,44 +1,40 @@
 package io.github.bigswlittlesw.homelight.application;
 
-import java.util.Map;
+import io.github.bigswlittlesw.homelight.config.Relocation;
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget;
+import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists;
+import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist;
+
+import java.util.Optional;
 
 /// Typed reconciliation decisions for unresolved conflicts.
 public enum DecisionChoice {
     ADOPT_TARGET(
             "Adopt target and create source link",
-            "Use the existing target directory as authoritative and create the symlink in source.",
-            Map.of("when-only-target-exists", "adopt-target")),
+            "Use the existing target directory as authoritative and create the symlink in source."),
 
     ADOPT_AND_DISCARD_SOURCE(
             "Adopt target and discard source",
-            "Use existing target directory as authoritative and delete the existing source directory.",
-            Map.of("when-source-and-target-directories-exist", "adopt",
-                    "when-adopting-target", "discard-source")),
+            "Use existing target directory as authoritative and delete the existing source directory."),
 
     ADOPT_AND_ARCHIVE_SOURCE(
             "Adopt target and archive source",
-            "Use existing target directory as authoritative and move existing source directory to archive root.",
-            Map.of("when-source-and-target-directories-exist", "adopt",
-                    "when-adopting-target", "archive-source")),
+            "Use existing target directory as authoritative and move existing source directory to archive root."),
 
     LEAVE_UNCHANGED(
             "Leave source and target unmanaged",
-            "Leave existing source and target directories in place without managing them.",
-            Map.of("when-source-and-target-directories-exist", "leave-unchanged")),
+            "Leave existing source and target directories in place without managing them."),
 
     DISCARD_BOTH(
             "Discard source and target contents",
-            "Delete existing contents in both locations, then recreate empty target and source link.",
-            Map.of("when-source-and-target-directories-exist", "discard"));
+            "Delete existing contents in both locations, then recreate empty target and source link.");
 
     private final String label;
     private final String description;
-    private final Map<String, String> configurationOverrides;
 
-    DecisionChoice(String label, String description, Map<String, String> configurationOverrides) {
+    DecisionChoice(String label, String description) {
         this.label = label;
         this.description = description;
-        this.configurationOverrides = Map.copyOf(configurationOverrides);
     }
 
     public String label() {
@@ -49,7 +45,20 @@ public enum DecisionChoice {
         return description;
     }
 
-    public Map<String, String> configurationOverrides() {
-        return configurationOverrides;
+    Relocation applyTo(Relocation saved) {
+        var both = switch (this) {
+            case ADOPT_TARGET -> saved.whenSourceAndTargetDirectoriesExist();
+            case ADOPT_AND_DISCARD_SOURCE, ADOPT_AND_ARCHIVE_SOURCE -> Optional.of(WhenSourceAndTargetDirectoriesExist.ADOPT);
+            case LEAVE_UNCHANGED -> Optional.of(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED);
+            case DISCARD_BOTH -> Optional.of(WhenSourceAndTargetDirectoriesExist.DISCARD);
+        };
+        var adopting = switch (this) {
+            case ADOPT_AND_DISCARD_SOURCE -> Optional.of(WhenAdoptingTarget.DISCARD_SOURCE);
+            case ADOPT_AND_ARCHIVE_SOURCE -> Optional.of(WhenAdoptingTarget.ARCHIVE_SOURCE);
+            case ADOPT_TARGET, LEAVE_UNCHANGED, DISCARD_BOTH -> saved.whenAdoptingTarget();
+        };
+        return new Relocation(saved.sourcePath(), saved.targetPath(), both,
+                this == ADOPT_TARGET ? Optional.of(WhenOnlyTargetExists.ADOPT_TARGET) : saved.whenOnlyTargetExists(),
+                adopting, saved.sourceArchiveRoot(), saved.stagingRoot());
     }
 }
