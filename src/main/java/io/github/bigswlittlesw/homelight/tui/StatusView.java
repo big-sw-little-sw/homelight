@@ -289,7 +289,12 @@ public final class StatusView {
 
         // Planned outcome & actions
         details.add(Toolkit.text("Reconciliation:").cyan().bold());
-        details.add(Toolkit.text("  Outcome: " + item.plan().outcome().name())
+        var expectedOutcome = switch (item.plan().outcome()) {
+            case CONVERGED -> "In sync";
+            case UNCHANGED -> "Left unchanged";
+            case UNRESOLVED -> "Not determined";
+        };
+        details.add(Toolkit.text("  Expected outcome: " + expectedOutcome)
                 .fg(colorForBadge(item.badge())).bold());
 
         if (!item.plan().actions().isEmpty()) {

@@ -62,12 +62,17 @@ Target Root: /Volumes/Storage/user
 - **Layout:** Master-Detail (Side-by-Side).
 - **Left Panel:** Actionable relocations grouped by phase or priority (`[Link]`, `[Migrate]`, `[Adopt]`, `[Backup]`).
 - **Right Panel:** Granular dry-run details (exact source, target, backup paths, safety warnings) and interactive conflict resolution choices.
-- **Interaction:** Direct execution trigger via `Enter` or `a` immediately switches to `[3: Apply]`.
+- **Interaction:** `Enter` or `a` switches a resolved plan to `[3: Apply]` for explicit confirmation; it does not start mutation.
 
 ### Screen 3: Apply (`[3: Apply]`)
 - **Layout:** Split Checklist & Live Log.
 - **Left Panel:** Step-by-step progress checklist with live status glyphs.
-- **Right Panel:** Streaming execution output, byte transfer metrics, or failure diagnostics for the focused step.
+- **Right Panel:** Action-boundary messages and failure diagnostics for the focused step.
+- **Confirmation:** The retained checklist identifies destructive actions. `y` confirms that exact plan; `n` or `Esc` cancels. Enter does not confirm.
+- **Execution:** Action-boundary progress runs off the terminal event thread. Navigation away, refresh, duplicate apply, and quit are disabled during mutation; cancellation and byte metrics are not implemented.
+- **Follow execution:** When an action starts, the checklist cursor and details follow it, scrolling it into view. Manual inspection lasts until the next action starts. On completion, select the failed action or the last completed action once, then leave selection under user control.
+- **Unchanged plans:** A re-plan with no mutating actions shows “No changes to apply” without confirmation or a progress counter. Already-in-sync and leave-unchanged entries use neutral markers and are excluded from execution progress totals and visual-test delays.
+- **Result:** Completed, failed, and pending actions remain inspectable. Enter returns to refreshed Status; `r` explicitly creates a new plan. A stale or failed plan cannot be applied again.
 
 ### Screen 4: Config (`[4: Config]`)
 - **Layout:** Master-Detail Split or Full-Width Editor.
@@ -107,7 +112,7 @@ Applying: [██████████████░░░░░░░░░
   - **Config Missing:** Launches directly into `Init` / Setup Wizard with clear cancellation (`Esc`/`q`).
 - **Direct Workflow Transitions:**
   - `p` / `2` on Status advances to `[2: Plan]`.
-  - `Enter` / `a` on Plan advances to `[3: Apply]`.
+- `Enter` / `a` on Plan advances to `[3: Apply]`.
   - Completion on Apply provides `Enter: Back to Status  ·  q: Quit`.
 - **Keyboard Cheat Sheet:** Standardized single-row footer across all views (`↑/↓/j/k: Select  ·  ...  ·  q: Quit`).
 
@@ -143,6 +148,7 @@ Interactive dual-pane views (such as `[2: Plan]`) maintain an explicit focus sta
 ### Action & Outcome Label Alignment
 - To prevent user confusion between machine engine states and operational intent, detail views display user-facing action labels (`Action: Migrate`, `Action: Adopt`, `Action: Discard`, `Action: In Sync`, `Action: Skipped`, `Action: Conflict`) strictly matching the master list badges.
 - Internal reconciliation outcome enums (`CONVERGED`, `UNRESOLVED`) are reserved for machine serialization (`--json`) and are not exposed as raw text in interactive TUI views.
+- Status details label the plan's intended result as `Expected outcome`, using `In sync`, `Left unchanged`, or `Not determined`. The current-state badge remains separate.
 
 ### Diagnostic & Warning Formatting
 - Diagnostics and safety warnings in detail inspectors are formatted using human-readable semantic glyphs:

@@ -51,7 +51,7 @@ public class PlanWorkflow {
                 var relocation = configuration.relocations().get(i);
                 var state = states.get(i);
                 var relocationPlan = plan.relocations().get(i);
-                var sourceState = pathInspector.inspectRelocationSource(relocation.sourcePath(), relocation.targetPath());
+                var sourceState = state.source().sourceStateForTarget(relocation.targetPath());
                 var resolutions = availableResolutions(relocation, state, relocationPlan);
                 items.add(new PlanRelocationItem(relocation, state.source(), state.target(), relocationPlan, sourceState, resolutions));
             }

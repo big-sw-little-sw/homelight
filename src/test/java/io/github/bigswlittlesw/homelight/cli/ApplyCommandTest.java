@@ -130,7 +130,7 @@ class ApplyCommandTest {
                 when-adopting-target: discard-source
                 """));
         assertEquals(0, repeated.exitCode(), repeated.output());
-        assertTrue(repeated.output().contains("already configured"));
+        assertTrue(repeated.output().contains("\"type\":\"no-op\""));
     }
 
     @Test
@@ -158,7 +158,7 @@ class ApplyCommandTest {
                 source-archive-root: %s
                 """.formatted(archiveRoot)));
         assertEquals(0, repeated.exitCode(), repeated.output());
-        assertTrue(repeated.output().contains("already configured"));
+        assertTrue(repeated.output().contains("\"type\":\"no-op\""));
     }
 
     @Test
@@ -203,6 +203,7 @@ class ApplyCommandTest {
         Files.writeString(config, configuration(root, source, target));
 
         assertEquals(2, execute("apply", "--config", config.toString()).exitCode());
+        assertEquals(2, execute("apply", "--yes", "--config", config.toString()).exitCode());
         assertEquals(2, execute("apply", "--json", "--config", config.toString()).exitCode());
         assertTrue(Files.notExists(source));
     }
@@ -218,7 +219,7 @@ class ApplyCommandTest {
         var result = apply(yaml);
 
         assertEquals(0, result.exitCode());
-        assertTrue(result.output().contains("already configured"));
+        assertTrue(result.output().contains("\"type\":\"no-op\""));
     }
 
     @Test
@@ -246,7 +247,7 @@ class ApplyCommandTest {
         var config = Files.createTempFile("homelight", ".yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("--config", config.toString(), "apply", "--yes");
+        var result = execute("--config", config.toString(), "apply", "--json", "--yes");
 
         assertEquals(0, result.exitCode(), result.output());
         assertTrue(Files.isSymbolicLink(source));
@@ -260,7 +261,7 @@ class ApplyCommandTest {
         var config = Files.createTempFile("homelight", ".yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("-c", config.toString(), "apply", "--yes");
+        var result = execute("-c", config.toString(), "apply", "--json", "--yes");
 
         assertEquals(0, result.exitCode(), result.output());
         assertTrue(Files.isSymbolicLink(source));
@@ -274,7 +275,7 @@ class ApplyCommandTest {
         var config = Files.createTempFile("homelight", ".yaml");
         Files.writeString(config, configuration(root, source, target));
 
-        var result = execute("apply", "-c", config.toString(), "--yes");
+        var result = execute("apply", "-c", config.toString(), "--json", "--yes");
 
         assertEquals(0, result.exitCode(), result.output());
         assertTrue(Files.isSymbolicLink(source));
@@ -286,7 +287,7 @@ class ApplyCommandTest {
         var output = new StringWriter();
         var command = HomeLightCommand.createCommandLine();
         command.setOut(new PrintWriter(output, true));
-        return new Result(command.execute("apply", "--yes", "--config", config.toString()), output.toString());
+        return new Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString());
     }
 
     private static Result applyJson(String yaml) throws Exception {

@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.tui;
 import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.tui.event.KeyEvent;
 import io.github.bigswlittlesw.homelight.application.DecisionChoice;
+import io.github.bigswlittlesw.homelight.application.ApplyModel;
 import io.github.bigswlittlesw.homelight.application.HomeLightSession;
 import io.github.bigswlittlesw.homelight.application.PlanBadge;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
@@ -35,6 +36,128 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HomeLightAppTest {
+
+    @Test
+    void followsExecutionAcrossRelocationsWithoutOverridingManualInspectionBetweenActions() {
+        var first = new Relocation(Path.of("/home/first"), Path.of("/local/first"));
+        var second = new Relocation(Path.of("/home/second"), Path.of("/local/second"));
+        var firstPlan = new RelocationPlan(first, RelocationOutcome.CONVERGED,
+                List.of(new ReconciliationAction.CreateDirectory(first.targetPath()),
+                        new ReconciliationAction.CreateSymlink(first.sourcePath(), first.targetPath())), List.of(), Optional.empty());
+        var secondPlan = new RelocationPlan(second, RelocationOutcome.CONVERGED,
+                List.of(new ReconciliationAction.CreateDirectory(second.targetPath())), List.of(), Optional.empty());
+        var plan = new ReconciliationPlan(List.of(firstPlan, secondPlan), List.of());
+        var progress = new java.util.concurrent.atomic.AtomicReference<ApplyModel>(new ApplyModel.Confirmation(plan));
+        var session = new HomeLightSession(Path.of("/nonexistent/config.yaml"), Screen.APPLY) {
+            @Override
+            public ApplyModel applyModel() {
+                return progress.get();
+            }
+        };
+        var app = new HomeLightApp(session);
+        app.render();
+
+        for (int active = 0; active < 3; active++) {
+            var steps = new java.util.ArrayList<ApplyModel.Step>();
+            for (var relocation : plan.relocations()) {
+                for (var action : relocation.actions()) {
+                    var status = steps.size() < active ? ApplyModel.StepStatus.COMPLETED
+                            : steps.size() == active ? ApplyModel.StepStatus.RUNNING : ApplyModel.StepStatus.PENDING;
+                    steps.add(new ApplyModel.Step(relocation, action, status, status.toString()));
+                }
+            }
+            progress.set(new ApplyModel.Running(plan, steps));
+            app.render();
+            assertEquals(active, app.selectedIndex());
+            app.handleKeyEvent(KeyEvent.ofChar(active == 0 ? 'j' : 'k'));
+            int inspected = app.selectedIndex();
+            app.render();
+            assertEquals(inspected, app.selectedIndex());
+        }
+
+        var result = new ApplyModel.Result(plan, List.of(
+                new ApplyModel.Step(firstPlan, firstPlan.actions().getFirst(), ApplyModel.StepStatus.COMPLETED, "completed"),
+                new ApplyModel.Step(firstPlan, firstPlan.actions().getLast(), ApplyModel.StepStatus.FAILED, "source changed"),
+                new ApplyModel.Step(secondPlan, secondPlan.actions().getFirst(), ApplyModel.StepStatus.PENDING, "not run")),
+                Optional.empty(), List.of(), true);
+        progress.set(result);
+        app.render();
+        assertEquals(1, app.selectedIndex());
+        app.handleKeyEvent(KeyEvent.ofChar('k'));
+        app.render();
+        assertEquals(0, app.selectedIndex());
+
+        var completed = result.steps().stream().map(step -> new ApplyModel.Step(step.relocation(), step.action(),
+                ApplyModel.StepStatus.COMPLETED, "completed")).toList();
+        progress.set(new ApplyModel.Result(plan, completed, Optional.empty(), List.of(), false));
+        app.render();
+        assertEquals(2, app.selectedIndex());
+    }
+
+    @Test
+    void reviewsConfirmsAppliesAndReturnsToRefreshedStatus(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        var root = temporary.toRealPath();
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var config = Files.writeString(root.resolve("config.yaml"), """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, source, target));
+        var app = new HomeLightApp(config, Screen.PLAN);
+
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        assertEquals(Screen.APPLY, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        assertTrue(app.session().applyModel() instanceof io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation);
+        assertFalse(Files.exists(source));
+        app.handleKeyEvent(KeyEvent.ofChar('n'));
+        assertEquals(Screen.PLAN, app.session().activeScreen());
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        app.handleKeyEvent(KeyEvent.ofChar('y'));
+        app.session().awaitExecution();
+        assertTrue(Files.isSymbolicLink(source));
+        assertTrue(app.session().applyModel() instanceof io.github.bigswlittlesw.homelight.application.ApplyModel.Result);
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        assertEquals(Screen.STATUS, app.session().activeScreen());
+        assertEquals(1, ((StatusModel.Configured) app.statusModel()).summary().inSync());
+        app.handleKeyEvent(KeyEvent.ofChar('p'));
+        assertTrue(app.session().isPlanReady());
+        assertFalse(((PlanModel.Configured) app.planModel()).plan().actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem));
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        var unchanged = app.session().applyModel();
+        app.handleKeyEvent(KeyEvent.ofChar('y'));
+        org.junit.jupiter.api.Assertions.assertSame(unchanged, app.session().applyModel());
+        assertFalse(app.session().isApplying());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        assertEquals(Screen.STATUS, app.session().activeScreen());
+    }
+
+    @Test
+    void runningApplyConsumesQuitRefreshAndRepeatedConfirmation(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        var root = temporary.toRealPath();
+        var config = Files.writeString(root.resolve("config.yaml"), """
+                homelight:
+                  target-root: %s
+                  relocations:
+                    - source-path: %s
+                      target-path: %s
+                """.formatted(root, root.resolve("source"), root.resolve("target")));
+        var app = new HomeLightApp(config, Screen.PLAN);
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        var tasks = new java.util.ArrayList<Runnable>();
+        app.session().confirmApply(tasks::add);
+        var running = app.session().applyModel();
+        for (char key : new char[] {'q', 'r', 'y', 'a', '1', '2'}) {
+            assertEquals(dev.tamboui.toolkit.event.EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)));
+            assertEquals(Screen.APPLY, app.session().activeScreen());
+            org.junit.jupiter.api.Assertions.assertSame(running, app.session().applyModel());
+        }
+        tasks.getFirst().run();
+        assertTrue(Files.isSymbolicLink(root.resolve("source")));
+    }
 
     @Test
     void handlesNavigationKeys() {
@@ -185,7 +308,7 @@ class HomeLightAppTest {
         assertEquals(Screen.PLAN, app.session().activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('3'));
-        assertEquals(Screen.APPLY, app.session().activeScreen());
+        assertEquals(Screen.PLAN, app.session().activeScreen());
 
         app.handleKeyEvent(KeyEvent.ofChar('1'));
         assertEquals(Screen.STATUS, app.session().activeScreen());
@@ -223,18 +346,20 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus());
         assertEquals(0, app.detailSelectedIndex());
 
+        app.handleKeyEvent(KeyEvent.ofChar('3'));
+        assertEquals(Screen.PLAN, app.session().activeScreen());
+        assertEquals(PaneFocus.DETAIL, app.paneFocus());
+
         // Press SPACE in detail pane to resolve highlighted decision
         app.handleKeyEvent(KeyEvent.ofChar(' '));
         assertFalse(app.session().hasConflicts());
         assertTrue(app.session().isPlanReady());
 
-        // Press ESC to return to master pane
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
-        assertEquals(PaneFocus.MASTER, app.paneFocus());
-
-        // Press 'a' now that plan is ready -> transitions to APPLY screen
-        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        app.handleKeyEvent(KeyEvent.ofChar('3'));
         assertEquals(Screen.APPLY, app.session().activeScreen());
+        assertEquals(PaneFocus.MASTER, app.paneFocus());
+        assertTrue(app.session().applyModel() instanceof ApplyModel.Confirmation);
+        assertFalse(Files.exists(source));
     }
 
     @Test

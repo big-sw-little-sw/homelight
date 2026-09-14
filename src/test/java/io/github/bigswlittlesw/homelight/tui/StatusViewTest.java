@@ -153,7 +153,7 @@ class StatusViewTest {
         assertTrue(text0.contains("Target:"));
         assertTrue(text0.contains("Configuration:"));
         assertTrue(text0.contains("Policy: Default"));
-        assertTrue(text0.contains("Outcome: UNRESOLVED"));
+        assertTrue(text0.contains("Expected outcome: Not determined"));
 
         // Test with selectedIndex = 1 (conflict item with custom policy)
         var text1 = renderToString(model, 1, 200, 30);
@@ -163,7 +163,7 @@ class StatusViewTest {
 
         // Test with selectedIndex = 3 (converged item)
         var text3 = renderToString(model, 3, 120, 30);
-        assertTrue(text3.contains("Outcome: CONVERGED"));
+        assertTrue(text3.contains("Expected outcome: In sync"));
         assertTrue(text3.contains("Policy: Default"));
     }
 

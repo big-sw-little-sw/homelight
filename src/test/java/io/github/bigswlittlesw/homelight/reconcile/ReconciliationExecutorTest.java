@@ -119,4 +119,34 @@ class ReconciliationExecutorTest {
         return new ReconciliationPlanner().plan(List.of(new RelocationState(relocation,
                 inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()), archive)));
     }
+
+    @Test
+    void reportsTypedDriftAtAnActionBoundaryAfterSuccessfulPreflight() throws Exception {
+        var root = Files.createTempDirectory("homelight").toRealPath();
+        var source = root.resolve("home/cache");
+        var target = root.resolve("local/cache");
+        var plan = plan(new Relocation(source, target));
+        var executor = new ReconciliationExecutor();
+        assertTrue(executor.preflight(plan).isEmpty());
+
+        var result = executor.execute(plan, new ReconciliationExecutor.ProgressListener() {
+            @Override
+            public void finished(RelocationPlan relocation, ReconciliationExecutor.ActionExecution action) {
+                if (action.action() instanceof ReconciliationAction.EnsureDirectory && action.action().path().equals(target.getParent())) {
+                    try {
+                        Files.createDirectory(target);
+                    } catch (java.io.IOException exception) {
+                        throw new AssertionError(exception);
+                    }
+                }
+            }
+        });
+
+        var actions = result.relocations().getFirst().actions();
+        assertEquals(ReconciliationExecutor.ActionStatus.COMPLETED, actions.get(0).status());
+        assertEquals(ReconciliationExecutor.ActionStatus.FAILED, actions.get(1).status());
+        assertTrue(actions.get(1).stateDrift());
+        assertEquals(ReconciliationExecutor.ActionStatus.PENDING, actions.get(2).status());
+        assertTrue(Files.notExists(source));
+    }
 }

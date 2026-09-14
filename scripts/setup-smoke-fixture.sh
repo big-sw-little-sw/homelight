@@ -53,18 +53,39 @@ printf '%s\n' \
 
 printf 'Smoke fixture: %s\n' "$fixture_root"
 printf 'Configuration: %s\n\n' "$config_path"
-printf 'Status (Interactive TUI):\n'
-printf '  ./homelight status --config %s\n' "$config_path"
-printf '\nStatus (JSON):\n'
-printf '  ./homelight status --config %s --json\n' "$config_path"
-printf '\nPlan:\n'
-printf '  ./homelight plan --config %s\n' "$config_path"
-printf '\nApply:\n'
-printf '  ./homelight apply --yes --config %s\n' "$config_path"
+printf 'Top-level command (opens Status):\n'
+printf '  ./homelight --config %q\n' "$config_path"
+printf '\nIndividual TUI commands (apply opens Plan for review):\n'
+printf '  ./homelight status --config %q\n' "$config_path"
+printf '  ./homelight plan --config %q\n' "$config_path"
+printf '  ./homelight apply --config %q\n' "$config_path"
+printf '\nSlow execution for inspecting spinners, action following, and progress:\n'
+printf '  ./homelight --debug-step-delay-ms 3000 --config %q\n' "$config_path"
+printf '  ./homelight status --debug-step-delay-ms 3000 --config %q\n' "$config_path"
+printf '  ./homelight plan --debug-step-delay-ms 3000 --config %q\n' "$config_path"
+printf '  ./homelight apply --debug-step-delay-ms 3000 --config %q\n' "$config_path"
+printf '  The delay applies to mutating actions after confirmation, not startup.\n'
+printf '\nWalkthrough:\n'
+printf '  1. From Status, press 2 to open Plan.\n'
+printf '  2. Select conflict-cache; press Right or Tab to enter its choices.\n'
+printf '     Choose "Adopt target and discard source" with Space or Enter.\n'
+printf '  3. Press 3 from either Plan pane to open Apply confirmation.\n'
+printf '     Inspect actions with Up/Down. Press n or Esc to cancel, or y to apply.\n'
+printf '  4. The cursor and details follow running actions. Leaving is disabled during execution.\n'
+printf '  5. Results stay visible. Press Enter for refreshed Status, or r to re-plan.\n'
+printf '     An unchanged plan shows "No changes to apply" without another confirmation.\n'
+printf '\nJSON automation (no TUI or visual delay):\n'
+printf '  ./homelight status --config %q --json\n' "$config_path"
+printf '  ./homelight plan --config %q --json\n' "$config_path"
+printf '  ./homelight apply --config %q --json --yes\n' "$config_path"
+printf '  The fresh fixture deliberately has an unresolved conflict; JSON apply refuses it.\n'
+printf '  --yes does not resolve decisions. TUI choices are session-local, not saved to YAML.\n'
 printf '\nAfter apply, verify converged staged publication:\n'
 printf '  test -d %q && test -f %q && test -L %q && test "$(readlink %q)" = %q\n' \
   "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache" \
   "$home_root/stage-cache" "$target_root/stage-cache"
 printf '  test -z "$(find %q -mindepth 1 -print -quit)"\n' "$target_root/.homelight-staging"
-printf '\nRepeat apply (should report no changes):\n'
-printf '  ./homelight apply --yes --config %s\n' "$config_path"
+printf '\nAfter completing the walkthrough, reopen Apply to inspect the unchanged plan:\n'
+printf '  ./homelight apply --config %q\n' "$config_path"
+printf '  If you left conflict-cache unchanged instead of adopting it, a new session asks again.\n'
+printf '\nRun this script again to create a fresh fixture for another full walkthrough.\n'

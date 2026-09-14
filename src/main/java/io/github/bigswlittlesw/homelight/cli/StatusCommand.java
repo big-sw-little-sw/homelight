@@ -44,7 +44,7 @@ public final class StatusCommand implements Callable<Integer> {
             new StatusRenderer().renderJson(snapshots, commandSpec.commandLine().getOut());
             return CommandLine.ExitCode.OK;
         }
-        return TuiLauncher.launchStatus(configPath, commandSpec.commandLine().getErr());
+        return TuiLauncher.launchStatus(configPath, parent.debugStepDelayMillis(), commandSpec.commandLine().getErr());
     }
 
     private static boolean isMissingDefaultConfig(Path config) {

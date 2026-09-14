@@ -9,6 +9,7 @@ import dev.tamboui.tui.TuiConfig;
 import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.tui.event.KeyEvent;
 import io.github.bigswlittlesw.homelight.application.DecisionChoice;
+import io.github.bigswlittlesw.homelight.application.ApplyModel;
 import io.github.bigswlittlesw.homelight.application.HomeLightSession;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
@@ -16,6 +17,7 @@ import io.github.bigswlittlesw.homelight.application.PlanWorkflow;
 import io.github.bigswlittlesw.homelight.application.Screen;
 import io.github.bigswlittlesw.homelight.application.StatusModel;
 import io.github.bigswlittlesw.homelight.application.StatusWorkflow;
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 
 import java.nio.file.Path;
 import java.util.Objects;
@@ -30,6 +32,9 @@ public final class HomeLightApp extends ToolkitApp {
     private int detailSelectedIndex = 0;
     private boolean showInSync;
     private Boolean userShowInSync;
+    private int spinnerFrame;
+    private ReconciliationAction followedAction;
+    private ApplyModel.Result displayedResult;
 
     public HomeLightApp(Path configPath) {
         this(configPath, Screen.STATUS);
@@ -70,40 +75,58 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     @Override
+    protected void onStop() {
+        session.awaitExecution();
+    }
+
+    @Override
     protected Element render() {
         var view = switch (session.activeScreen()) {
             case STATUS -> StatusView.render(session.statusModel(), selectedIndex, showInSync);
             case PLAN -> PlanView.render(session.planModel(), selectedIndex, showInSync, paneFocus, detailSelectedIndex);
-            case APPLY -> renderApplyPlaceholder();
+            case APPLY -> renderApply();
             case CONFIG -> renderConfigPlaceholder();
         };
         if (view instanceof Column col) {
-            return col.onKeyEvent(this::handleKeyEvent).focusable();
+            return col.id("homelight-screen").onKeyEvent(this::handleKeyEvent).focusable();
         }
         return view;
     }
 
-    private Element renderApplyPlaceholder() {
-        return Toolkit.column(
-                Toolkit.row(
-                        Toolkit.text("⌂ HOMELIGHT  ").cyan().bold(),
-                        Toolkit.text("[1: Status]").gray().dim(),
-                        Toolkit.text("  [2: Plan]").gray().dim(),
-                        Toolkit.text("  [3: Apply]").cyan().bold()
-                ),
-                Toolkit.text(""),
-                Toolkit.panel("Apply Plan",
-                        Toolkit.column(
-                                Toolkit.text("Ready to apply reconciliation plan.").bold(),
-                                Toolkit.text(""),
-                                session.isPlanReady()
-                                        ? Toolkit.text("All checks passed. Execution is guarded.").green()
-                                        : Toolkit.text("Plan has unresolved conflicts or blocked actions.").yellow()
-                        )
-                ).fill(),
-                Toolkit.text(""),
-                Toolkit.row(Toolkit.text("1: Status  ·  2: Plan  ·  r: Refresh  ·  q: Quit").gray().dim())
-        );
+    private Element renderApply() {
+        var model = session.applyModel();
+        switch (model) {
+            case ApplyModel.Running running -> {
+                for (int i = 0; i < running.steps().size(); i++) {
+                    var step = running.steps().get(i);
+                    if (step.status() == ApplyModel.StepStatus.RUNNING && step.action() != followedAction) {
+                        // Follow action transitions, while allowing inspection between transitions.
+                        selectedIndex = i;
+                        followedAction = step.action();
+                        break;
+                    }
+                }
+            }
+            case ApplyModel.Result result -> {
+                if (result != displayedResult) {
+                    for (int i = 0; i < result.steps().size(); i++) {
+                        var status = result.steps().get(i).status();
+                        if (status == ApplyModel.StepStatus.COMPLETED || status == ApplyModel.StepStatus.FAILED) {
+                            selectedIndex = i;
+                        }
+                        if (status == ApplyModel.StepStatus.FAILED) {
+                            break;
+                        }
+                    }
+                    displayedResult = result;
+                }
+            }
+            case ApplyModel.Idle _, ApplyModel.Confirmation _ -> {
+                followedAction = null;
+                displayedResult = null;
+            }
+        }
+        return ApplyView.render(session.configPath(), model, selectedIndex, spinnerFrame++);
     }
 
     private Element renderConfigPlaceholder() {
@@ -127,10 +150,43 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     public EventResult handleKeyEvent(KeyEvent key) {
+        if (session.activeScreen() == Screen.APPLY) {
+            return handleApplyKeyEvent(key);
+        }
         if (session.activeScreen() == Screen.PLAN && paneFocus == PaneFocus.DETAIL) {
             return handleDetailKeyEvent(key);
         }
         return handleMasterKeyEvent(key);
+    }
+
+    private EventResult handleApplyKeyEvent(KeyEvent key) {
+        var model = session.applyModel();
+        if (key.isUp() || key.isCharIgnoreCase('k')) {
+            selectPrevious();
+        } else if (key.isDown() || key.isCharIgnoreCase('j')) {
+            selectNext();
+        } else if (model instanceof ApplyModel.Running) {
+            // Mutation has no safe cancellation contract yet, including terminal quit shortcuts.
+            return EventResult.HANDLED;
+        } else if (model instanceof ApplyModel.Result
+                || model instanceof ApplyModel.Confirmation confirmation && !confirmation.plan().hasChanges()) {
+            if (key.isKey(KeyCode.ENTER) || key.isChar('1') || key.isCharIgnoreCase('s')) {
+                switchScreen(Screen.STATUS);
+            } else if (key.isCharIgnoreCase('r') || key.isChar('2') || key.isCharIgnoreCase('p')) {
+                refresh();
+            } else if (key.isQuit() || key.isCharIgnoreCase('q') || key.isKey(KeyCode.ESCAPE)) {
+                quit();
+            }
+        } else if (model instanceof ApplyModel.Confirmation) {
+            if (key.isChar('y')) {
+                session.confirmApply();
+            } else if (key.isCharIgnoreCase('n') || key.isKey(KeyCode.ESCAPE) || key.isQuit() || key.isCharIgnoreCase('q')) {
+                session.cancelApply();
+            }
+        } else {
+            return handleMasterKeyEvent(key);
+        }
+        return EventResult.HANDLED;
     }
 
     private EventResult handleMasterKeyEvent(KeyEvent key) {
@@ -201,6 +257,12 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     private EventResult handleDetailKeyEvent(KeyEvent key) {
+        if (key.isChar('1') || key.isChar('2') || key.isChar('3')) {
+            if (key.isChar('3') && !session.isPlanReady()) {
+                return EventResult.HANDLED;
+            }
+            return handleMasterKeyEvent(key);
+        }
         if (key.isQuit() || key.isCharIgnoreCase('q')) {
             quit();
             return EventResult.HANDLED;
@@ -264,6 +326,17 @@ public final class HomeLightApp extends ToolkitApp {
     }
 
     public void switchScreen(Screen screen) {
+        if (session.isApplying()) {
+            return;
+        }
+        if (screen == Screen.APPLY && session.applyModel() instanceof ApplyModel.Idle) {
+            if (session.activeScreen() != Screen.PLAN || !session.requestApply()) {
+                screen = Screen.PLAN;
+            }
+        }
+        if (screen == Screen.PLAN && session.applyModel() instanceof ApplyModel.Result) {
+            session.refresh();
+        }
         session.setActiveScreen(screen);
         selectedIndex = 0;
         paneFocus = PaneFocus.MASTER;
@@ -408,6 +481,7 @@ public final class HomeLightApp extends ToolkitApp {
                 }
                 yield 0;
             }
+            case APPLY -> ApplyView.steps(session.applyModel()).size();
             default -> 0;
         };
     }

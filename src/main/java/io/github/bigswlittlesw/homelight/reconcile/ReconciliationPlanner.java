@@ -16,9 +16,9 @@ public final class ReconciliationPlanner {
         var diagnostics = validateConfiguration(states);
         if (!diagnostics.isEmpty()) {
             return new ReconciliationPlan(states.stream()
-                    .map(state -> blocked(state, "relocation configuration is invalid")).toList(), diagnostics);
+                    .map(state -> blocked(state, "relocation configuration is invalid")).toList(), diagnostics, states);
         }
-        return new ReconciliationPlan(states.stream().map(this::plan).toList(), List.of());
+        return new ReconciliationPlan(states.stream().map(this::plan).toList(), List.of(), states);
     }
 
     private RelocationPlan plan(RelocationState state) {

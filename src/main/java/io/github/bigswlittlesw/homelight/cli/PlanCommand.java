@@ -60,7 +60,7 @@ final class PlanCommand implements Callable<Integer> {
             return 0;
         }
 
-        return TuiLauncher.launchPlan(configPath, spec.commandLine().getErr());
+        return TuiLauncher.launchPlan(configPath, parent.debugStepDelayMillis(), spec.commandLine().getErr());
     }
 
     private static boolean isMissingDefaultConfig(Path config) {

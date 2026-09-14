@@ -24,6 +24,21 @@ public final class HomeLightCommand implements Callable<Integer> {
     @Option(names = {"--config", "-c"}, description = "Path to configuration file.", scope = CommandLine.ScopeType.INHERIT)
     private Path config = ConfigurationLoader.DEFAULT_PATH;
 
+    private long debugStepDelayMillis;
+
+    @Option(names = "--debug-step-delay-ms", hidden = true, scope = CommandLine.ScopeType.INHERIT,
+            description = "Hold each TUI action in its running state for visual testing (0–60000 ms).")
+    void setDebugStepDelayMillis(long milliseconds) {
+        if (milliseconds < 0 || milliseconds > 60_000) {
+            throw new IllegalArgumentException("--debug-step-delay-ms must be between 0 and 60000");
+        }
+        debugStepDelayMillis = milliseconds;
+    }
+
+    public long debugStepDelayMillis() {
+        return debugStepDelayMillis;
+    }
+
     @Spec
     private CommandSpec spec;
 
@@ -33,7 +48,7 @@ public final class HomeLightCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        return TuiLauncher.launchStatus(config, spec.commandLine().getErr());
+        return TuiLauncher.launchStatus(config, debugStepDelayMillis, spec.commandLine().getErr());
     }
 
     public static void main(String... args) {

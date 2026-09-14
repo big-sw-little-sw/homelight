@@ -12,13 +12,22 @@ public final class TuiLauncher {
         return System.console() != null;
     }
 
-    public static int launchStatus(Path configPath, PrintWriter errorOutput) {
+    public static int launchStatus(Path configPath, long debugStepDelayMillis, PrintWriter errorOutput) {
+        return launch(configPath, Screen.STATUS, debugStepDelayMillis, errorOutput);
+    }
+
+    public static int launchPlan(Path configPath, long debugStepDelayMillis, PrintWriter errorOutput) {
+        return launch(configPath, Screen.PLAN, debugStepDelayMillis, errorOutput);
+    }
+
+    private static int launch(Path configPath, Screen screen, long debugStepDelayMillis, PrintWriter errorOutput) {
         if (!isInteractive()) {
             errorOutput.println("HomeLight TUI requires an interactive terminal. Use --json for automation.");
             return 2;
         }
         try {
-            var app = new HomeLightApp(configPath, Screen.STATUS);
+            var app = new HomeLightApp(new io.github.bigswlittlesw.homelight.application.HomeLightSession(
+                    configPath, screen, debugStepDelayMillis));
             app.run();
             return 0;
         } catch (Exception exception) {
@@ -27,18 +36,4 @@ public final class TuiLauncher {
         }
     }
 
-    public static int launchPlan(Path configPath, PrintWriter errorOutput) {
-        if (!isInteractive()) {
-            errorOutput.println("HomeLight TUI requires an interactive terminal. Use --json for automation.");
-            return 2;
-        }
-        try {
-            var app = new HomeLightApp(configPath, Screen.PLAN);
-            app.run();
-            return 0;
-        } catch (Exception exception) {
-            errorOutput.println("Failed to run HomeLight TUI: " + (exception.getMessage() != null ? exception.getMessage() : exception.toString()));
-            return 1;
-        }
-    }
 }

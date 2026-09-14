@@ -56,6 +56,22 @@ The repository launcher hides that Maven detail:
 
 The default configuration path is `~/.homelight.yaml`.
 
+`homelight apply` opens Plan for review. Press `a` or Enter to inspect the
+confirmation checklist, then `y` to apply that exact plan. `n` or Esc cancels
+without changes. Execution runs in the background; leaving and re-planning are
+disabled until it finishes. The result stays visible: Enter returns to refreshed
+Status, and `r` explicitly re-plans after a failure or stale-plan rejection.
+`--yes` confirms only JSON automation; it does not bypass TUI review.
+
+For a disposable walkthrough, run `bash scripts/setup-smoke-fixture.sh` and use
+the printed Plan/Apply commands. Resolve the fixture's conflict, review the
+destructive actions, confirm, and check the resulting Status screen.
+
+To slow down TUI execution and inspect animated spinners and action progress, add
+`--debug-step-delay-ms 3000` before or after the command name. This holds each
+action in its running state for three seconds while the terminal stays responsive.
+The delay accepts 0–60000 milliseconds and does not affect JSON automation.
+
 The `relocations` list is an explicit allow-list. A built-in candidate is only
 managed after it is selected and written to this list; leaving a candidate out
 means HomeLight leaves it unchanged.

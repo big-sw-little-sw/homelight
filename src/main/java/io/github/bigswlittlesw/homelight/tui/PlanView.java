@@ -121,7 +121,7 @@ public final class PlanView {
         var mainContent = Toolkit.row(listPanel, detailsPanel).fill();
 
         var footerText = paneFocus == PaneFocus.DETAIL
-                ? "↑/↓/j/k: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  q: Quit"
+                ? "↑/↓: Choose Option  ·  Space/Enter: Select  ·  ←/h: Back  ·  3: Apply  ·  q: Quit"
                 : "↑/↓/j/k: Select  ·  →/l: Details  ·  c: Toggle In Sync  ·  r: Refresh  ·  a: Apply  ·  1: Status  ·  q: Quit";
 
         return Toolkit.column(

@@ -14,6 +14,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HomeLightCommandTest {
 
     @Test
+    void acceptsVisualDelayAtRootAndOnEveryTuiCommand() {
+        for (var arguments : List.of(
+                new String[] {"--debug-step-delay-ms", "3000"},
+                new String[] {"status", "--debug-step-delay-ms", "3000"},
+                new String[] {"plan", "--debug-step-delay-ms", "3000"},
+                new String[] {"apply", "--debug-step-delay-ms", "3000"})) {
+            var command = HomeLightCommand.createCommandLine();
+            command.parseArgs(arguments);
+            HomeLightCommand root = command.getCommand();
+            assertEquals(3000, root.debugStepDelayMillis());
+        }
+        for (var delay : List.of("-1", "60001")) {
+            var result = execute("--debug-step-delay-ms", delay);
+            assertEquals(2, result.exitCode());
+            assertTrue(result.errorOutput().contains("must be between 0 and 60000"), result.errorOutput());
+        }
+    }
+
+    @Test
     void shouldDisplayHelpWithLongOption() {
         var result = execute("--help");
 

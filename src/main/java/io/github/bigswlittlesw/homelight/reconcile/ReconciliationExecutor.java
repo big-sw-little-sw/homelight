@@ -25,6 +25,32 @@ public final class ReconciliationExecutor {
     private static final String MARKER_HEADER = "homelight-staging-v1\n";
     private final PathInspector inspector = new PathInspector();
 
+    /// Checks all observations retained at review before any action runs. This compares
+    /// path states, link destinations/availability, and directory emptiness, not tree contents.
+    /// Per-action guards remain necessary because preflight cannot lock out external writers.
+    public List<ReconciliationDiagnostic> preflight(ReconciliationPlan plan) {
+        if (!plan.expectedStates().stream().map(RelocationState::relocation).toList()
+                .equals(plan.relocations().stream().map(RelocationPlan::relocation).toList())) {
+            throw new IllegalArgumentException("Plan has no complete review snapshot");
+        }
+        var diagnostics = new ArrayList<ReconciliationDiagnostic>();
+        for (var state : plan.expectedStates()) {
+            checkObservation(state.relocation().sourcePath(), state.source(), diagnostics);
+            checkObservation(state.relocation().targetPath(), state.target(), diagnostics);
+            state.archiveDestination().ifPresent(archive ->
+                    checkObservation(archive.path(), archive.observation(), diagnostics));
+        }
+        return List.copyOf(diagnostics);
+    }
+
+    private void checkObservation(Path path, io.github.bigswlittlesw.homelight.fs.PathObservation expected,
+            List<ReconciliationDiagnostic> diagnostics) {
+        if (!inspector.inspect(path).equals(expected)) {
+            diagnostics.add(new ReconciliationDiagnostic(ReconciliationDiagnostic.Severity.ERROR, path,
+                    "STALE_PLAN", "Filesystem state changed since review: " + path));
+        }
+    }
+
     public ExecutionResult execute(ReconciliationPlan plan) {
         return execute(plan, ProgressListener.NONE);
     }
@@ -49,7 +75,9 @@ public final class ReconciliationExecutor {
                     actions.add(execution);
                     progress.finished(relocation, execution);
                 } catch (IOException | IllegalStateException exception) {
-                    var execution = new ActionExecution(action, ActionStatus.FAILED, exception.getMessage());
+                    var execution = new ActionExecution(action, ActionStatus.FAILED,
+                            exception.getMessage() == null ? exception.toString() : exception.getMessage(),
+                            exception instanceof StateDriftException);
                     actions.add(execution);
                     progress.finished(relocation, execution);
                     halted = true;
@@ -87,7 +115,7 @@ public final class ReconciliationExecutor {
         if (state == PathState.ABSENT) {
             Files.createDirectories(action.path());
         } else if (state != PathState.DIRECTORY) {
-            throw new IllegalStateException("expected absent or directory at " + action.path()
+            throw new StateDriftException("expected absent or directory at " + action.path()
                     + " but found " + state.name().toLowerCase());
         }
     }
@@ -145,7 +173,7 @@ public final class ReconciliationExecutor {
             if (Files.notExists(current, LinkOption.NOFOLLOW_LINKS)) {
                 Files.createDirectory(current);
             } else if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-                throw new IllegalStateException("expected real directory at " + current);
+                throw new StateDriftException("expected real directory at " + current);
             }
         }
     }
@@ -272,7 +300,7 @@ public final class ReconciliationExecutor {
         for (var current = path.toAbsolutePath().normalize(); current != null; current = current.getParent()) {
             if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
                 if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-                    throw new IllegalStateException("expected real directory at " + current);
+                    throw new StateDriftException("expected real directory at " + current);
                 }
                 return Files.getFileStore(current);
             }
@@ -291,7 +319,7 @@ public final class ReconciliationExecutor {
     private void deleteDirectory(ReconciliationAction.DeleteDirectory action) throws IOException {
         requireState(action.path(), action.expectedPathState());
         if (action.expectedEmpty() && !inspector.inspect(action.path()).emptyDirectory()) {
-            throw new IllegalStateException("expected empty directory at " + action.path());
+            throw new StateDriftException("expected empty directory at " + action.path());
         }
         deleteTree(action.path());
     }
@@ -327,7 +355,7 @@ public final class ReconciliationExecutor {
         requireState(action.target(), action.expectedTargetState());
         var actualTarget = inspector.inspect(action.path()).symlinkTarget().orElseThrow();
         if (action.expectedSourceTarget() != null && !actualTarget.equals(action.expectedSourceTarget())) {
-            throw new IllegalStateException("expected symlink target " + action.expectedSourceTarget() + " at " + action.path());
+            throw new StateDriftException("expected symlink target " + action.expectedSourceTarget() + " at " + action.path());
         }
         replaceWithLink(action.path(), action.target(), true);
     }
@@ -426,7 +454,7 @@ public final class ReconciliationExecutor {
     private void requireState(Path path, PathState expected) {
         var actual = inspector.inspect(path).state();
         if (actual != expected) {
-            throw new IllegalStateException("expected " + expected.name().toLowerCase() + " at " + path
+            throw new StateDriftException("expected " + expected.name().toLowerCase() + " at " + path
                     + " but found " + actual.name().toLowerCase());
         }
     }
@@ -463,7 +491,17 @@ public final class ReconciliationExecutor {
         default void finished(RelocationPlan relocation, ActionExecution action) { }
     }
 
-    public record ActionExecution(ReconciliationAction action, ActionStatus status, String message) { }
+    public record ActionExecution(ReconciliationAction action, ActionStatus status, String message, boolean stateDrift) {
+        public ActionExecution(ReconciliationAction action, ActionStatus status, String message) {
+            this(action, status, message, false);
+        }
+    }
+
+    private static final class StateDriftException extends IllegalStateException {
+        private StateDriftException(String message) {
+            super(message);
+        }
+    }
 
     public record RelocationExecution(RelocationPlan relocation, List<ActionExecution> actions) {
         public RelocationExecution {
