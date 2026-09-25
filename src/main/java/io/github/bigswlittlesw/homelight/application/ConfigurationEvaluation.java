@@ -53,7 +53,8 @@ public final class ConfigurationEvaluation {
             ReconciliationPlan plan) implements Evaluation {
         public Loaded {
             savedConfiguration = new HomeLightConfiguration(savedConfiguration.targetRoot(),
-                    List.copyOf(savedConfiguration.relocations()), List.copyOf(savedConfiguration.ignoredSourcePaths()));
+                    List.copyOf(savedConfiguration.relocations()), List.copyOf(savedConfiguration.ignoredSourcePaths()),
+                    savedConfiguration.sharedList());
             observations = List.copyOf(observations);
             draft = Map.copyOf(draft);
             var choices = new LinkedHashMap<Path, List<DecisionChoice>>();

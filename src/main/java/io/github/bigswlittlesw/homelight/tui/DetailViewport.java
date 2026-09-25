@@ -17,6 +17,7 @@ final class DetailViewport {
     private int top;
     private int maximum;
     private boolean followingChoice;
+    private boolean keepVisible;
 
     boolean overflows() { return maximum > 0; }
 
@@ -51,7 +52,8 @@ final class DetailViewport {
     }
 
     void reset() { top = 0; followingChoice = false; }
-    void followChoice() { followingChoice = true; }
+    void followChoice() { followingChoice = true; keepVisible = false; }
+    void keepChoiceVisible() { followingChoice = true; keepVisible = true; }
     void scroll(int delta) {
         followingChoice = false;
         top = (int) Math.clamp((long) top + delta, 0, maximum);
@@ -77,7 +79,11 @@ final class DetailViewport {
                     for (var part : wrap(line.text(), width)) wrapped.add(new Line(part, line.color(), line.bold()));
                 }
                 maximum = Math.max(0, wrapped.size() - height);
-                if (followingChoice && focused) top = Math.min(anchor, maximum);
+                if (followingChoice && focused) {
+                    if (!keepVisible) top = Math.min(anchor, maximum);
+                    else if (anchor < top) top = anchor;
+                    else if (anchor >= top + height) top = anchor - height + 1;
+                }
                 top = Math.clamp(top, 0, maximum);
                 var rows = new ArrayList<Element>();
                 for (int i = top; i < Math.min(top + height, wrapped.size()); i++) {

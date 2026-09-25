@@ -1,0 +1,158 @@
+
+80x24: Relocations: manual entry and candidate browse
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                          │
+│Config:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/config.yaml                                                                │
+│Storage locations                                                             │
+│Source root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/home                                                                       │
+│Target root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/local                                                                      │
+│Relocations · b: Browse candidates                                            │
+│  Source (relative)        Target (relative)        Policies                  │
+│No relocations yet. Press a to add one manually, or b to browse.              │
+│Draft not saved. Validation: not run.                                         │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+e: Edit locations · Esc: Back
+a: Add manual · b: Browse · v: Validate · s: Save · q: Discard
+
+80x24: Bundled candidates grouped by app
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current · i: Source diagnostics                                     █│
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                      █│
+│❯ − Maven (1)                                                                █│
+│    .m2 · Not added · Directory · Consider                                   █│
+│  − Gradle (2)                                                               █│
+│    .gradle/caches · Not added · Missing · Consider                          █│
+│    .gradle/wrapper · Not added · Missing · Consider                         █│
+│  − JBang (1)                                                                ││
+│    .jbang/cache · Not added · Missing · Consider                            ││
+│  − Cargo (1)                                                                ││
+│    .cargo · Not added · Missing · Consider                                  ││
+│  − rustup (1)                                                               ││
+│    .rustup · Not added · Missing · Consider                                 ││
+│  − npm (1)                                                                  ││
+│    .npm · Not added · Missing · Consider                                    ││
+│  − Yarn (2)                                                                 ││
+│    .cache/yarn · Not added · Missing · Consider                             ││
+│    .yarn/berry/cache · Not added · Missing · Consider                       ││
+│  − pnpm (3)                                                                 ││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+80x24: Inspect a directory before explicit Add
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Not added                                                                     │
+│Source:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/home/.m2                                                                   │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:35:55.240788Z · This request                          │
+│a: Add to draft · Default (prompt) policies                                   │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Current discovery attribution                                                 │
+│Maven · Bundled · current                                                     │
+│Advice: Consider                                                              │
+│Reason: Maven local repository                                                │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2          │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Added without saving or applying
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│In draft                                                                      │
+│Source:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/home/.m2                                                                   │
+│Draft target:                                                                 │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1x│
+│zx/local/.m2                                                                  │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:35:55.240788Z · This request                          │
+│e: Edit draft row                                                             │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Current discovery attribution                                                 │
+│Maven · Bundled · current                                                     │
+│Advice: Consider                                                              │
+│Reason: Maven local repository                                                │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2          │
+│Added to draft. Press e to edit its target and policies.                      │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+e: Edit draft row · r: Refresh · q: Discard draft
+
+80x24: Existing Row details edits the candidate target
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│❯ Target path: custom-maven                                                  ││
+│  Both directories: Default (prompt)                                         ││
+│  Only target: Default (prompt)                                              ││
+│  Adopt target: Default (prompt)                                             ││
+│  Archive root:                                                              ││
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1█│
+│xzx/home/.m2                                                                 █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1█│
+│xzx/local/custom-maven                                                       █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Current discovery attribution                                                █│
+│Maven · Bundled · current                                                    █│
+│Advice: Consider                                                             █│
+│Reason: Maven local repository                                               █│
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2         █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Target is relative to the target root. · [/]: Scroll
+↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear · Esc: Table
+
+80x24: Save returns to Workspace without execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-0vhg1xzx
+/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 1 with destructive changes
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Migrate] /private/v.../home/.m2││Current: Source Directory; target Absent.█│
+│                                  ││Saved policy: No conflict policy needed  █│
+│                                  ││for this observed case.                  █│
+│                                  ││Draft (not saved): None; using saved     █│
+│                                  ││policy                                   █│
+│                                  ││Expected outcome: Copy, verify and       █│
+│                                  ││publish source contents to target;       █│
+│                                  ││replace source with a link.              █│
+│                                  ││⚠ Destructive: existing content or links ││
+│                                  ││will be removed.                         ││
+│                                  ││                                         ││
+│                                  ││Paths                                    ││
+│                                  ││Source:                                  ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)

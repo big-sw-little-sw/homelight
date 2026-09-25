@@ -1,0 +1,15 @@
+directories:
+  - path: .m2
+    app: Build tools
+    advice: usually-unnecessary
+    reason: Team machines usually have a small repository.
+  - path: .cache//uv
+    app: Python tools
+    advice: consider
+    reason: Inspect measured size before choosing.
+  - path: team-cache
+    advice: consider
+  - path: absent-cache
+  - path: link-cache
+  - path: linked-parent/cache
+  - path: not-a-directory

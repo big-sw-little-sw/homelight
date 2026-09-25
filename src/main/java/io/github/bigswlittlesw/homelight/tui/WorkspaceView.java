@@ -35,11 +35,14 @@ final class WorkspaceView {
                 Toolkit.text(retained ? "  [2: Results]" : session.isPlanReady() ? "  [2: Review]" : "  [Review unavailable]").gray());
         var model = session.planModel();
         if (!(model instanceof PlanModel.Configured configured)) {
+            boolean missing = session.evaluation() instanceof ConfigurationEvaluation.Missing
+                    || session.evaluation() instanceof ConfigurationEvaluation.Unconfigured;
             var message = model instanceof PlanModel.Invalid invalid ? invalid.message()
-                    : "No configuration file found. Configure relocations in the configuration file.";
+                    : "No configuration file found. Press i to create one manually; nothing is saved until you choose Save.";
             return Toolkit.column(header, viewport.render("Configuration", List.of(new Line("Config: " + session.configPath()),
                     new Line(message, Color.YELLOW, false)), focus == PaneFocus.DETAIL, 0),
-                    viewport.help(focus == PaneFocus.DETAIL ? "↑/↓: Scroll · Tab/Esc: Back" : "Tab/l: Details", "r: Reload · q: Quit"));
+                    viewport.help(focus == PaneFocus.DETAIL ? "↑/↓: Scroll · Tab/Esc: Back" : "Tab/l: Details",
+                            (missing ? "i: Manual setup · " : "") + "r: Reload · q: Quit"));
         }
         var items = visibleItems(configured, showInSync);
         var master = new ListElement<>().title("Relocations")

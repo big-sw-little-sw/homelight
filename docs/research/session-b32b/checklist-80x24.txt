@@ -1,0 +1,184 @@
+
+80x24: Relocations: manual entry and candidate browse
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                          │
+│Config:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gsx│
+│oy/config.yaml                                                                │
+│Storage locations                                                             │
+│Source root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gsx│
+│oy/home                                                                       │
+│Target root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gsx│
+│oy/local                                                                      │
+│Relocations                                                                   │
+│  Source (relative)        Target (relative)        Policies                  │
+│No relocations yet. Add a directory manually or browse candidates.            │
+│Draft not saved. Validation: not run.                                         │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+e: Edit locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+80x24: Bundled candidates grouped by app
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│26 candidates · 0 in draft                                                   █│
+│❯ ▾ Maven (1)                                                                █│
+│    [ ] .m2                                                                  █│
+│  ▾ Gradle (2)                                                               █│
+│     −  .gradle/caches                  Missing                              █│
+│     −  .gradle/wrapper                 Missing                              █│
+│  ▾ JBang (1)                                                                █│
+│     −  .jbang/cache                    Missing                              ││
+│  ▾ Cargo (1)                                                                ││
+│     −  .cargo                          Missing                              ││
+│  ▾ rustup (1)                                                               ││
+│     −  .rustup                         Missing                              ││
+│  ▾ npm (1)                                                                  ││
+│     −  .npm                            Missing                              ││
+│  ▾ Yarn (2)                                                                 ││
+│     −  .cache/yarn                     Missing                              ││
+│     −  .yarn/berry/cache               Missing                              ││
+│  ▾ pnpm (3)                                                                 ││
+│     −  .cache/pnpm                     Missing                              ││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Move · Enter: Expand/collapse · Esc: Back · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+80x24: Compact checklist with direct Add on the focused row
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│❯   [ ] .m2                                                                  █│
+│  ▾ Gradle (2)                                                               █│
+│     −  .gradle/caches                  Missing                              █│
+│     −  .gradle/wrapper                 Missing                              █│
+│  ▾ JBang (1)                                                                █│
+│     −  .jbang/cache                    Missing                              █│
+│  ▾ Cargo (1)                                                                █│
+│     −  .cargo                          Missing                              ││
+│  ▾ rustup (1)                                                               ││
+│     −  .rustup                         Missing                              ││
+│  ▾ npm (1)                                                                  ││
+│     −  .npm                            Missing                              ││
+│  ▾ Yarn (2)                                                                 ││
+│     −  .cache/yarn                     Missing                              ││
+│     −  .yarn/berry/cache               Missing                              ││
+│  ▾ pnpm (3)                                                                 ││
+│     −  .cache/pnpm                     Missing                              ││
+│     −  .local/share/pnpm/store         Missing                              ││
+│     −  .pnpm-store                     Missing                              ││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Move · Space/a: Add · Enter: Inspect · Esc: Back · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+80x24: Space adds in place; focus remains on the checked row
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│❯   [x] .m2                                                                  █│
+│  ▾ Gradle (2)                                                               █│
+│     −  .gradle/caches                  Missing                              █│
+│     −  .gradle/wrapper                 Missing                              █│
+│  ▾ JBang (1)                                                                █│
+│     −  .jbang/cache                    Missing                              █│
+│  ▾ Cargo (1)                                                                █│
+│     −  .cargo                          Missing                              ││
+│  ▾ rustup (1)                                                               ││
+│     −  .rustup                         Missing                              ││
+│  ▾ npm (1)                                                                  ││
+│     −  .npm                            Missing                              ││
+│  ▾ Yarn (2)                                                                 ││
+│     −  .cache/yarn                     Missing                              ││
+│     −  .yarn/berry/cache               Missing                              ││
+│  ▾ pnpm (3)                                                                 ││
+│     −  .cache/pnpm                     Missing                              ││
+│     −  .local/share/pnpm/store         Missing                              ││
+│     −  .pnpm-store                     Missing                              ││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Move · e: Edit · Enter: Inspect · Esc: Back · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+80x24: Existing Row details edits the candidate target
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│❯ Target path: custom-maven                                                  ││
+│  Both directories: Default (prompt)                                         ││
+│  Only target: Default (prompt)                                              ││
+│  Adopt target: Default (prompt)                                             ││
+│  Archive root:                                                              ││
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gs█│
+│xoy/home/.m2                                                                 █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gs█│
+│xoy/local/custom-maven                                                       █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Discovery attribution · source status below                                  █│
+│Maven · Bundled · current                                                    █│
+│Advice: Consider                                                             █│
+│Reason: Maven local repository                                               █│
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2         █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Target is relative to the target root. · [/]: Scroll
+↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear · Esc: Table
+
+80x24: Policy field consequence and available shortcuts
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│  Target path: custom-maven                                                  ││
+│❯ Both directories: Adopt target                                             ││
+│  Only target: Default (prompt)                                              ││
+│  Adopt target: Default (prompt)                                             ││
+│  Archive root:                                                              ││
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gs█│
+│xoy/home/.m2                                                                 █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gs█│
+│xoy/local/custom-maven                                                       █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Discovery attribution · source status below                                  █│
+│Maven · Bundled · current                                                    █│
+│Advice: Consider                                                             █│
+│Reason: Maven local repository                                               █│
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2         █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Both exist: use target contents; choose source disposition below. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Save returns to Workspace without execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-io7gsxoy
+/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 1 with destructive changes
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Migrate] /private/v.../home/.m2││Current: Source Directory; target Absent.█│
+│                                  ││Saved policy: No conflict policy needed  █│
+│                                  ││for this observed case.                  █│
+│                                  ││Draft (not saved): None; using saved     █│
+│                                  ││policy                                   █│
+│                                  ││Expected outcome: Copy, verify and       █│
+│                                  ││publish source contents to target;       █│
+│                                  ││replace source with a link.              █│
+│                                  ││⚠ Destructive: existing content or links ││
+│                                  ││will be removed.                         ││
+│                                  ││                                         ││
+│                                  ││Paths                                    ││
+│                                  ││Source:                                  ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)

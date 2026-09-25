@@ -1,0 +1,190 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] -----------------< io.github.bigswlittlesw:homelight >------------------
+[INFO] Building homelight 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- resources:3.4.0:resources (default-resources) @ homelight ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] The encoding used to copy filtered properties files has not been set. This means that the same encoding will be used to copy filtered properties files as when copying other filtered resources. This might not be what you want! Run your build with --debug to see which files might be affected. Read more at https://maven.apache.org/plugins/maven-resources-plugin/examples/filtering-properties-files.html
+[INFO]
+[INFO] --- compiler:3.14.0:compile (default-compile) @ homelight ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ homelight ---
+[INFO] skip non existing resourceDirectory /Users/jsiva/sw/code/homelight/src/test/resources
+[INFO]
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ homelight ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 30 source files with javac [debug target 25] to target/test-classes
+[INFO]
+[INFO] --- surefire:3.5.2:test (default-test) @ homelight ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running io.github.bigswlittlesw.homelight.tui.CandidateSetupTest
+[ERROR] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.157 s <<< FAILURE! -- in io.github.bigswlittlesw.homelight.tui.CandidateSetupTest
+[ERROR] io.github.bigswlittlesw.homelight.tui.CandidateSetupTest.configuredRowsAreInspectionOnlyAndTextIsEscaped -- Time elapsed: 0.105 s <<< FAILURE!
+org.opentest4j.AssertionFailedError:
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Configured                                                                                                            │
+│Source:                                                                                                               │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-15459891420898623460/fixture-15954130176124375249/home/│
+│.m2                                                                                                                   │
+│Saved target:                                                                                                         │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-15459891420898623460/fixture-15954130176124375249/local│
+│/saved                                                                                                                │
+│Saved policies: both directories: discard; only target: Default (prompt); adopt target: Default (prompt)              │
+│Metadata: Not observed                                                                                                │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Inspection only. Saved target and policies remain authoritative.                                                      │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+r: Refresh · q: Discard draft
+ ==> expected: <true> but was: <false>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+	at io.github.bigswlittlesw.homelight.tui.CandidateSetupTest.configuredRowsAreInspectionOnlyAndTextIsEscaped(CandidateSetupTest.java:293)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+
+[ERROR] io.github.bigswlittlesw.homelight.tui.CandidateSetupTest.discardBothCopyMatchesThePlannedDeletionsAndEmptyTargetAtBothSizes -- Time elapsed: 0.036 s <<< FAILURE!
+org.opentest4j.AssertionFailedError:
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833││
+│198159/fixture-7065355722188071821/config.yaml                               ││
+│Edit relocation 1                                                            █│
+│  Source path: team-cache                                                    █│
+│  Target path: team-cache                                                    █│
+│❯ Both directories: Discard target                                           █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833█│
+│198159/fixture-7065355722188071821/home/team-cache                           █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833█│
+│198159/fixture-7065355722188071821/local/team-cache                          █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Both exist: delete target contents and relocate source. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+ ==> expected: <true> but was: <false>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+	at io.github.bigswlittlesw.homelight.tui.CandidateSetupTest.discardBothCopyMatchesThePlannedDeletionsAndEmptyTargetAtBothSizes(CandidateSetupTest.java:41)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1604)
+
+[INFO]
+[INFO] Results:
+[INFO]
+[ERROR] Failures:
+[ERROR]   CandidateSetupTest.configuredRowsAreInspectionOnlyAndTextIsEscaped:293 ┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Configured                                                                                                            │
+│Source:                                                                                                               │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-15459891420898623460/fixture-15954130176124375249/home/│
+│.m2                                                                                                                   │
+│Saved target:                                                                                                         │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-15459891420898623460/fixture-15954130176124375249/local│
+│/saved                                                                                                                │
+│Saved policies: both directories: discard; only target: Default (prompt); adopt target: Default (prompt)              │
+│Metadata: Not observed                                                                                                │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Inspection only. Saved target and policies remain authoritative.                                                      │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+r: Refresh · q: Discard draft
+ ==> expected: <true> but was: <false>
+[ERROR]   CandidateSetupTest.discardBothCopyMatchesThePlannedDeletionsAndEmptyTargetAtBothSizes:41 ⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833││
+│198159/fixture-7065355722188071821/config.yaml                               ││
+│Edit relocation 1                                                            █│
+│  Source path: team-cache                                                    █│
+│  Target path: team-cache                                                    █│
+│❯ Both directories: Discard target                                           █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833█│
+│198159/fixture-7065355722188071821/home/team-cache                           █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/junit-11089374276833█│
+│198159/fixture-7065355722188071821/local/team-cache                          █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Both exist: delete target contents and relocate source. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+ ==> expected: <true> but was: <false>
+[INFO]
+[ERROR] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.949 s
+[INFO] Finished at: 2026-09-24T18:29:45-07:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test (default-test) on project homelight: There are test failures.
+[ERROR]
+[ERROR] See /Users/jsiva/sw/code/homelight/target/surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

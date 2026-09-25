@@ -1,38 +1,92 @@
 package io.github.bigswlittlesw.homelight.config;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 
-/// Built-in, opt-in candidates for machine-local tool state.
+/// Catalog contents only: no candidate filesystem access, selection, or policy.
 public final class CandidateCatalog {
-    private CandidateCatalog() {
+    public static final CandidateSource BUNDLED =
+            new CandidateSource(CandidateSource.Kind.BUNDLED, "/candidates.yaml");
+
+    private CandidateCatalog() {}
+
+    public static Snapshot bundled(Path root) {
+        var parser = new CandidateParser();
+        try (var input = CandidateCatalog.class.getResourceAsStream(BUNDLED.location())) {
+            if (input == null) {
+                return parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
+                        "Bundled candidate resource is missing");
+            }
+            return parser.parse(BUNDLED, root, input.readNBytes(CandidateParser.MAX_BYTES + 1));
+        } catch (IOException e) {
+            return parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
+                    "Cannot read bundled candidate resource: " + e.getMessage());
+        }
     }
 
-    public static List<CandidateSource> defaults() {
-        return List.of(
-                new CandidateSource("~/.m2", "Maven local repository"),
-                new CandidateSource("~/.gradle/caches", "Gradle caches"),
-                new CandidateSource("~/.gradle/wrapper", "Gradle wrapper distributions"),
-                new CandidateSource("~/.cargo", "Rust toolchain and package state"),
-                new CandidateSource("~/.rustup", "Rust toolchains"),
-                new CandidateSource("~/.npm", "npm cache"),
-                new CandidateSource("~/.cache/yarn", "Yarn cache"),
-                new CandidateSource("~/.cache/pnpm", "pnpm cache"),
-                new CandidateSource("~/.cache/pip", "pip cache"),
-                new CandidateSource("~/.cache/uv", "uv cache"),
-                new CandidateSource("~/.local/share/uv", "uv-managed Python installations"),
-                new CandidateSource("~/.local/share/uv/tools", "uv tools and uvx environments"),
-                new CandidateSource("~/.cache/pypoetry", "Poetry cache"),
-                new CandidateSource("~/.cache/pdm", "PDM cache"),
-                new CandidateSource("~/.cache/virtualenv", "virtualenv cache"),
-                new CandidateSource("~/.local/pipx/venvs", "pipx virtual environments"),
-                new CandidateSource("~/.cache/go-build", "Go build cache"),
-                new CandidateSource("~/.cache/node-gyp", "node-gyp cache"),
-                new CandidateSource("~/.yarn/berry/cache", "Yarn Berry cache"),
-                new CandidateSource("~/.local/share/pnpm/store", "pnpm package store"),
-                new CandidateSource("~/.pnpm-store", "legacy pnpm package store"),
-                new CandidateSource("~/.nvm", "Node.js versions managed by nvm"),
-                new CandidateSource("~/.bun/install/cache", "Bun package cache"),
-                new CandidateSource("~/.cache/JetBrains", "JetBrains caches"),
-                new CandidateSource("~/.vscode-server", "VS Code server"));
+    /// Input order stabilizes output order; it never gives advice precedence.
+    /// Failed sources contribute diagnostics and no definitions.
+    public static Merged merge(List<Snapshot> snapshots) {
+        var paths = new LinkedHashMap<Path, List<CandidateDefinition>>();
+        var diagnostics = new ArrayList<CandidateDiagnostic>();
+        Path root = null;
+        for (var snapshot : snapshots) {
+            if (root != null && !root.equals(snapshot.root())) {
+                throw new IllegalArgumentException("Cannot merge snapshots from different roots");
+            }
+            root = snapshot.root();
+            diagnostics.addAll(snapshot.diagnostics());
+            for (var definition : snapshot.definitions()) {
+                paths.computeIfAbsent(definition.sourcePath(), ignored -> new ArrayList<>()).add(definition);
+            }
+        }
+        var candidates = new ArrayList<Candidate>();
+        paths.forEach((path, definitions) -> candidates.add(new Candidate(path, definitions)));
+        return new Merged(candidates, diagnostics);
+    }
+
+    public record Snapshot(CandidateSource source, Path root, List<CandidateDefinition> definitions,
+                           List<CandidateDiagnostic> diagnostics) {
+        public Snapshot {
+            Objects.requireNonNull(source);
+            root = CandidateParser.normalizedRoot(root);
+            definitions = List.copyOf(definitions);
+            diagnostics = List.copyOf(diagnostics);
+            if (!definitions.isEmpty() && !diagnostics.isEmpty()) {
+                throw new IllegalArgumentException("A rejected source cannot contain definitions");
+            }
+            for (var definition : definitions) {
+                if (!definition.source().equals(source)
+                        || !definition.sourcePath().equals(CandidateParser.resolve(root, definition.originalPath()))) {
+                    throw new IllegalArgumentException("Definition does not belong to this source/root");
+                }
+            }
+            if (diagnostics.stream().anyMatch(diagnostic -> !diagnostic.source().equals(source))) {
+                throw new IllegalArgumentException("Diagnostic does not belong to this source");
+            }
+        }
+
+        public boolean accepted() { return diagnostics.isEmpty(); }
+    }
+
+    public record Candidate(Path sourcePath, List<CandidateDefinition> definitions) {
+        public Candidate {
+            Objects.requireNonNull(sourcePath);
+            definitions = List.copyOf(definitions);
+            if (definitions.isEmpty() || definitions.stream().anyMatch(d -> !d.sourcePath().equals(sourcePath))) {
+                throw new IllegalArgumentException("Candidate needs matching definition occurrences");
+            }
+        }
+    }
+
+    public record Merged(List<Candidate> candidates, List<CandidateDiagnostic> diagnostics) {
+        public Merged {
+            candidates = List.copyOf(candidates);
+            diagnostics = List.copyOf(diagnostics);
+        }
     }
 }

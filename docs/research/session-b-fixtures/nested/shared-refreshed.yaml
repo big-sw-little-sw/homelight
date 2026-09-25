@@ -1,0 +1,9 @@
+apps:
+  - name: Revised app label
+    directories:
+      - path: .cache/uv
+        advice: usually-unnecessary
+        reason: Changed advice must not change an existing draft.
+directories:
+  - path: new-cache
+    advice: consider

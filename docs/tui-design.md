@@ -1,6 +1,6 @@
 # HomeLight TUI Design Language
 
-Maintained presentation contract for the accepted returning-user journey.
+Maintained presentation contract for the accepted returning-user and setup journeys.
 D3 and its follow-up polish are implemented locally; the user accepted the UX
 on 2026-09-14. The coordinator also accepted the technical follow-up.
 Implementation and verification: [the D3 handoff](research/session-d3-implementation-handoff.md).
@@ -192,13 +192,88 @@ simultaneous contradictory Back/Cancel labels. Two intentionally wrapped help ro
 are acceptable at 80 columns. Do not advertise unavailable commands or scroll
 instructions when content fits.
 
-## 7. First-run and configuration: future work
+## 7. First-run configuration creation
 
-Manual init/config creation is #31; shared candidate discovery/selection is #21,
-#7 and #32, and the full editor remains #17. These are not implemented D3 features.
-Until usable setup exists, missing/default/explicit config states must give an
-actionable supported next step rather than recommending a nonexistent init command.
-Do not add setup persistence or discovery as part of D3 polish.
+D4/#31 is accepted locally following the user walkthrough and coordinator review.
+Evidence and publication status: [D4 handoff](research/session-d4-implementation-handoff.md).
+The user also accepted #32b's candidate-browser UX. Its technical acceptance
+is complete locally, including the destructive-policy copy correction recorded in the
+[#32b handoff](research/session-b32b-implementation-handoff.md).
+
+Missing default or explicit configurations prominently offer `i: Manual setup`
+and `homelight init`. Existing malformed or unreadable configurations remain
+errors, not replacement targets. Setup is creation-only.
+
+- **Storage locations:** editable source root defaults to the home directory;
+  target root is required. Relocation rows use paths relative to these roots.
+  Optional Shared candidate list accepts an absolute path or `~/...`; blank
+  uses bundled candidates only. Show its resolved location. First Browse starts
+  discovery; manual setup does not wait for a shared source.
+- **Relocations:** a compact Source, Target, Policies table. From the table,
+  `a` adds an expanded row, Enter opens row details, `d` removes the selected
+  draft row, and `e` edits locations while preserving rows.
+- **Row details:** source/target-relative paths, three state-specific optional
+  policies, and optional absolute archive root. Initially the target mirrors the
+  source. Focused help explains the field's consequence. Complete entries remain
+  accessible despite ellipsized table cells.
+- Omitted policies mean the existing per-relocation Prompt behavior, not a new
+  global defaults layer. Collapsed rows show `Default (prompt)` or explicit
+  policy overrides. Discard when both directories exist must disclose deletion
+  of both trees, empty-target creation and the source link, not source migration.
+- Every edit resets validation. Validate and Save remain explicit; both reject
+  blank row paths and normalized paths equal to or outside the chosen root.
+  Nonblank archive roots must be absolute. Failures retain the editable draft.
+- Escape returns from details to table and from table to locations; at locations
+  it cancels setup without writing. Escape never exits the app. The discard
+  dialog preserves edits on cancellation; confirmed discard clears all setup
+  state, and reopening starts fresh.
+- Save atomically creates a new configuration without replacing an existing or
+  concurrently created file, then reloads the workspace. Save never applies
+  relocations. Unsupported publication capability fails safely.
+
+Verify at 80×24 and 120×30 with resizing both ways, including root edits, row
+add/remove, invalid-input correction, discard/reopen and save without execution.
+
+### Candidate browsing
+
+`b` opens a subordinate browser from Relocations; manual entry remains available.
+Use compact grouped checklist rows with visible focus and overflow scrollbars.
+Each normalized path occurs once. App headings expand/collapse on Enter but
+never select a group. Other directories holds ungrouped entries; details retain
+all app associations, attributed advice/reasons and full paths.
+
+- `[ ]` means eligible, `[x]` means in the draft, `[=]` plus Configured means
+  saved and inspection-only. Blocking states use a dash and a plain explanation.
+- Space/`a` adds one eligible candidate directly without leaving the list;
+  Enter inspects it; `e` edits a draft member in the existing Row details.
+  Repeated Add neither duplicates nor removes a row. Overlap rejection preserves
+  prior choices and supplies an inspectable explanation.
+- Add accepts current-generation directory or confirmed-missing observations.
+  This supersedes #32a's directory-only rule. Unknown, pending, inaccessible,
+  blocked, file, link and earlier-generation observations cannot authorize Add.
+  Routine existence labels are omitted from the list. Missing-path details say
+  `Not created yet` and explain future creation without promising success or
+  inferring policy. Save creates configuration only; Apply re-observes paths.
+- `u` reveals/hides a counted set of unselected candidates for which every
+  current definition says usually-unnecessary. Mixed/omitted or retained advice,
+  manual/configured entries and draft members remain visible. App collapse also
+  keeps selected rows visible. Advice never chooses a policy or selects a row.
+- `r` refreshes evidence explicitly; `i` opens full source diagnostics. Keep
+  metadata, advice, source freshness and historical attribution separate. Sizes
+  remain `not estimated`, ownership `not evaluated`.
+- Background arrival preserves pane, field text, draft edits and focused path.
+  A removed focused path stays inspectable until navigation changes focus.
+  Returning to Browse retains context without rereading unchanged sources.
+  Root/list edits invalidate prior requests; obsolete results cannot reattach.
+- Escape returns details/sources → browser → table → locations → cancel setup.
+  `q` in browser/table confirms discard; cancel preserves edits, confirmed
+  discard clears setup and closes discovery. Save and abnormal terminal exit
+  also dispose discovery. Source failures never disable manual entry or Save.
+
+Verify direct Add/edit, confirmed-missing Add without path creation, grouping,
+advice reveal, refresh/removal, blocked-source responsiveness, discard/reopen,
+save failure and create-only success at 80×24 and 120×30, resizing both ways.
+Existing-configuration editing remains #17.
 
 Shared lists supply potential discovery candidates only. Users explicitly select
 and save relocations; list refreshes never change managed entries or reviewed plans.

@@ -1,0 +1,410 @@
+
+80x24: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Config:                                                                      ││
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long█│
+│-configuration-location-long-configuration-location-long-configuration-locati█│
+│on-long-configuration-location-/config.yaml                                  █│
+│Edit relocation 1                                                            █│
+│  Source path: .m2                                                           █│
+│  Target path: .m2                                                           █│
+│❯ Both directories: Discard both                                             █│
+│Permanently delete both source and target directory trees. Create an empty   █│
+│target directory and link the source to it.                                  █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source: /private/tmp/homelight-b32b-discard-ug1uovfw/home/.m2                █│
+│Target: /private/tmp/homelight-b32b-discard-ug1uovfw/local/.m2               █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: .m2                                                                                                    │
+│❯ Both directories: Discard both                                                                                      │
+│Permanently delete both source and target directory trees. Create an empty target directory and link the source to it.│
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/tmp/homelight-b32b-discard-ug1uovfw/home/.m2                                                         │
+│Target: /private/tmp/homelight-b32b-discard-ug1uovfw/local/.m2                                                        │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Config:                                                                      ││
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long█│
+│-configuration-location-long-configuration-location-long-configuration-locati█│
+│on-long-configuration-location-/config.yaml                                  █│
+│Edit relocation 1                                                            █│
+│  Source path: .m2                                                           █│
+│  Target path: .m2                                                           █│
+│❯ Both directories: Discard both                                             █│
+│Permanently delete both source and target directory trees. Create an empty   █│
+│target directory and link the source to it.                                  █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source: /private/tmp/homelight-b32b-discard-ug1uovfw/home/.m2                █│
+│Target: /private/tmp/homelight-b32b-discard-ug1uovfw/local/.m2               █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Config:                                                                      ││
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long█│
+│-configuration-location-long-configuration-location-long-configuration-locati█│
+│on-long-configuration-location-/config.yaml                                  █│
+│Edit relocation 1                                                            █│
+│  Source path: .m2                                                           █│
+│  Target path: .m2                                                           █│
+│❯ Both directories: Discard both                                             █│
+│Permanently delete both source and target directory trees. Create an empty   █│
+│target directory and link the source to it.                                  █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source: /private/tmp/homelight-b32b-discard-ug1uovfw/home/.m2                █│
+│Target: /private/tmp/homelight-b32b-discard-ug1uovfw/local/.m2               █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Scrollable details retain full configuration path and policy context
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Config:                                                                      ││
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long█│
+│-configuration-location-long-configuration-location-long-configuration-locati█│
+│on-long-configuration-location-/config.yaml                                  █│
+│Edit relocation 1                                                            █│
+│  Source path: .m2                                                           █│
+│  Target path: .m2                                                           █│
+│❯ Both directories: Discard both                                             █│
+│Permanently delete both source and target directory trees. Create an empty   █│
+│target directory and link the source to it.                                  █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source: /private/tmp/homelight-b32b-discard-ug1uovfw/home/.m2                █│
+│Target: /private/tmp/homelight-b32b-discard-ug1uovfw/local/.m2               █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Relocations table explicitly summarizes Discard both
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                          │
+│Config:                                                                       │
+│/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long-│
+│configuration-location-long-configuration-location-long-configuration-location│
+│-long-configuration-location-/config.yaml                                     │
+│Storage locations                                                             │
+│Source root: /private/tmp/homelight-b32b-discard-ug1uovfw/home                │
+│Target root: /private/tmp/homelight-b32b-discard-ug1uovfw/local               │
+│Relocations                                                                   │
+│  Source (relative)        Target (relative)        Policies                  │
+│❯ .m2                      .m2                      Discard both              │
+│Draft not saved. Validation: not run.                                         │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+80x24: Save preserves both payloads; no Apply was requested
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config:
+/private/tmp/homelight-b32b-discard-ug1uovfw/long-configuration-location-long-co
+nfiguration-location-long-configuration-location-long-configuration-location-lon
+g-configuration-location-/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 1 with warnings · 1 with destructive changes
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Discard] /private/t.../home/.m2││Current: Source and target are           █│
+│                                  ││directories.                             █│
+│                                  ││Saved policy: Discard both.              █│
+│                                  ││Draft (not saved): None; using saved     █│
+│                                  ││policy                                   ││
+│                                  ││Expected outcome: Delete source and      ││
+│                                  ││target contents; recreate an empty target││
+│                                  ││and source link.                         ││
+│                                  ││discard will permanently remove both     ││
+│                                  ││directory trees                          ││
+│                                  ││⚠ Destructive: existing content or links ││
+│                                  ││will be removed.                         ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: .m2                                                                                                    │
+│❯ Both directories: Discard both                                                                                      │
+│Permanently delete both source and target directory trees. Create an empty target directory and link the source to it.│
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/tmp/homelight-b32b-discard-i91a696m/home/.m2                                                         │
+│Target: /private/tmp/homelight-b32b-discard-i91a696m/local/.m2                                                        │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: .m2                                                                                                    │
+│❯ Both directories: Discard both                                                                                      │
+│Permanently delete both source and target directory trees. Create an empty target directory and link the source to it.│
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/tmp/homelight-b32b-discard-i91a696m/home/.m2                                                         │
+│Target: /private/tmp/homelight-b32b-discard-i91a696m/local/.m2                                                        │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Config:                                                                      ││
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long█│
+│-configuration-location-long-configuration-location-long-configuration-locati█│
+│on-long-configuration-location-/config.yaml                                  █│
+│Edit relocation 1                                                            █│
+│  Source path: .m2                                                           █│
+│  Target path: .m2                                                           █│
+│❯ Both directories: Discard both                                             █│
+│Permanently delete both source and target directory trees. Create an empty   █│
+│target directory and link the source to it.                                  █│
+│  Only target: Default (prompt)                                              █│
+│  Adopt target: Default (prompt)                                             █│
+│  Archive root:                                                              █│
+│Paths (resolved)                                                             █│
+│Source: /private/tmp/homelight-b32b-discard-i91a696m/home/.m2                █│
+│Target: /private/tmp/homelight-b32b-discard-i91a696m/local/.m2               █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│No current catalog attribution.                                              █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Discard both: focused label and complete destructive consequence after resize
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: .m2                                                                                                    │
+│❯ Both directories: Discard both                                                                                      │
+│Permanently delete both source and target directory trees. Create an empty target directory and link the source to it.│
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/tmp/homelight-b32b-discard-i91a696m/home/.m2                                                         │
+│Target: /private/tmp/homelight-b32b-discard-i91a696m/local/.m2                                                        │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Scrollable details retain full configuration path and policy context
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: .m2                                                                                                    │
+│❯ Both directories: Discard both                                                                                      │
+│Permanently delete both source and target directory trees. Create an empty target directory and link the source to it.│
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/tmp/homelight-b32b-discard-i91a696m/home/.m2                                                         │
+│Target: /private/tmp/homelight-b32b-discard-i91a696m/local/.m2                                                        │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Save writes configuration only; Apply requires review.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Relocations table explicitly summarizes Discard both
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config:                                                                                                               │
+│/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuratio│
+│n-location-long-configuration-location-long-configuration-location-/config.yaml                                       │
+│Storage locations                                                                                                     │
+│Source root: /private/tmp/homelight-b32b-discard-i91a696m/home                                                        │
+│Target root: /private/tmp/homelight-b32b-discard-i91a696m/local                                                       │
+│Relocations                                                                                                           │
+│  Source (relative)        Target (relative)        Policies                                                          │
+│❯ .m2                      .m2                      Discard both                                                      │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+120x30: Save preserves both payloads; no Apply was requested
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config:
+/private/tmp/homelight-b32b-discard-i91a696m/long-configuration-location-long-configuration-location-long-configuration-
+location-long-configuration-location-long-configuration-location-/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 1 with warnings · 1 with destructive changes
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Discard] /private/tmp/homeli...-i91a696m/home/.m2││Current: Source and target are directories.                    █│
+│                                                    ││Saved policy: Discard both.                                    █│
+│                                                    ││Draft (not saved): None; using saved policy                    █│
+│                                                    ││Expected outcome: Delete source and target contents; recreate  █│
+│                                                    ││an empty target and source link.                               █│
+│                                                    ││discard will permanently remove both directory trees           █│
+│                                                    ││⚠ Destructive: existing content or links will be removed.      █│
+│                                                    ││                                                               █│
+│                                                    ││  (○) Adopt target and discard source                          █│
+│                                                    ││Use existing target directory as authoritative and delete the  █│
+│                                                    ││existing source directory. Replace source with a link to       █│
+│                                                    ││target.                                                        █│
+│                                                    ││                                                               █│
+│                                                    ││  (○) Leave source and target unmanaged                        █│
+│                                                    ││Leave existing source and target directories in place without  █│
+│                                                    ││managing them.                                                 ││
+│                                                    ││                                                               ││
+│                                                    ││  (●) Discard source and target contents                       ││
+│                                                    ││Delete existing contents in both locations, then recreate empty││
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)

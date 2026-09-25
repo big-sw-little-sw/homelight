@@ -11,10 +11,12 @@ import io.github.bigswlittlesw.homelight.application.DecisionChoice;
 import io.github.bigswlittlesw.homelight.application.HomeLightSession;
 import io.github.bigswlittlesw.homelight.application.PlanModel;
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem;
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /// Owns navigation and inspection; the session owns decisions and guarded execution.
 public final class HomeLightApp {
@@ -35,10 +37,13 @@ public final class HomeLightApp {
     private final DetailViewport workspaceDetails = new DetailViewport();
     private final DetailViewport actionDetails = new DetailViewport();
     private ExitIntent exitIntent = ExitIntent.STAY;
+    private SetupView setup;
+    private Supplier<CandidateDiscovery> discoveryFactory = CandidateDiscovery::new;
     private enum ExitIntent { STAY, CONFIRM_KEEP, CONFIRM_EXIT, AFTER_EXECUTION, EXIT }
 
     public HomeLightApp(Path configPath) { this(new HomeLightSession(configPath)); }
-    public HomeLightApp(HomeLightSession session) { this(session, null); }
+    public HomeLightApp(HomeLightSession session) { this(session, (TuiConfig) null); }
+    public HomeLightApp(HomeLightSession session, boolean startSetup) { this(session, (TuiConfig) null); if (startSetup) setup = new SetupView(session, discoveryFactory); }
     public HomeLightApp(HomeLightSession session, TuiConfig customTuiConfig) {
         this.session = Objects.requireNonNull(session);
         this.customTuiConfig = customTuiConfig;
@@ -51,7 +56,7 @@ public final class HomeLightApp {
 
     protected Element render() {
         settleDeferredExit();
-        var view = activeScreen == Screen.APPLY ? renderApply()
+        var view = setup != null ? setup.render() : activeScreen == Screen.APPLY ? renderApply()
                 : WorkspaceView.render(session, selectedIndex, showInSync, paneFocus, detailSelectedIndex, workspaceDetails);
         var content = view instanceof dev.tamboui.toolkit.elements.Column column ? column.fill() : Toolkit.column(view).fill();
         if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) {
@@ -105,6 +110,11 @@ public final class HomeLightApp {
 
     public EventResult handleKeyEvent(KeyEvent key) {
         if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) return handleExitDialog(key);
+        if (setup != null) {
+            setup.key(key);
+            if (setup.closed()) { setup = null; workspaceDetails.reset(); syncInSyncSetting(); }
+            return EventResult.HANDLED;
+        }
         if (key.isKey(KeyCode.ESCAPE)) {
             if (activeScreen == Screen.APPLY && session.applyModel() instanceof ApplyModel.Confirmation) {
                 session.cancelApply();
@@ -119,6 +129,11 @@ public final class HomeLightApp {
             return EventResult.HANDLED;
         }
         if (exitIntent == ExitIntent.EXIT) return EventResult.HANDLED;
+        if (key.isCharIgnoreCase('i') && (session.evaluation() instanceof io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Missing
+                || session.evaluation() instanceof io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Unconfigured)) {
+            setup = new SetupView(session, discoveryFactory);
+            return EventResult.HANDLED;
+        }
         if (key.isChar('1')) { switchScreen(Screen.WORKSPACE); return EventResult.HANDLED; }
         if (key.isChar('2')) { switchScreen(Screen.APPLY); return EventResult.HANDLED; }
         if (activeScreen == Screen.APPLY) return handleApplyKeyEvent(key);
@@ -157,6 +172,17 @@ public final class HomeLightApp {
             else { paneFocus = PaneFocus.DETAIL; workspaceDetails.followChoice(); }
         }
         return EventResult.HANDLED;
+    }
+
+    void closeSetup() {
+        if (setup != null) { setup.close(); setup = null; }
+    }
+
+    // A factory gives each reopened setup its own discovery lifetime.
+    HomeLightApp(HomeLightSession session,
+                 Supplier<CandidateDiscovery> discoveryFactory) {
+        this(session, (TuiConfig) null);
+        this.discoveryFactory = Objects.requireNonNull(discoveryFactory);
     }
 
     private EventResult handleApplyKeyEvent(KeyEvent key) {

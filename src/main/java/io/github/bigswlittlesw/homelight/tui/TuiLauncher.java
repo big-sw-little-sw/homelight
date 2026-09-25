@@ -24,6 +24,7 @@ public final class TuiLauncher {
                     return view;
                 });
             } finally {
+                app.closeSetup();
                 app.session().awaitExecution();
             }
         }
@@ -41,14 +42,28 @@ public final class TuiLauncher {
         return launch(configPath, debugStepDelayMillis, errorOutput);
     }
 
+    public static int launchInit(Path configPath, long debugStepDelayMillis, PrintWriter errorOutput) {
+        var evaluation = new io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().load(configPath);
+        if (evaluation instanceof io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Loaded
+                || evaluation instanceof io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Invalid) {
+            errorOutput.println("Configuration already exists or is unreadable; init only creates a missing configuration.");
+            return 1;
+        }
+        return launch(configPath, debugStepDelayMillis, errorOutput, true);
+    }
+
     private static int launch(Path configPath, long debugStepDelayMillis, PrintWriter errorOutput) {
+        return launch(configPath, debugStepDelayMillis, errorOutput, false);
+    }
+
+    private static int launch(Path configPath, long debugStepDelayMillis, PrintWriter errorOutput, boolean startSetup) {
         if (!isInteractive()) {
             errorOutput.println("HomeLight TUI requires an interactive terminal. Use --json for automation.");
             return 2;
         }
         try {
             var app = new HomeLightApp(new io.github.bigswlittlesw.homelight.application.HomeLightSession(
-                    configPath, debugStepDelayMillis));
+                    configPath, debugStepDelayMillis), startSetup);
             app.run();
             return 0;
         } catch (Exception exception) {

@@ -32,6 +32,170 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HomeLightAppTest {
 
     @Test
+    void createsRootRelativeRowsWithDefaultPolicies(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        var root = temporary.toRealPath();
+        var config = root.resolve("new/config.yaml");
+        var app = new HomeLightApp(new HomeLightSession(config));
+        app.handleKeyEvent(KeyEvent.ofChar('i'));
+        app.handleKeyEvent(KeyEvent.ofChar('\u0015'));
+        type(app, root.resolve("home").toString());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
+        app.handleKeyEvent(KeyEvent.ofChar('\u0015'));
+        type(app, root.resolve("local").toString());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        type(app, ".cache/tool");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+        app.handleKeyEvent(KeyEvent.ofChar('v'));
+        var validation = WorkspaceViewTest.render(app.render(), 120, 30);
+        assertTrue(validation.contains("Validation: valid"), validation);
+        app.handleKeyEvent(KeyEvent.ofChar('s'));
+
+        var relocation = new io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations().getFirst();
+        assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath());
+        assertEquals(root.resolve("local/.cache/tool"), relocation.targetPath());
+        assertTrue(relocation.whenSourceAndTargetDirectoriesExist().isEmpty());
+        assertFalse(Files.exists(root.resolve("home/.cache/tool")), "saving must not relocate");
+    }
+
+    private static void type(HomeLightApp app, String value) {
+        for (var character : value.toCharArray()) app.handleKeyEvent(KeyEvent.ofChar(character));
+    }
+
+    @Test
+    void setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        var app = new HomeLightApp(new HomeLightSession(temporary.resolve("config.yaml")));
+        app.handleKeyEvent(KeyEvent.ofChar('i'));
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        type(app, ".cache/tool");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+
+        var table = WorkspaceViewTest.render(app.render(), 80, 24);
+        assertTrue(table.contains("Source (relative)"), table);
+        assertTrue(table.contains(".cache/tool"), table);
+
+        app.handleKeyEvent(KeyEvent.ofChar('d'));
+        table = WorkspaceViewTest.render(app.render(), 80, 24);
+        assertTrue(table.contains("No relocations yet"), table);
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        type(app, ".cache/tool");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+
+        app.handleKeyEvent(KeyEvent.ofChar('e'));
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
+        type(app, "/target");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        table = WorkspaceViewTest.render(app.render(), 80, 24);
+        assertTrue(table.contains(".cache/tool"), table);
+        assertTrue(table.contains("Validation: not run"), table);
+
+        app.handleKeyEvent(KeyEvent.ofChar('q'));
+        assertTrue(WorkspaceViewTest.render(app.render(), 80, 24).contains("Discard setup draft?"));
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+        table = WorkspaceViewTest.render(app.render(), 80, 24);
+        assertTrue(table.contains(".cache/tool"), table);
+        assertFalse(Files.exists(temporary.resolve("config.yaml")));
+
+        app.handleKeyEvent(KeyEvent.ofChar('q'));
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        app.handleKeyEvent(KeyEvent.ofChar('i'));
+        var fresh = WorkspaceViewTest.render(app.render(), 80, 24);
+        assertTrue(fresh.contains("Target root: "), fresh);
+        assertTrue(fresh.contains("Validation: not run"), fresh);
+        assertFalse(fresh.contains(".cache/tool"), fresh);
+    }
+
+    @Test
+    void rejectsUnsafeRelativeRowsUntilCorrected(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        for (var invalid : List.of("", ".", "..")) {
+            var config = temporary.resolve("config-" + (invalid.isEmpty() ? "blank" : invalid.replace('.', 'd')) + ".yaml");
+            var app = setupWithEmptyRow(config, temporary);
+            type(app, invalid);
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+
+            assertInvalidAndUnpublished(app, config, invalid.isEmpty() ? "cannot be blank" : "nested below their root");
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+            for (int character = 0; character < invalid.length(); character++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE));
+            type(app, "nested/cache");
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+            app.handleKeyEvent(KeyEvent.ofChar('s'));
+            assertTrue(Files.exists(config), invalid);
+            var relocation = new io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations().getFirst();
+            assertEquals(temporary.resolve("home/nested/cache"), relocation.sourcePath());
+            assertEquals(temporary.resolve("local/nested/cache"), relocation.targetPath());
+        }
+    }
+
+    @Test
+    void rejectsInvalidTargetsWithValidSourcesUntilCorrected(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        int index = 0;
+        for (var invalid : List.of("", ".", "../escape")) {
+            var config = temporary.resolve("invalid-target-" + index++ + ".yaml");
+            var app = setupWithEmptyRow(config, temporary);
+            type(app, "valid/source");
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
+            for (int character = 0; character < "valid/source".length(); character++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE));
+            type(app, invalid);
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+            assertInvalidAndUnpublished(app, config, invalid.isEmpty() ? "cannot be blank" : "nested below their root");
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
+            for (int character = 0; character < invalid.length(); character++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE));
+            type(app, "valid/target");
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+            app.handleKeyEvent(KeyEvent.ofChar('s'));
+            var relocation = new io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations().getFirst();
+            assertEquals(temporary.resolve("home/valid/source"), relocation.sourcePath());
+            assertEquals(temporary.resolve("local/valid/target"), relocation.targetPath());
+        }
+    }
+
+    @Test
+    void rejectsRelativeArchiveRootUntilCorrected(@org.junit.jupiter.api.io.TempDir Path temporary) throws Exception {
+        var config = temporary.resolve("archive.yaml");
+        var app = setupWithEmptyRow(config, temporary);
+        type(app, "nested/cache");
+        for (int field = 0; field < 5; field++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN));
+        type(app, "archive");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+
+        assertInvalidAndUnpublished(app, config, "Archive root must be an absolute path");
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        for (int field = 0; field < 5; field++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN));
+        for (int character = 0; character < "archive".length(); character++) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE));
+        type(app, temporary.resolve("archive").toString());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE));
+        app.handleKeyEvent(KeyEvent.ofChar('s'));
+
+        var relocation = new io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations().getFirst();
+        assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot().orElseThrow());
+        assertFalse(Files.exists(temporary.resolve("home/nested/cache")), "saving must not relocate");
+    }
+
+    private static HomeLightApp setupWithEmptyRow(Path config, Path temporary) {
+        var app = new HomeLightApp(new HomeLightSession(config));
+        app.handleKeyEvent(KeyEvent.ofChar('i'));
+        app.handleKeyEvent(KeyEvent.ofChar('\u0015'));
+        type(app, temporary.resolve("home").toString());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB));
+        type(app, temporary.resolve("local").toString());
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER));
+        app.handleKeyEvent(KeyEvent.ofChar('a'));
+        return app;
+    }
+
+    private static void assertInvalidAndUnpublished(HomeLightApp app, Path config, String message) throws Exception {
+        app.handleKeyEvent(KeyEvent.ofChar('v'));
+        var validation = WorkspaceViewTest.render(app.render(), 120, 30);
+        assertTrue(validation.contains(message), validation);
+        app.handleKeyEvent(KeyEvent.ofChar('s'));
+        var save = WorkspaceViewTest.render(app.render(), 120, 30);
+        assertTrue(save.contains(message), save);
+        assertFalse(Files.exists(config));
+    }
+
+    @Test
     void followsExecutionAcrossRelocationsWithoutOverridingManualInspectionBetweenActions() {
         var first = new Relocation(Path.of("/home/first"), Path.of("/local/first"));
         var second = new Relocation(Path.of("/home/second"), Path.of("/local/second"));

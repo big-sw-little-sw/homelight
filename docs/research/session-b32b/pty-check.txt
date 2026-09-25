@@ -1,0 +1,1234 @@
+
+80x24: Relocations: manual entry and candidate browse
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                          │
+│Config:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/config.yaml                                                                │
+│Storage locations                                                             │
+│Source root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/home                                                                       │
+│Target root:                                                                  │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/local                                                                      │
+│Relocations                                                                   │
+│  Source (relative)        Target (relative)        Policies                  │
+│No relocations yet. Add a directory manually or browse candidates.            │
+│Draft not saved. Validation: not run.                                         │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+e: Edit locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+80x24: Bundled candidates grouped by app
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current                                                             █│
+│26 candidates · 0 configured · 0 in draft · 26 not added                     █│
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                      █│
+│❯ − Maven (1)                                                                █│
+│    .m2 · Not added · Directory · Consider                                   █│
+│  − Gradle (2)                                                               █│
+│    .gradle/caches · Not added · Missing · Consider                          █│
+│    .gradle/wrapper · Not added · Missing · Consider                         ││
+│  − JBang (1)                                                                ││
+│    .jbang/cache · Not added · Missing · Consider                            ││
+│  − Cargo (1)                                                                ││
+│    .cargo · Not added · Missing · Consider                                  ││
+│  − rustup (1)                                                               ││
+│    .rustup · Not added · Missing · Consider                                 ││
+│  − npm (1)                                                                  ││
+│    .npm · Not added · Missing · Consider                                    ││
+│  − Yarn (2)                                                                 ││
+│    .cache/yarn · Not added · Missing · Consider                             ││
+│    .yarn/berry/cache · Not added · Missing · Consider                       ││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+80x24: Inspect a directory before explicit Add
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Not added                                                                     │
+│Source:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/home/.m2                                                                   │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:56:34.579685Z · This request                          │
+│Adding uses a matching target path and Default (prompt) policies.             │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Discovery attribution · source status below                                   │
+│Maven · Bundled · current                                                     │
+│Advice: Consider                                                              │
+│Reason: Maven local repository                                                │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2          │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Added without saving or applying
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│In draft                                                                      │
+│Source:                                                                       │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/home/.m2                                                                   │
+│Draft target:                                                                 │
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bk│
+│iz/local/.m2                                                                  │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:56:34.579685Z · This request                          │
+│Target and policies remain editable in Row details.                           │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Discovery attribution · source status below                                   │
+│Maven · Bundled · current                                                     │
+│Advice: Consider                                                              │
+│Reason: Maven local repository                                                │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2          │
+│Added to draft. Nothing has been saved or applied.                            │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+e: Edit draft row · r: Refresh · q: Discard draft
+
+80x24: Existing Row details edits the candidate target
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│❯ Target path: custom-maven                                                  ││
+│  Both directories: Default (prompt)                                         ││
+│  Only target: Default (prompt)                                              ││
+│  Adopt target: Default (prompt)                                             ││
+│  Archive root:                                                              ││
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1b█│
+│kiz/home/.m2                                                                 █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1b█│
+│kiz/local/custom-maven                                                       █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Discovery attribution · source status below                                  █│
+│Maven · Bundled · current                                                    █│
+│Advice: Consider                                                             █│
+│Reason: Maven local repository                                               █│
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2         █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Target is relative to the target root. · [/]: Scroll
+↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear · Esc: Table
+
+80x24: Policy field consequence and available shortcuts
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│  Target path: custom-maven                                                  ││
+│❯ Both directories: Adopt target                                             ││
+│  Only target: Default (prompt)                                              ││
+│  Adopt target: Default (prompt)                                             ││
+│  Archive root:                                                              ││
+│Paths (resolved)                                                             █│
+│Source:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1b█│
+│kiz/home/.m2                                                                 █│
+│Target:                                                                      █│
+│/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1b█│
+│kiz/local/custom-maven                                                       █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Discovery attribution · source status below                                  █│
+│Maven · Bundled · current                                                    █│
+│Advice: Consider                                                             █│
+│Reason: Maven local repository                                               █│
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2         █│
+│Draft not saved. Validation: not run.                                        █│
+└──────────────────────────────────────────────────────────────────────────────┘
+Both exist: use target contents; choose source disposition below. · [/]: Scroll
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+80x24: Save returns to Workspace without execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config:
+/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-5bs1bkiz
+/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 1 with destructive changes
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Migrate] /private/v.../home/.m2││Current: Source Directory; target Absent.█│
+│                                  ││Saved policy: No conflict policy needed  █│
+│                                  ││for this observed case.                  █│
+│                                  ││Draft (not saved): None; using saved     █│
+│                                  ││policy                                   █│
+│                                  ││Expected outcome: Copy, verify and       █│
+│                                  ││publish source contents to target;       █│
+│                                  ││replace source with a link.              █│
+│                                  ││⚠ Destructive: existing content or links ││
+│                                  ││will be removed.                         ││
+│                                  ││                                         ││
+│                                  ││Paths                                    ││
+│                                  ││Source:                                  ││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+80x24: Bundled/shared, mixed advice and counted reveal
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: current                                            │
+│13 candidates · 0 configured · 0 in draft · 13 not added                      │
+│2 usually-unnecessary directories hidden                                      │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                       │
+│❯ − Maven (1)                                                                 │
+│    .m2 · Not added · Directory · Mixed advice                                │
+│  − uv (3)                                                                    │
+│    .cache/uv · Not added · Directory · Consider; some advice omitted         │
+│    .local/share/uv · Not added · Directory                                   │
+│    .local/share/uv/tools · Not added · Directory                             │
+│  − Other directories (7)                                                     │
+│    datasets · Not added · Directory                                          │
+│    team-cache · Not added · Directory · Consider                             │
+│    absent-cache · Not added · Missing                                        │
+│    link-cache · Not added · Symbolic link                                    │
+│    linked-parent/cache · Not added · Blocked by parent link                  │
+│    not-a-directory · Not added · Regular file                                │
+│    long-path-dist…-segment-suffix · Not added · Directory                    │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 2 · q: Discard
+
+80x24: Full app associations and attributed advice
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Not added                                                                     │
+│Source: /private/tmp/homelight-b32b-4blw3rum/home/.m2                         │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:56:38.991206Z · This request                          │
+│Adding uses a matching target path and Default (prompt) policies.             │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Discovery attribution · source status below                                   │
+│Maven · Bundled · current                                                     │
+│Advice: Consider                                                              │
+│Reason: May contain substantial locally downloaded artifacts.                 │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2          │
+│Build tools · Shared · current                                                │
+│Advice: Usually unnecessary                                                   │
+│Reason: Team machines usually have a small repository.                        │
+│From: /private/tmp/homelight-b32b-4blw3rum/shared.yaml ·                      │
+│apps[0].directories[0] · original path: .m2                                   │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Selected usually-unnecessary directory remains visible after collapse
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│13 candidates · 0 configured · 2 in draft · 11 not added                     ││
+│1 usually-unnecessary directory hidden                                       █│
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                      █│
+│  − Maven (1)                                                                █│
+│    .m2 · In draft · Directory · Mixed advice                                █│
+│  − Example IDE (1)                                                          █│
+│❯   .cache/example · In draft · Directory · Usually unnecessary              █│
+│  − uv (3)                                                                   █│
+│    .cache/uv · Not added · Directory · Consider; some advice omitted        █│
+│    .local/share/uv · Not added · Directory                                  █│
+│    .local/share/uv/tools · Not added · Directory                            █│
+│  − Other directories (7)                                                    █│
+│    datasets · Not added · Directory                                         █│
+│    team-cache · Not added · Directory · Consider                            █│
+│    absent-cache · Not added · Missing                                       █│
+│    link-cache · Not added · Symbolic link                                   █│
+│    linked-parent/cache · Not added · Blocked by parent link                 █│
+│    not-a-directory · Not added · Regular file                               █│
+│    long-path-dist…-segment-suffix · Not added · Directory                   █│
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Inspect · Esc: Table · [/]: Scroll
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+80x24: Overlap rejection before scrolling
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Not added                                                                     │
+│Source: /private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv/tools       │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:56:44.266597Z · This request                          │
+│Overlaps catalog parent:                                                      │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv                     │
+│Adding uses a matching target path and Default (prompt) policies.             │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Discovery attribution · source status below                                   │
+│uv · Bundled · current                                                        │
+│Advice: Not supplied                                                          │
+│Reason: Nested candidate for overlap testing.                                 │
+│From: /candidates.yaml · apps[1].directories[2] · original path:              │
+│.local/share/uv/tools                                                         │
+│Not added. relocation paths overlap:                                          │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv and                 │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv/tools. Prior choices│
+│are unchanged.                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Overlap rejection retains prior selections
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Not added                                                                     │
+│Source: /private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv/tools       │
+│Metadata: Directory                                                           │
+│Size: not estimated · Ownership: not evaluated                                │
+│Observed: 2026-09-24T18:56:44.266597Z · This request                          │
+│Overlaps catalog parent:                                                      │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv                     │
+│Adding uses a matching target path and Default (prompt) policies.             │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│Discovery attribution · source status below                                   │
+│uv · Bundled · current                                                        │
+│Advice: Not supplied                                                          │
+│Reason: Nested candidate for overlap testing.                                 │
+│From: /candidates.yaml · apps[1].directories[2] · original path:              │
+│.local/share/uv/tools                                                         │
+│Not added. relocation paths overlap:                                          │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv and                 │
+│/private/tmp/homelight-b32b-4blw3rum/home/.local/share/uv/tools. Prior choices│
+│are unchanged.                                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Long full path and reason reader with scrollbar
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│Source:                                                                      █│
+│/private/tmp/homelight-b32b-4blw3rum/home/long-path-distinguishing-segment-di█│
+│stinguishing-segment-distinguishing-segment-distinguishing-segment-distinguis█│
+│hing-segment-distinguishing-segment-distinguishing-segment-suffix            █│
+│Metadata: Directory                                                          █│
+│Size: not estimated · Ownership: not evaluated                               █│
+│Observed: 2026-09-24T18:56:44.268732Z · This request                         █│
+│Adding uses a matching target path and Default (prompt) policies.            █│
+│Advice is optional, not a safety assessment or a requirement.                █│
+│Discovery attribution · source status below                                  █│
+│Ungrouped · Shared · current                                                 █│
+│Advice: Not supplied                                                         █│
+│Reason: This long explanation must remain accessible after wrapping and      █│
+│scrolling. Literal descriptive text. Literal descriptive text. Literal       ││
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal││
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal││
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal││
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal││
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal││
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓/[/]: Scroll · Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+80x24: Removed selected candidate retains target and historical attribution
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────┐
+│In draft                                                                      │
+│Source: /private/tmp/homelight-b32b-4blw3rum/home/team-cache                  │
+│Draft target: /private/tmp/homelight-b32b-4blw3rum/local/custom-team          │
+│Metadata: Not observed                                                        │
+│Size: not estimated · Ownership: not evaluated                                │
+│Target and policies remain editable in Row details.                           │
+│Advice is optional, not a safety assessment or a requirement.                 │
+│No current catalog attribution.                                               │
+│Historical attribution · no longer in current discovery                       │
+│Ungrouped · Shared · historical; not current advice                           │
+│Advice: Consider                                                              │
+│From: /private/tmp/homelight-b32b-4blw3rum/shared.yaml · directories[0] ·     │
+│original path: team-cache                                                     │
+│Added to draft. Nothing has been saved or applied.                            │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+e: Edit draft row · r: Refresh · q: Discard draft
+
+80x24: Malformed source diagnostics remain inspectable
+⌂ HOMELIGHT  [Setup]
+┌Discovery sources─────────────────────────────────────────────────────────────┐
+│Manual editing, saving and exit do not wait for discovery.                    │
+│Bundled: current                                                              │
+│Location: /candidates.yaml                                                    │
+│Shared: stale                                                                 │
+│Location: /private/tmp/homelight-b32b-4blw3rum/shared.yaml                    │
+│Retaining earlier definitions; this read supplied no replacement.             │
+│List rejected. Fix the YAML and refresh.                                      │
+│expected the node content, but found '<stream end>' · input line 1, column 8  │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+r: Refresh · q: Discard draft
+
+80x24: Failed save preserves editable draft
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                          │
+│Config: /private/tmp/homelight-b32b-4blw3rum/config.yaml                      │
+│Storage locations                                                             │
+│Source root: /private/tmp/homelight-b32b-4blw3rum/home                        │
+│Target root: /private/tmp/homelight-b32b-4blw3rum/local                       │
+│Relocations                                                                   │
+│  Source (relative)        Target (relative)        Policies                  │
+│  .m2                      custom-maven             Adopt target              │
+│  .cache/example           .cache/example           Default (prompt)          │
+│  .local/share/uv          .local/share/uv          Default (prompt)          │
+│❯ team-cache               custom-team              Default (prompt)          │
+│Save failed: Configuration already exists and was not replaced:               │
+│/private/tmp/homelight-b32b-4blw3rum/config.yaml                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+80x24: Only explicit selections saved; no execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config: /private/tmp/homelight-b32b-4blw3rum/config.yaml
+4 relocations · ⚡ 4 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 4 with destructive changes
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Migrate] /private/t...e/example││Current: Source Empty directory; target  █│
+│  [Migrate] /private/t.../share/uv││Absent.                                  █│
+│  [Migrate] /private/t.../home/.m2││Saved policy: No conflict policy needed  █│
+│  [Migrate] /private/t...eam-cache││for this observed case.                  █│
+│                                  ││Draft (not saved): None; using saved     █│
+│                                  ││policy                                   █│
+│                                  ││Expected outcome: Copy, verify and       █│
+│                                  ││publish source contents to target;       █│
+│                                  ││replace source with a link.              █│
+│                                  ││⚠ Destructive: existing content or links █│
+│                                  ││will be removed.                         █│
+│                                  ││                                         ││
+│                                  ││Paths                                    ││
+│                                  ││Source:                                  ││
+│                                  ││/private/tmp/homelight-b32b-4blw3rum/home││
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync · [/]: Scroll
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+80x24: Stalled shared reader leaves bundled discovery usable
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: pending                                            │
+│6 candidates · 0 configured · 0 in draft · 6 not added                        │
+│1 usually-unnecessary directory hidden                                        │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                       │
+│❯ − Maven (1)                                                                 │
+│    .m2 · Not added · Directory · Consider                                    │
+│  − uv (3)                                                                    │
+│    .cache/uv · Not added · Directory                                         │
+│    .local/share/uv · Not added · Directory                                   │
+│    .local/share/uv/tools · Not added · Directory                             │
+│  − Other directories (1)                                                     │
+│    datasets · Not added · Directory                                          │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+80x24: Root/location changes retain rows and detach the old request
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current                                                              │
+│7 candidates · 0 configured · 1 in draft · 6 not added                        │
+│1 usually-unnecessary directory hidden                                        │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                       │
+│  − Other directories (2)                                                     │
+│    manual · In draft · Not observed                                          │
+│    datasets · Not added · Unknown                                            │
+│❯ − Maven (1)                                                                 │
+│    .m2 · Not added · Unknown · Consider                                      │
+│  − uv (3)                                                                    │
+│    .cache/uv · Not added · Unknown                                           │
+│    .local/share/uv · Not added · Unknown                                     │
+│    .local/share/uv/tools · Not added · Unknown                               │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+80x24: Discard/reopen starts a fresh discovery session after late completion
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: current                                            │
+│13 candidates · 0 configured · 0 in draft · 13 not added                      │
+│2 usually-unnecessary directories hidden                                      │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                       │
+│❯ − Maven (1)                                                                 │
+│    .m2 · Not added · Directory · Mixed advice                                │
+│  − uv (3)                                                                    │
+│    .cache/uv · Not added · Directory · Consider; some advice omitted         │
+│    .local/share/uv · Not added · Directory                                   │
+│    .local/share/uv/tools · Not added · Directory                             │
+│  − Other directories (7)                                                     │
+│    datasets · Not added · Directory                                          │
+│    team-cache · Not added · Directory · Consider                             │
+│    absent-cache · Not added · Missing                                        │
+│    link-cache · Not added · Symbolic link                                    │
+│    linked-parent/cache · Not added · Blocked by parent link                  │
+│    not-a-directory · Not added · Regular file                                │
+│    long-path-dist…-segment-suffix · Not added · Directory                    │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 2 · q: Discard
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+80x24: Manual save succeeds while the optional reader is still blocked
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config: /private/tmp/homelight-b32b-save-4lkhdjb9/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations───────────────────────┐┌Details───────────────────────────────────┐
+│❯ [Link] /private/tm...home/manual││Current: Source Absent; target Absent.    │
+│                                  ││Saved policy: No conflict policy needed   │
+│                                  ││for this observed case.                   │
+│                                  ││Draft (not saved): None; using saved      │
+│                                  ││policy                                    │
+│                                  ││Expected outcome: Create an empty target  │
+│                                  ││directory and link source to it.          │
+│                                  ││                                          │
+│                                  ││Paths                                     │
+│                                  ││Source:                                   │
+│                                  ││/private/tmp/homelight-b32b-save-4lkhdjb9/│
+│                                  ││home/manual                               │
+│                                  ││Target:                                   │
+│                                  ││/private/tmp/homelight-b32b-save-4lkhdjb9/│
+│                                  ││local/manual                              │
+│                                  ││                                          │
+└──────────────────────────────────┘└──────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: Relocations: manual entry and candidate browse
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/config.yaml                  │
+│Storage locations                                                                                                     │
+│Source root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/home                    │
+│Target root: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/local                   │
+│Relocations                                                                                                           │
+│  Source (relative)        Target (relative)        Policies                                                          │
+│No relocations yet. Add a directory manually or browse candidates.                                                    │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+e: Edit locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+120x30: Bundled candidates grouped by app
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current                                                                                                     █│
+│26 candidates · 0 configured · 0 in draft · 26 not added                                                             █│
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                              █│
+│❯ − Maven (1)                                                                                                        █│
+│    .m2 · Not added · Directory · Consider                                                                           █│
+│  − Gradle (2)                                                                                                       █│
+│    .gradle/caches · Not added · Missing · Consider                                                                  █│
+│    .gradle/wrapper · Not added · Missing · Consider                                                                 █│
+│  − JBang (1)                                                                                                        █│
+│    .jbang/cache · Not added · Missing · Consider                                                                    █│
+│  − Cargo (1)                                                                                                        █│
+│    .cargo · Not added · Missing · Consider                                                                          █│
+│  − rustup (1)                                                                                                       ││
+│    .rustup · Not added · Missing · Consider                                                                         ││
+│  − npm (1)                                                                                                          ││
+│    .npm · Not added · Missing · Consider                                                                            ││
+│  − Yarn (2)                                                                                                         ││
+│    .cache/yarn · Not added · Missing · Consider                                                                     ││
+│    .yarn/berry/cache · Not added · Missing · Consider                                                               ││
+│  − pnpm (3)                                                                                                         ││
+│    .cache/pnpm · Not added · Missing · Consider                                                                     ││
+│    .local/share/pnpm/store · Not added · Missing · Consider                                                         ││
+│    .pnpm-store · Not added · Missing · Consider                                                                     ││
+│  − pip (1)                                                                                                          ││
+│    .cache/pip · Not added · Missing · Consider                                                                      ││
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table · [/]: Scroll
+r: Refresh · i: Sources · q: Discard
+
+120x30: Inspect a directory before explicit Add
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Not added                                                                                                             │
+│Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/home/.m2                     │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:19.983723Z · This request                                                                  │
+│Adding uses a matching target path and Default (prompt) policies.                                                     │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Maven · Bundled · current                                                                                             │
+│Advice: Consider                                                                                                      │
+│Reason: Maven local repository                                                                                        │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2                                                  │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+120x30: Added without saving or applying
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│In draft                                                                                                              │
+│Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/home/.m2                     │
+│Draft target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/local/.m2              │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:19.983723Z · This request                                                                  │
+│Target and policies remain editable in Row details.                                                                   │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Maven · Bundled · current                                                                                             │
+│Advice: Consider                                                                                                      │
+│Reason: Maven local repository                                                                                        │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2                                                  │
+│Added to draft. Nothing has been saved or applied.                                                                    │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+e: Edit draft row · r: Refresh · q: Discard draft
+
+120x30: Existing Row details edits the candidate target
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/config.yaml                  │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│❯ Target path: custom-maven                                                                                           │
+│  Both directories: Default (prompt)                                                                                  │
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/home/.m2                     │
+│Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/local/custom-maven           │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Maven · Bundled · current                                                                                             │
+│Advice: Consider                                                                                                      │
+│Reason: Maven local repository                                                                                        │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2                                                  │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Target is relative to the target root.
+↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear · Esc: Table
+
+120x30: Policy field consequence and available shortcuts
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/config.yaml                  │
+│Edit relocation 1                                                                                                     │
+│  Source path: .m2                                                                                                    │
+│  Target path: custom-maven                                                                                           │
+│❯ Both directories: Adopt target                                                                                      │
+│  Only target: Default (prompt)                                                                                       │
+│  Adopt target: Default (prompt)                                                                                      │
+│  Archive root:                                                                                                       │
+│Paths (resolved)                                                                                                      │
+│Source: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/home/.m2                     │
+│Target: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/local/custom-maven           │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Maven · Bundled · current                                                                                             │
+│Advice: Consider                                                                                                      │
+│Reason: Maven local repository                                                                                        │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2                                                  │
+│Draft not saved. Validation: not run.                                                                                 │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Both exist: use target contents; choose source disposition below.
+↑/↓/Tab: Field · Space: Policy · d: Remove · Esc: Table
+
+120x30: Save returns to Workspace without execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config: /private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelight-b32b-mids7f2d/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 1 with destructive changes
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Migrate] /private/var/folder...-mids7f2d/home/.m2││Current: Source Directory; target Absent.                       │
+│                                                    ││Saved policy: No conflict policy needed for this observed case. │
+│                                                    ││Draft (not saved): None; using saved policy                     │
+│                                                    ││Expected outcome: Copy, verify and publish source contents to   │
+│                                                    ││target; replace source with a link.                             │
+│                                                    ││⚠ Destructive: existing content or links will be removed.       │
+│                                                    ││                                                                │
+│                                                    ││Paths                                                           │
+│                                                    ││Source:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-b32b-mids7f2d/home/.m2                                       │
+│                                                    ││Target:                                                         │
+│                                                    ││/private/var/folders/6w/52q5tjyd6s7dh19nl44jby4h0000gn/T/homelig│
+│                                                    ││ht-b32b-mids7f2d/local/custom-maven                             │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: Bundled/shared, mixed advice and counted reveal
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: current                                                                                    │
+│13 candidates · 0 configured · 0 in draft · 13 not added                                                              │
+│2 usually-unnecessary directories hidden                                                                              │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                               │
+│❯ − Maven (1)                                                                                                         │
+│    .m2 · Not added · Directory · Mixed advice                                                                        │
+│  − uv (3)                                                                                                            │
+│    .cache/uv · Not added · Directory · Consider; some advice omitted                                                 │
+│    .local/share/uv · Not added · Directory                                                                           │
+│    .local/share/uv/tools · Not added · Directory                                                                     │
+│  − Other directories (7)                                                                                             │
+│    datasets · Not added · Directory                                                                                  │
+│    team-cache · Not added · Directory · Consider                                                                     │
+│    absent-cache · Not added · Missing                                                                                │
+│    link-cache · Not added · Symbolic link                                                                            │
+│    linked-parent/cache · Not added · Blocked by parent link                                                          │
+│    not-a-directory · Not added · Regular file                                                                        │
+│    long-path-dist…-segment-suffix · Not added · Directory                                                            │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 2 · q: Discard
+
+120x30: Full app associations and attributed advice
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Not added                                                                                                             │
+│Source: /private/tmp/homelight-b32b-9hduq2_s/home/.m2                                                                 │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:24.420526Z · This request                                                                  │
+│Adding uses a matching target path and Default (prompt) policies.                                                     │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Maven · Bundled · current                                                                                             │
+│Advice: Consider                                                                                                      │
+│Reason: May contain substantial locally downloaded artifacts.                                                         │
+│From: /candidates.yaml · apps[0].directories[0] · original path: .m2                                                  │
+│Build tools · Shared · current                                                                                        │
+│Advice: Usually unnecessary                                                                                           │
+│Reason: Team machines usually have a small repository.                                                                │
+│From: /private/tmp/homelight-b32b-9hduq2_s/shared.yaml · apps[0].directories[0] · original path: .m2                  │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+120x30: Selected usually-unnecessary directory remains visible after collapse
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: current                                                                                    │
+│13 candidates · 0 configured · 2 in draft · 11 not added                                                              │
+│1 usually-unnecessary directory hidden                                                                                │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                               │
+│  − Maven (1)                                                                                                         │
+│    .m2 · In draft · Directory · Mixed advice                                                                         │
+│  − Example IDE (1)                                                                                                   │
+│❯   .cache/example · In draft · Directory · Usually unnecessary                                                       │
+│  − uv (3)                                                                                                            │
+│    .cache/uv · Not added · Directory · Consider; some advice omitted                                                 │
+│    .local/share/uv · Not added · Directory                                                                           │
+│    .local/share/uv/tools · Not added · Directory                                                                     │
+│  − Other directories (7)                                                                                             │
+│    datasets · Not added · Directory                                                                                  │
+│    team-cache · Not added · Directory · Consider                                                                     │
+│    absent-cache · Not added · Missing                                                                                │
+│    link-cache · Not added · Symbolic link                                                                            │
+│    linked-parent/cache · Not added · Blocked by parent link                                                          │
+│    not-a-directory · Not added · Regular file                                                                        │
+│    long-path-dist…-segment-suffix · Not added · Directory                                                            │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Inspect · Esc: Table
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+120x30: Overlap rejection before scrolling
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Not added                                                                                                             │
+│Source: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv/tools                                               │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:29.739574Z · This request                                                                  │
+│Overlaps catalog parent: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv                                    │
+│Adding uses a matching target path and Default (prompt) policies.                                                     │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│uv · Bundled · current                                                                                                │
+│Advice: Not supplied                                                                                                  │
+│Reason: Nested candidate for overlap testing.                                                                         │
+│From: /candidates.yaml · apps[1].directories[2] · original path: .local/share/uv/tools                                │
+│Not added. relocation paths overlap: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv and                    │
+│/private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv/tools. Prior choices are unchanged.                         │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+120x30: Overlap rejection retains prior selections
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Not added                                                                                                             │
+│Source: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv/tools                                               │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:29.739574Z · This request                                                                  │
+│Overlaps catalog parent: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv                                    │
+│Adding uses a matching target path and Default (prompt) policies.                                                     │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│uv · Bundled · current                                                                                                │
+│Advice: Not supplied                                                                                                  │
+│Reason: Nested candidate for overlap testing.                                                                         │
+│From: /candidates.yaml · apps[1].directories[2] · original path: .local/share/uv/tools                                │
+│Not added. relocation paths overlap: /private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv and                    │
+│/private/tmp/homelight-b32b-9hduq2_s/home/.local/share/uv/tools. Prior choices are unchanged.                         │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+120x30: Long full path and reason reader with scrollbar
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Not added                                                                                                             │
+│Source:                                                                                                               │
+│/private/tmp/homelight-b32b-9hduq2_s/home/long-path-distinguishing-segment-distinguishing-segment-distinguishing-segme│
+│nt-distinguishing-segment-distinguishing-segment-distinguishing-segment-distinguishing-segment-suffix                 │
+│Metadata: Directory                                                                                                   │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Observed: 2026-09-24T18:57:29.744565Z · This request                                                                  │
+│Adding uses a matching target path and Default (prompt) policies.                                                     │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│Discovery attribution · source status below                                                                           │
+│Ungrouped · Shared · current                                                                                          │
+│Advice: Not supplied                                                                                                  │
+│Reason: This long explanation must remain accessible after wrapping and scrolling. Literal descriptive text. Literal  │
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal descriptive text. Literal descriptive   │
+│text. Literal descriptive text. Literal descriptive text. Literal descriptive text. Literal descriptive text. Literal │
+│descriptive text. Literal descriptive text. Literal descriptive text. Literal descriptive text. Literal descriptive   │
+│text. Literal descriptive text. Literal descriptive text. Literal descriptive text. REASON-END                        │
+│From: /private/tmp/homelight-b32b-9hduq2_s/shared.yaml · directories[6] · original path:                              │
+│long-path-distinguishing-segment-distinguishing-segment-distinguishing-segment-distinguishing-segment-distinguishing-s│
+│egment-distinguishing-segment-distinguishing-segment-suffix                                                           │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+a: Add to draft · r: Refresh · q: Discard draft
+
+120x30: Removed selected candidate retains target and historical attribution
+⌂ HOMELIGHT  [Setup]
+┌Candidate details─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│In draft                                                                                                              │
+│Source: /private/tmp/homelight-b32b-9hduq2_s/home/team-cache                                                          │
+│Draft target: /private/tmp/homelight-b32b-9hduq2_s/local/custom-team                                                  │
+│Metadata: Not observed                                                                                                │
+│Size: not estimated · Ownership: not evaluated                                                                        │
+│Target and policies remain editable in Row details.                                                                   │
+│Advice is optional, not a safety assessment or a requirement.                                                         │
+│No current catalog attribution.                                                                                       │
+│Historical attribution · no longer in current discovery                                                               │
+│Ungrouped · Shared · historical; not current advice                                                                   │
+│Advice: Consider                                                                                                      │
+│From: /private/tmp/homelight-b32b-9hduq2_s/shared.yaml · directories[0] · original path: team-cache                   │
+│Added to draft. Nothing has been saved or applied.                                                                    │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+e: Edit draft row · r: Refresh · q: Discard draft
+
+120x30: Malformed source diagnostics remain inspectable
+⌂ HOMELIGHT  [Setup]
+┌Discovery sources─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Manual editing, saving and exit do not wait for discovery.                                                            │
+│Bundled: current                                                                                                      │
+│Location: /candidates.yaml                                                                                            │
+│Shared: stale                                                                                                         │
+│Location: /private/tmp/homelight-b32b-9hduq2_s/shared.yaml                                                            │
+│Retaining earlier definitions; this read supplied no replacement.                                                     │
+│List rejected. Fix the YAML and refresh.                                                                              │
+│expected the node content, but found '<stream end>' · input line 1, column 8                                          │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc: Back
+r: Refresh · q: Discard draft
+
+120x30: Failed save preserves editable draft
+⌂ HOMELIGHT  [Setup]
+┌Setup─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Create configuration                                                                                                  │
+│Config: /private/tmp/homelight-b32b-9hduq2_s/config.yaml                                                              │
+│Storage locations                                                                                                     │
+│Source root: /private/tmp/homelight-b32b-9hduq2_s/home                                                                │
+│Target root: /private/tmp/homelight-b32b-9hduq2_s/local                                                               │
+│Relocations                                                                                                           │
+│  Source (relative)        Target (relative)        Policies                                                          │
+│  .m2                      custom-maven             Adopt target                                                      │
+│  .cache/example           .cache/example           Default (prompt)                                                  │
+│  .local/share/uv          .local/share/uv          Default (prompt)                                                  │
+│❯ team-cache               custom-team              Default (prompt)                                                  │
+│Save failed: Configuration already exists and was not replaced: /private/tmp/homelight-b32b-9hduq2_s/config.yaml      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back
+a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard
+
+120x30: Only explicit selections saved; no execution
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config: /private/tmp/homelight-b32b-9hduq2_s/config.yaml
+4 relocations · ⚡ 4 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+Of these: 0 with warnings · 4 with destructive changes
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Migrate] /private/tmp/homeli...ome/.cache/example││Current: Source Empty directory; target Absent.                 │
+│  [Migrate] /private/tmp/homeli...me/.local/share/uv││Saved policy: No conflict policy needed for this observed case. │
+│  [Migrate] /private/tmp/homeli...-9hduq2_s/home/.m2││Draft (not saved): None; using saved policy                     │
+│  [Migrate] /private/tmp/homeli..._s/home/team-cache││Expected outcome: Copy, verify and publish source contents to   │
+│                                                    ││target; replace source with a link.                             │
+│                                                    ││⚠ Destructive: existing content or links will be removed.       │
+│                                                    ││                                                                │
+│                                                    ││Paths                                                           │
+│                                                    ││Source: /private/tmp/homelight-b32b-9hduq2_s/home/.cache/example│
+│                                                    ││Target:                                                         │
+│                                                    ││/private/tmp/homelight-b32b-9hduq2_s/local/.cache/example       │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: Stalled shared reader leaves bundled discovery usable
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: pending                                                                                    │
+│6 candidates · 0 configured · 0 in draft · 6 not added                                                                │
+│1 usually-unnecessary directory hidden                                                                                │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                               │
+│❯ − Maven (1)                                                                                                         │
+│    .m2 · Not added · Directory · Consider                                                                            │
+│  − uv (3)                                                                                                            │
+│    .cache/uv · Not added · Directory                                                                                 │
+│    .local/share/uv · Not added · Directory                                                                           │
+│    .local/share/uv/tools · Not added · Directory                                                                     │
+│  − Other directories (1)                                                                                             │
+│    datasets · Not added · Directory                                                                                  │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+120x30: Root/location changes retain rows and detach the old request
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current                                                                                                      │
+│7 candidates · 0 configured · 1 in draft · 6 not added                                                                │
+│1 usually-unnecessary directory hidden                                                                                │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                               │
+│  − Other directories (2)                                                                                             │
+│    manual · In draft · Not observed                                                                                  │
+│    datasets · Not added · Unknown                                                                                    │
+│❯ − Maven (1)                                                                                                         │
+│    .m2 · Not added · Unknown · Consider                                                                              │
+│  − uv (3)                                                                                                            │
+│    .cache/uv · Not added · Unknown                                                                                   │
+│    .local/share/uv · Not added · Unknown                                                                             │
+│    .local/share/uv/tools · Not added · Unknown                                                                       │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 1 · q: Discard
+
+120x30: Discard/reopen starts a fresh discovery session after late completion
+⌂ HOMELIGHT  [Setup]
+┌Browse candidates─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│Bundled: current · Shared: current                                                                                    │
+│13 candidates · 0 configured · 0 in draft · 13 not added                                                              │
+│2 usually-unnecessary directories hidden                                                                              │
+│Focus ❯ · App −/+ expanded/collapsed · In draft = added                                                               │
+│❯ − Maven (1)                                                                                                         │
+│    .m2 · Not added · Directory · Mixed advice                                                                        │
+│  − uv (3)                                                                                                            │
+│    .cache/uv · Not added · Directory · Consider; some advice omitted                                                 │
+│    .local/share/uv · Not added · Directory                                                                           │
+│    .local/share/uv/tools · Not added · Directory                                                                     │
+│  − Other directories (7)                                                                                             │
+│    datasets · Not added · Directory                                                                                  │
+│    team-cache · Not added · Directory · Consider                                                                     │
+│    absent-cache · Not added · Missing                                                                                │
+│    link-cache · Not added · Symbolic link                                                                            │
+│    linked-parent/cache · Not added · Blocked by parent link                                                          │
+│    not-a-directory · Not added · Regular file                                                                        │
+│    long-path-dist…-segment-suffix · Not added · Directory                                                            │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+↑/↓: Choose · Enter: Expand/collapse app · Esc: Table
+r: Refresh · i: Sources · u: Show 2 · q: Discard
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)
+
+120x30: Manual save succeeds while the optional reader is still blocked
+⌂ HOMELIGHT  [1: Workspace]  [2: Review]
+Config: /private/tmp/homelight-b32b-save-jdm5t3xc/config.yaml
+1 relocations · ⚡ 1 actionable · ⚠ 0 conflict · ✖ 0 blocked
+✔ 0 in sync · ─ 0 unchanged
+┌Relocations─────────────────────────────────────────┐┌Details─────────────────────────────────────────────────────────┐
+│❯ [Link] /private/tmp/homelig...jdm5t3xc/home/manual││Current: Source Absent; target Absent.                          │
+│                                                    ││Saved policy: No conflict policy needed for this observed case. │
+│                                                    ││Draft (not saved): None; using saved policy                     │
+│                                                    ││Expected outcome: Create an empty target directory and link     │
+│                                                    ││source to it.                                                   │
+│                                                    ││                                                                │
+│                                                    ││Paths                                                           │
+│                                                    ││Source: /private/tmp/homelight-b32b-save-jdm5t3xc/home/manual   │
+│                                                    ││Target: /private/tmp/homelight-b32b-save-jdm5t3xc/local/manual  │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+│                                                    ││                                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────┘
+↑/↓: Select · Tab/l: Details · c: In sync
+a: Review & apply · 2: Review · r: Re-plan · q: Quit
+PASS: exit 0; termios modes (excluding transient PENDIN) and defined control characters restored; alternate screen left once; cursor shown
+PTY speed fields before/after: [9600, 9600] [0, 0] (JLine normalizes these and unused control slots on macOS)

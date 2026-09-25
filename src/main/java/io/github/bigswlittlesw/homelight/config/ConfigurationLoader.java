@@ -44,7 +44,8 @@ public final class ConfigurationLoader {
                     .orElse(List.of()).stream()
                     .map(ConfigurationLoader::resolve)
                     .toList();
-            return new HomeLightConfiguration(targetRoot, relocations, ignoredSourcePaths);
+            var sharedList = mapping.discovery().sharedList().flatMap(DiscoverySetting::parse);
+            return new HomeLightConfiguration(targetRoot, relocations, ignoredSourcePaths, sharedList);
         } catch (IOException exception) {
             throw new ConfigurationException("Unable to read configuration " + path, exception);
         }

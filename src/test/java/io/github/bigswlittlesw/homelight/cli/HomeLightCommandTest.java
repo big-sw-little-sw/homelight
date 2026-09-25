@@ -19,7 +19,8 @@ class HomeLightCommandTest {
                 new String[] {"--debug-step-delay-ms", "3000"},
                 new String[] {"status", "--debug-step-delay-ms", "3000"},
                 new String[] {"plan", "--debug-step-delay-ms", "3000"},
-                new String[] {"apply", "--debug-step-delay-ms", "3000"})) {
+                new String[] {"apply", "--debug-step-delay-ms", "3000"},
+                new String[] {"init", "--debug-step-delay-ms", "3000"})) {
             var command = HomeLightCommand.createCommandLine();
             command.parseArgs(arguments);
             HomeLightCommand root = command.getCommand();
@@ -91,6 +92,13 @@ class HomeLightCommandTest {
 
         assertEquals(2, result.exitCode());
         assertTrue(result.errorOutput().contains("HomeLight TUI requires an interactive terminal"));
+    }
+
+    @Test
+    void initIsAnExecutableInteractiveEntry() {
+        var result = execute("init");
+        assertEquals(2, result.exitCode());
+        assertTrue(result.errorOutput().contains("interactive terminal"));
     }
 
     @Test

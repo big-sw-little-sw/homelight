@@ -10,7 +10,18 @@ import java.util.Optional;
 public record HomeLightConfiguration(
         Path targetRoot,
         List<Relocation> relocations,
-        List<Path> ignoredSourcePaths) {
+        List<Path> ignoredSourcePaths,
+        Optional<Path> sharedList) {
+
+    public HomeLightConfiguration {
+        relocations = List.copyOf(relocations);
+        ignoredSourcePaths = List.copyOf(ignoredSourcePaths);
+        sharedList = sharedList.map(DiscoverySetting::normalize);
+    }
+
+    public HomeLightConfiguration(Path targetRoot, List<Relocation> relocations, List<Path> ignoredSourcePaths) {
+        this(targetRoot, relocations, ignoredSourcePaths, Optional.empty());
+    }
 
 }
 
@@ -23,6 +34,12 @@ interface HomeLightMapping {
     List<RelocationMapping> relocations();
 
     Optional<List<String>> ignoredSourcePaths();
+
+    DiscoveryMapping discovery();
+}
+
+interface DiscoveryMapping {
+    Optional<String> sharedList();
 }
 
 interface RelocationMapping {

@@ -1,5 +1,15 @@
 package io.github.bigswlittlesw.homelight.config;
 
-/// A well-known source location that can be offered during discovery.
-public record CandidateSource(String sourcePath, String label) {
+import java.util.Objects;
+
+/// Attribution only. The shared location is never opened or used as a resolution root.
+public record CandidateSource(Kind kind, String location) {
+    public CandidateSource {
+        Objects.requireNonNull(kind);
+        if (location == null || location.isBlank()) {
+            throw new IllegalArgumentException("Source location is required");
+        }
+    }
+
+    public enum Kind { BUNDLED, SHARED }
 }

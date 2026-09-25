@@ -1,0 +1,18 @@
+directories:
+  - path: .m2
+    app: Maven
+    advice: consider
+    reason: May contain substantial locally downloaded artifacts.
+  - path: .cache/uv
+    app: uv
+  - path: .local/share/uv
+    app: uv
+  - path: .local/share/uv/tools
+    app: uv
+    reason: Nested candidate for overlap testing.
+  - path: .cache/example
+    app: Example IDE
+    advice: usually-unnecessary
+    reason: Often small in this fixture environment.
+  - path: datasets
+    reason: Ungrouped local datasets.

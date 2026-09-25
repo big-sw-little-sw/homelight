@@ -4,6 +4,19 @@ Coordination baseline: 2026-09-14, implementation commit `fd25b68`.
 GitHub issues own current scope and completion status; this document owns the
 session sequence and handoff process. Re-read the selected ticket before starting.
 
+Latest coordinator disposition, 2026-09-24: #32b is accepted locally, including
+the user's UX walkthrough and the destructive-policy copy correction. Independent
+Java 25 clean verification passed 234 tests; standards/spec reviews found no
+remaining actionable findings in the correction. Setup now discloses deletion
+of both directory trees, empty-target creation and the source link. Planner
+semantics are unchanged. See
+[the #32b handoff](research/session-b32b-implementation-handoff.md).
+Accepted browser UX and confirmed-missing Add are reconciled in `tui-design.md`.
+Before another feature slice, reconcile tracker status and checkpoint the accepted
+work under separate user authorization. Earlier next-slice suggestions below
+are historical. No new feature work,
+GitHub publication, commit or push is authorized by this review.
+
 Current coordinator handoff: D3/#30 is accepted, including the user's polished
 UX walkthrough and the typed-comparison correction. Independent Java 25 clean
 verification passed all 155 tests; standards/spec review found no remaining
@@ -11,11 +24,45 @@ actionable findings in the correction. #30/#26/#27 are complete. See
 [the D3 handoff](research/session-d3-implementation-handoff.md) for evidence.
 The [maintained TUI design](tui-design.md) remains the contract.
 
-Next product slice: #31 manual first-run configuration
-creation. #21 shared candidate-list specification can proceed independently.
-No first-run/discovery implementation, commit or push is authorized by this
-handoff. Earlier session descriptions below are sequence/history, not a request
-to repeat completed work.
+Current slice: #31 manual first-run configuration creation is accepted locally,
+including user UX verification and the three coordinator corrections. Independent
+Java 25 clean verification passed 165 tests. See the
+[D4 handoff](research/session-d4-implementation-handoff.md) for evidence and the
+non-blocking target-only regression gap. First-run guidance is maintained in
+`tui-design.md`. GitHub publication/closure remains pending approval; local
+acceptance does not imply that the tracker has been updated.
+
+Candidate slice B01–B03 is now accepted locally, including the nested YAML schema
+and explicit `consider` advice on all 26 bundled entries. Independent Java 25
+clean verification passed 180 tests; standards/spec reviews found no actionable
+findings. See [the candidate handoff](research/session-b01-b03-implementation-handoff.md).
+
+Current slice: #7b read-only candidate metadata observations and bounded optional
+I/O is accepted locally after coordinator review. The user accepted removing
+automatic sizing: report size as `not estimated`, do not enumerate candidate
+contents, and defer B06's measurement scenarios to a separately authorized,
+on-demand sizing feature. Native `du` is a possible later implementation, not
+part of #7b or #32. See [the scope/status handoff](research/session-b7b-implementation-handoff.md).
+Recursive sizing and its tests have been removed. Focused verification passed
+37 tests; independent Java 25 clean verification passed 202 tests with no failures,
+errors or skips. Standards and specification reviews found no actionable findings.
+#7 is not complete: ownership enrichment and deferred sizing are not included.
+Next proposed slice is #32a, draft joining and shared-list-setting persistence;
+authorize it separately before #32b UI integration. No new GitHub publication,
+commit or push is authorized by this acceptance.
+Earlier descriptions are sequence/history.
+
+#32a is accepted locally; the coordinator's row-occurrence provenance finding
+is resolved. Equal-valued rows and the same Row object appended
+twice now retain independent history through edits, removal and refresh. It adds a
+presentation-neutral draft/discovery join and independent shared-list-setting
+round-trip, preserving create-only save and metadata-only discovery. Focused
+verification of the correction passed 72 tests; independent Java 25 clean verification passed 219 tests with
+zero failures, errors or skips. D4's deferred valid-source/invalid-target
+regressions are included. See [the #32a handoff](research/session-b32a-implementation-handoff.md).
+Standards/spec reviews found no remaining actionable findings in the correction.
+Next proposed slice is #32b UI integration, requiring separate authorization and
+human UX acceptance afterward. No GitHub publication, commit or push occurred.
 
 ## Recommendation
 
@@ -89,8 +136,9 @@ behavior rather than reopening the old bugs without evidence.
 
 The user clarified the purpose: a central list of potentially bulky source
 directories to consider for migration. It supplements built-in discovery
-candidates, not managed relocation configuration. Discovery checks existence,
-approximate size, and current state under home or another chosen root. Users
+candidates, not managed relocation configuration. Basic discovery checks existence
+and current filesystem/link state under home or another chosen root; sizes are
+not estimated. Recursive sizing is deferred to an explicit on-demand feature. Users
 select candidates; only explicitly selected and saved entries become configured
 relocations. Shared-list additions/removals do not alter existing relocations,
 draft selections, or reviewed plans. There is no enforcement or inherited
@@ -203,8 +251,16 @@ After C/D, split production work so each fresh session produces one tested journ
 
 Re-scope #17 and #8 after the prototype; basic config creation should not wait
 for managed nested links (#6) unless an actual invariant requires it. Keep #5/#6
-as distinct dotfile-ownership/link features. Keep #10 concurrency deferred until
-measurements justify it. Revise #15's screen-specific wording after the accepted
+as distinct dotfile-ownership/link features. The user explicitly retained bounded-work, progress,
+cancellation, blocked-I/O and partial-failure concerns for actual relocation/copy
+operations, particularly large file trees. Handle those directly in #10's execution
+implementation using Java 27 structured concurrency, with explicit limits and
+copying/cancellation/shutdown tests. No separate API evaluation or prototype slice
+is needed. Removing discovery sizing does not authorize executor changes in #7b.
+At the user's request, scope updates were published to #7/#10/#21/#32; implementation
+acceptance, commits and pushes remain separate. See the
+[#7b handoff](research/session-b7b-implementation-handoff.md).
+Revise #15's screen-specific wording after the accepted
 journey; retain its safety and terminal-independent automation requirements.
 
 At every handoff, update affected tickets with evidence and decisions, mark only
