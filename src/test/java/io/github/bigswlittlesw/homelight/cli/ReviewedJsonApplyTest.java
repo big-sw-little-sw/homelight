@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -70,7 +69,7 @@ class ReviewedJsonApplyTest {
         assertEquals("", result.error());
 
         configuration(root, "", "first");
-        var plan = new ConfigurationEvaluation().loadRequired(config, Map.of()).plan();
+        var plan = new ConfigurationEvaluation().loadRequired(config).plan();
         var expected = new StringWriter();
         new ApplyRenderer().renderJson(new ReconciliationExecutor().execute(plan), new PrintWriter(expected, true));
         var repeated = execute(config, Runnable::run, "--json", "--yes");
@@ -168,7 +167,7 @@ class ReviewedJsonApplyTest {
     void exceptionalCompletionRendersRetainedDiagnostics() throws Exception {
         var root = directory.toRealPath();
         var config = configuration(root, "", "first");
-        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config, Map.of()).plan());
+        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config).plan());
         var completion = execution.start(_ -> {
             throw new RejectedExecutionException("retained worker diagnostic");
         });
@@ -190,7 +189,7 @@ class ReviewedJsonApplyTest {
         Files.createDirectories(root.resolve("home/second"));
         var staging = Files.createDirectories(root.resolve("local")).resolve("staging-file");
         var config = configuration(root, "  staging-root: " + staging + "\n", "first", "second", "third");
-        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config, Map.of()).plan());
+        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config).plan());
         Files.writeString(staging, "not a directory");
         var completion = execution.start(Runnable::run);
         completion.obtrudeException(new AssertionError("exceptional completion after mutation"));
@@ -207,7 +206,7 @@ class ReviewedJsonApplyTest {
     void exceptionalCompletionWithoutATerminalResultStillThrows() throws Exception {
         var root = directory.toRealPath();
         var config = configuration(root, "", "first");
-        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config, Map.of()).plan());
+        var execution = new ReviewedExecution(new ConfigurationEvaluation().loadRequired(config).plan());
         var completion = execution.start(_ -> { });
         var cause = new AssertionError("no published terminal result");
         completion.completeExceptionally(cause);

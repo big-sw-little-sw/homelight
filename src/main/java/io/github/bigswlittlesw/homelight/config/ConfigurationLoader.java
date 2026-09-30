@@ -11,17 +11,30 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /// Loads one YAML configuration and applies SmallRye's standard environment and
-/// system-property sources, with explicit command-line values at the highest ordinal.
+/// system-property sources, with an explicit path override at the highest ordinal.
 public final class ConfigurationLoader {
     public static final Path DEFAULT_PATH = Path.of(System.getProperty("user.home"), ".homelight.yaml");
 
-    public HomeLightConfiguration load(Path path) {
-        return load(path, Map.of());
+    /// Replaces the first relocation's source and target paths for one command; the file is unchanged.
+    public record PathOverride(Path sourcePath, Path targetPath) {
+        public PathOverride {
+            Objects.requireNonNull(sourcePath, "sourcePath");
+            Objects.requireNonNull(targetPath, "targetPath");
+        }
     }
 
-    public HomeLightConfiguration load(Path path, Map<String, String> overrides) {
+    public HomeLightConfiguration load(Path path) {
+        return load(path, Optional.empty());
+    }
+
+    public HomeLightConfiguration load(Path path, Optional<PathOverride> override) {
+        var overrides = override.map(paths -> Map.of(
+                "homelight.relocations[0].source-path", paths.sourcePath().toString(),
+                "homelight.relocations[0].target-path", paths.targetPath().toString())).orElse(Map.of());
         try {
             var builder = new SmallRyeConfigBuilder()
                     .addDefaultSources()
@@ -68,7 +81,7 @@ public final class ConfigurationLoader {
         return Path.of(expanded).toAbsolutePath().normalize();
     }
 
-    private static Relocation resolveRelocation(Path targetRoot, java.util.Optional<Path> stagingRoot,
+    private static Relocation resolveRelocation(Path targetRoot, Optional<Path> stagingRoot,
             RelocationMapping mapping) {
         var sourcePath = resolve(mapping.sourcePath());
         var targetPath = mapping.targetPath()

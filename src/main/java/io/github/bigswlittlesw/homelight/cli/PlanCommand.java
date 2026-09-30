@@ -13,7 +13,7 @@ import picocli.CommandLine.Spec;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Command(name = "plan", description = "Show the filesystem actions required to converge configured relocations.")
@@ -45,9 +45,8 @@ final class PlanCommand implements Callable<Integer> {
         if ((sourcePath == null) != (targetPath == null)) {
             throw new ParameterException(spec.commandLine(), "--source-path and --target-path must be provided together");
         }
-        var overrides = sourcePath == null ? Map.<String, String>of() : Map.of(
-                "homelight.relocations[0].source-path", sourcePath.toString(),
-                "homelight.relocations[0].target-path", targetPath.toString());
+        var override = Optional.ofNullable(sourcePath)
+                .map(source -> new ConfigurationLoader.PathOverride(source, targetPath));
 
         var configPath = config();
         if (json) {
@@ -55,7 +54,7 @@ final class PlanCommand implements Callable<Integer> {
                 new PlanRenderer().renderJson(new ReconciliationPlan(List.of(), List.of()), spec.commandLine().getOut());
                 return 0;
             }
-            var plan = new ConfigurationEvaluation().loadRequired(configPath, overrides).plan();
+            var plan = new ConfigurationEvaluation().loadRequired(configPath, override).plan();
             new PlanRenderer().renderJson(plan, spec.commandLine().getOut());
             return 0;
         }

@@ -71,9 +71,17 @@ class ConfigurationEvaluationTest {
             case LEAVE_UNCHANGED -> Map.of("when-source-and-target-directories-exist", "leave-unchanged");
             case DISCARD_BOTH -> Map.of("when-source-and-target-directories-exist", "discard");
         };
-        var overrides = new java.util.HashMap<String, String>();
-        properties.forEach((key, value) -> overrides.put("homelight.relocations[0]." + key, value));
-        var expected = evaluator.loadRequired(config, overrides);
+        var policies = new java.util.LinkedHashMap<String, String>();
+        policies.put("when-source-and-target-directories-exist", "prompt");
+        policies.put("when-only-target-exists", "prompt");
+        policies.put("source-archive-root", root.resolve("archive").toString());
+        policies.putAll(properties);
+        var saved = root.resolve("saved.yaml");
+        var lines = new StringBuilder();
+        policies.forEach((key, value) -> lines.append("      ").append(key).append(": ").append(value).append("\n"));
+        Files.writeString(saved, "homelight:\n  target-root: " + root + "\n  relocations:\n"
+                + entry("source", "target", lines.toString()));
+        var expected = evaluator.loadRequired(saved);
         assertEquals(expected.plan(), selected.plan());
         assertEquals(new ReconciliationPlanner().plan(selected.plan().expectedStates()), selected.plan());
         assertEquals(yaml, Files.readString(config));
@@ -252,7 +260,7 @@ class ConfigurationEvaluationTest {
         Files.delete(config);
         assertInstanceOf(ConfigurationEvaluation.Missing.class, evaluator.load(config));
         assertInstanceOf(PlanModel.Invalid.class, PlanWorkflow.from(evaluator.load(config)));
-        assertThrows(ConfigurationLoader.ConfigurationException.class, () -> evaluator.loadRequired(config, Map.of()));
+        assertThrows(ConfigurationLoader.ConfigurationException.class, () -> evaluator.loadRequired(config));
         Files.createDirectory(config);
         assertInstanceOf(ConfigurationEvaluation.Invalid.class, evaluator.load(config));
     }
