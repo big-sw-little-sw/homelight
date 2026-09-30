@@ -1,0 +1,3 @@
+ARG BASE
+FROM ${BASE}
+RUN yum install -y expect procps-ng time binutils file ncurses findutils diffutils && yum clean all

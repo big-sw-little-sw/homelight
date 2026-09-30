@@ -1,0 +1,149 @@
+{
+  "reflection": [
+    {
+      "type": "dev.tamboui.backend.jline3.JLineBackendProvider"
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.DiscoveryMapping"
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.DiscoveryMapping$$CMImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "io.smallrye.config.ConfigMappingContext"
+          ]
+        },
+        {
+          "name": "getProperties",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.HomeLightMapping"
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.HomeLightMapping$$CMImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "io.smallrye.config.ConfigMappingContext"
+          ]
+        },
+        {
+          "name": "getProperties",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.RelocationMapping"
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.RelocationMapping$$CMImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "io.smallrye.config.ConfigMappingContext"
+          ]
+        },
+        {
+          "name": "getProperties",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigLogging_$logger",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "org.jboss.logging.Logger"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigLogging_$logger_en"
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigLogging_$logger_en_US"
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigMessages_$bundle",
+      "fields": [
+        {
+          "name": "INSTANCE"
+        }
+      ]
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigMessages_$bundle_en"
+    },
+    {
+      "type": "io.smallrye.config._private.ConfigMessages_$bundle_en_US"
+    },
+    {
+      "type": "java.lang.Boolean",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "getBoolean",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.lang.System",
+      "methods": [
+        {
+          "name": "console",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.misc.Signal",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "handle",
+          "parameterTypes": [
+            "sun.misc.Signal",
+            "sun.misc.SignalHandler"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.misc.SignalHandler"
+    },
+    {
+      "type": {
+        "proxy": [
+          "sun.misc.SignalHandler"
+        ]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "glob": "META-INF/services/dev.tamboui.terminal.BackendProvider"
+    },
+    {
+      "glob": "dev/tamboui/tui/bindings/*.properties"
+    }
+  ]
+}

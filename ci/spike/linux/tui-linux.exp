@@ -1,0 +1,72 @@
+#!/usr/bin/expect -f
+# Runs the TUI inside /bin/sh on one pty: render, keys, resize (SIGWINCH), quit, then compares stty state.
+# Usage: tui-linux.exp <logfile> <cmd...>   (TERM taken from the environment)
+# Prints one line of KEY=VALUE results.
+set logfile [lindex $argv 0]
+set cmd [join [lrange $argv 1 end] " "]
+set lf [open $logfile w]
+fconfigure $lf -translation binary
+log_user 0
+set stty_init "rows 40 cols 120"
+set env(PS1) "PROMPT> "
+set res [dict create]
+proc pump {secs} {
+  global lf
+  set deadline [expr {[clock milliseconds] + int($secs * 1000)}]
+  set n 0
+  while {[clock milliseconds] < $deadline} {
+    set timeout 0.1
+    expect {
+      -re {.+} { puts -nonewline $lf $expect_out(0,string); incr n [string length $expect_out(0,string)] }
+      eof { return -1 }
+      timeout { }
+    }
+  }
+  return $n
+}
+spawn -noecho /bin/sh
+set slave $spawn_out(slave,name)
+set timeout 10
+expect "PROMPT> "
+send "stty -g > /tmp/stty.before 2>/dev/null || stty -g > \$HOME/stty.before; echo READY\r"
+expect "READY\r\n"
+expect "PROMPT> "
+set start [clock milliseconds]
+send "$cmd; echo EXITCODE=\$?\r"
+set timeout 20
+expect {
+  -re {HOMELIGHT|Workspace|Relocat} { dict set res render "[expr {[clock milliseconds]-$start}]ms" ; puts -nonewline $lf $expect_out(buffer) }
+  -re {EXITCODE=([0-9]+)} { dict set res render "no(exit=$expect_out(1,string))"; puts -nonewline $lf $expect_out(buffer); puts [join [dict values [dict map {k v} $res {set v "$k=$v"}]] " "]; exit 0 }
+  timeout { dict set res render timeout }
+}
+pump 1
+if {[catch {exec sh -c {grep -l jlinenative /proc/[0-9]*/maps 2>/dev/null | wc -l}} jn]} { set jn err }
+dict set res jni_maps [string trim $jn]
+send "j"; set k1 [pump 0.5]
+send "\t"; set k2 [pump 0.5]
+dict set res keys_bytes "$k1+$k2"
+puts -nonewline $lf "\n@@RESIZE 24x80@@\n"
+exec stty rows 24 columns 80 < $slave
+set r1 [pump 1.5]
+dict set res resize1_bytes $r1
+puts -nonewline $lf "\n@@RESIZE 50x140@@\n"
+exec stty rows 50 columns 140 < $slave
+set r2 [pump 1.5]
+dict set res resize2_bytes $r2
+puts -nonewline $lf "\n@@QUIT@@\n"
+set sent [clock milliseconds]
+send "q"
+set timeout 8
+expect {
+  -re {EXITCODE=([0-9]+)} { dict set res exit $expect_out(1,string); dict set res quit "[expr {[clock milliseconds]-$sent}]ms"; puts -nonewline $lf $expect_out(buffer) }
+  timeout { dict set res exit "hang"; send "\003"; expect -re {EXITCODE=([0-9]+)} }
+}
+expect "PROMPT> "
+send "stty -g > /tmp/stty.after 2>/dev/null || stty -g > \$HOME/stty.after; if cmp -s /tmp/stty.before /tmp/stty.after || cmp -s \$HOME/stty.before \$HOME/stty.after; then echo STTY=same; else echo STTY=changed; fi\r"
+expect -re {STTY=(same|changed)} { dict set res stty $expect_out(1,string) }
+send "exit\r"
+expect eof
+close $lf
+set out ""
+dict for {k v} $res { append out "$k=$v " }
+puts $out

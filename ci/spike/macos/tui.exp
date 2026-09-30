@@ -1,0 +1,60 @@
+#!/usr/bin/expect -f
+# Usage: tui.exp <logfile> <mode: view|apply|init> <cmd> [args...]
+set logfile [lindex $argv 0]
+set mode [lindex $argv 1]
+set cmd [lrange $argv 2 end]
+set lf [open $logfile w]
+fconfigure $lf -translation binary
+log_user 0
+set stty_init "rows 40 cols 120"
+set env(TERM) xterm-256color
+
+# Copy everything the child writes for `secs` seconds into the log.
+proc pump {secs} {
+  global lf
+  set deadline [expr {[clock milliseconds] + int($secs * 1000)}]
+  while {[clock milliseconds] < $deadline} {
+    set timeout 0.2
+    expect {
+      -re {.+} { puts -nonewline $lf $expect_out(0,string) }
+      eof { return eof }
+      timeout { }
+    }
+  }
+  return ok
+}
+
+eval spawn -noecho $cmd
+set start [clock milliseconds]
+set rendered 0
+set timeout 20
+expect {
+  -re {Workspace|Setup|HomeLight|Relocat} {
+    puts -nonewline $lf $expect_out(buffer)
+    puts "RENDERED after [expr {[clock milliseconds]-$start}] ms"
+  }
+  timeout { puts "NO RENDER"; exit 3 }
+  eof { puts -nonewline $lf $expect_out(buffer); puts "EOF before render"; close $lf; exit 4 }
+}
+pump 1
+if {$mode eq "view"} {
+  send "j"; pump 0.5
+  send "\t"; pump 0.5
+  send "2"; pump 0.5
+  send "1"; pump 0.5
+} elseif {$mode eq "apply"} {
+  send "a"; pump 1
+  send "y"; pump 3
+  send "\r"; pump 1
+} elseif {$mode eq "init"} {
+  pump 3
+  send "\033"; pump 1
+}
+set sent [clock milliseconds]
+send "q"
+set r [pump 5]
+if {$r ne "eof"} { puts "NO EXIT after q"; send "\r"; pump 3 }
+puts "QUIT took [expr {[clock milliseconds]-$sent}] ms"
+close $lf
+lassign [wait] pid spawnid os_error code
+puts "EXIT=$code"
