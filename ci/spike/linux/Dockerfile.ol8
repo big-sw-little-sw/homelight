@@ -1,0 +1,12 @@
+# Builder on Oracle Linux 8 (glibc 2.28). Used for arm64: OL7's gcc 4.8.5 libgcc lacks the
+# aarch64 outline-atomics helpers (__aarch64_ldadd8_acq_rel etc.) that GraalVM's static libs reference.
+# gcc-toolset-12 provides a GCC >= 10 (GraalVM docs: GCC 10.3+). zlib-static is in ol8_codeready_builder.
+FROM oraclelinux:8
+RUN dnf install -y dnf-plugins-core && dnf config-manager --enable ol8_codeready_builder \
+ && dnf install -y gcc glibc-devel zlib-devel zlib-static gcc-toolset-12-gcc tar gzip findutils which && dnf clean all
+COPY graalvm.tar.gz maven.tar.gz /tmp/
+RUN mkdir -p /opt/graalvm /opt/maven \
+ && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+ && tar -xzf /tmp/maven.tar.gz -C /opt/maven --strip-components=1 \
+ && rm /tmp/*.tar.gz
+ENV JAVA_HOME=/opt/graalvm PATH=/opt/rh/gcc-toolset-12/root/usr/bin:/opt/graalvm/bin:/opt/maven/bin:$PATH

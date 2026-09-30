@@ -1,0 +1,12 @@
+# Builder for homelight native image on the oldest GraalVM 25 certified distro (Oracle Linux 7, glibc 2.17).
+# zlib-static (ol7_optional_latest) is required by --static-nolibc: the link uses -lz statically.
+# Build context must contain graalvm.tar.gz (Oracle GraalVM 25.0.3 for the target arch) and maven.tar.gz.
+FROM oraclelinux:7-slim
+RUN yum install -y yum-utils && yum-config-manager --enable ol7_optional_latest \
+ && yum install -y gcc glibc-devel zlib-devel zlib-static tar gzip findutils which && yum clean all
+COPY graalvm.tar.gz maven.tar.gz /tmp/
+RUN mkdir -p /opt/graalvm /opt/maven \
+ && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+ && tar -xzf /tmp/maven.tar.gz -C /opt/maven --strip-components=1 \
+ && rm /tmp/*.tar.gz
+ENV JAVA_HOME=/opt/graalvm PATH=/opt/graalvm/bin:/opt/maven/bin:$PATH
