@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+# Runs the native TUI inside an interactive sh on one pty, then checks stty state after exit.
+# Usage: restore.exp <binary> <config> <quit-key: q|ctrlc>
+set bin [lindex $argv 0]
+set cfg [lindex $argv 1]
+set how [lindex $argv 2]
+set timeout 15
+log_user 0
+set stty_init "rows 40 cols 120"
+set env(TERM) xterm-256color
+set env(PS1) "PROMPT> "
+spawn -noecho /bin/sh
+expect "PROMPT> "
+send "stty -a | tr ' ' '\\n' | grep -E '^-?(icanon|echo|isig|icrnl|opost)\$' | tr '\\n' ' '; echo\r"
+expect -re {\n([^\r\n]*icanon[^\r\n]*)\r} { puts "before: $expect_out(1,string)" }
+expect "PROMPT> "
+send "$bin -c $cfg status; echo EXITCODE=\$?\r"
+expect "HOMELIGHT"
+sleep 0.5
+if {$how eq "ctrlc"} { send "\003" } else { send "q" }
+expect {
+  -re {EXITCODE=([0-9]+)} { puts "exit code: $expect_out(1,string)" }
+  timeout { puts "did not exit"; send "\003"; exit 1 }
+}
+expect "PROMPT> "
+send "stty -a | tr ' ' '\\n' | grep -E '^-?(icanon|echo|isig|icrnl|opost)\$' | tr '\\n' ' '; echo\r"
+expect -re {\n([^\r\n]*icanon[^\r\n]*)\r} { puts "after:  $expect_out(1,string)" }
+send "exit\r"
+expect eof

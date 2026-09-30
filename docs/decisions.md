@@ -80,6 +80,28 @@ The initial planner manages directories only. A configured file source is blocke
 
 HomeLight does not persist an ownership registry in the initial implementation. It recognizes an already-correct configured symlink structurally, creates absent targets, and requires an explicit conflict resolution before adopting or replacing unknown existing state. This avoids recovery, staleness, and lifecycle complexity while preserving fail-closed behavior.
 
+## 2026-09-30: Stay on Java; ship Linux native binaries
+
+HomeLight stays on Java 25 and ships GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+). macOS is a development platform, not a release target. A spike showed identical CLI and TUI behavior to the JVM across Oracle Linux 7 through Fedora 44, with 2–15 ms startup. See `research/native-image-spike.md`.
+
+Rejected: Kotlin (same JVM and native-image constraints, little gain over Java 25). Rust was a viable alternative: smaller binaries, simpler cross-compilation, no native-image metadata, a mature TUI library. None of those blocked Java, and a port would cost about 13k lines including tests.
+
+## 2026-09-30: Replace smallrye-config with snakeyaml
+
+SmallRye's `@ConfigMapping` generates classes at runtime, which Native Image cannot do; the only workaround depends on SmallRye internals. Configuration is parsed with snakeyaml, which is already a dependency, behind `ConfigurationLoader`. Environment and system-property overrides are dropped: they were an unused side effect of SmallRye's default sources. `${USER}` expansion in paths remains.
+
+## 2026-09-30: Preserve directory permission bits during staged relocation
+
+Every published directory keeps the nine POSIX permission bits of its source. Where the target filesystem cannot represent them, publication is refused rather than silently widening access. Ownership, ACLs, timestamps, extended attributes and special mode bits remain out of scope.
+
+Rejected: accepting filesystem defaults with a documented limitation. Relocated home directories often move to shared storage, so widening `0700` to `0755` exposes private data.
+
+## 2026-09-30: Run agent work through a cloud coordinator
+
+A Claude Code routine acts as coordinator; worker agents run as cloud sessions, one issue and one PR each. GitHub labels and comments carry all state, so no session depends on another's memory. GitHub Actions runs CI only. The human decides product and UX questions, accepts user-visible PRs, and performs every merge to `main`.
+
+Rejected: running agents in GitHub Actions. Long agent sessions would consume private-repo Actions minutes and require a Claude credential stored as a repository secret.
+
 ## How to add decisions
 
 Use this format:
