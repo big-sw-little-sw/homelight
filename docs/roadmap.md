@@ -142,6 +142,10 @@ caps) before writing the prompt.
 
 - Start from `docs/tui-design.md`. Audit at 80x24 and 120x30, prototype
   the changes, decide.
+- Candidate list provenance: Browse should show which lists were loaded (bundled,
+  shared), each list's resolved location, read status and freshness, without
+  opening source diagnostics. Today the location shows only in Storage locations
+  and per-candidate attribution only in details.
 - Output: updated `tui-design.md`; #8, #15, #17 rewritten as small agent-ready tickets.
 
 Done when: the user accepts the design and the tickets are `ready-for-agent`.

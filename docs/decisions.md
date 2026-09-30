@@ -102,6 +102,12 @@ A Claude Code routine acts as coordinator; worker agents run as cloud sessions, 
 
 Rejected: running agents in GitHub Actions. Long agent sessions would consume private-repo Actions minutes and require a Claude credential stored as a repository secret.
 
+## 2026-09-30: Keep candidate lists on the filesystem
+
+Shared candidate lists stay filesystem paths, typically on a NAS or NFS mount the target machines already share. HomeLight does not fetch lists over HTTP or Git. A list kept in Git is cloned by the user and referenced by path.
+
+Rejected for now: built-in HTTP or Git sources. They add network failure modes (proxies, TLS, offline), caching and staleness rules, and for Git either a large dependency or credential handling. Revisit if machines without a shared filesystem need a curated list; the parser and merge already accept any source that produces a snapshot.
+
 ## How to add decisions
 
 Use this format:
