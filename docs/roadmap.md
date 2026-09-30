@@ -57,8 +57,10 @@ Status: done (PR #33).
 
 Done when: a PR shows the check and `main` cannot merge without it.
 
-Status: workflow `.github/workflows/ci.yml` on branch `ci/jvm-verify`. Remaining:
-first green run, merge, branch protection.
+Status: CI green on PR #34 (first Linux run exposed a wrap-dependent assertion in
+`CandidateSetupTest`, fixed). Repo made public so branch protection is available.
+Remaining: user merges #34 and applies branch protection (required check `JVM verify`,
+PRs required, no force-push).
 
 ### 3. Remove native-image blockers
 
