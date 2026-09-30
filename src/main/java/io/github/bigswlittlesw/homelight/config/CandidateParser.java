@@ -7,7 +7,8 @@ import org.yaml.snakeyaml.error.Mark;
 import org.yaml.snakeyaml.error.MarkedYAMLException;
 import org.yaml.snakeyaml.error.YAMLException;
 import org.yaml.snakeyaml.events.*;
-import org.yaml.snakeyaml.nodes.*;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.StringReader;
 import java.nio.ByteBuffer;
@@ -15,13 +16,13 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import static io.github.bigswlittlesw.homelight.config.YamlMapping.Typing.CORE;
 
 /// Strict, atomic parsing of already-read UTF-8 contents for either source kind.
 /// Shared I/O and its deadlines belong to the caller, not this lexical boundary.
@@ -31,7 +32,9 @@ public final class CandidateParser {
     public static final int MAX_APPS = 10_000;
     public static final int MAX_DEPTH = 8;
     public static final int MAX_STRING_CHARACTERS = 4_096;
-    private static final Set<String> FIELDS = Set.of("path", "advice", "reason");
+    private static final Set<String> TOP_KEYS = Set.of("apps", "directories");
+    private static final Set<String> APP_KEYS = Set.of("name", "directories");
+    private static final Set<String> RECORD_KEYS = Set.of("path", "advice", "reason");
     private static final Set<String> CORE_TAGS = Set.of(
             Tag.STR.getValue(), Tag.MAP.getValue(), Tag.SEQ.getValue(), Tag.NULL.getValue(),
             Tag.BOOL.getValue(), Tag.INT.getValue(), Tag.FLOAT.getValue(), Tag.TIMESTAMP.getValue());
@@ -56,14 +59,14 @@ public final class CandidateParser {
             // Bound depth before composition; never construct arbitrary Java objects.
             validateEvents(yaml, text);
             var document = yaml.compose(new StringReader(text));
-            var top = mapping(document, Set.of("apps", "directories"), 0);
-            if (top.isEmpty()) {
+            var top = YamlMapping.of(CORE, "", document, TOP_KEYS);
+            if (top.values().isEmpty()) {
                 throw invalid(CandidateDiagnostic.Kind.SCHEMA, document, 0, "",
                         "At least one of apps or directories is required");
             }
             var definitions = new ArrayList<CandidateDefinition>();
-            if (top.containsKey("apps")) {
-                var apps = sequence(top.get("apps"), 0, "apps");
+            if (top.values().containsKey("apps")) {
+                var apps = top.requiredList("apps");
                 if (apps.getValue().size() > MAX_APPS) {
                     throw invalid(CandidateDiagnostic.Kind.LIMIT, apps, 0, "apps", "Too many app groups");
                 }
@@ -71,30 +74,30 @@ public final class CandidateParser {
                     var node = apps.getValue().get(i);
                     var location = "apps[" + i + "]";
                     try {
-                        var fields = mapping(node, Set.of("name", "directories"), 0);
-                        var name = string(fields.get("name"), 0, "name");
+                        var fields = YamlMapping.of(CORE, "", node, APP_KEYS);
+                        var name = fields.requiredString("name");
                         if (!name.equals(name.strip())) {
-                            throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.get("name"), 0, "name",
+                            throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.values().get("name"), 0, "name",
                                     "App label must not have leading or trailing whitespace");
                         }
-                        appendDirectories(fields.get("directories"), root, source, Optional.of(name),
-                                location + ".directories", definitions);
+                        appendDirectories(fields, root, source, Optional.of(name), location + ".directories", definitions);
+                    } catch (YamlMapping.Violation e) {
+                        throw schema(e, 0).at(location, node);
                     } catch (Invalid e) {
                         throw e.at(location, node);
                     }
                 }
             }
-            if (top.containsKey("directories")) {
-                appendDirectories(top.get("directories"), root, source, Optional.empty(), "directories", definitions);
+            if (top.values().containsKey("directories")) {
+                appendDirectories(top, root, source, Optional.empty(), "directories", definitions);
             }
             return new CandidateCatalog.Snapshot(source, root, definitions, List.of());
         } catch (CharacterCodingException e) {
             return failure(source, root, CandidateDiagnostic.Kind.ENCODING, "Input is not valid UTF-8");
+        } catch (YamlMapping.Violation e) {
+            return rejected(source, root, schema(e, 0));
         } catch (Invalid e) {
-            var diagnostic = new CandidateDiagnostic(source, e.kind, e.recordIndex,
-                    e.mark == null ? 0 : e.mark.getLine() + 1,
-                    e.mark == null ? 0 : e.mark.getColumn() + 1, e.location, e.key, e.getMessage());
-            return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
+            return rejected(source, root, e);
         } catch (MarkedYAMLException e) {
             var mark = e.getProblemMark();
             var diagnostic = new CandidateDiagnostic(source, CandidateDiagnostic.Kind.SYNTAX, 0,
@@ -106,53 +109,49 @@ public final class CandidateParser {
         }
     }
 
-    private static SequenceNode sequence(Node node, int index, String key) {
-        if (!(node instanceof SequenceNode sequence) || !Tag.SEQ.equals(node.getTag())) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, key, "Required sequence is missing or invalid");
-        }
-        return sequence;
-    }
-
-    private static void appendDirectories(Node directories, Path root, CandidateSource source, Optional<String> app,
+    /// Appends the records listed under `owner`'s required `directories` key.
+    private static void appendDirectories(YamlMapping owner, Path root, CandidateSource source, Optional<String> app,
                                           String location, List<CandidateDefinition> definitions) {
         try {
-            var sequence = sequence(directories, 0, "directories");
+            var sequence = owner.requiredList("directories");
             if (sequence.getValue().size() > MAX_RECORDS - definitions.size()) {
                 throw invalid(CandidateDiagnostic.Kind.LIMIT, sequence, 0, "directories", "Too many records across catalog");
             }
             for (int i = 0; i < sequence.getValue().size(); i++) {
                 var node = sequence.getValue().get(i);
                 var recordLocation = location + "[" + i + "]";
+                int index = definitions.size() + 1;
                 try {
-                    int index = definitions.size() + 1;
-                    var fields = mapping(node, FIELDS, index);
-                    if (!fields.containsKey("path")) {
-                        throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "path", "Required path is missing");
-                    }
-                    var path = string(fields.get("path"), index, "path");
+                    var fields = YamlMapping.of(CORE, "", node, RECORD_KEYS);
+                    var path = fields.string("path").orElseThrow(() ->
+                            invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "path", "Required path is missing"));
                     Path resolved;
                     try {
                         resolved = resolve(root, path);
                     } catch (IllegalArgumentException e) {
-                        throw invalid(CandidateDiagnostic.Kind.UNSAFE_PATH, fields.get("path"), index, "path", e.getMessage());
+                        throw invalid(CandidateDiagnostic.Kind.UNSAFE_PATH, fields.values().get("path"), index, "path",
+                                e.getMessage());
                     }
-                    var adviceText = optionalString(fields, "advice", index);
-                    Optional<CandidateDefinition.Advice> advice = adviceText.map(value -> switch (value) {
+                    Optional<CandidateDefinition.Advice> advice = fields.string("advice").map(value -> switch (value) {
                         case "consider" -> CandidateDefinition.Advice.CONSIDER;
                         case "usually-unnecessary" -> CandidateDefinition.Advice.USUALLY_UNNECESSARY;
-                        default -> throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.get("advice"), index,
+                        default -> throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.values().get("advice"), index,
                                 "advice", "Advice must be consider or usually-unnecessary");
                     });
-                    var reason = optionalString(fields, "reason", index);
+                    var reason = fields.string("reason");
                     var mark = node.getStartMark();
                     definitions.add(new CandidateDefinition(resolved, source, index,
                             mark.getLine() + 1, mark.getColumn() + 1, recordLocation, path, app, advice, reason));
+                } catch (YamlMapping.Violation e) {
+                    throw schema(e, index).at(recordLocation, node);
                 } catch (Invalid e) {
                     throw e.at(recordLocation, node);
                 }
             }
+        } catch (YamlMapping.Violation e) {
+            throw schema(e, 0).at(location, owner.values().get("directories"));
         } catch (Invalid e) {
-            throw e.at(location, directories);
+            throw e.at(location, owner.values().get("directories"));
         }
     }
 
@@ -193,6 +192,9 @@ public final class CandidateParser {
         return resolved;
     }
 
+    /// Rules beyond [YamlMapping], because a shared candidate list is written by someone else: one
+    /// document, no anchors or aliases (no expansion bombs), only core tags, and bounded depth and strings.
+    /// Events are checked because composed nodes no longer show anchors, and tags only as resolved.
     private static void validateEvents(Yaml yaml, String text) {
         int depth = 0;
         int documents = 0;
@@ -224,32 +226,25 @@ public final class CandidateParser {
         }
     }
 
-    private static Map<String, Node> mapping(Node node, Set<String> allowed, int index) {
-        if (!(node instanceof MappingNode mapping) || !Tag.MAP.equals(node.getTag())) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "", "Expected a mapping");
-        }
-        var values = new LinkedHashMap<String, Node>();
-        for (var tuple : mapping.getValue()) {
-            var key = string(tuple.getKeyNode(), index, "");
-            if (!allowed.contains(key)) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, tuple.getKeyNode(), index, key, "Unknown key: " + key);
-            }
-            if (values.putIfAbsent(key, tuple.getValueNode()) != null) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, tuple.getKeyNode(), index, key, "Duplicate key: " + key);
-            }
-        }
-        return values;
+    /// Words a shared-reader failure as a schema diagnostic. A missing required value is reported like a
+    /// wrong-shaped one; only a missing `path` has its own message, raised by the caller.
+    private static Invalid schema(YamlMapping.Violation violation, int index) {
+        var key = violation.key().orElse("");
+        var message = switch (violation.problem()) {
+            case NOT_A_MAPPING, MISSING_MAPPING -> "Expected a mapping";
+            case NOT_A_LIST, MISSING_LIST -> "Required sequence is missing or invalid";
+            case NOT_A_STRING, MISSING_STRING -> "Expected a nonblank string";
+            case UNKNOWN_KEY -> "Unknown key: " + key;
+            case DUPLICATE_KEY -> "Duplicate key: " + key;
+        };
+        return new Invalid(CandidateDiagnostic.Kind.SCHEMA, violation.mark().orElse(null), index, key, message);
     }
 
-    private static String string(Node node, int index, String key) {
-        if (!(node instanceof ScalarNode scalar) || !Tag.STR.equals(node.getTag()) || scalar.getValue().isBlank()) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, key, "Expected a nonblank string");
-        }
-        return scalar.getValue();
-    }
-
-    private static Optional<String> optionalString(Map<String, Node> fields, String key, int index) {
-        return fields.containsKey(key) ? Optional.of(string(fields.get(key), index, key)) : Optional.empty();
+    private static CandidateCatalog.Snapshot rejected(CandidateSource source, Path root, Invalid e) {
+        var diagnostic = new CandidateDiagnostic(source, e.kind, e.recordIndex,
+                e.mark == null ? 0 : e.mark.getLine() + 1,
+                e.mark == null ? 0 : e.mark.getColumn() + 1, e.location, e.key, e.getMessage());
+        return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
     }
 
     private static Invalid invalid(CandidateDiagnostic.Kind kind, Node node, int index, String key, String message) {
