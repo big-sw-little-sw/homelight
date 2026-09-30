@@ -47,8 +47,7 @@ Steps 1–4 run locally with the user. Step 8 runs in parallel with steps 6–7.
 
 Done when: merged to `main`; #25 carries the decision.
 
-Status: committed on branch `roadmap/checkpoint` with a PR open; `next-sessions.md`
-trimmed; #25 updated. Remaining: user merges the PR.
+Status: done (PR #33).
 
 ### 2. JVM CI
 
@@ -58,7 +57,8 @@ trimmed; #25 updated. Remaining: user merges the PR.
 
 Done when: a PR shows the check and `main` cannot merge without it.
 
-Status: not started.
+Status: workflow `.github/workflows/ci.yml` on branch `ci/jvm-verify`. Remaining:
+first green run, merge, branch protection.
 
 ### 3. Remove native-image blockers
 
