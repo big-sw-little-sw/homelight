@@ -76,7 +76,11 @@ PRs required, no force-push).
 
 Done when: SmallRye dependencies are gone, tests cover the new cases, CI is green.
 
-Status: not started.
+Status: done on `step3/native-blockers`. snakeyaml loader with line/column errors
+(SmallRye and jboss-logging gone from the dependency tree), typed
+`ConfigurationLoader.PathOverride`, exec provider default in native builds, dumb
+terminal refused with exit 2. 252 tests pass on macOS and Linux.
+Remaining: user merges PR.
 
 ### 4. Native Linux CI
 
