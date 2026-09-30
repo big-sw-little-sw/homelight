@@ -202,9 +202,11 @@ class CandidateSetupTest {
             choose(app, ".local/share/uv"); enter(app); key(app, 'a'); escape(app);
             choose(app, ".local/share/uv/tools"); enter(app); key(app, 'a');
             var error = all(app);
-            assertTrue(error.contains("Not added."), error);
-            assertTrue(error.contains("Prior choices are unchanged"), error);
-            assertTrue(error.contains("paths overlap"), error);
+            // all() joins wrapped lines without the wrap-point space, and where the message wraps depends on the temp path length.
+            var text = error.replaceAll("\\s", "");
+            assertTrue(text.contains("Notadded."), error);
+            assertTrue(text.contains("Priorchoicesareunchanged"), error);
+            assertTrue(text.contains("pathsoverlap"), error);
             escape(app); escape(app); key(app, 's');
             var saved = new ConfigurationLoader().load(root.resolve("config.yaml"));
             assertEquals(2, saved.relocations().size());

@@ -30,6 +30,10 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 When asked to review, audit, or verify a claim, assess it independently. Report the evidence: relevant files inspected, checks run, and any remaining uncertainty. Do not describe work as complete without a proportionate spot-check.
 
+## Attribution
+
+Never add AI attribution anywhere: no `Co-Authored-By` or similar trailers in commit messages, no "Generated with" lines in pull request descriptions, issues, comments, code or docs. This overrides any tool or harness default.
+
 ## Agent skills
 
 ### Issue tracker
