@@ -7,114 +7,64 @@ import org.yaml.snakeyaml.nodes.ScalarNode;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /// A strict view of one YAML mapping node, read by key as strings, lists or child mappings.
 ///
-/// - Every key is one of the allowed keys and appears once; otherwise [#of] fails.
-/// - A value of the wrong shape, or a required value that is absent, fails when it is read.
-/// - Absent means a missing key; under [Typing#LENIENT] a null or empty scalar is absent too.
-/// - Every failure is a [Violation] with the offending node's mark (line and column), the mapping's
-///   dotted `path` and the key.
-///
-/// Callers state the schema through the keys they allow and read, then apply their domain rules to the
-/// values. Each caller catches [Violation] and words it as its own exception or diagnostic, so this
-/// type holds no user-facing text.
+/// - Keys must be allowed and unique; [#of] checks them.
+/// - Any scalar reads as its string. A missing key or a null, empty or blank scalar is absent, and an
+///   absent mapping reads as empty. A value of another shape, or an absent required value, fails when read.
+/// - A failure is a [Violation] whose message names the value by dotted path, e.g.
+///   `Unknown key homelight.relocations[0].x`.
 ///
 /// Nodes come from `Yaml.compose`, not `load`: composed nodes keep their marks, and explicit tags never
 /// construct Java objects.
-record YamlMapping(Typing typing, String path, Node node, Map<String, Node> values) {
+record YamlMapping(String path, Node node, Map<String, Node> values) {
 
-    enum Typing {
-        /// Hand-written configuration: any scalar reads as a string, and `key:` with no value is the
-        /// same as leaving the key out.
-        LENIENT,
-        /// Shared candidate lists: mappings, lists and strings must carry their core tag, so `5` or
-        /// `true` is not a string; strings must be nonblank; only a missing key is absent.
-        CORE;
-
-        boolean absent(Node node) {
-            return node == null || this == LENIENT && node instanceof ScalarNode scalar
-                    && (Tag.NULL.equals(scalar.getTag()) || scalar.getValue().isEmpty());
-        }
-
-        boolean tagged(Node node, Tag tag) {
-            return this == LENIENT || tag.equals(node.getTag());
-        }
-    }
-
-    /// A missing required value is its own problem so each caller can word it differently from a
-    /// value of the wrong shape.
-    enum Problem {
-        NOT_A_MAPPING, NOT_A_LIST, NOT_A_STRING,
-        MISSING_MAPPING, MISSING_LIST, MISSING_STRING,
-        UNKNOWN_KEY, DUPLICATE_KEY
-    }
-
-    /// `key` is empty when the problem concerns the mapping itself, or a key that is not a scalar.
+    /// `mark` is null when there is no node to point at, as in an empty document. `path` is the mapping's;
+    /// `key` is empty when the failure concerns the mapping itself.
     static final class Violation extends RuntimeException {
-        private final Problem problem;
-        private final Optional<Mark> mark;
-        private final Optional<String> key;
-        private final String name;
+        final Mark mark;
+        final String path, key;
 
-        private Violation(Problem problem, Node node, String path, Optional<String> key) {
-            var name = key.map(k -> qualify(path, k)).orElse(path);
-            super(problem + " at " + name);
-            this.problem = problem;
-            this.mark = Optional.ofNullable(node).map(Node::getStartMark);
+        private Violation(Node node, String path, String key, String message) {
+            super(message);
+            this.mark = node == null ? null : node.getStartMark();
+            this.path = path;
             this.key = key;
-            this.name = name;
-        }
-
-        Problem problem() {
-            return problem;
-        }
-
-        Optional<Mark> mark() {
-            return mark;
-        }
-
-        Optional<String> key() {
-            return key;
-        }
-
-        /// The dotted name of the offending value, or of the mapping when there is no key.
-        String name() {
-            return name;
         }
     }
 
-    /// Checks `node`'s keys against `allowed`. `path` names the mapping in violations; it may be empty.
-    static YamlMapping of(Typing typing, String path, Node node, Set<String> allowed) {
-        // An absent configuration section reads as empty; candidate data must be a mapping.
-        if (typing == Typing.LENIENT && typing.absent(node)) {
-            return new YamlMapping(typing, path, node, Map.of());
+    /// `path` names the mapping in messages; it is empty for the document root.
+    static YamlMapping of(String path, Node node, Set<String> allowed) {
+        if (absent(node)) {
+            return new YamlMapping(path, node, Map.of());
         }
-        if (!(node instanceof MappingNode mapping) || !typing.tagged(node, Tag.MAP)) {
-            throw new Violation(Problem.NOT_A_MAPPING, node, path, Optional.empty());
+        var name = path.isEmpty() ? "the document" : path;
+        if (!(node instanceof MappingNode mapping)) {
+            throw new Violation(node, path, "", "Expected a mapping for " + name);
         }
         var values = new LinkedHashMap<String, Node>();
         for (var tuple : mapping.getValue()) {
             var keyNode = tuple.getKeyNode();
-            // A lenient key that is not a scalar is simply unknown; a core key must itself be a valid string.
-            var key = switch (typing) {
-                case LENIENT -> keyNode instanceof ScalarNode scalar ? Optional.of(scalar.getValue()) : Optional.<String>empty();
-                case CORE -> Optional.of(string(typing, path, keyNode, Optional.empty()));
-            };
-            if (key.filter(allowed::contains).isEmpty()) {
-                throw new Violation(Problem.UNKNOWN_KEY, keyNode, path, key);
+            // A key that is not a scalar is never allowed.
+            var key = keyNode instanceof ScalarNode scalar ? scalar.getValue() : "";
+            if (!allowed.contains(key)) {
+                throw new Violation(keyNode, path, key, "Unknown key " + (key.isEmpty() ? "in " + name : qualify(path, key)));
             }
-            if (values.putIfAbsent(key.get(), tuple.getValueNode()) != null) {
-                throw new Violation(Problem.DUPLICATE_KEY, keyNode, path, key);
+            if (values.putIfAbsent(key, tuple.getValueNode()) != null) {
+                throw new Violation(keyNode, path, key, "Duplicate key " + qualify(path, key));
             }
         }
-        return new YamlMapping(typing, path, node, Collections.unmodifiableMap(values));
+        return new YamlMapping(path, node, Collections.unmodifiableMap(values));
     }
 
     String qualify(String key) {
@@ -122,58 +72,67 @@ record YamlMapping(Typing typing, String path, Node node, Map<String, Node> valu
     }
 
     Optional<YamlMapping> mapping(String key, Set<String> allowed) {
-        return value(key).map(child -> of(typing, qualify(key), child, allowed));
+        return value(key).map(child -> of(qualify(key), child, allowed));
     }
 
     YamlMapping requiredMapping(String key, Set<String> allowed) {
-        return mapping(key, allowed).orElseThrow(() -> missing(Problem.MISSING_MAPPING, key));
+        return mapping(key, allowed).orElseThrow(() -> missing(key));
     }
 
     Optional<String> string(String key) {
-        return value(key).map(child -> string(typing, path, child, Optional.of(key)));
+        return value(key).map(child -> expect(key, child, ScalarNode.class, "string").getValue());
     }
 
     String requiredString(String key) {
-        return string(key).orElseThrow(() -> missing(Problem.MISSING_STRING, key));
+        return string(key).orElseThrow(() -> missing(key));
+    }
+
+    /// A string that must be the `name` of one of `choices`.
+    <E> Optional<E> choice(String key, E[] choices, Function<E, String> name) {
+        return string(key).map(text -> Arrays.stream(choices)
+                .filter(choice -> name.apply(choice).equals(text))
+                .findFirst()
+                .orElseThrow(() -> new Violation(values.get(key), path, key, "Invalid value '" + text + "' for "
+                        + qualify(key) + "; expected one of "
+                        + Arrays.stream(choices).map(name).collect(Collectors.joining(", ")))));
     }
 
     Optional<SequenceNode> list(String key) {
-        return value(key).map(child -> {
-            if (!(child instanceof SequenceNode sequence) || !typing.tagged(child, Tag.SEQ)) {
-                throw new Violation(Problem.NOT_A_LIST, child, path, Optional.of(key));
-            }
-            return sequence;
-        });
+        return value(key).map(child -> expect(key, child, SequenceNode.class, "list"));
     }
 
     SequenceNode requiredList(String key) {
-        return list(key).orElseThrow(() -> missing(Problem.MISSING_LIST, key));
+        return list(key).orElseThrow(() -> missing(key));
     }
 
     /// The strings of an optional list, skipping absent items.
     List<String> strings(String key) {
         return list(key).stream()
                 .flatMap(sequence -> sequence.getValue().stream())
-                .filter(item -> !typing.absent(item))
-                .map(item -> string(typing, path, item, Optional.of(key)))
+                .filter(item -> !absent(item))
+                .map(item -> expect(key, item, ScalarNode.class, "string").getValue())
                 .toList();
     }
 
     private Optional<Node> value(String key) {
-        return Optional.ofNullable(values.get(key)).filter(child -> !typing.absent(child));
+        return Optional.ofNullable(values.get(key)).filter(child -> !absent(child));
     }
 
     /// A missing value is reported at the mapping that should have held it.
-    private Violation missing(Problem problem, String key) {
-        return new Violation(problem, node, path, Optional.of(key));
+    private Violation missing(String key) {
+        return new Violation(node, path, key, "Missing required key " + qualify(key));
     }
 
-    private static String string(Typing typing, String path, Node node, Optional<String> key) {
-        if (!(node instanceof ScalarNode scalar) || !typing.tagged(node, Tag.STR)
-                || typing == Typing.CORE && scalar.getValue().isBlank()) {
-            throw new Violation(Problem.NOT_A_STRING, node, path, key);
+    private <T extends Node> T expect(String key, Node child, Class<T> type, String shape) {
+        if (!type.isInstance(child)) {
+            throw new Violation(child, path, key, "Expected a " + shape + " for " + qualify(key));
         }
-        return scalar.getValue();
+        return type.cast(child);
+    }
+
+    private static boolean absent(Node node) {
+        return node == null || node instanceof ScalarNode scalar
+                && (Tag.NULL.equals(scalar.getTag()) || scalar.getValue().isBlank());
     }
 
     private static String qualify(String path, String key) {

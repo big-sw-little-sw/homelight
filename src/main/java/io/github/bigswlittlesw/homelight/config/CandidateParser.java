@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.config;
 
+import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic.Kind;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -7,7 +8,7 @@ import org.yaml.snakeyaml.error.Mark;
 import org.yaml.snakeyaml.error.MarkedYAMLException;
 import org.yaml.snakeyaml.error.YAMLException;
 import org.yaml.snakeyaml.events.*;
-import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.StringReader;
@@ -21,8 +22,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import static io.github.bigswlittlesw.homelight.config.YamlMapping.Typing.CORE;
 
 /// Strict, atomic parsing of already-read UTF-8 contents for either source kind.
 /// Shared I/O and its deadlines belong to the caller, not this lexical boundary.
@@ -45,7 +44,7 @@ public final class CandidateParser {
         root = normalizedRoot(root);
         Objects.requireNonNull(contents);
         if (contents.length > MAX_BYTES) {
-            return failure(source, root, CandidateDiagnostic.Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit");
+            return failure(source, root, Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit");
         }
         try {
             var text = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(contents)).toString();
@@ -57,107 +56,80 @@ public final class CandidateParser {
             var yaml = new Yaml(new SafeConstructor(options));
             // Events retain anchors and explicit tags which composition can otherwise erase.
             // Bound depth before composition; never construct arbitrary Java objects.
-            validateEvents(yaml, text);
+            validateEvents(source, yaml, text);
             var document = yaml.compose(new StringReader(text));
-            var top = YamlMapping.of(CORE, "", document, TOP_KEYS);
-            if (top.values().isEmpty()) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, document, 0, "",
+            var top = YamlMapping.of("", document, TOP_KEYS);
+            var apps = top.list("apps");
+            var directories = top.list("directories");
+            if (apps.isEmpty() && directories.isEmpty()) {
+                throw invalid(source, Kind.SCHEMA, document == null ? null : document.getStartMark(), 0, "", "",
                         "At least one of apps or directories is required");
             }
             var definitions = new ArrayList<CandidateDefinition>();
-            if (top.values().containsKey("apps")) {
-                var apps = top.requiredList("apps");
-                if (apps.getValue().size() > MAX_APPS) {
-                    throw invalid(CandidateDiagnostic.Kind.LIMIT, apps, 0, "apps", "Too many app groups");
-                }
-                for (int i = 0; i < apps.getValue().size(); i++) {
-                    var node = apps.getValue().get(i);
-                    var location = "apps[" + i + "]";
-                    try {
-                        var fields = YamlMapping.of(CORE, "", node, APP_KEYS);
-                        var name = fields.requiredString("name");
-                        if (!name.equals(name.strip())) {
-                            throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.values().get("name"), 0, "name",
-                                    "App label must not have leading or trailing whitespace");
-                        }
-                        appendDirectories(fields, root, source, Optional.of(name), location + ".directories", definitions);
-                    } catch (YamlMapping.Violation e) {
-                        throw schema(e, 0).at(location, node);
-                    } catch (Invalid e) {
-                        throw e.at(location, node);
-                    }
-                }
+            var groups = apps.map(SequenceNode::getValue).orElse(List.of());
+            if (groups.size() > MAX_APPS) {
+                throw invalid(source, Kind.LIMIT, apps.get().getStartMark(), 0, "", "apps", "Too many app groups");
             }
-            if (top.values().containsKey("directories")) {
-                appendDirectories(top, root, source, Optional.empty(), "directories", definitions);
+            for (int i = 0; i < groups.size(); i++) {
+                var fields = YamlMapping.of("apps[" + i + "]", groups.get(i), APP_KEYS);
+                var name = fields.requiredString("name");
+                if (!name.equals(name.strip())) {
+                    throw invalid(source, Kind.SCHEMA, fields.values().get("name").getStartMark(), 0, fields.path(),
+                            "name", "App label must not have leading or trailing whitespace");
+                }
+                appendDirectories(fields.requiredList("directories"), root, source, Optional.of(name),
+                        fields.qualify("directories"), definitions);
+            }
+            if (directories.isPresent()) {
+                appendDirectories(directories.get(), root, source, Optional.empty(), "directories", definitions);
             }
             return new CandidateCatalog.Snapshot(source, root, definitions, List.of());
         } catch (CharacterCodingException e) {
-            return failure(source, root, CandidateDiagnostic.Kind.ENCODING, "Input is not valid UTF-8");
+            return failure(source, root, Kind.ENCODING, "Input is not valid UTF-8");
         } catch (YamlMapping.Violation e) {
-            return rejected(source, root, schema(e, 0));
+            return rejected(root, schema(source, e, 0));
         } catch (Invalid e) {
-            return rejected(source, root, e);
+            return rejected(root, e);
         } catch (MarkedYAMLException e) {
-            var mark = e.getProblemMark();
-            var diagnostic = new CandidateDiagnostic(source, CandidateDiagnostic.Kind.SYNTAX, 0,
-                    mark == null ? 0 : mark.getLine() + 1, mark == null ? 0 : mark.getColumn() + 1,
-                    "", "", e.getProblem() == null ? "Invalid YAML" : e.getProblem());
-            return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
+            return rejected(root, invalid(source, Kind.SYNTAX, e.getProblemMark(), 0, "", "",
+                    e.getProblem() == null ? "Invalid YAML" : e.getProblem()));
         } catch (YAMLException e) {
-            return failure(source, root, CandidateDiagnostic.Kind.SYNTAX, "Invalid YAML: " + e.getMessage());
+            return failure(source, root, Kind.SYNTAX, "Invalid YAML: " + e.getMessage());
         }
     }
 
-    /// Appends the records listed under `owner`'s required `directories` key.
-    private static void appendDirectories(YamlMapping owner, Path root, CandidateSource source, Optional<String> app,
-                                          String location, List<CandidateDefinition> definitions) {
-        try {
-            var sequence = owner.requiredList("directories");
-            if (sequence.getValue().size() > MAX_RECORDS - definitions.size()) {
-                throw invalid(CandidateDiagnostic.Kind.LIMIT, sequence, 0, "directories", "Too many records across catalog");
-            }
-            for (int i = 0; i < sequence.getValue().size(); i++) {
-                var node = sequence.getValue().get(i);
-                var recordLocation = location + "[" + i + "]";
-                int index = definitions.size() + 1;
+    private static void appendDirectories(SequenceNode sequence, Path root, CandidateSource source,
+                                          Optional<String> app, String location, List<CandidateDefinition> definitions) {
+        if (sequence.getValue().size() > MAX_RECORDS - definitions.size()) {
+            throw invalid(source, Kind.LIMIT, sequence.getStartMark(), 0, location, "directories",
+                    "Too many records across catalog");
+        }
+        for (int i = 0; i < sequence.getValue().size(); i++) {
+            var node = sequence.getValue().get(i);
+            int index = definitions.size() + 1;
+            try {
+                var fields = YamlMapping.of(location + "[" + i + "]", node, RECORD_KEYS);
+                var path = fields.requiredString("path");
+                Path resolved;
                 try {
-                    var fields = YamlMapping.of(CORE, "", node, RECORD_KEYS);
-                    var path = fields.string("path").orElseThrow(() ->
-                            invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "path", "Required path is missing"));
-                    Path resolved;
-                    try {
-                        resolved = resolve(root, path);
-                    } catch (IllegalArgumentException e) {
-                        throw invalid(CandidateDiagnostic.Kind.UNSAFE_PATH, fields.values().get("path"), index, "path",
-                                e.getMessage());
-                    }
-                    Optional<CandidateDefinition.Advice> advice = fields.string("advice").map(value -> switch (value) {
-                        case "consider" -> CandidateDefinition.Advice.CONSIDER;
-                        case "usually-unnecessary" -> CandidateDefinition.Advice.USUALLY_UNNECESSARY;
-                        default -> throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.values().get("advice"), index,
-                                "advice", "Advice must be consider or usually-unnecessary");
-                    });
-                    var reason = fields.string("reason");
-                    var mark = node.getStartMark();
-                    definitions.add(new CandidateDefinition(resolved, source, index,
-                            mark.getLine() + 1, mark.getColumn() + 1, recordLocation, path, app, advice, reason));
-                } catch (YamlMapping.Violation e) {
-                    throw schema(e, index).at(recordLocation, node);
-                } catch (Invalid e) {
-                    throw e.at(recordLocation, node);
+                    resolved = resolve(root, path);
+                } catch (IllegalArgumentException e) {
+                    throw invalid(source, Kind.UNSAFE_PATH, fields.values().get("path").getStartMark(), index,
+                            fields.path(), "path", e.getMessage());
                 }
+                var advice = fields.choice("advice", CandidateDefinition.Advice.values(),
+                        choice -> choice == CandidateDefinition.Advice.CONSIDER ? "consider" : "usually-unnecessary");
+                var mark = node.getStartMark();
+                definitions.add(new CandidateDefinition(resolved, source, index, mark.getLine() + 1,
+                        mark.getColumn() + 1, fields.path(), path, app, advice, fields.string("reason")));
+            } catch (YamlMapping.Violation e) {
+                throw schema(source, e, index);
             }
-        } catch (YamlMapping.Violation e) {
-            throw schema(e, 0).at(location, owner.values().get("directories"));
-        } catch (Invalid e) {
-            throw e.at(location, owner.values().get("directories"));
         }
     }
 
-    CandidateCatalog.Snapshot failure(CandidateSource source, Path root, CandidateDiagnostic.Kind kind, String message) {
-        return new CandidateCatalog.Snapshot(source, root, List.of(),
-                List.of(new CandidateDiagnostic(source, kind, 0, 0, 0, "", "", message)));
+    CandidateCatalog.Snapshot failure(CandidateSource source, Path root, Kind kind, String message) {
+        return rejected(root, invalid(source, kind, null, 0, "", "", message));
     }
 
     static Path normalizedRoot(Path root) {
@@ -195,15 +167,15 @@ public final class CandidateParser {
     /// Rules beyond [YamlMapping], because a shared candidate list is written by someone else: one
     /// document, no anchors or aliases (no expansion bombs), only core tags, and bounded depth and strings.
     /// Events are checked because composed nodes no longer show anchors, and tags only as resolved.
-    private static void validateEvents(Yaml yaml, String text) {
+    private static void validateEvents(CandidateSource source, Yaml yaml, String text) {
         int depth = 0;
         int documents = 0;
         for (var event : yaml.parse(new StringReader(text))) {
             if (event instanceof DocumentStartEvent && ++documents > 1) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Only one document is allowed");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Only one document is allowed");
             }
             if (event instanceof AliasEvent || event instanceof NodeEvent node && node.getAnchor() != null) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Aliases and anchors are forbidden");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Aliases and anchors are forbidden");
             }
             String tag = null;
             if (event instanceof CollectionStartEvent collection) {
@@ -214,62 +186,41 @@ public final class CandidateParser {
             } else if (event instanceof ScalarEvent scalar) {
                 tag = scalar.getTag();
                 if (scalar.getValue().codePointCount(0, scalar.getValue().length()) > MAX_STRING_CHARACTERS) {
-                    throw new Invalid(CandidateDiagnostic.Kind.LIMIT, event.getStartMark(), 0, "", "String exceeds 4096 characters");
+                    throw invalid(source, Kind.LIMIT, event.getStartMark(), 0, "", "", "String exceeds 4096 characters");
                 }
             }
             if (depth > MAX_DEPTH) {
-                throw new Invalid(CandidateDiagnostic.Kind.LIMIT, event.getStartMark(), 0, "", "Nesting exceeds depth 8");
+                throw invalid(source, Kind.LIMIT, event.getStartMark(), 0, "", "", "Nesting exceeds depth 8");
             }
             if (tag != null && !CORE_TAGS.contains(tag)) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Unsupported YAML tag");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Unsupported YAML tag");
             }
         }
     }
 
-    /// Words a shared-reader failure as a schema diagnostic. A missing required value is reported like a
-    /// wrong-shaped one; only a missing `path` has its own message, raised by the caller.
-    private static Invalid schema(YamlMapping.Violation violation, int index) {
-        var key = violation.key().orElse("");
-        var message = switch (violation.problem()) {
-            case NOT_A_MAPPING, MISSING_MAPPING -> "Expected a mapping";
-            case NOT_A_LIST, MISSING_LIST -> "Required sequence is missing or invalid";
-            case NOT_A_STRING, MISSING_STRING -> "Expected a nonblank string";
-            case UNKNOWN_KEY -> "Unknown key: " + key;
-            case DUPLICATE_KEY -> "Duplicate key: " + key;
-        };
-        return new Invalid(CandidateDiagnostic.Kind.SCHEMA, violation.mark().orElse(null), index, key, message);
+    private static CandidateCatalog.Snapshot rejected(Path root, Invalid e) {
+        return new CandidateCatalog.Snapshot(e.diagnostic.source(), root, List.of(), List.of(e.diagnostic));
     }
 
-    private static CandidateCatalog.Snapshot rejected(CandidateSource source, Path root, Invalid e) {
-        var diagnostic = new CandidateDiagnostic(source, e.kind, e.recordIndex,
-                e.mark == null ? 0 : e.mark.getLine() + 1,
-                e.mark == null ? 0 : e.mark.getColumn() + 1, e.location, e.key, e.getMessage());
-        return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
+    /// `mark` is null when there is no position.
+    private static Invalid invalid(CandidateSource source, Kind kind, Mark mark, int index, String location,
+                                   String key, String message) {
+        return new Invalid(new CandidateDiagnostic(source, kind, index, mark == null ? 0 : mark.getLine() + 1,
+                mark == null ? 0 : mark.getColumn() + 1, location, key, message));
     }
 
-    private static Invalid invalid(CandidateDiagnostic.Kind kind, Node node, int index, String key, String message) {
-        return new Invalid(kind, node == null ? null : node.getStartMark(), index, key, message);
+    /// The reader's message already names the value; the diagnostic adds the record index and location.
+    private static Invalid schema(CandidateSource source, YamlMapping.Violation violation, int index) {
+        return invalid(source, Kind.SCHEMA, violation.mark, index, violation.path, violation.key, violation.getMessage());
     }
 
+    /// Rejects the whole source with one diagnostic.
     private static final class Invalid extends RuntimeException {
-        private final CandidateDiagnostic.Kind kind;
-        private Mark mark;
-        private final int recordIndex;
-        private final String key;
-        private String location = "";
+        private final CandidateDiagnostic diagnostic;
 
-        private Invalid at(String location, Node fallback) {
-            if (this.location.isEmpty()) this.location = location;
-            if (mark == null && fallback != null) mark = fallback.getStartMark();
-            return this;
-        }
-
-        private Invalid(CandidateDiagnostic.Kind kind, Mark mark, int recordIndex, String key, String message) {
-            super(message);
-            this.kind = kind;
-            this.mark = mark;
-            this.recordIndex = recordIndex;
-            this.key = key;
+        private Invalid(CandidateDiagnostic diagnostic) {
+            super(diagnostic.message());
+            this.diagnostic = diagnostic;
         }
     }
 }

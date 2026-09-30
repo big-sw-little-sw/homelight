@@ -92,11 +92,8 @@ class CandidateCatalogTest {
         var inputs = List.of("", "# empty", "[]", "{}", "directories: null", "directories: {}",
                 "directories: []\nunknown: yes", "directories: []\ndirectories: []",
                 "directories: []\n---\ndirectories: []", "directories: [null]",
-                "directories: [{app: Maven}]", "directories: [{path: 12}]", "directories: [{path: true}]",
-                "directories: [{path: 2026-09-23}]", "directories: [{path: null}]",
-                "directories: [{path: cache, app: null}]", "directories: [{path: cache, reason: null}]",
-                "directories: [{path: cache, advice: null}]", "directories: [{path: cache, reason: ''}]",
-                "directories: [{path: cache, app: ' Maven'}]", "directories: [{path: cache, app: 'Maven '}]",
+                "directories: [{app: Maven}]", "directories: [{path: null}]",
+                "directories: [{path: cache, app: null}]", "directories: [{path: cache, app: ' Maven'}]", "directories: [{path: cache, app: 'Maven '}]",
                 "directories: [{path: cache, advice: Consider}]", "directories: [{path: cache, advice: safe}]",
                 "directories: [{path: cache, selected: true}]", "directories: [{path: cache, policy: move}]",
                 "directories: [{path: cache, path: other}]", "directories: &list []",
@@ -114,6 +111,27 @@ class CandidateCatalogTest {
         }
         assertTrue(parse("directories: []").accepted());
         assertTrue(parse("directories: [{path: !!str 12}]").accepted());
+    }
+
+    @Test void readsAnyScalarAsTextAndNullOrBlankValuesAsAbsent() {
+        var snapshot = parse("""
+                apps:
+                  - name: 12
+                    directories:
+                      - {path: 2026-09-23, reason: 5, advice: null}
+                      - {path: 'true', reason: '  '}
+                """);
+        assertTrue(snapshot.accepted(), snapshot.diagnostics().toString());
+        assertEquals(List.of("2026-09-23", "true"),
+                snapshot.definitions().stream().map(CandidateDefinition::originalPath).toList());
+        assertEquals(List.of(Optional.of("12"), Optional.of("12")),
+                snapshot.definitions().stream().map(CandidateDefinition::app).toList());
+        assertEquals(List.of(Optional.of("5"), Optional.empty()),
+                snapshot.definitions().stream().map(CandidateDefinition::reason).toList());
+        assertTrue(snapshot.definitions().getFirst().advice().isEmpty());
+        var missing = parse("directories: [{path: '  '}]").diagnostics().getFirst();
+        assertEquals(new CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 1, 15,
+                "directories[0]", "path", "Missing required key directories[0].path"), missing);
     }
 
     @Test void enforcesByteRecordDepthAndStringLimitsAtTheirBoundaries() {
@@ -185,7 +203,7 @@ class CandidateCatalogTest {
 
     @Test void rejectsInvalidGroupsAndNestedRecordsWithStructuralLocations() {
         var groups = List.of("null", "[]", "{}", "{name: App}", "{directories: []}",
-                "{name: null, directories: []}", "{name: 12, directories: []}",
+                "{name: null, directories: []}",
                 "{name: '', directories: []}", "{name: ' App', directories: []}",
                 "{name: 'App ', directories: []}", "{name: App, directories: null}",
                 "{name: App, directories: {}}", "{name: App, directories: [], advice: consider}",
