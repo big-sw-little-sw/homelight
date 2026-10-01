@@ -217,7 +217,8 @@ class ReconciliationExecutor {
     private fun replaceSymlink(action: ReconciliationAction.ReplaceSymlink) {
         requireState(action.path, PathState.SYMLINK)
         requireState(action.target, action.expectedTargetState)
-        val actualTarget = inspector.inspect(action.path).symlinkTarget.orElseThrow()
+        val actualTarget = inspector.inspect(action.path).symlinkTarget
+            ?: throw StateDriftException("expected symlink at " + action.path)
         if (action.expectedSourceTarget != null && actualTarget != action.expectedSourceTarget) {
             throw StateDriftException("expected symlink target " + action.expectedSourceTarget + " at " + action.path)
         }

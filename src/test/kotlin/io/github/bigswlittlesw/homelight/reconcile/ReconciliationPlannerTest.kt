@@ -150,9 +150,9 @@ class ReconciliationPlannerTest {
         val relocation = Relocation(root.resolve("home/cache"), root.resolve("local/cache"))
         val inaccessible = RelocationState(relocation,
                 io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.INACCESSIBLE, Optional.empty(), false),
+                        io.github.bigswlittlesw.homelight.fs.PathState.INACCESSIBLE),
                 io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.ABSENT, Optional.empty(), false))
+                        io.github.bigswlittlesw.homelight.fs.PathState.ABSENT))
         val inaccessiblePlan = ReconciliationPlanner().plan(listOf(inaccessible))
 
         val parent = Relocation(root.resolve("home/parent"), root.resolve("local/parent"))

@@ -232,8 +232,8 @@ internal object WorkspaceView {
         lines.add(Line("Paths", Color.CYAN, true))
         lines.add(Line("Source: " + item.relocation.sourcePath))
         lines.add(Line("Target: " + item.relocation.targetPath))
-        item.sourceObservation.symlinkTarget.filter { path -> path != item.relocation.targetPath }
-            .ifPresent { path -> lines.add(Line("Current link destination: $path")) }
+        item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
+            ?.let { path -> lines.add(Line("Current link destination: $path")) }
         item.relocation.sourceArchiveRoot.ifPresent { root ->
             lines.add(
                 Line("Archive: " + root.resolve(item.relocation.sourcePath.root.relativize(item.relocation.sourcePath))),

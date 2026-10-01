@@ -171,7 +171,7 @@ class ReconciliationPlanner {
         fun replacementLink(state: RelocationState): ReconciliationAction.ReplaceSymlink =
             ReconciliationAction.ReplaceSymlink(
                 state.relocation.sourcePath, state.relocation.targetPath,
-                state.source.symlinkTarget.orElseThrow(), state.target.state,
+                state.source.symlinkTarget, state.target.state,
             )
 
         fun unresolved(state: RelocationState, path: Path, reason: String): RelocationPlan = conflict(
