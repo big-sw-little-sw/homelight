@@ -38,11 +38,6 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-// Only the tests are Java.
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-}
-
 // Native Image needs reflection metadata for the picocli command classes. picocli's annotation processor
 // cannot see Kotlin sources, and kapt cannot stub `@JvmRecord` classes, so picocli-codegen generates the
 // metadata from the compiled classes on every build, at the path the processor used.
