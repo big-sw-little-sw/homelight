@@ -13,15 +13,18 @@ line, then continue. Update the status line when a step's state changes.
 2. The remaining roadmap runs through a cloud coordinator that assigns work to worker
    agents and stops only for human decisions.
 3. A TUI design pass happens before TUI code is simplified or extended.
-4. Simplify: Java 25 idioms, records and sealed interfaces, immutable data,
-   small readable modules (see `CLAUDE.md`).
+4. Simplify: idiomatic Kotlin (data classes, sealed types, null safety), immutable
+   data, small readable modules (see `CLAUDE.md`).
 
 ## Decided
 
-- Stay on Java 25. GraalVM Native Image works on Linux x86_64 and arm64.
+- Move to Kotlin and kotlinx.serialization, built with Gradle Kotlin DSL; no
+  dependency on GraalVM internals (2026-10-01, supersedes "Stay on Java 25").
+  GraalVM Native Image works on Linux x86_64 and arm64.
+- Configuration and candidate lists move from YAML to JSON (2026-10-01).
 - Release targets: Linux x86_64 (static musl) and Linux arm64 (`--static-nolibc`,
   built on Oracle Linux 8, glibc 2.17+). macOS is a development platform only.
-- Replace smallrye-config with snakeyaml. Drop environment and system-property
+- Replace smallrye-config with snakeyaml (until the JSON switch). Drop environment and system-property
   config overrides; they were an unused SmallRye side effect. Keep `${USER}` expansion.
 - Native builds default JLine to the exec terminal provider.
 - #25: preserve the nine POSIX permission bits on every published directory; refuse
@@ -111,7 +114,11 @@ with noexec `/tmp` (full), Alpine (smoke); arm64 on Oracle Linux 8 and Ubuntu 24
 noexec (full), Fedora (CLI); both runners also run the full suite on Ubuntu 24.04.
 Remaining: user merges PR; add the new jobs as required checks.
 
-### 4b. Adopt Jackson databind for YAML and JSON
+### 4b. Adopt Jackson databind for YAML and JSON (superseded)
+
+Superseded by the Kotlin migration (step 4c). PR #39 closed without merging: the
+native binary grew by 54% because Jackson pulls the JDK XML stack into the image,
+and YAML binding needed a hand-written pre-pass. Original plan kept for history.
 
 Jackson is the de facto standard; the intent is to adopt it unless the trial
 shows a concrete blocker.
@@ -130,12 +137,37 @@ shows a concrete blocker.
 Done when: merged with CI green on JVM and native, and less code than before; or a
 recorded reason in `docs/decisions.md` for not adopting it.
 
-Status: not started. Runs after step 4.
+Status: superseded (PR #39 closed).
+
+### 4c. Migrate to Kotlin and kotlinx.serialization (current)
+
+Epic: #40. Each phase is a PR into the `kotlin-migration` branch (created from
+`main` at `3ca5481`); the orchestrator merges those after the 7 CI checks pass. The
+user merges `kotlin-migration` into `main`. Mechanical phases (K1–K5) do not change
+behavior; the Java tests guard behavior until K5.
+
+- K0: tickets and docs.
+- K1 (#41): Maven to Gradle Kotlin DSL, Java sources unchanged; CI and `ci/native`
+  scripts updated.
+- K2 (#42): add Kotlin; convert `domain`, `fs`, `config` main code.
+- K3 (#43): convert `reconcile`, `discovery`, `application` main code.
+- K4 (#44): convert `cli`, `tui` main code.
+- K5 (#45): convert tests to Kotlin.
+- K6 (#46): idiomatic Kotlin pass; JSON output via kotlinx.serialization,
+  byte-identical.
+- K6b (#49): configuration and candidate lists from YAML to JSON; snakeyaml removed.
+- K7 (#47): Kotlin conventions in `AGENTS.md`/`CLAUDE.md`, final review, PR to `main`.
+
+Done when: the user merges `kotlin-migration` into `main` with all 7 checks green
+and both native binaries working.
+
+Status: K0 in progress. Steps 5–9 follow the migration.
 
 ### 5. Cloud setup (user performs account steps)
 
 - Install the Claude GitHub App on the repo.
-- Create a cloud environment: setup script installs Java 25 and Maven; network
+- Create a cloud environment: setup script installs a JDK and runs the Gradle
+  wrapper (after step 4c); network
   allowlist includes `central.sonatype.com`.
 - Create labels: `in-progress`, `needs-human`, `ready-for-review` (the canonical
   triage labels already exist, see `docs/agents/triage-labels.md`).
@@ -147,6 +179,7 @@ Status: not started.
 ### 6. Pilot worker: #25
 
 - Start one cloud session on #25: directory permission preservation per the decision.
+  Follows the migration (step 4c); implemented in Kotlin.
 - CI verifies on Linux; the user reviews and merges.
 
 Done when: #25 is merged and closed; any friction in the worker path is fixed.
@@ -161,7 +194,7 @@ Status: not started.
 - The coordinator never edits code. It triages and splits issues, starts one worker
   per `ready-for-agent` issue, reviews PRs (`code-review` and `simplify` skills),
   moves labels, and posts `needs-human` questions with a checklist.
-- Workers: one issue, one branch, one PR; `mvn verify` before review.
+- Workers: one issue, one branch, one PR; the Gradle build passes before review.
 - Roll out in dry-run mode (comment intended actions only), then live.
 
 Done when: the coordinator has taken one issue from `ready-for-agent` to a
@@ -189,9 +222,10 @@ Status: not started.
 Order:
 
 1. Split umbrella tickets (#7, #8, #15, #17); the user checks each split's scope.
-2. Simplification outside the TUI: #24 audit, then behavior-preserving PRs.
+2. Simplification outside the TUI: covered by the migration's K6 (#24 closed).
 3. #11 integration verification.
 4. TUI changes from the accepted design.
-5. Remaining features (#5, #6, #10, #19, and what the splits produce).
+5. Remaining features (#5, #6, #19, and what the splits produce). #10 is back in
+   triage to choose a concurrency mechanism under Kotlin.
 
 Status: not started.
