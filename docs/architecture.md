@@ -6,7 +6,7 @@ HomeLight should be a small Java library with a presentation-neutral application
 
 The design should support future integrations without placing presentation, serialization, Git, or HTTP concerns in the reconciliation engine.
 
-Initially, use one Maven module with clear package boundaries. Split into Maven modules only when independent compilation, packaging, or dependency isolation becomes useful.
+Initially, use one Gradle module with clear package boundaries. Split into Gradle subprojects only when independent compilation, packaging, or dependency isolation becomes useful.
 
 ## Boundaries
 

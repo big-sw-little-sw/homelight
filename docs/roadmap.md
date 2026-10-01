@@ -54,7 +54,7 @@ Status: done (PR #33).
 
 ### 2. JVM CI
 
-- GitHub Actions workflow: `mvn verify` on Temurin 25 for every PR and push to `main`.
+- GitHub Actions workflow: `mvn verify` (`./gradlew build` since K1) on Temurin 25 for every PR and push to `main`.
 - Branch protection on `main` requiring that check.
 - CI must resolve the TamboUI snapshot from `central.sonatype.com`.
 
@@ -149,6 +149,7 @@ behavior; the Java tests guard behavior until K5.
 - K0: tickets and docs.
 - K1 (#41): Maven to Gradle Kotlin DSL, Java sources unchanged; CI and `ci/native`
   scripts updated.
+  Native CI jobs run only on pushes, PRs into `main` and PRs labeled `native`.
 - K2 (#42): add Kotlin; convert `domain`, `fs`, `config` main code.
 - K3 (#43): convert `reconcile`, `discovery`, `application` main code.
 - K4 (#44): convert `cli`, `tui` main code.

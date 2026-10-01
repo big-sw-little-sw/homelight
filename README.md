@@ -29,22 +29,22 @@ See the project requirements in [`docs/product-spec.md`](docs/product-spec.md), 
 
 ## Development
 
-The project uses Java 25 and Maven.
+The project uses Java 25 and Gradle (Kotlin DSL) through the Gradle wrapper.
 
 ```text
-mvn test
+./gradlew build
 ```
 
-Run the CLI directly through Maven with `exec:java`:
+Run the JSON commands directly through Gradle:
 
 ```text
-mvn -q compile exec:java
-mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
-mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml --json"
-mvn -q compile exec:java -Dexec.args="apply --config /path/to/.homelight.yaml --json --yes"
+./gradlew -q run --args="status --config /path/to/.homelight.yaml --json"
+./gradlew -q run --args="plan --config /path/to/.homelight.yaml --json"
+./gradlew -q run --args="apply --config /path/to/.homelight.yaml --json --yes"
 ```
 
-The repository launcher hides that Maven detail:
+`gradlew run` does not give the application the terminal, so the TUI needs the repository
+launcher. It installs the application with `installDist` and runs it:
 
 ```text
 ./homelight

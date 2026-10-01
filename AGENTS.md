@@ -1,6 +1,6 @@
 # Workspace Conventions
 
-Scope: this repository is a Maven workspace using Java 25. These are the repository's coding conventions.
+Scope: this repository is a Gradle (Kotlin DSL) workspace using Java 25. These are the repository's coding conventions.
 
 ## Documentation comments
 
