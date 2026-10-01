@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 import java.util.concurrent.Executor
 
 class HomeLightAppTest {
@@ -196,7 +195,7 @@ class HomeLightAppTest {
                     steps.add(ApplyModel.Step(relocation, action, status, status.toString()))
                 }
             }
-            progress.set(ApplyModel.Running(plan, steps))
+            progress.set(ApplyModel.Running.of(plan, steps))
             app.render()
             assertEquals(active, app.selectedIndex())
             app.handleKeyEvent(KeyEvent.ofChar(if (active == 0) 'j' else 'k'))
@@ -205,11 +204,11 @@ class HomeLightAppTest {
             assertEquals(inspected, app.selectedIndex())
         }
 
-        val result = ApplyModel.Result(plan, listOf(
+        val result = ApplyModel.Result.of(plan, listOf(
             ApplyModel.Step(firstPlan, firstPlan.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
             ApplyModel.Step(firstPlan, firstPlan.actions.last(), ApplyModel.StepStatus.FAILED, "source changed"),
             ApplyModel.Step(secondPlan, secondPlan.actions.first(), ApplyModel.StepStatus.PENDING, "not run")),
-            Optional.empty(), listOf(), true)
+            null, listOf(), true)
         progress.set(result)
         app.render()
         assertEquals(1, app.selectedIndex())
@@ -219,7 +218,7 @@ class HomeLightAppTest {
 
         val completed = result.steps.map { step -> ApplyModel.Step(step.relocation, step.action,
             ApplyModel.StepStatus.COMPLETED, "completed") }
-        progress.set(ApplyModel.Result(plan, completed, Optional.empty(), listOf(), false))
+        progress.set(ApplyModel.Result.of(plan, completed, null, listOf(), false))
         app.render()
         assertEquals(2, app.selectedIndex())
     }
@@ -308,7 +307,7 @@ class HomeLightAppTest {
 
         val items = listOf(item1, item2, item3)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
 
         val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
@@ -370,7 +369,7 @@ class HomeLightAppTest {
 
         val items = listOf(item1, item2, item3)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
 
         val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
@@ -414,7 +413,7 @@ class HomeLightAppTest {
 
         val items = listOf(item1)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1), listOf()), items, summary)
 
         val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
@@ -574,7 +573,7 @@ class HomeLightAppTest {
 
         val items = listOf(item1)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1), listOf()), items, summary)
 
         val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {

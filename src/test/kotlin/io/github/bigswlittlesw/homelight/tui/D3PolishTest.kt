@@ -85,7 +85,7 @@ class D3PolishTest {
             "homelight:\n  target-root: " + temporary.resolve("target") + "\n  relocations: []\n")
         val session = object : HomeLightSession(config) {
             override fun planModel(): PlanModel =
-                PlanModel.Configured(config, temporary, ReconciliationPlan(listOf(), listOf()),
+                PlanModel.Configured.of(config, temporary, ReconciliationPlan(listOf(), listOf()),
                     listOf(), PlanSummary.from(listOf()))
             override fun isPlanReady(): Boolean = true
         }

@@ -129,7 +129,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
                 displayedResult = null
             }
         }
-        return ApplyView.render(session.configPath(), model, actionIndex, spinnerFrame++, actionFocus, actionDetails)
+        return ApplyView.render(session.configPath, model, actionIndex, spinnerFrame++, actionFocus, actionDetails)
     }
 
     fun handleKeyEvent(key: KeyEvent): EventResult {
@@ -325,7 +325,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
     private fun resetDetailSelection() {
         val item = selectedPlanItem()
         detailSelectedIndex = if (item == null) 0 else item.selectedResolution()
-            .map { choice -> Math.max(0, item.availableResolutions.indexOf(choice)) }.orElse(0)
+            ?.let { choice -> Math.max(0, item.availableResolutions.indexOf(choice)) } ?: 0
         workspaceDetails.reset()
     }
 

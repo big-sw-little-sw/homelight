@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
-import java.util.Optional
 
 class ApplyViewTest {
 
@@ -69,7 +68,7 @@ class ApplyViewTest {
         val steps = listOf(
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"))
-        val text = render(ApplyModel.Result(plan, steps, Optional.empty(), listOf("Review changed source"), true), 1, 80, 24)
+        val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 1, 80, 24)
         assertTrue(text.contains("Plan stale"), text)
         assertTrue(text.contains("✔"), text)
         assertTrue(text.contains("✖"), text)
@@ -85,11 +84,11 @@ class ApplyViewTest {
         val steps = listOf(
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.RUNNING, "Running"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.PENDING, "Not started"))
-        val text = render(ApplyModel.Running(plan, steps), 0, 80, 24)
+        val text = render(ApplyModel.Running.of(plan, steps), 0, 80, 24)
         assertTrue(text.contains("⠋"), text)
         assertTrue(text.contains("○"), text)
         assertTrue(text.contains("q: Quit options"), text)
-        val nextFrame = render(ApplyModel.Running(plan, steps), 0, 80, 24, 1)
+        val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
         assertTrue(nextFrame.contains("⠙"), nextFrame)
         assertTrue(nextFrame.contains("○"), nextFrame)
     }
@@ -107,7 +106,7 @@ class ApplyViewTest {
         val plan = ReconciliationPlan(listOf(relocationPlan), listOf())
         val cause = "Failure at /staging/" + "segment/".repeat(40) + "failure-cause-suffix"
         val steps = actions.map { action -> ApplyModel.Step(relocationPlan, action, ApplyModel.StepStatus.FAILED, cause) }
-        val result = ApplyModel.Result(plan, steps, Optional.empty(), listOf("Diagnostic: $cause"), false)
+        val result = ApplyModel.Result.of(plan, steps, null, listOf("Diagnostic: $cause"), false)
         for (selected in 0 until actions.size) {
             val viewport = DetailViewport()
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {

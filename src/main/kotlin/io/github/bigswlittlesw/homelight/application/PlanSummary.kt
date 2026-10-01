@@ -1,7 +1,6 @@
 package io.github.bigswlittlesw.homelight.application
 
 /** Summary statistics for dry-run planned relocations and actions. */
-@JvmRecord
 data class PlanSummary(
     val total: Int,
     val ready: Int,
@@ -19,7 +18,6 @@ data class PlanSummary(
     val actionsCount: Int,
 ) {
     companion object {
-        @JvmStatic
         fun from(items: List<PlanRelocationItem>): PlanSummary {
             var ready = 0
             var migrate = 0

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
-import java.util.Optional
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.LockSupport
 
@@ -280,11 +279,11 @@ class CandidateSetupTest {
     @Test fun configuredRowsAreInspectionOnlyAndTextIsEscaped() {
         val root = fixture()
         val empty = CandidateBrowser()
-        val emptyText = WorkspaceViewTest.render(empty.render(SetupDraft(root.resolve("home"), root.resolve("local"), Optional.empty(), listOf())), 80, 24)
+        val emptyText = WorkspaceViewTest.render(empty.render(SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf())), 80, 24)
         assertFalse(emptyText.contains("Enter:") || emptyText.contains("a: Add"), emptyText)
         val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"),
             io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.DISCARD)
-        val draft = SetupDraft(root.resolve("home"), root.resolve("local"), Optional.empty(), listOf(relocation))
+        val draft = SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf(relocation))
         val browser = CandidateBrowser()
         WorkspaceViewTest.render(browser.render(draft), 80, 24)
         browser.key(KeyEvent.ofChar('j'), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER), draft)
@@ -294,7 +293,7 @@ class CandidateSetupTest {
         assertTrue(text.contains("both directories: Discard both"), text)
         assertFalse(text.contains("a: Add") || text.contains("e: Edit"))
         browser.key(KeyEvent.ofChar('a'), draft); browser.key(KeyEvent.ofChar('e'), draft)
-        assertTrue(draft.rows().isEmpty())
+        assertTrue(draft.rows.isEmpty())
         assertEquals("hello\\u001b[2J\\u000aworld", CandidateBrowser.literal("hello\u001b[2J\nworld"))
     }
 

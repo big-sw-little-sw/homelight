@@ -66,8 +66,8 @@ class WorkspaceViewTest {
                 assertTrue(screen.contains("q: Quit"), screen)
                 assertTrue(screen.contains("1 unchanged"), screen)
                 val details = rightPane(screen, size[0])
-                assertTrue(details.contains(choices[choice].label()), details)
-                assertTrue(details.replace(" ", "").contains(choices[choice].description().replace(" ", "")), screen)
+                assertTrue(details.contains(choices[choice].label), details)
+                assertTrue(details.replace(" ", "").contains(choices[choice].description.replace(" ", "")), screen)
             }
             if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofChar('j'))
         }

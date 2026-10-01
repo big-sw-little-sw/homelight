@@ -60,8 +60,8 @@ internal class CandidateBrowser {
             val unique = entriesByPath(draft)
             val items = items(draft, unique)
             if (focus == null && !items.isEmpty()) focus = items.first()
-            val configured = unique.values.stream().filter { e -> e.configured.isPresent }.count()
-            val inDraft = unique.values.stream().filter { e -> e.configured.isEmpty && e.draft.isPresent }.count()
+            val configured = unique.values.stream().filter { e -> e.configured != null }.count()
+            val inDraft = unique.values.stream().filter { e -> e.configured == null && e.draft != null }.count()
             lines.add(
                 DetailViewport.Line(
                     unique.size.toString() + " candidates · " + inDraft + " in draft" +
@@ -69,7 +69,7 @@ internal class CandidateBrowser {
                     Color.GRAY, false,
                 ),
             )
-            if (draft.discovery().stream().flatMap { r -> r.sources.stream() }
+            if (draft.discovery?.sources.orEmpty().stream()
                     .anyMatch { s -> s.status != CandidateDiscovery.SourceStatus.CURRENT }
             ) {
                 lines.add(DetailViewport.Line(sourceSummary(draft), Color.YELLOW, false))
@@ -92,13 +92,13 @@ internal class CandidateBrowser {
                     is Item.Directory -> {
                         val entry = unique[item.path]!!
                         val path = compact(relative(draft, item.path))
-                        val marker = if (entry.configured.isPresent) "[=]" else if (entry.draft.isPresent) "[x]"
+                        val marker = if (entry.configured != null) "[=]" else if (entry.draft != null) "[x]"
                         else if (canAdd(entry, draft)) "[ ]" else " − "
                         "  " + marker + " " + path + " ".repeat(Math.max(1, 32 - CharWidth.of(path))) + listNotes(entry, draft)
                     }
                 }
                 val color = if (selected) Color.CYAN else if (item is Item.Group) Color.BLUE
-                else if (unique[(item as Item.Directory).path]!!.draft.isPresent) Color.GREEN else Color.GRAY
+                else if (unique[(item as Item.Directory).path]!!.draft != null) Color.GREEN else Color.GRAY
                 lines.add(
                     DetailViewport.Line((if (selected) "❯ " else "  ") + literal(label), color, selected || item is Item.Group),
                 )
@@ -137,12 +137,12 @@ internal class CandidateBrowser {
         if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return -1 }
         if (!diagnostics) {
             val entry = focusedEntry(draft)
-            if (key.isCharIgnoreCase('e') && entry.filter { e -> e.configured.isEmpty && e.draft.isPresent }.isPresent) {
-                val value = entry.orElseThrow().draft.orElseThrow()
-                for (i in draft.rows().indices) if (draft.rows()[i] === value) return i
+            if (key.isCharIgnoreCase('e') && entry.filter { e -> e.configured == null && e.draft != null }.isPresent) {
+                val value = checkNotNull(entry.orElseThrow().draft)
+                for (i in draft.rows.indices) if (draft.rows[i] === value) return i
             }
             if ((key.isCharIgnoreCase('a') || key.isChar(' ')) && entry.filter { e -> canAdd(e, draft) }.isPresent) {
-                try { draft.add(entry.orElseThrow().sourcePath.orElseThrow()); message = "" }
+                try { draft.add(checkNotNull(entry.orElseThrow().sourcePath)); message = "" }
                 catch (error: IllegalArgumentException) { message = "Not added. " + error.message + ". Prior choices are unchanged." }
                 if (details) viewport.reset() else viewport.keepChoiceVisible()
                 return -1
@@ -192,7 +192,7 @@ internal class CandidateBrowser {
         val result = ArrayList<Item>()
         for ((app, entries) in groups) {
             result.add(Item.Group(app, entries.size))
-            for (entry in entries) if (!collapsed.contains(app) || member(entry)) result.add(Item.Directory(entry.sourcePath.orElseThrow()))
+            for (entry in entries) if (!collapsed.contains(app) || member(entry)) result.add(Item.Directory(checkNotNull(entry.sourcePath)))
         }
         return result
     }
@@ -205,10 +205,10 @@ internal class CandidateBrowser {
     companion object {
         private fun entriesByPath(draft: SetupDraft): Map<Path, SetupDraft.Entry> {
             val entries = LinkedHashMap<Path, SetupDraft.Entry>()
-            draft.entries().forEach { e -> e.sourcePath.ifPresent { path -> entries.putIfAbsent(path, e) } }
+            draft.entries().forEach { e -> e.sourcePath?.let { path -> entries.putIfAbsent(path, e) } }
             // Membership changes must not reorder the list while marking adjacent rows.
             val ordered = LinkedHashMap<Path, SetupDraft.Entry>()
-            draft.discovery().ifPresent { r ->
+            draft.discovery?.let { r ->
                 r.candidates.forEach { c ->
                     val path = c.catalog.sourcePath
                     if (entries.containsKey(path)) ordered[path] = entries[path]!!
@@ -224,21 +224,21 @@ internal class CandidateBrowser {
         }
 
         private fun entry(draft: SetupDraft, path: Path): Optional<SetupDraft.Entry> =
-            draft.entries().stream().filter { e -> e.sourcePath.filter(path::equals).isPresent }.findFirst()
+            draft.entries().stream().filter { e -> e.sourcePath == path }.findFirst()
 
         private fun definitions(entry: SetupDraft.Entry): List<CandidateDefinition> =
-            entry.discovery.map { c -> c.catalog.definitions }.orElse(listOf())
+            entry.discovery?.catalog?.definitions ?: listOf()
 
-        private fun member(entry: SetupDraft.Entry): Boolean = entry.configured.isPresent || entry.draft.isPresent
+        private fun member(entry: SetupDraft.Entry): Boolean = entry.configured != null || entry.draft != null
 
         private fun membership(entry: SetupDraft.Entry): String =
-            if (entry.configured.isPresent) "Configured" else if (entry.draft.isPresent) "In draft" else "Not added"
+            if (entry.configured != null) "Configured" else if (entry.draft != null) "In draft" else "Not added"
 
         private fun hidden(entry: SetupDraft.Entry, draft: SetupDraft): Boolean {
             val definitions = definitions(entry)
             return !member(entry) && !definitions.isEmpty() && definitions.stream().allMatch { d ->
                 d.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY &&
-                    draft.discovery().stream().flatMap { r -> r.sources.stream() }.anyMatch { s ->
+                    draft.discovery?.sources.orEmpty().stream().anyMatch { s ->
                         s.source == d.source && s.status == CandidateDiscovery.SourceStatus.CURRENT
                     }
             }
@@ -248,7 +248,7 @@ internal class CandidateBrowser {
             draft.entries().stream().filter { e -> hidden(e, draft) }.map { e -> e.sourcePath }.distinct().count()
 
         private fun relative(draft: SetupDraft, path: Path): String =
-            if (path.startsWith(draft.sourceRoot())) draft.sourceRoot().relativize(path).toString() else path.toString()
+            if (path.startsWith(draft.sourceRoot)) draft.sourceRoot.relativize(path).toString() else path.toString()
 
         private fun compact(path: String): String {
             val value = literal(path)
@@ -258,26 +258,26 @@ internal class CandidateBrowser {
         private fun canAdd(entry: SetupDraft.Entry, draft: SetupDraft): Boolean = draft.canAdd(entry)
 
         private fun action(entry: SetupDraft.Entry, draft: SetupDraft): String {
-            if (entry.configured.isPresent) return ""
-            if (entry.draft.isPresent) return "e: Edit draft row · "
+            if (entry.configured != null) return ""
+            if (entry.draft != null) return "e: Edit draft row · "
             return if (canAdd(entry, draft)) "a: Add to draft · " else ""
         }
 
         private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String {
-            if (entry.configured.isPresent) return ""
-            if (entry.draft.isPresent) return "e: Edit · "
+            if (entry.configured != null) return ""
+            if (entry.draft != null) return "e: Edit · "
             return if (canAdd(entry, draft)) "Space/a: Add · " else ""
         }
 
         private fun listNotes(entry: SetupDraft.Entry, draft: SetupDraft): String {
             val notes = ArrayList<String>()
-            if (entry.configured.isPresent) notes.add("Configured")
-            val ordinary = entry.discovery.filter { c ->
+            if (entry.configured != null) notes.add("Configured")
+            val ordinary = entry.discovery?.takeIf { c ->
                 c.observation.kind == CandidateObservation.Kind.DIRECTORY ||
                     c.observation.kind == CandidateObservation.Kind.MISSING
             }
-            if (ordinary.isEmpty) notes.add(state(entry, draft))
-            else if (draft.discovery().filter { r -> r.generation != ordinary.orElseThrow().observation.generation }.isPresent) {
+            if (ordinary == null) notes.add(state(entry, draft))
+            else if (draft.discovery?.let { r -> r.generation != ordinary.observation.generation } == true) {
                 notes.add("Earlier observation")
             }
             val advice = adviceSummary(entry)
@@ -300,10 +300,10 @@ internal class CandidateBrowser {
             }
         }.orElse("Not supplied")
 
-        private fun state(entry: SetupDraft.Entry, draft: SetupDraft): String = entry.discovery.map { c ->
+        private fun state(entry: SetupDraft.Entry, draft: SetupDraft): String = entry.discovery?.let { c ->
             kind(c.observation.kind) +
-                if (draft.discovery().filter { r -> r.generation != c.observation.generation }.isPresent) " (earlier observation)" else ""
-        }.orElse("Not observed")
+                if (draft.discovery?.let { r -> r.generation != c.observation.generation } == true) " (earlier observation)" else ""
+        } ?: "Not observed"
 
         private fun kind(kind: CandidateObservation.Kind): String = when (kind) {
             CandidateObservation.Kind.PENDING -> "Pending"
@@ -324,8 +324,8 @@ internal class CandidateBrowser {
                     membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), Color.CYAN, true,
                 ),
             )
-            lines.add(DetailViewport.Line("Source: " + literal(entry.sourcePath.orElseThrow().toString())))
-            entry.configured.ifPresent { r ->
+            lines.add(DetailViewport.Line("Source: " + literal(checkNotNull(entry.sourcePath).toString())))
+            entry.configured?.let { r ->
                 lines.add(DetailViewport.Line("Saved target: " + literal(r.targetPath.toString())))
                 lines.add(
                     DetailViewport.Line(
@@ -342,27 +342,27 @@ internal class CandidateBrowser {
                 )
                 r.sourceArchiveRoot?.let { p -> lines.add(DetailViewport.Line("Saved archive root: " + literal(p.toString()))) }
             }
-            entry.draft.ifPresent { r ->
+            entry.draft?.let { r ->
                 lines.add(
                     DetailViewport.Line(
-                        "Draft target: " + literal(draft.targetRoot().resolve(r.targetRelative).normalize().toString()),
+                        "Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString()),
                     ),
                 )
             }
             lines.add(DetailViewport.Line("Metadata: " + state(entry, draft)))
-            if (entry.discovery.filter { c -> c.observation.kind == CandidateObservation.Kind.MISSING }.isPresent) {
+            if (entry.discovery?.let { c -> c.observation.kind == CandidateObservation.Kind.MISSING } == true) {
                 lines.add(DetailViewport.Line("Not found under the source root. You can configure it before the app creates it."))
                 lines.add(DetailViewport.Line("On Apply, if source and target are both missing: create the target directory and source link."))
                 lines.add(DetailViewport.Line("If only the target exists: follow the row's policy (Prompt by default, or Adopt target)."))
                 lines.add(DetailViewport.Line("Save writes configuration only. Apply checks the paths again."))
             }
             lines.add(DetailViewport.Line("Size: not estimated · Ownership: not evaluated"))
-            entry.discovery.ifPresent { candidate ->
+            entry.discovery?.let { candidate ->
                 val observation = candidate.observation
                 if (observation.kind != CandidateObservation.Kind.PENDING) lines.add(
                     DetailViewport.Line(
                         "Observed: " + observation.observedAt +
-                            if (draft.discovery().filter { r -> r.generation == observation.generation }.isPresent) " · This request"
+                            if (draft.discovery?.let { r -> r.generation == observation.generation } == true) " · This request"
                             else " · Earlier request",
                     ),
                 )
@@ -375,15 +375,15 @@ internal class CandidateBrowser {
                 candidate.ancestors.forEach { path ->
                     lines.add(DetailViewport.Line("Overlaps catalog parent: " + literal(path.toString())))
                 }
-                draft.discovery().ifPresent { result ->
+                draft.discovery?.let { result ->
                     result.candidates.stream().filter { c -> c.ancestors.contains(candidate.catalog.sourcePath) }
                         .forEach { c ->
                             lines.add(DetailViewport.Line("Overlaps catalog child: " + literal(c.catalog.sourcePath.toString())))
                         }
                 }
             }
-            if (entry.configured.isPresent) lines.add(DetailViewport.Line("Inspection only. Saved target and policies remain authoritative."))
-            else if (entry.draft.isPresent) lines.add(DetailViewport.Line("Target and policies remain editable in Row details."))
+            if (entry.configured != null) lines.add(DetailViewport.Line("Inspection only. Saved target and policies remain authoritative."))
+            else if (entry.draft != null) lines.add(DetailViewport.Line("Target and policies remain editable in Row details."))
             else if (canAdd(entry, draft)) lines.add(DetailViewport.Line("Adding uses a matching target path and Default (prompt) policies."))
             else lines.add(
                 DetailViewport.Line("Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."),
@@ -399,7 +399,7 @@ internal class CandidateBrowser {
             else {
                 lines.add(DetailViewport.Line("Discovery attribution · source status below", Color.CYAN, true))
                 for (definition in current) {
-                    val status = draft.discovery().stream().flatMap { r -> r.sources.stream() }
+                    val status = draft.discovery?.sources.orEmpty().stream()
                         .filter { s -> s.source == definition.source }
                         .map { s -> sourceState(s.status) }.findFirst().orElse("unavailable")
                     definition(lines, definition, status)
@@ -438,13 +438,13 @@ internal class CandidateBrowser {
             CandidateDiscovery.SourceStatus.FAILED -> "unavailable"
         }
 
-        private fun sourceSummary(draft: SetupDraft): String = draft.discovery().map { result ->
+        private fun sourceSummary(draft: SetupDraft): String = draft.discovery?.let { result ->
             result.sources.stream().map { s -> sourceName(s.source) + ": " + sourceState(s.status) }.toList().joinToString(" · ")
-        }.orElse("Discovery has not started")
+        } ?: "Discovery has not started"
 
         private fun sourceDetails(lines: MutableList<DetailViewport.Line>, draft: SetupDraft) {
             lines.add(DetailViewport.Line("Manual editing, saving and exit do not wait for discovery."))
-            draft.discovery().ifPresent { result ->
+            draft.discovery?.let { result ->
                 for (source in result.sources) {
                     lines.add(DetailViewport.Line(sourceName(source.source) + ": " + sourceState(source.status), Color.CYAN, true))
                     lines.add(DetailViewport.Line("Location: " + literal(source.source.location)))

@@ -6,7 +6,7 @@ import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 
 /** Typed reconciliation decisions for unresolved conflicts. */
-enum class DecisionChoice(private val label: String, private val description: String) {
+enum class DecisionChoice(val label: String, val description: String) {
     ADOPT_TARGET(
         "Adopt target and create source link",
         "Use the existing target directory as authoritative and create the symlink in source.",
@@ -32,10 +32,6 @@ enum class DecisionChoice(private val label: String, private val description: St
         "Delete existing contents in both locations, then recreate empty target and source link.",
     );
 
-    fun label(): String = label
-
-    fun description(): String = description
-
     internal fun applyTo(saved: Relocation): Relocation {
         val both = when (this) {
             ADOPT_TARGET -> saved.whenSourceAndTargetDirectoriesExist
@@ -48,10 +44,11 @@ enum class DecisionChoice(private val label: String, private val description: St
             ADOPT_AND_ARCHIVE_SOURCE -> WhenAdoptingTarget.ARCHIVE_SOURCE
             ADOPT_TARGET, LEAVE_UNCHANGED, DISCARD_BOTH -> saved.whenAdoptingTarget
         }
-        return Relocation(
-            saved.sourcePath, saved.targetPath, both,
-            if (this == ADOPT_TARGET) WhenOnlyTargetExists.ADOPT_TARGET else saved.whenOnlyTargetExists,
-            adopting, saved.sourceArchiveRoot, saved.stagingRoot,
+        return saved.copy(
+            whenSourceAndTargetDirectoriesExist = both,
+            whenOnlyTargetExists =
+                if (this == ADOPT_TARGET) WhenOnlyTargetExists.ADOPT_TARGET else saved.whenOnlyTargetExists,
+            whenAdoptingTarget = adopting,
         )
     }
 }

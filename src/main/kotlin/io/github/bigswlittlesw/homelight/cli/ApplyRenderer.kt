@@ -10,8 +10,9 @@ import java.util.Locale
 
 internal class ApplyRenderer {
     fun renderJson(result: ApplyModel.Result, output: PrintWriter) {
-        if (result.execution.isPresent) {
-            renderJson(result.execution.orElseThrow(), output)
+        val execution = result.execution
+        if (execution != null) {
+            renderJson(execution, output)
             return
         }
         // Preserve known action evidence without inventing an execution or implying zero mutation.

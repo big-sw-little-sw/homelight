@@ -11,141 +11,73 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Objects
-import java.util.Optional
 
 /**
  * Loads and inspects once; draft choices replan solely from the retained observations.
  * This bounded inspection pass is not an atomic filesystem snapshot.
  */
 class ConfigurationEvaluation(
-    private val loader: ConfigurationLoader,
-    private val inspector: PathInspector,
-    private val planner: ReconciliationPlanner,
+    private val loader: ConfigurationLoader = ConfigurationLoader(),
+    private val inspector: PathInspector = PathInspector(),
+    private val planner: ReconciliationPlanner = ReconciliationPlanner(),
 ) {
-    constructor() : this(ConfigurationLoader(), PathInspector(), ReconciliationPlanner())
-
     sealed interface Evaluation {
-        // Java callers use the record-style accessor `configPath()`, which each record's component implements.
-        @Suppress("INAPPLICABLE_JVM_NAME")
-        @get:JvmName("configPath")
         val configPath: Path
     }
 
-    @JvmRecord
     data class Missing(override val configPath: Path, val message: String) : Evaluation
 
     /** Legacy default-path behavior: no regular configuration file, including a directory at that path. */
-    @JvmRecord
     data class Unconfigured(override val configPath: Path) : Evaluation
 
-    @JvmRecord
     data class Invalid(override val configPath: Path, val message: String) : Evaluation
 
-    /**
-     * Observations and saved plan retain saved policy; `plan` contains the effective draft policy.
-     *
-     * Not a `@JvmRecord data class`: the constructor copies its components, which a Kotlin record cannot
-     * do. Accessors keep the record names; equality and `toString` match the record this replaces.
-     */
-    class Loaded(
-        configPath: Path, savedConfiguration: HomeLightConfiguration,
-        observations: List<RelocationState>, savedPlan: ReconciliationPlan,
-        draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
-        plan: ReconciliationPlan,
+    /** Observations and saved plan retain saved policy; `plan` contains the effective draft policy. */
+    @ConsistentCopyVisibility
+    data class Loaded private constructor(
+        override val configPath: Path, val savedConfiguration: HomeLightConfiguration,
+        val observations: List<RelocationState>, val savedPlan: ReconciliationPlan,
+        val draft: Map<Path, DecisionChoice>, val availableChoices: Map<Path, List<DecisionChoice>>,
+        val plan: ReconciliationPlan,
     ) : Evaluation {
-        @Suppress("INAPPLICABLE_JVM_NAME")
-        @get:JvmName("configPath")
-        override val configPath: Path = configPath
-
-        @get:JvmName("savedConfiguration")
-        val savedConfiguration: HomeLightConfiguration = HomeLightConfiguration.of(
-            savedConfiguration.targetRoot,
-            java.util.List.copyOf(savedConfiguration.relocations), java.util.List.copyOf(savedConfiguration.ignoredSourcePaths),
-            savedConfiguration.sharedList,
-        )
-
-        @get:JvmName("observations")
-        val observations: List<RelocationState> = java.util.List.copyOf(observations)
-
-        @get:JvmName("savedPlan")
-        val savedPlan: ReconciliationPlan = savedPlan
-
-        @get:JvmName("draft")
-        val draft: Map<Path, DecisionChoice> = java.util.Map.copyOf(draft)
-
-        @get:JvmName("availableChoices")
-        val availableChoices: Map<Path, List<DecisionChoice>>
-
-        @get:JvmName("plan")
-        val plan: ReconciliationPlan = plan
-
-        init {
-            val choices = LinkedHashMap<Path, List<DecisionChoice>>()
-            availableChoices.forEach { path, values -> choices[path] = java.util.List.copyOf(values) }
-            this.availableChoices = java.util.Map.copyOf(choices)
+        companion object {
+            /** Keeps unmodifiable JDK copies of the collections, including each list of choices. */
+            fun of(
+                configPath: Path, savedConfiguration: HomeLightConfiguration,
+                observations: List<RelocationState>, savedPlan: ReconciliationPlan,
+                draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
+                plan: ReconciliationPlan,
+            ): Loaded = Loaded(
+                configPath, savedConfiguration, java.util.List.copyOf(observations), savedPlan,
+                java.util.Map.copyOf(draft),
+                java.util.Map.copyOf(availableChoices.mapValues { java.util.List.copyOf(it.value) }),
+                plan,
+            )
         }
-
-        override fun equals(other: Any?): Boolean = other is Loaded
-                && configPath == other.configPath
-                && savedConfiguration == other.savedConfiguration
-                && observations == other.observations
-                && savedPlan == other.savedPlan
-                && draft == other.draft
-                && availableChoices == other.availableChoices
-                && plan == other.plan
-
-        override fun hashCode(): Int =
-            Objects.hash(configPath, savedConfiguration, observations, savedPlan, draft, availableChoices, plan)
-
-        override fun toString(): String = "Loaded[configPath=$configPath, savedConfiguration=$savedConfiguration, " +
-                "observations=$observations, savedPlan=$savedPlan, draft=$draft, availableChoices=$availableChoices, " +
-                "plan=$plan]"
     }
 
     enum class DiscardReason { REMOVED, DEFINITION_CHANGED, UNAVAILABLE, CONFIGURATION_UNAVAILABLE }
 
-    @JvmRecord
     data class DiscardedChoice(val sourcePath: Path, val choice: DecisionChoice, val reason: DiscardReason)
 
-    /**
-     * Not a `@JvmRecord data class`: the constructor copies `discardedChoices`, which a Kotlin record cannot
-     * do. Accessors keep the record names; equality and `toString` match the record this replaces.
-     */
-    class Replanned(evaluation: Evaluation, discardedChoices: List<DiscardedChoice>) {
-        @get:JvmName("evaluation")
-        val evaluation: Evaluation = evaluation
-
-        @get:JvmName("discardedChoices")
-        val discardedChoices: List<DiscardedChoice> = java.util.List.copyOf(discardedChoices)
-
-        override fun equals(other: Any?): Boolean = other is Replanned
-                && evaluation == other.evaluation
-                && discardedChoices == other.discardedChoices
-
-        override fun hashCode(): Int = Objects.hash(evaluation, discardedChoices)
-
-        override fun toString(): String = "Replanned[evaluation=$evaluation, discardedChoices=$discardedChoices]"
-    }
+    data class Replanned(val evaluation: Evaluation, val discardedChoices: List<DiscardedChoice>)
 
     fun load(configPath: Path): Evaluation {
         if (isUnconfiguredDefault(configPath)) {
             return Unconfigured(configPath)
         }
-        try {
-            return loadRequired(configPath)
+        return try {
+            loadRequired(configPath)
         } catch (exception: RuntimeException) {
-            val message = if (exception.message == null) exception.toString() else exception.message!!
-            return if (Files.notExists(configPath)) Missing(configPath, message) else Invalid(configPath, message)
+            val message = exception.message ?: exception.toString()
+            if (Files.notExists(configPath)) Missing(configPath, message) else Invalid(configPath, message)
         }
     }
 
-    fun loadRequired(configPath: Path): Loaded = loadRequired(configPath, Optional.empty())
-
     /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
-    fun loadRequired(configPath: Path, override: Optional<ConfigurationLoader.PathOverride>): Loaded {
-        val configuration = loader.load(configPath, override.orElse(null))
-        val observations = configuration.relocations.stream().map { relocation ->
+    fun loadRequired(configPath: Path, override: ConfigurationLoader.PathOverride? = null): Loaded {
+        val configuration = loader.load(configPath, override)
+        val observations = configuration.relocations.map { relocation ->
             RelocationState(
                 relocation,
                 inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath),
@@ -155,114 +87,92 @@ class ConfigurationEvaluation(
                     RelocationState.ArchiveDestination(path, inspector.inspect(path))
                 },
             )
-        }.toList()
+        }
         val savedPlan = planner.plan(observations)
         val choices = LinkedHashMap<Path, List<DecisionChoice>>()
-        for (i in observations.indices) {
-            val state = observations[i]
+        observations.forEachIndexed { i, state ->
             // Invalid duplicate sources have no unambiguous draft identity. The planner retains their diagnostics.
-            choices.merge(
-                normalize(state.relocation.sourcePath), availableChoices(state, savedPlan.relocations[i]),
-            ) { _, _ -> java.util.List.of() }
+            val choicesForSource = availableChoices(state, savedPlan.relocations[i])
+            choices.merge(normalize(state.relocation.sourcePath), choicesForSource) { _, _ -> listOf() }
         }
-        return Loaded(configPath, configuration, observations, savedPlan, java.util.Map.of(), choices, savedPlan)
+        return Loaded.of(configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan)
     }
 
     fun choose(current: Loaded, sourcePath: Path, choice: DecisionChoice): Loaded {
         val source = normalize(sourcePath)
         val available = current.availableChoices[source]
             ?: throw IllegalArgumentException("Unknown relocation source: $source")
-        if (!available.contains(choice)) {
-            throw IllegalArgumentException("Unavailable choice $choice for $source")
-        }
-        val draft = LinkedHashMap(current.draft)
-        draft[source] = choice
-        return withDraft(current, draft)
+        require(choice in available) { "Unavailable choice $choice for $source" }
+        return withDraft(current, current.draft + (source to choice))
     }
 
     /** Retention compares complete resolved definitions, never positions in the configuration list. */
     fun replan(previous: Evaluation): Replanned {
         val next = load(previous.configPath)
         if (previous !is Loaded) {
-            return Replanned(next, java.util.List.of())
+            return Replanned(next, listOf())
         }
-        val old = previous
+        if (next !is Loaded) {
+            return Replanned(
+                next,
+                previous.draft.map { (source, choice) ->
+                    DiscardedChoice(source, choice, DiscardReason.CONFIGURATION_UNAVAILABLE)
+                },
+            )
+        }
+        val oldDefinitions = definitions(previous)
+        val newDefinitions = definitions(next)
         val discarded = ArrayList<DiscardedChoice>()
         val retained = LinkedHashMap<Path, DecisionChoice>()
-        val oldDefinitions = definitions(old)
-        if (next is Loaded) {
-            val loaded = next
-            val newDefinitions = definitions(loaded)
-            old.draft.forEach { source, choice ->
-                var reason: DiscardReason? = null
-                if (!newDefinitions.containsKey(source)) {
-                    reason = DiscardReason.REMOVED
-                } else if (!oldDefinitions[source]!!.equals(newDefinitions[source])) {
-                    reason = DiscardReason.DEFINITION_CHANGED
-                } else if (!loaded.availableChoices[source]!!.contains(choice)) {
-                    reason = DiscardReason.UNAVAILABLE
-                }
-                if (reason == null) {
-                    retained[source] = choice
-                } else {
-                    discarded.add(DiscardedChoice(source, choice, reason))
-                }
+        previous.draft.forEach { (source, choice) ->
+            val reason = when {
+                source !in newDefinitions -> DiscardReason.REMOVED
+                oldDefinitions[source] != newDefinitions[source] -> DiscardReason.DEFINITION_CHANGED
+                // Every configured source has an entry, even if it is an empty list.
+                choice !in next.availableChoices.getValue(source) -> DiscardReason.UNAVAILABLE
+                else -> null
             }
-            return Replanned(withDraft(loaded, retained), discarded)
+            if (reason == null) retained[source] = choice else discarded.add(DiscardedChoice(source, choice, reason))
         }
-        old.draft.forEach { source, choice ->
-            discarded.add(DiscardedChoice(source, choice, DiscardReason.CONFIGURATION_UNAVAILABLE))
-        }
-        return Replanned(next, discarded)
+        return Replanned(withDraft(next, retained), discarded)
     }
 
     private fun withDraft(current: Loaded, draft: Map<Path, DecisionChoice>): Loaded {
-        val effective = current.observations.stream().map { state ->
+        val effective = current.observations.map { state ->
             val choice = draft[normalize(state.relocation.sourcePath)]
-            if (choice == null) state else RelocationState(
-                choice.applyTo(state.relocation),
-                state.source, state.target, state.archiveDestination,
-            )
-        }.toList()
-        return Loaded(
+            if (choice == null) state else state.copy(relocation = choice.applyTo(state.relocation))
+        }
+        return Loaded.of(
             current.configPath, current.savedConfiguration, current.observations,
             current.savedPlan, draft, current.availableChoices, planner.plan(effective),
         )
     }
-
-    companion object {
-        /** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
-        @JvmStatic
-        fun isUnconfiguredDefault(configPath: Path): Boolean =
-            normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
-
-        private fun definitions(evaluation: Loaded): Map<Path, Relocation> {
-            val definitions = LinkedHashMap<Path, Relocation>()
-            evaluation.savedConfiguration.relocations.forEach { relocation ->
-                definitions[normalize(relocation.sourcePath)] = relocation
-            }
-            return definitions
-        }
-
-        private fun availableChoices(state: RelocationState, plan: RelocationPlan): List<DecisionChoice> {
-            if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
-                val choices = ArrayList<DecisionChoice>()
-                choices.add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
-                if (state.relocation.sourceArchiveRoot != null) {
-                    choices.add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
-                }
-                choices.add(DecisionChoice.LEAVE_UNCHANGED)
-                choices.add(DecisionChoice.DISCARD_BOTH)
-                return java.util.List.copyOf(choices)
-            }
-            if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
-                && (plan.conflict != null || state.relocation.whenOnlyTargetExists != null)
-            ) {
-                return java.util.List.of(DecisionChoice.ADOPT_TARGET)
-            }
-            return java.util.List.of()
-        }
-
-        private fun normalize(path: Path): Path = path.toAbsolutePath().normalize()
-    }
 }
+
+/** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
+fun isUnconfiguredDefault(configPath: Path): Boolean =
+    normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
+
+private fun definitions(evaluation: ConfigurationEvaluation.Loaded): Map<Path, Relocation> =
+    evaluation.savedConfiguration.relocations.associateBy { normalize(it.sourcePath) }
+
+private fun availableChoices(state: RelocationState, plan: RelocationPlan): List<DecisionChoice> {
+    if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
+        return buildList {
+            add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
+            if (state.relocation.sourceArchiveRoot != null) {
+                add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
+            }
+            add(DecisionChoice.LEAVE_UNCHANGED)
+            add(DecisionChoice.DISCARD_BOTH)
+        }
+    }
+    if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
+        && (plan.conflict != null || state.relocation.whenOnlyTargetExists != null)
+    ) {
+        return listOf(DecisionChoice.ADOPT_TARGET)
+    }
+    return listOf()
+}
+
+private fun normalize(path: Path): Path = path.toAbsolutePath().normalize()

@@ -2,39 +2,37 @@ package io.github.bigswlittlesw.homelight.application
 
 import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
-import io.github.bigswlittlesw.homelight.config.normalizeSharedList
-import io.github.bigswlittlesw.homelight.config.parseSharedList
-import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
+import io.github.bigswlittlesw.homelight.config.normalizeSharedList
+import io.github.bigswlittlesw.homelight.config.parseSharedList
+import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import java.nio.file.Path
-import java.util.Objects
-import java.util.Optional
 
 /**
  * Presentation-neutral, single-threaded setup state. Discovery never edits rows.
  * Configured relocations are read-only join/validation inputs, not an existing-file
  * editor. The caller owns discovery lifecycle and explicit create-only publication.
  */
-class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>, configured: List<Relocation>) {
-    private var sourceRoot: Path = absolute(sourceRoot)
-    private var targetRoot: Path = absolute(targetRoot)
-    private var sharedList: Optional<Path> = sharedList.map(::normalizeSharedList)
-    private val configured: List<Relocation> = java.util.List.copyOf(configured)
-    private val rows = ArrayList<RowOccurrence>()
-    private var discovery: Optional<CandidateDiscovery.Result> = Optional.empty()
+class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configured: List<Relocation>) {
+    private val configured: List<Relocation> = configured.toList()
+    var sourceRoot: Path = absolute(sourceRoot)
+        private set
+    var targetRoot: Path = absolute(targetRoot)
+        private set
+    var sharedList: Path? = sharedList?.let(::normalizeSharedList)
+        private set
+    var discovery: CandidateDiscovery.Result? = null
+        private set
+    private val occurrences = ArrayList<RowOccurrence>()
     private var generation: Long = -1
 
-    fun sourceRoot(): Path = sourceRoot
-    fun targetRoot(): Path = targetRoot
-    fun sharedList(): Optional<Path> = sharedList
-    fun rows(): List<Row> = rows.stream().map(RowOccurrence::value).toList()
-    fun discovery(): Optional<CandidateDiscovery.Result> = discovery
+    val rows: List<Row> get() = occurrences.map { it.value }
 
     /**
      * Explicit root edits re-resolve relative row values. Historical attribution
@@ -49,7 +47,7 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
     }
 
     fun sharedList(value: String) {
-        sharedList = Optional.ofNullable(parseSharedList(value))
+        sharedList = parseSharedList(value)
         invalidateDiscovery()
     }
 
@@ -58,17 +56,17 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
      * its snapshots on the same thread that edits this draft.
      */
     fun refresh(worker: CandidateDiscovery) {
-        generation = worker.refresh(sourceRoot, sharedList.orElse(null))
-        discovery = Optional.empty()
+        generation = worker.refresh(sourceRoot, sharedList)
+        discovery = null
     }
 
     fun accept(result: CandidateDiscovery.Result): Boolean {
         if (generation < 0 || result.generation != generation
-            || result.request != CandidateDiscovery.Request.of(sourceRoot, sharedList.orElse(null))
+            || result.request != CandidateDiscovery.Request.of(sourceRoot, sharedList)
         ) return false
-        discovery = Optional.of(result)
+        discovery = result
         val candidates = candidates()
-        rows.replaceAll { row -> remember(row, candidates) }
+        occurrences.replaceAll { remember(it, candidates) }
         return true
     }
 
@@ -77,16 +75,16 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
      * no duplicate or malformed row is silently discarded by the join.
      */
     fun append(row: Row) {
-        rows.add(remember(RowOccurrence(row, java.util.List.of()), candidates()))
+        occurrences.add(remember(RowOccurrence(row, listOf()), candidates()))
     }
 
     fun edit(index: Int, row: Row) {
-        val previous = rows[index]
-        rows[index] = remember(RowOccurrence(row, previous.history), candidates())
+        val previous = occurrences[index]
+        occurrences[index] = remember(RowOccurrence(row, previous.history), candidates())
     }
 
     fun remove(index: Int) {
-        rows.removeAt(index)
+        occurrences.removeAt(index)
     }
 
     /**
@@ -94,8 +92,8 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
      * or missing. This does not replace whole-draft validation at Add/Save.
      */
     fun canAdd(entry: Entry): Boolean {
-        if (entry.configured.isPresent || entry.draft.isPresent) return false
-        val candidate = entry.discovery.orElse(null)
+        if (entry.configured != null || entry.draft != null) return false
+        val candidate = entry.discovery
         // Source attribution may be stale even after fresh metadata inspection.
         if (candidate == null || candidate.observation.generation != generation) return false
         return when (candidate.observation.kind) {
@@ -115,26 +113,22 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
      */
     fun add(source: Path) {
         val identity = source.toAbsolutePath().normalize()
-        val entry = entries().stream().filter { e -> e.sourcePath == Optional.of(identity) }.findFirst()
-        if (entry.filter(this::canAdd).isEmpty) {
-            throw IllegalArgumentException(
+        // `canAdd` admits only entries with a discovered candidate.
+        val candidate = entries().firstOrNull { it.sourcePath == identity }?.takeIf(::canAdd)?.discovery
+            ?: throw IllegalArgumentException(
                 "Add requires an unselected path currently observed as a directory or missing: $identity",
             )
-        }
         val relative = sourceRoot.relativize(identity).toString()
         val row = Row(relative, relative)
-        val proposed = ArrayList(rows())
-        proposed.add(row)
-        validate(proposed)
-        rows.add(RowOccurrence(row, entry.orElseThrow().discovery.orElseThrow().catalog.definitions))
+        validate(rows + row)
+        occurrences.add(RowOccurrence(row, candidate.catalog.definitions))
     }
 
-    fun validate(): ConfigurationDraft = validate(rows())
+    fun validate(): ConfigurationDraft = validate(rows)
 
     private fun validate(proposed: List<Row>): ConfigurationDraft {
-        val relocations = ArrayList(configured)
-        proposed.forEach { row -> relocations.add(row.resolve(sourceRoot, targetRoot)) }
-        val draft = ConfigurationDraft.of(targetRoot, relocations, sharedList.orElse(null))
+        val relocations = configured + proposed.map { it.resolve(sourceRoot, targetRoot) }
+        val draft = ConfigurationDraft.of(targetRoot, relocations, sharedList)
         validateConfiguration(draft)
         return draft
     }
@@ -151,106 +145,58 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
         for (relocation in configured) {
             val path = relocation.sourcePath.toAbsolutePath().normalize()
             used.add(path)
-            entries.add(
-                Entry(
-                    Optional.of(path), Optional.of(relocation), Optional.empty(),
-                    Optional.ofNullable(candidates[path]), java.util.List.of(), !path.startsWith(sourceRoot),
-                ),
-            )
+            entries.add(Entry(path, relocation, null, candidates[path], listOf(), !path.startsWith(sourceRoot)))
         }
-        for (occurrence in rows) {
+        for (occurrence in occurrences) {
             val row = occurrence.value
             val path = source(row)
-            path.ifPresent { used.add(it) }
-            entries.add(
-                Entry(
-                    path, Optional.empty(), Optional.of(row), path.map { candidates[it] },
-                    occurrence.history, false,
-                ),
-            )
+            if (path != null) used.add(path)
+            entries.add(Entry(path, null, row, path?.let { candidates[it] }, occurrence.history, false))
         }
-        candidates.forEach { path, candidate ->
-            if (!used.contains(path)) entries.add(
-                Entry(
-                    Optional.of(path), Optional.empty(), Optional.empty(),
-                    Optional.of(candidate), java.util.List.of(), false,
-                ),
-            )
+        candidates.forEach { (path, candidate) ->
+            if (path !in used) entries.add(Entry(path, null, null, candidate, listOf(), false))
         }
-        return java.util.List.copyOf(entries)
+        return entries
     }
 
-    private fun candidates(): Map<Path, CandidateDiscovery.Candidate> {
-        val result = LinkedHashMap<Path, CandidateDiscovery.Candidate>()
-        discovery.ifPresent { snapshot ->
-            snapshot.candidates.forEach { candidate ->
-                result[candidate.catalog.sourcePath] = candidate
-            }
-        }
-        return result
-    }
+    private fun candidates(): Map<Path, CandidateDiscovery.Candidate> =
+        discovery?.candidates.orEmpty().associateBy { it.catalog.sourcePath }
 
-    private fun source(row: Row): Optional<Path> {
+    private fun source(row: Row): Path? =
         try {
-            return Optional.of(relative(sourceRoot, row.sourceRelative))
+            relative(sourceRoot, row.sourceRelative)
         } catch (exception: IllegalArgumentException) {
-            return Optional.empty()
+            null
         }
+
+    private fun remember(row: RowOccurrence, candidates: Map<Path, CandidateDiscovery.Candidate>): RowOccurrence {
+        val candidate = source(row.value)?.let { candidates[it] } ?: return row
+        return RowOccurrence(row.value, (row.history + candidate.catalog.definitions).distinct())
     }
 
-    private fun remember(row: RowOccurrence, candidates: Map<Path, CandidateDiscovery.Candidate>): RowOccurrence =
-        source(row.value).map<CandidateDiscovery.Candidate> { candidates[it] }.map { candidate ->
-            val definitions = LinkedHashSet(row.history)
-            definitions.addAll(candidate.catalog.definitions)
-            RowOccurrence(row.value, java.util.List.copyOf(definitions))
-        }.orElse(row)
-
-    /**
-     * Each list position owns its history, even when row values or object references match.
-     *
-     * Not a `@JvmRecord data class`: the constructor copies `history`, which a Kotlin record cannot do.
-     * Equality and `toString` match the record this replaces.
-     */
-    private class RowOccurrence(val value: Row, history: List<CandidateDefinition>) {
-        val history: List<CandidateDefinition> = java.util.List.copyOf(history)
-
-        override fun equals(other: Any?): Boolean = other is RowOccurrence
-                && value == other.value
-                && history == other.history
-
-        override fun hashCode(): Int = Objects.hash(value, history)
-
-        override fun toString(): String = "RowOccurrence[value=$value, history=$history]"
-    }
+    /** Each list position owns its history, even when row values or object references match. */
+    private data class RowOccurrence(val value: Row, val history: List<CandidateDefinition>)
 
     private fun invalidateDiscovery() {
         generation = -1
-        discovery = Optional.empty()
+        discovery = null
     }
 
     /**
      * Partial form data: path validity is checked at Add/Validate/Save, not while
      * typing. Original relative text and omitted policies survive refresh/root edits.
      */
-    @JvmRecord
     data class Row(
         val sourceRelative: String, val targetRelative: String,
-        val both: Optional<WhenSourceAndTargetDirectoriesExist>,
-        val onlyTarget: Optional<WhenOnlyTargetExists>,
-        val adopting: Optional<WhenAdoptingTarget>, val archiveRoot: Optional<Path>,
+        val both: WhenSourceAndTargetDirectoriesExist? = null,
+        val onlyTarget: WhenOnlyTargetExists? = null,
+        val adopting: WhenAdoptingTarget? = null, val archiveRoot: Path? = null,
     ) {
-        constructor(sourceRelative: String, targetRelative: String) : this(
-            sourceRelative, targetRelative, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-        )
-
-        // Private in Java, where the enclosing class could still call it; Kotlin needs internal for that.
         internal fun resolve(sourceRoot: Path, targetRoot: Path): Relocation {
-            if (archiveRoot.filter { path -> !path.isAbsolute }.isPresent) {
-                throw IllegalArgumentException("Archive root must be an absolute path")
-            }
+            require(archiveRoot == null || archiveRoot.isAbsolute) { "Archive root must be an absolute path" }
             return Relocation(
                 relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative),
-                both.orElse(null), onlyTarget.orElse(null), adopting.orElse(null), archiveRoot.map(Path::normalize).orElse(null),
+                both, onlyTarget, adopting, archiveRoot?.normalize(),
             )
         }
     }
@@ -258,62 +204,25 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
     /**
      * `lastKnownDefinitions` is session history, never a current assertion or
      * persisted configuration. Use discovery/source outcomes for current freshness.
-     *
-     * Not a `@JvmRecord data class`: the constructor copies `lastKnownDefinitions`, which a Kotlin record
-     * cannot do. Accessors keep the record names; equality and `toString` match the record this replaces.
      */
-    class Entry(
-        sourcePath: Optional<Path>, configured: Optional<Relocation>, draft: Optional<Row>,
-        discovery: Optional<CandidateDiscovery.Candidate>,
-        lastKnownDefinitions: List<CandidateDefinition>, outsideRoot: Boolean,
-    ) {
-        @get:JvmName("sourcePath")
-        val sourcePath: Optional<Path> = sourcePath
+    data class Entry(
+        val sourcePath: Path?, val configured: Relocation?, val draft: Row?,
+        val discovery: CandidateDiscovery.Candidate?,
+        val lastKnownDefinitions: List<CandidateDefinition>, val outsideRoot: Boolean,
+    )
+}
 
-        @get:JvmName("configured")
-        val configured: Optional<Relocation> = configured
+private fun absolute(path: Path): Path {
+    require(path.isAbsolute) { "Storage roots must be absolute" }
+    return path.normalize()
+}
 
-        @get:JvmName("draft")
-        val draft: Optional<Row> = draft
-
-        @get:JvmName("discovery")
-        val discovery: Optional<CandidateDiscovery.Candidate> = discovery
-
-        @get:JvmName("lastKnownDefinitions")
-        val lastKnownDefinitions: List<CandidateDefinition> = java.util.List.copyOf(lastKnownDefinitions)
-
-        @get:JvmName("outsideRoot")
-        val outsideRoot: Boolean = outsideRoot
-
-        override fun equals(other: Any?): Boolean = other is Entry
-                && sourcePath == other.sourcePath
-                && configured == other.configured
-                && draft == other.draft
-                && discovery == other.discovery
-                && lastKnownDefinitions == other.lastKnownDefinitions
-                && outsideRoot == other.outsideRoot
-
-        override fun hashCode(): Int =
-            Objects.hash(sourcePath, configured, draft, discovery, lastKnownDefinitions, outsideRoot)
-
-        override fun toString(): String = "Entry[sourcePath=$sourcePath, configured=$configured, draft=$draft, " +
-                "discovery=$discovery, lastKnownDefinitions=$lastKnownDefinitions, outsideRoot=$outsideRoot]"
+private fun relative(root: Path, value: String): Path {
+    require(!value.isJavaBlank()) { "Relocation paths cannot be blank" }
+    val path = Path.of(value)
+    val resolved = root.resolve(path).normalize()
+    require(!path.isAbsolute && resolved != root && resolved.startsWith(root)) {
+        "Relocation paths must be relative and nested below their root"
     }
-
-    private companion object {
-        fun absolute(path: Path): Path {
-            if (!path.isAbsolute) throw IllegalArgumentException("Storage roots must be absolute")
-            return path.normalize()
-        }
-
-        fun relative(root: Path, value: String): Path {
-            if (value.isJavaBlank()) throw IllegalArgumentException("Relocation paths cannot be blank")
-            val path = Path.of(value)
-            val resolved = root.resolve(path).normalize()
-            if (path.isAbsolute || resolved == root || !resolved.startsWith(root)) {
-                throw IllegalArgumentException("Relocation paths must be relative and nested below their root")
-            }
-            return resolved
-        }
-    }
+    return resolved
 }

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
@@ -32,7 +33,7 @@ class HomeLightSessionTest {
         session.awaitExecution()
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertEquals("worker unavailable", result.diagnostics.first())
-        assertTrue(result.execution.isEmpty())
+        assertNull(result.execution)
         assertFalse(session.isApplying())
         assertSame(completion, session.confirmApply { task -> fail<Unit>("Must not restart") })
         assertFalse(Files.exists(root.resolve("home")))
@@ -83,7 +84,7 @@ class HomeLightSessionTest {
 
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertSame(reviewed, result.plan)
-        assertSame(reviewed.relocations.first(), result.execution.orElseThrow().relocations.first().relocation)
+        assertSame(reviewed.relocations.first(), checkNotNull(result.execution).relocations.first().relocation)
         assertTrue(result.succeeded())
         assertTrue(Files.isSymbolicLink(source))
         assertEquals("keep this content", Files.readString(root.resolve("local/cache/entry")))
@@ -148,7 +149,7 @@ class HomeLightSessionTest {
 
         val stale = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(stale.stale)
-        assertTrue(stale.execution.isEmpty())
+        assertNull(stale.execution)
         assertTrue(stale.diagnostics.first().contains("local/second"))
         assertTrue(stale.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(Files.exists(root.resolve("local/first")))

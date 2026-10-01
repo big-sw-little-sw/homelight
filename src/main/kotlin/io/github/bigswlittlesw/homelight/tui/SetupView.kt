@@ -15,7 +15,6 @@ import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesEx
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import java.nio.file.Path
-import java.util.Optional
 import java.util.function.Supplier
 
 /**
@@ -47,7 +46,7 @@ internal class SetupView(
     init {
         // Unfinished location text is independent of the last valid model roots.
         val home = Path.of(sourceRoot).toAbsolutePath()
-        draft = SetupDraft(home, home, Optional.empty(), listOf())
+        draft = SetupDraft(home, home, null, listOf())
     }
 
     fun closed(): Boolean = closed
@@ -59,7 +58,7 @@ internal class SetupView(
         else {
             val lines = ArrayList<DetailViewport.Line>()
             lines.add(DetailViewport.Line("Create configuration", Color.CYAN, true))
-            lines.add(DetailViewport.Line("Config: " + CandidateBrowser.literal(session.configPath().toString())))
+            lines.add(DetailViewport.Line("Config: " + CandidateBrowser.literal(session.configPath.toString())))
             val anchor = when (mode) {
                 Mode.LOCATIONS -> locations(lines)
                 Mode.TABLE -> table(lines)
@@ -113,9 +112,9 @@ internal class SetupView(
         lines.add(DetailViewport.Line("Target root: $targetRoot"))
         lines.add(DetailViewport.Line("Relocations", Color.CYAN, true))
         lines.add(DetailViewport.Line("  Source (relative)        Target (relative)        Policies", Color.GRAY, true))
-        if (draft.rows().isEmpty()) lines.add(DetailViewport.Line("No relocations yet. Add a directory manually or browse candidates."))
-        for (i in draft.rows().indices) {
-            val value = draft.rows()[i]
+        if (draft.rows.isEmpty()) lines.add(DetailViewport.Line("No relocations yet. Add a directory manually or browse candidates."))
+        for (i in draft.rows.indices) {
+            val value = draft.rows[i]
             choice(
                 lines, cell(value.sourceRelative, 23) + "  " + cell(value.targetRelative, 23) +
                     "  " + policies(value),
@@ -126,7 +125,7 @@ internal class SetupView(
     }
 
     private fun rowDetails(lines: ArrayList<DetailViewport.Line>): Int {
-        val value = draft.rows()[row]
+        val value = draft.rows[row]
         lines.add(DetailViewport.Line("Edit relocation " + (row + 1), Color.CYAN, true))
         val names = listOf("Source path", "Target path", "Both directories", "Only target", "Adopt target", "Archive root")
         val values = listOf(
@@ -149,18 +148,18 @@ internal class SetupView(
 
     private fun help(): String = when (mode) {
         Mode.LOCATIONS -> "↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear"
-        Mode.TABLE -> if (draft.rows().isEmpty()) "e: Edit locations · Esc: Back"
+        Mode.TABLE -> if (draft.rows.isEmpty()) "e: Edit locations · Esc: Back"
         else "↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back"
         Mode.ROW -> when (field) {
             0 -> "Source is relative; matching target follows until edited."
             1 -> "Target is relative to the target root."
             5 -> "Archive root is optional; use an absolute path."
             2 -> if (discardPolicyFocused()) "Save writes configuration only; Apply requires review."
-            else "Both exist: " + bothConsequence(draft.rows()[row].both)
+            else "Both exist: " + bothConsequence(draft.rows[row].both)
             3 -> "When only target exists: " +
-                if (draft.rows()[row].onlyTarget.orElse(WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
+                if ((draft.rows[row].onlyTarget ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
                     "ask before acting." else "link the source to that target."
-            else -> "When adopting: " + when (draft.rows()[row].adopting.orElse(WhenAdoptingTarget.PROMPT)) {
+            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.PROMPT) {
                 WhenAdoptingTarget.PROMPT -> "ask what to do with source contents."
                 WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
@@ -199,9 +198,9 @@ internal class SetupView(
             if (key.isCharIgnoreCase('q') || key.isQuit()) discard = true
             else if (key.isCharIgnoreCase('r')) refreshDiscovery()
             else {
-                val previousCount = draft.rows().size
+                val previousCount = draft.rows.size
                 val editRow = browser.key(key, draft)
-                if (draft.rows().size != previousCount) invalidated()
+                if (draft.rows.size != previousCount) invalidated()
                 if (editRow >= 0) { row = editRow; changeMode(Mode.ROW); invalidated() }
             }
             return
@@ -235,14 +234,14 @@ internal class SetupView(
             locationsChanged = true
             // Invalidate immediately, including an edit away from and back to a root.
             if (discovery != null) discovery!!.cancel()
-            draft.roots(draft.sourceRoot(), draft.targetRoot())
+            draft.roots(draft.sourceRoot, draft.targetRoot)
             invalidated()
         }
     }
 
     private fun tableKey(key: KeyEvent) {
         if (key.isCharIgnoreCase('a')) {
-            draft.append(SetupDraft.Row("", "")); row = draft.rows().size - 1
+            draft.append(SetupDraft.Row("", "")); row = draft.rows.size - 1
             changeMode(Mode.ROW); invalidated()
         } else if (key.isCharIgnoreCase('b')) {
             try {
@@ -254,11 +253,11 @@ internal class SetupView(
         else if (key.isCharIgnoreCase('q')) discard = true
         else if (key.isCharIgnoreCase('v')) validate()
         else if (key.isCharIgnoreCase('s')) save()
-        else if (key.isCharIgnoreCase('d') && !draft.rows().isEmpty()) removeRow()
-        else if (key.isKey(KeyCode.ENTER) && !draft.rows().isEmpty()) changeMode(Mode.ROW)
+        else if (key.isCharIgnoreCase('d') && !draft.rows.isEmpty()) removeRow()
+        else if (key.isKey(KeyCode.ENTER) && !draft.rows.isEmpty()) changeMode(Mode.ROW)
         else if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j')) {
             row = Math.clamp(
-                (row + (if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1)).toLong(), 0, Math.max(0, draft.rows().size - 1),
+                (row + (if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1)).toLong(), 0, Math.max(0, draft.rows.size - 1),
             )
             viewport.followChoice()
         }
@@ -269,9 +268,9 @@ internal class SetupView(
         val source = Path.of(sourceRoot)
         val target = Path.of(targetRoot)
         if (!source.isAbsolute || !target.isAbsolute) throw IllegalArgumentException("Storage roots must be absolute")
-        val shared = java.util.Optional.ofNullable(parseSharedList(sharedList))
-        if (!locationsChanged && source.normalize() == draft.sourceRoot() && target.normalize() == draft.targetRoot() &&
-            shared == draft.sharedList()
+        val shared = parseSharedList(sharedList)
+        if (!locationsChanged && source.normalize() == draft.sourceRoot && target.normalize() == draft.targetRoot &&
+            shared == draft.sharedList
         ) return
         draft.roots(source, target)
         draft.sharedList(sharedList)
@@ -285,7 +284,7 @@ internal class SetupView(
     }
 
     private fun editRow(key: KeyEvent) {
-        val value = draft.rows()[row]
+        val value = draft.rows[row]
         var source = value.sourceRelative
         var target = value.targetRelative
         var archive = value.archiveRoot
@@ -296,7 +295,7 @@ internal class SetupView(
             } else if (field == 1) target = edit(target, key)
             else {
                 val text = edit(archiveText, key)
-                archive = if (text.isJavaBlank()) Optional.empty() else Optional.of(Path.of(text))
+                archive = if (text.isJavaBlank()) null else Path.of(text)
                 archiveText = text
             }
             val next = SetupDraft.Row(source, target, value.both, value.onlyTarget, value.adopting, archive)
@@ -305,7 +304,7 @@ internal class SetupView(
     }
 
     private fun cyclePolicy() {
-        val value = draft.rows()[row]
+        val value = draft.rows[row]
         draft.edit(
             row,
             SetupDraft.Row(
@@ -319,7 +318,7 @@ internal class SetupView(
     }
 
     private fun removeRow() {
-        draft.remove(row); row = Math.min(row, Math.max(0, draft.rows().size - 1))
+        draft.remove(row); row = Math.min(row, Math.max(0, draft.rows.size - 1))
         changeMode(Mode.TABLE); message = "Draft not saved. Validation: not run. Relocation removed."
     }
 
@@ -334,7 +333,7 @@ internal class SetupView(
     private fun save() {
         try {
             applyLocations()
-            ConfigurationPublisher().saveNew(session.configPath(), draft.validate())
+            ConfigurationPublisher().saveNew(session.configPath, draft.validate())
             close()
             session.refresh()
         } catch (error: RuntimeException) { message = "Save failed: " + error.message; viewport.scroll(Int.MAX_VALUE) }
@@ -347,7 +346,7 @@ internal class SetupView(
 
     private fun changeMode(next: Mode) {
         mode = next; field = 0; viewport.reset()
-        if (next == Mode.ROW) archiveText = draft.rows()[row].archiveRoot.map(Path::toString).orElse("")
+        if (next == Mode.ROW) archiveText = draft.rows[row].archiveRoot?.toString() ?: ""
     }
 
     private fun textField(): Boolean = field == 0 || field == 1 || field == 5
@@ -355,7 +354,7 @@ internal class SetupView(
 
     private fun discardPolicyFocused(): Boolean =
         mode == Mode.ROW && field == 2 &&
-            draft.rows()[row].both == Optional.of(WhenSourceAndTargetDirectoriesExist.DISCARD)
+            draft.rows[row].both == WhenSourceAndTargetDirectoriesExist.DISCARD
 
     companion object {
         private fun resolved(root: String, relative: String): String {
@@ -370,10 +369,11 @@ internal class SetupView(
             return if (key.character() != '\u0000' && !Character.isISOControl(key.character())) value + key.character() else value
         }
 
-        private fun <T : Enum<T>> next(current: Optional<T>, values: Array<T>): Optional<T> =
-            current.map { value ->
-                if (value.ordinal + 1 == values.size) Optional.empty<T>() else Optional.of(values[value.ordinal + 1])
-            }.orElse(Optional.of(values[0]))
+        private fun <T : Enum<T>> next(current: T?, values: Array<T>): T? = when {
+            current == null -> values[0]
+            current.ordinal + 1 == values.size -> null
+            else -> values[current.ordinal + 1]
+        }
 
         private fun choice(lines: MutableList<DetailViewport.Line>, value: String, focused: Boolean) {
             lines.add(
@@ -390,38 +390,38 @@ internal class SetupView(
 
         private fun policies(row: SetupDraft.Row): String {
             val values = ArrayList<String>()
-            if (row.both.isPresent) values.add(both(row.both))
-            if (row.onlyTarget.isPresent) values.add(only(row.onlyTarget))
-            if (row.adopting.isPresent) values.add(adopting(row.adopting))
+            if (row.both != null) values.add(both(row.both))
+            if (row.onlyTarget != null) values.add(only(row.onlyTarget))
+            if (row.adopting != null) values.add(adopting(row.adopting))
             return if (values.isEmpty()) "Default (prompt)" else values.joinToString(", ")
         }
 
-        private fun both(value: Optional<WhenSourceAndTargetDirectoriesExist>): String = value.map { v ->
+        private fun both(value: WhenSourceAndTargetDirectoriesExist?): String = value?.let { v ->
             when (v) {
                 WhenSourceAndTargetDirectoriesExist.PROMPT -> "Prompt"
                 WhenSourceAndTargetDirectoriesExist.ADOPT -> "Adopt target"
                 WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "Leave unchanged"
                 WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
             }
-        }.orElse("Default (prompt)")
+        } ?: "Default (prompt)"
 
-        private fun only(value: Optional<WhenOnlyTargetExists>): String = value.map { v ->
+        private fun only(value: WhenOnlyTargetExists?): String = value?.let { v ->
             when (v) {
                 WhenOnlyTargetExists.PROMPT -> "Prompt"
                 WhenOnlyTargetExists.ADOPT_TARGET -> "Adopt target"
             }
-        }.orElse("Default (prompt)")
+        } ?: "Default (prompt)"
 
-        private fun adopting(value: Optional<WhenAdoptingTarget>): String = value.map { v ->
+        private fun adopting(value: WhenAdoptingTarget?): String = value?.let { v ->
             when (v) {
                 WhenAdoptingTarget.PROMPT -> "Prompt"
                 WhenAdoptingTarget.DISCARD_SOURCE -> "Discard source"
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "Archive source"
             }
-        }.orElse("Default (prompt)")
+        } ?: "Default (prompt)"
 
-        private fun bothConsequence(value: Optional<WhenSourceAndTargetDirectoriesExist>): String =
-            when (value.orElse(WhenSourceAndTargetDirectoriesExist.PROMPT)) {
+        private fun bothConsequence(value: WhenSourceAndTargetDirectoriesExist?): String =
+            when (value ?: WhenSourceAndTargetDirectoriesExist.PROMPT) {
                 WhenSourceAndTargetDirectoriesExist.PROMPT -> "ask before acting."
                 WhenSourceAndTargetDirectoriesExist.ADOPT -> "use target contents; choose source disposition below."
                 WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both paths unmanaged."

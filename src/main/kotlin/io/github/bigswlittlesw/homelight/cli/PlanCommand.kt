@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher
@@ -11,7 +12,6 @@ import picocli.CommandLine.ParameterException
 import picocli.CommandLine.ParentCommand
 import picocli.CommandLine.Spec
 import java.nio.file.Path
-import java.util.Optional
 import java.util.concurrent.Callable
 
 @Command(name = "plan", description = ["Show the filesystem actions required to converge configured relocations."])
@@ -40,12 +40,11 @@ internal class PlanCommand : Callable<Int> {
         if ((sourcePath == null) != (targetPath == null)) {
             throw ParameterException(spec.commandLine(), "--source-path and --target-path must be provided together")
         }
-        val override = Optional.ofNullable(sourcePath)
-            .map { source -> ConfigurationLoader.PathOverride(source, targetPath!!) }
+        val override = sourcePath?.let { source -> ConfigurationLoader.PathOverride(source, targetPath!!) }
 
         val configPath = config()
         if (json) {
-            if (ConfigurationEvaluation.isUnconfiguredDefault(configPath)) {
+            if (isUnconfiguredDefault(configPath)) {
                 PlanRenderer().renderJson(ReconciliationPlan(listOf(), listOf()), spec.commandLine().out)
                 return 0
             }
