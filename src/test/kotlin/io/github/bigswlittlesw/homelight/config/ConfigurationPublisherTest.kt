@@ -76,7 +76,7 @@ class ConfigurationPublisherTest {
         app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofChar('i'))
         app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofKey(dev.tamboui.tui.event.KeyCode.ESCAPE))
         assertFalse(Files.exists(path))
-        assertFalse(app.session().requestApply())
+        assertFalse(app.session.requestApply())
     }
 
     companion object {

@@ -22,7 +22,7 @@ class HomeLightCommandTest {
             val command = HomeLightCommand.createCommandLine()
             command.parseArgs(*arguments)
             val root: HomeLightCommand = command.getCommand()
-            assertEquals(3000L, root.debugStepDelayMillis())
+            assertEquals(3000L, root.debugStepDelayMillis)
         }
         for (delay in listOf("-1", "60001")) {
             val result = execute("--debug-step-delay-ms", delay)
@@ -57,7 +57,7 @@ class HomeLightCommandTest {
         val result = execute("--version")
 
         assertEquals(0, result.exitCode)
-        assertTrue(result.output.contains("homelight " + HomeLightVersionProvider.resolveVersion()))
+        assertTrue(result.output.contains("homelight " + resolveVersion()))
     }
 
     @Test
@@ -65,7 +65,7 @@ class HomeLightCommandTest {
         val result = execute("-V")
 
         assertEquals(0, result.exitCode)
-        assertTrue(result.output.contains("homelight " + HomeLightVersionProvider.resolveVersion()))
+        assertTrue(result.output.contains("homelight " + resolveVersion()))
     }
 
     @Test
@@ -105,7 +105,7 @@ class HomeLightCommandTest {
         val version: Array<String> = provider.getVersion()
 
         assertEquals(1, version.size)
-        assertEquals("homelight " + HomeLightVersionProvider.resolveVersion(), version[0])
+        assertEquals("homelight " + resolveVersion(), version[0])
     }
 
     @Test

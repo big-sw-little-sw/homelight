@@ -27,18 +27,18 @@ class HomeLightExitTest {
     @Test
     fun escapeNavigatesWithoutExitingOrMutating() {
         val config = configuration(temporary)
-        val app = HomeLightApp(config)
+        val app = HomeLightApp(HomeLightSession(config))
         for (screen in Screen.values()) {
             app.switchScreen(screen)
             key(app, KeyCode.ESCAPE)
-            assertEquals(Screen.WORKSPACE, app.activeScreen())
+            assertEquals(Screen.WORKSPACE, app.activeScreen)
             assertFalse(app.exitRequested())
         }
         app.switchScreen(Screen.WORKSPACE)
         app.handleKeyEvent(KeyEvent.ofChar('a'))
         key(app, KeyCode.ESCAPE)
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
-        assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
         assertFalse(Files.exists(temporary.resolve("source")))
 
         Files.createDirectories(temporary.resolve("target"))
@@ -47,7 +47,7 @@ class HomeLightExitTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         key(app, KeyCode.ESCAPE)
         assertEquals(PaneFocus.MASTER, app.paneFocus())
-        assertTrue(app.session().hasConflicts())
+        assertTrue(app.session.hasConflicts())
         assertFalse(app.exitRequested())
     }
 
@@ -55,10 +55,10 @@ class HomeLightExitTest {
     fun completionNeverSelectsExitOrDismissesAnOpenDialog() {
         for (selectExit in booleanArrayOf(false, true)) {
             val root = Files.createDirectory(temporary.resolve("case-$selectExit"))
-            val app = HomeLightApp(configuration(root))
+            val app = HomeLightApp(HomeLightSession(configuration(root)))
             app.switchScreen(Screen.APPLY)
             val tasks = ArrayList<Runnable>()
-            app.session().confirmApply(Executor { tasks.add(it) })
+            app.session.confirmApply(Executor { tasks.add(it) })
             app.handleKeyEvent(KeyEvent.ofChar('q'))
             if (selectExit) key(app, KeyCode.DOWN)
             tasks.first().run()
@@ -75,7 +75,7 @@ class HomeLightExitTest {
             assertTrue(Files.isSymbolicLink(root.resolve("source")))
             if (!selectExit) {
                 key(app, KeyCode.ESCAPE)
-                assertEquals(Screen.APPLY, app.activeScreen())
+                assertEquals(Screen.APPLY, app.activeScreen)
                 assertFalse(app.exitRequested())
             }
         }
@@ -83,10 +83,10 @@ class HomeLightExitTest {
 
     @Test
     fun dialogDefaultsToKeepRunningAndEscapeCancelsEvenAfterSelectingExit() {
-        val app = HomeLightApp(configuration(temporary))
+        val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
         val tasks = ArrayList<Runnable>()
-        app.session().confirmApply(Executor { tasks.add(it) })
+        app.session.confirmApply(Executor { tasks.add(it) })
         val ctrlC = KeyEvent.ofChar('c', KeyModifiers.CTRL)
         assertTrue(ctrlC.isQuit)
         app.handleKeyEvent(ctrlC)
@@ -99,17 +99,17 @@ class HomeLightExitTest {
         tasks.first().run()
         app.render()
         assertFalse(app.exitRequested())
-        assertTrue(assertInstanceOf(ApplyModel.Result::class.java, app.session().applyModel()).succeeded())
+        assertTrue(assertInstanceOf(ApplyModel.Result::class.java, app.session.applyModel()).succeeded())
     }
 
     @Test
     fun deferredExitWaitsForWorkerAndOnlyTheUiRequestsExit() {
-        val app = HomeLightApp(configuration(temporary))
+        val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
         val started = CountDownLatch(1)
         val release = CountDownLatch(1)
         val interrupted = AtomicBoolean()
-        val completion = app.session().confirmApply(Executor { task ->
+        val completion = app.session.confirmApply(Executor { task ->
             Thread.ofPlatform().start {
                 started.countDown()
                 try {
@@ -167,9 +167,9 @@ class HomeLightExitTest {
 
     @Test
     fun rejectionWhileQuitDialogOpensKeepsTheDefaultAndNeverReschedules() {
-        val app = HomeLightApp(configuration(temporary))
+        val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
-        val completion = app.session().confirmApply(Executor {
+        val completion = app.session.confirmApply(Executor {
             app.handleKeyEvent(KeyEvent.ofChar('q'))
             throw java.util.concurrent.RejectedExecutionException("worker unavailable")
         })
@@ -178,31 +178,31 @@ class HomeLightExitTest {
         assertFalse(app.exitRequested())
         key(app, KeyCode.ENTER)
         app.handleKeyEvent(KeyEvent.ofChar('y'))
-        assertSame(completion, app.session().confirmApply(Executor { fail<Unit>("Must not reschedule") }))
-        assertFalse(assertInstanceOf(ApplyModel.Result::class.java, app.session().applyModel()).succeeded())
+        assertSame(completion, app.session.confirmApply(Executor { fail<Unit>("Must not reschedule") }))
+        assertFalse(assertInstanceOf(ApplyModel.Result::class.java, app.session.applyModel()).succeeded())
         assertFalse(Files.exists(temporary.resolve("source")))
     }
 
     @Test
     fun deferredExitIncludesFailureAndExceptionalCompletionWithRetainedEvidence() {
-        val app = HomeLightApp(configuration(temporary))
+        val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
         val tasks = ArrayList<Runnable>()
-        val completion = app.session().confirmApply(Executor { tasks.add(it) })
+        val completion = app.session.confirmApply(Executor { tasks.add(it) })
         app.handleKeyEvent(KeyEvent.ofChar('q'))
         key(app, KeyCode.DOWN)
         key(app, KeyCode.ENTER)
         Files.createDirectories(temporary.resolve("target"))
         tasks.first().run()
-        val result = assertInstanceOf(ApplyModel.Result::class.java, app.session().applyModel())
+        val result = assertInstanceOf(ApplyModel.Result::class.java, app.session.applyModel())
         assertFalse(result.succeeded())
         assertTrue(result.stale)
         val failure = IllegalStateException("exceptional settlement")
         completion.obtrudeException(failure)
         app.render()
         assertTrue(app.exitRequested())
-        assertSame(result, app.session().applyModel())
-        assertSame(failure, assertThrows(CompletionException::class.java, app.session()::awaitExecution).cause)
+        assertSame(result, app.session.applyModel())
+        assertSame(failure, assertThrows(CompletionException::class.java, app.session::awaitExecution).cause)
         assertFalse(Files.exists(temporary.resolve("source")))
     }
 

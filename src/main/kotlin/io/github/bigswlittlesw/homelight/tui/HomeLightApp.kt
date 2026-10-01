@@ -16,18 +16,29 @@ import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
-import java.util.function.Supplier
 
-/** Owns navigation and inspection; the session owns decisions and guarded execution. */
-class HomeLightApp(private val session: HomeLightSession, private val customTuiConfig: TuiConfig?) {
-    private var activeScreen = Screen.WORKSPACE
+/**
+ * Owns navigation and inspection; the session owns decisions and guarded execution.
+ *
+ * `discoveryFactory` gives each reopened setup its own discovery lifetime.
+ */
+class HomeLightApp(
+    val session: HomeLightSession,
+    private val customTuiConfig: TuiConfig? = null,
+    startSetup: Boolean = false,
+    private val discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
+) {
+    internal var activeScreen = Screen.WORKSPACE
+        private set
     private var selectedIndex = 0
     private var actionIndex = 0
     private var reviewedSource: Path? = null
     private var paneFocus = PaneFocus.MASTER
     private var actionFocus = PaneFocus.MASTER
-    private var detailSelectedIndex = 0
-    private var showInSync = false
+    var detailSelectedIndex = 0
+        private set
+    var showInSync = false
+        private set
     private var userShowInSync: Boolean? = null
     private var spinnerFrame = 0
     private var followedAction: ReconciliationAction? = null
@@ -35,8 +46,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
     private val workspaceDetails = DetailViewport()
     private val actionDetails = DetailViewport()
     private var exitIntent = ExitIntent.STAY
-    private var setup: SetupView? = null
-    private var discoveryFactory: Supplier<CandidateDiscovery> = Supplier { CandidateDiscovery() }
+    private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
 
     private enum class ExitIntent { STAY, CONFIRM_KEEP, CONFIRM_EXIT, AFTER_EXECUTION, EXIT }
 
@@ -44,32 +54,12 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         syncInSyncSetting()
     }
 
-    constructor(configPath: Path) : this(HomeLightSession(configPath))
-    constructor(session: HomeLightSession) : this(session, null as TuiConfig?)
-    constructor(session: HomeLightSession, startSetup: Boolean) : this(session, null as TuiConfig?) {
-        if (startSetup) setup = SetupView(session, discoveryFactory)
-    }
-
-    // A factory gives each reopened setup its own discovery lifetime.
-    internal constructor(session: HomeLightSession, discoveryFactory: Supplier<CandidateDiscovery>) :
-        this(session, null as TuiConfig?) {
-        this.discoveryFactory = discoveryFactory
-    }
-
     internal fun configure(): TuiConfig = customTuiConfig ?: TuiConfig.defaults()
 
-    @Throws(Exception::class)
-    fun run() { TuiLauncher.run(this) }
+    fun run() { runTui(this) }
 
-    // Package-private (render: protected) in Java and called by the Java tests. Internal functions get
-    // mangled JVM names, so @JvmName keeps the names the tests call.
-    @JvmName("exitRequested")
     internal fun exitRequested(): Boolean = exitIntent == ExitIntent.EXIT
 
-    @JvmName("activeScreen")
-    internal fun activeScreen(): Screen = activeScreen
-
-    @JvmName("render")
     internal fun render(): Element {
         settleDeferredExit()
         val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply()
@@ -102,23 +92,21 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         val model = session.applyModel()
         when (model) {
             is ApplyModel.Running -> {
-                for (i in model.steps.indices) {
-                    val step = model.steps[i]
-                    if (step.status == ApplyModel.StepStatus.RUNNING && step.action !== followedAction) {
-                        // Manual inspection lasts until the next action transition.
-                        actionIndex = i
-                        actionDetails.reset()
-                        followedAction = step.action
-                        break
-                    }
+                val running = model.steps.indexOfFirst { step ->
+                    step.status == ApplyModel.StepStatus.RUNNING && step.action !== followedAction
+                }
+                if (running >= 0) {
+                    // Manual inspection lasts until the next action transition.
+                    actionIndex = running
+                    actionDetails.reset()
+                    followedAction = model.steps[running].action
                 }
             }
             is ApplyModel.Result -> {
                 if (model !== displayedResult) {
-                    for (i in model.steps.indices) {
-                        val status = model.steps[i].status
-                        if (status == ApplyModel.StepStatus.COMPLETED || status == ApplyModel.StepStatus.FAILED) actionIndex = i
-                        if (status == ApplyModel.StepStatus.FAILED) break
+                    for ((i, step) in model.steps.withIndex()) {
+                        if (step.status == ApplyModel.StepStatus.COMPLETED || step.status == ApplyModel.StepStatus.FAILED) actionIndex = i
+                        if (step.status == ApplyModel.StepStatus.FAILED) break
                     }
                     actionDetails.reset()
                     displayedResult = model
@@ -137,7 +125,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         val currentSetup = setup
         if (currentSetup != null) {
             currentSetup.key(key)
-            if (currentSetup.closed()) { setup = null; workspaceDetails.reset(); syncInSyncSetting() }
+            if (currentSetup.closed) { setup = null; workspaceDetails.reset(); syncInSyncSetting() }
             return EventResult.HANDLED
         }
         if (key.isKey(KeyCode.ESCAPE)) {
@@ -177,12 +165,12 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         }
         if (key.isLeft() || key.isCharIgnoreCase('h')) { paneFocus = PaneFocus.MASTER; return EventResult.HANDLED }
         val item = selectedPlanItem()
-        val choices = paneFocus == PaneFocus.DETAIL && item != null && !item.availableResolutions.isEmpty() &&
+        val choices = paneFocus == PaneFocus.DETAIL && item != null && item.availableResolutions.isNotEmpty() &&
             session.applyModel() !is ApplyModel.Result
         if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j')) {
             val delta = if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1
             if (choices) {
-                detailSelectedIndex = Math.clamp((detailSelectedIndex + delta).toLong(), 0, item.availableResolutions.size - 1)
+                detailSelectedIndex = (detailSelectedIndex + delta).coerceIn(0, item.availableResolutions.size - 1)
                 workspaceDetails.followChoice()
             } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(delta)
             else if (delta < 0) selectPrevious() else selectNext()
@@ -200,10 +188,9 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         return EventResult.HANDLED
     }
 
-    @JvmName("closeSetup")
     internal fun closeSetup() {
-        val currentSetup = setup
-        if (currentSetup != null) { currentSetup.close(); setup = null }
+        setup?.close()
+        setup = null
     }
 
     private fun handleApplyKeyEvent(key: KeyEvent): EventResult {
@@ -250,13 +237,12 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         if (exitIntent == ExitIntent.AFTER_EXECUTION && session.executionSettled()) exitIntent = ExitIntent.EXIT
     }
 
-    @JvmName("switchScreen")
     internal fun switchScreen(screen: Screen) {
         if (session.isApplying() || !session.executionSettled()) return
         if (screen == activeScreen) return
         if (screen == Screen.APPLY) {
             if (session.applyModel() is ApplyModel.Idle && !session.requestApply()) return
-            if (activeScreen == Screen.WORKSPACE && selectedPlanItem() != null) reviewedSource = selectedPlanItem()!!.relocation.sourcePath
+            if (activeScreen == Screen.WORKSPACE) selectedPlanItem()?.let { reviewedSource = it.relocation.sourcePath }
             if (activeScreen != Screen.APPLY && session.applyModel() is ApplyModel.Confirmation) {
                 actionIndex = 0
                 actionFocus = PaneFocus.MASTER
@@ -268,7 +254,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
 
     fun refresh() {
         if (session.isApplying() || !session.executionSettled()) return
-        val source = if (selectedPlanItem() == null) null else selectedPlanItem()!!.relocation.sourcePath
+        val source = selectedPlanItem()?.relocation?.sourcePath
         session.refresh()
         activeScreen = Screen.WORKSPACE
         syncInSyncSetting()
@@ -281,6 +267,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         if (item == null || session.applyModel() is ApplyModel.Result) return
         session.choose(item.relocation.sourcePath, choice)
         restoreSelection(item.relocation.sourcePath)
+        // Choosing re-plans the same loaded relocations, so the list still has a selected item.
         detailSelectedIndex = selectedPlanItem()!!.availableResolutions.indexOf(choice)
         workspaceDetails.followChoice()
     }
@@ -292,13 +279,13 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
 
     private fun selectedPlanItem(): PlanRelocationItem? {
         val items = visibleItems()
-        return if (items.isEmpty()) null else items[Math.clamp(selectedIndex.toLong(), 0, items.size - 1)]
+        return if (items.isEmpty()) null else items[selectedIndex.coerceIn(0, items.size - 1)]
     }
 
     fun toggleInSync() {
-        val source = if (selectedPlanItem() == null) null else selectedPlanItem()!!.relocation.sourcePath
-        userShowInSync = !showInSync
-        showInSync = userShowInSync!!
+        val source = selectedPlanItem()?.relocation?.sourcePath
+        showInSync = !showInSync
+        userShowInSync = showInSync
         restoreSelection(source)
     }
 
@@ -309,34 +296,28 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
 
     private fun select(value: Int, absolute: Boolean) {
         if (activeScreen == Screen.APPLY) {
-            actionIndex = Math.clamp(
-                (if (absolute) value else actionIndex + value).toLong(), 0,
-                Math.max(0, ApplyView.steps(session.applyModel()).size - 1),
-            )
+            val last = maxOf(0, ApplyView.steps(session.applyModel()).size - 1)
+            actionIndex = (if (absolute) value else actionIndex + value).coerceIn(0, last)
             actionDetails.reset()
         } else {
-            selectedIndex = Math.clamp(
-                (if (absolute) value else selectedIndex + value).toLong(), 0, Math.max(0, visibleItems().size - 1),
-            )
+            selectedIndex = (if (absolute) value else selectedIndex + value).coerceIn(0, maxOf(0, visibleItems().size - 1))
             resetDetailSelection()
         }
     }
 
     private fun resetDetailSelection() {
         val item = selectedPlanItem()
-        detailSelectedIndex = if (item == null) 0 else item.selectedResolution()
-            ?.let { choice -> Math.max(0, item.availableResolutions.indexOf(choice)) } ?: 0
+        detailSelectedIndex = item?.selectedResolution()?.let { choice -> maxOf(0, item.availableResolutions.indexOf(choice)) } ?: 0
         workspaceDetails.reset()
     }
 
     private fun restoreSelection(source: Path?) {
-        val items = visibleItems()
-        for (i in items.indices) if (items[i].relocation.sourcePath == source) { selectedIndex = i; return }
-        clampSelection()
+        val index = visibleItems().indexOfFirst { it.relocation.sourcePath == source }
+        if (index >= 0) selectedIndex = index else clampSelection()
     }
 
     private fun clampSelection() {
-        selectedIndex = Math.clamp(selectedIndex.toLong(), 0, Math.max(0, visibleItems().size - 1))
+        selectedIndex = selectedIndex.coerceIn(0, maxOf(0, visibleItems().size - 1))
     }
 
     private fun syncInSyncSetting() {
@@ -346,10 +327,7 @@ class HomeLightApp(private val session: HomeLightSession, private val customTuiC
         clampSelection()
     }
 
-    fun session(): HomeLightSession = session
     fun planModel(): PlanModel = session.planModel()
     fun selectedIndex(): Int = if (activeScreen == Screen.APPLY) actionIndex else selectedIndex
     fun paneFocus(): PaneFocus = if (activeScreen == Screen.APPLY) actionFocus else paneFocus
-    fun detailSelectedIndex(): Int = detailSelectedIndex
-    fun showInSync(): Boolean = showInSync
 }

@@ -4,7 +4,7 @@ import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.tui.TuiLauncher
+import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Option
@@ -17,7 +17,7 @@ import java.util.concurrent.Callable
 @Command(name = "plan", description = ["Show the filesystem actions required to converge configured relocations."])
 internal class PlanCommand : Callable<Int> {
     @field:ParentCommand
-    private var parent: HomeLightCommand? = null
+    private lateinit var parent: HomeLightCommand
 
     @field:Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false
@@ -34,25 +34,23 @@ internal class PlanCommand : Callable<Int> {
     @field:Spec
     private lateinit var spec: CommandSpec
 
-    private fun config(): Path = parent?.config() ?: ConfigurationLoader.DEFAULT_PATH
-
     override fun call(): Int {
-        if ((sourcePath == null) != (targetPath == null)) {
-            throw ParameterException(spec.commandLine(), "--source-path and --target-path must be provided together")
+        val source = sourcePath
+        val target = targetPath
+        val override = when {
+            source != null && target != null -> ConfigurationLoader.PathOverride(source, target)
+            source == null && target == null -> null
+            else -> throw ParameterException(spec.commandLine(), "--source-path and --target-path must be provided together")
         }
-        val override = sourcePath?.let { source -> ConfigurationLoader.PathOverride(source, targetPath!!) }
 
-        val configPath = config()
+        val configPath = parent.config
         if (json) {
-            if (isUnconfiguredDefault(configPath)) {
-                PlanRenderer().renderJson(ReconciliationPlan(listOf(), listOf()), spec.commandLine().out)
-                return 0
-            }
-            val plan = ConfigurationEvaluation().loadRequired(configPath, override).plan
+            val plan = if (isUnconfiguredDefault(configPath)) ReconciliationPlan(listOf(), listOf())
+            else ConfigurationEvaluation().loadRequired(configPath, override).plan
             PlanRenderer().renderJson(plan, spec.commandLine().out)
             return 0
         }
 
-        return TuiLauncher.launchPlan(configPath, parent!!.debugStepDelayMillis(), spec.commandLine().err)
+        return launchTui(configPath, parent.debugStepDelayMillis, spec.commandLine().err)
     }
 }

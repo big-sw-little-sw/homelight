@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 import java.util.concurrent.CompletionException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
@@ -25,12 +24,12 @@ class TuiLauncherTest {
 
     @Test
     fun refusesNonInteractiveAndDumbTerminalsBeforeOpeningOne() {
-        assertEquals(Optional.of(TuiLauncher.NOT_INTERACTIVE), TuiLauncher.refusal(false, "xterm-256color"))
-        assertEquals(Optional.of(TuiLauncher.NOT_INTERACTIVE), TuiLauncher.refusal(false, "dumb"))
-        assertEquals(Optional.of(TuiLauncher.DUMB_TERMINAL), TuiLauncher.refusal(true, "dumb"))
-        assertEquals(Optional.of(TuiLauncher.DUMB_TERMINAL), TuiLauncher.refusal(true, "dumb-color"))
-        assertEquals(Optional.empty<String>(), TuiLauncher.refusal(true, "xterm-256color"))
-        assertEquals(Optional.empty<String>(), TuiLauncher.refusal(true, null))
+        assertEquals(NOT_INTERACTIVE, terminalRefusal(false, "xterm-256color"))
+        assertEquals(NOT_INTERACTIVE, terminalRefusal(false, "dumb"))
+        assertEquals(DUMB_TERMINAL, terminalRefusal(true, "dumb"))
+        assertEquals(DUMB_TERMINAL, terminalRefusal(true, "dumb-color"))
+        assertNull(terminalRefusal(true, "xterm-256color"))
+        assertNull(terminalRefusal(true, null))
     }
 
     @Test

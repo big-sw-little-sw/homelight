@@ -17,20 +17,20 @@ internal class DetailViewport {
     private var followingChoice = false
     private var keepVisible = false
 
-    fun overflows(): Boolean = maximum > 0
+    data class Line(val text: String, val color: Color = Color.WHITE, val bold: Boolean = false)
 
     // Resolve overflow after the reader renders, so help reflects this frame's size.
     fun help(navigation: String, commands: String): Element {
         class Help : StyledElement<Help>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.heightOnly(2)
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
-                var keys = navigation
-                if (keys.startsWith("↑/↓: Scroll")) {
-                    keys = if (overflows()) keys.replace("↑/↓: Scroll", "↑/↓/[/]: Scroll")
-                    else keys.replace("↑/↓: Scroll · ", "")
-                } else if (overflows()) keys += " · [/]: Scroll"
-                text(keys + "\n" + commands, Color.GRAY)
-                    .render(frame, area, context)
+                val overflows = maximum > 0
+                val keys = when {
+                    !navigation.startsWith("↑/↓: Scroll") -> if (overflows) "$navigation · [/]: Scroll" else navigation
+                    overflows -> navigation.replace("↑/↓: Scroll", "↑/↓/[/]: Scroll")
+                    else -> navigation.replace("↑/↓: Scroll · ", "")
+                }
+                wrappedText(keys + "\n" + commands, Color.GRAY).render(frame, area, context)
             }
         }
         return Help()
@@ -41,47 +41,40 @@ internal class DetailViewport {
     fun keepChoiceVisible() { followingChoice = true; keepVisible = true }
     fun scroll(delta: Int) {
         followingChoice = false
-        top = Math.clamp(top.toLong() + delta, 0, maximum)
-    }
-
-    @JvmRecord
-    data class Line(val text: String, val color: Color, val bold: Boolean) {
-        constructor(text: String) : this(text, Color.WHITE, false)
+        // In Long: callers scroll by ±Int.MAX_VALUE to reach either end.
+        top = (top.toLong() + delta).coerceIn(0, maximum.toLong()).toInt()
     }
 
     fun render(title: String, lines: List<Line>, focused: Boolean, choiceLine: Int): Element {
         class Pane : StyledElement<Pane>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.UNKNOWN
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
-                var width = Math.max(1, area.width() - 2)
-                val height = Math.max(1, area.height() - 2)
-                val overflow = lines.stream().mapToInt { line -> wrap(line.text, Math.max(1, area.width() - 2)).size }.sum() > height
-                if (overflow) width = Math.max(1, width - 1)
+                var width = maxOf(1, area.width() - 2)
+                val height = maxOf(1, area.height() - 2)
+                val overflow = lines.sumOf { line -> wrap(line.text, width).size } > height
+                if (overflow) width = maxOf(1, width - 1)
                 val wrapped = ArrayList<Line>()
                 var anchor = 0
-                for (i in lines.indices) {
+                for ((i, line) in lines.withIndex()) {
                     if (i == choiceLine) anchor = wrapped.size
-                    val line = lines[i]
-                    for (part in wrap(line.text, width)) wrapped.add(Line(part, line.color, line.bold))
+                    wrap(line.text, width).mapTo(wrapped) { part -> Line(part, line.color, line.bold) }
                 }
-                maximum = Math.max(0, wrapped.size - height)
+                maximum = maxOf(0, wrapped.size - height)
                 if (followingChoice && focused) {
-                    if (!keepVisible) top = Math.min(anchor, maximum)
+                    if (!keepVisible) top = minOf(anchor, maximum)
                     else if (anchor < top) top = anchor
                     else if (anchor >= top + height) top = anchor - height + 1
                 }
-                top = Math.clamp(top.toLong(), 0, maximum)
-                val rows = ArrayList<Element>()
-                for (i in top until Math.min(top + height, wrapped.size)) {
-                    val line = wrapped[i]
+                top = top.coerceIn(0, maximum)
+                val rows = wrapped.subList(top, minOf(top + height, wrapped.size)).map { line ->
                     val text = Toolkit.text(line.text).fg(line.color)
-                    rows.add(if (line.bold) text.bold() else text)
+                    if (line.bold) text.bold() else text
                 }
                 Toolkit.panel(title, Toolkit.column(*rows.toTypedArray()).fill())
                     .borderColor(if (focused) Color.CYAN else Color.DARK_GRAY).fill()
                     .render(frame, area, context)
                 if (overflow) {
-                    val thumb = Math.max(1, height * height / wrapped.size)
+                    val thumb = maxOf(1, height * height / wrapped.size)
                     val start = if (maximum == 0) 0 else top * (height - thumb) / maximum
                     for (row in 0 until height) {
                         Toolkit.text(if (row >= start && row < start + thumb) "█" else "│").cyan()
@@ -92,53 +85,50 @@ internal class DetailViewport {
         }
         return Pane().fill()
     }
+}
 
-    companion object {
-        @JvmStatic
-        fun text(value: String, color: Color): Element {
-            class WrappedText : StyledElement<WrappedText>() {
-                override fun preferredSize(width: Int, height: Int, context: RenderContext): Size =
-                    Size.heightOnly(wrap(value, Math.max(1, width)).size)
-                override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
-                    Toolkit.column(*wrap(value, Math.max(1, area.width())).stream()
-                        .map { line -> Toolkit.text(line).fg(color) }.toList().toTypedArray())
-                        .render(frame, area, context)
-                }
-            }
-            return WrappedText()
-        }
-
-        @JvmStatic
-        fun wrap(text: String, width: Int): List<String> {
-            val result = ArrayList<String>()
-            for (paragraph in text.split("\n")) {
-                val line = StringBuilder()
-                var cells = 0
-                var offset = 0
-                while (offset < paragraph.length) {
-                    val point = paragraph.codePointAt(offset)
-                    val character = String(Character.toChars(point))
-                    val size = CharWidth.of(character)
-                    if (cells + size > width && !line.isEmpty()) {
-                        val space = line.lastIndexOf(" ")
-                        if (space > 0 && point != ' '.code) {
-                            result.add(line.substring(0, space))
-                            line.delete(0, space + 1)
-                            cells = CharWidth.of(line.toString())
-                        } else {
-                            result.add(line.toString())
-                            line.setLength(0)
-                            cells = 0
-                            if (point == ' '.code) { offset += Character.charCount(point); continue }
-                        }
-                    }
-                    line.append(character)
-                    cells += size
-                    offset += Character.charCount(point)
-                }
-                result.add(line.toString())
-            }
-            return result
+/** Text that wraps at the width it is given, measuring its height for the layout. */
+internal fun wrappedText(value: String, color: Color): Element {
+    class WrappedText : StyledElement<WrappedText>() {
+        override fun preferredSize(width: Int, height: Int, context: RenderContext): Size =
+            Size.heightOnly(wrap(value, maxOf(1, width)).size)
+        override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
+            val rows = wrap(value, maxOf(1, area.width())).map { line -> Toolkit.text(line).fg(color) }
+            Toolkit.column(*rows.toTypedArray()).render(frame, area, context)
         }
     }
+    return WrappedText()
+}
+
+/** Wraps at spaces where possible, breaking long words at the cell width. */
+internal fun wrap(text: String, width: Int): List<String> {
+    val result = ArrayList<String>()
+    for (paragraph in text.split("\n")) {
+        val line = StringBuilder()
+        var cells = 0
+        var offset = 0
+        while (offset < paragraph.length) {
+            val point = paragraph.codePointAt(offset)
+            val character = String(Character.toChars(point))
+            val size = CharWidth.of(character)
+            if (cells + size > width && line.isNotEmpty()) {
+                val space = line.lastIndexOf(" ")
+                if (space > 0 && point != ' '.code) {
+                    result.add(line.substring(0, space))
+                    line.delete(0, space + 1)
+                    cells = CharWidth.of(line.toString())
+                } else {
+                    result.add(line.toString())
+                    line.setLength(0)
+                    cells = 0
+                    if (point == ' '.code) { offset += Character.charCount(point); continue }
+                }
+            }
+            line.append(character)
+            cells += size
+            offset += Character.charCount(point)
+        }
+        result.add(line.toString())
+    }
+    return result
 }
