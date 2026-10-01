@@ -1,5 +1,6 @@
 plugins {
     application
+    alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.graalvm.native)
 }
 
@@ -21,6 +22,7 @@ java {
 }
 
 dependencies {
+    // The Kotlin plugin adds kotlin-stdlib. Never add kotlin-reflect: Native Image would need its metadata.
     implementation(platform(libs.tamboui.bom))
     implementation(libs.tamboui.toolkit)
     implementation(libs.tamboui.jline3.backend)
