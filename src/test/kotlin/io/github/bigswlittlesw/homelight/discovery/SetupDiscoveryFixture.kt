@@ -17,14 +17,13 @@ class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
     private val lanes = CandidateDiscovery.Lanes()
     private val clock = AtomicLong()
 
-    // Fields, as in Java: the Java TUI tests read and assign them directly.
-    @JvmField val entered = CountDownLatch(1)
-    @JvmField val release = CountDownLatch(1)
-    @JvmField val reads = AtomicInteger()
-    @JvmField val workers: MutableList<CandidateDiscovery> = ArrayList()
-    @Volatile @JvmField var block = false
-    @JvmField var releaseFile: Path? = null
-    @JvmField var realTime = false
+    val entered = CountDownLatch(1)
+    val release = CountDownLatch(1)
+    val reads = AtomicInteger()
+    val workers: MutableList<CandidateDiscovery> = ArrayList()
+    @Volatile var block = false
+    var releaseFile: Path? = null
+    var realTime = false
 
     override fun get(): CandidateDiscovery {
         val time = if (realTime) LongSupplier(System::nanoTime) else LongSupplier(clock::get)
