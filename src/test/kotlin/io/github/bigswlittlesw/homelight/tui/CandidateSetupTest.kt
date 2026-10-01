@@ -30,8 +30,8 @@ class CandidateSetupTest {
         val source = root.resolve("home/team-cache")
         val target = Files.createDirectories(root.resolve("local/team-cache"))
         Files.writeString(target.resolve("payload"), "target unchanged")
-        val app = HomeLightApp(HomeLightSession(root.resolve("config.yaml")))
-        key(app, 'i'); locations(app, root, root.resolve("shared.yaml"))
+        val app = HomeLightApp(HomeLightSession(root.resolve("config.json")))
+        key(app, 'i'); locations(app, root, root.resolve("shared.json"))
         key(app, 'a'); type(app, "team-cache"); down(app); down(app)
         repeat(4) { key(app, ' ') }
         for (width in listOf(80, 120, 80, 120)) {
@@ -66,7 +66,7 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val app = app(root, workers)
-            locations(app, root, root.resolve("shared.yaml"))
+            locations(app, root, root.resolve("shared.json"))
             key(app, 'b'); await(workers, app)
             val list = render(app)
             assertTrue(list.contains("Maven (1)"), list)
@@ -78,7 +78,7 @@ class CandidateSetupTest {
             key(app, 'e'); down(app); clear(app); type(app, "custom-target")
             down(app); key(app, ' '); key(app, ' ') // Adopt target, no inferred source disposition.
             escape(app); key(app, 'b')
-            Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.yaml"), root.resolve("shared.yaml"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             key(app, 'r'); await(workers, app)
             // Refresh while inspecting does not leave details or erase the row.
             val history = all(app)
@@ -88,10 +88,10 @@ class CandidateSetupTest {
             assertTrue(all(app).contains("Adopt target"))
             escape(app); key(app, 's')
             assertTrue(render(app).contains("[1: Workspace]"))
-            val saved = ConfigurationLoader().load(root.resolve("config.yaml"))
+            val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(1, saved.relocations.size)
             assertEquals(root.resolve("local/custom-target"), saved.relocations.first().targetPath)
-            assertEquals(root.resolve("shared.yaml"), saved.sharedList)
+            assertEquals(root.resolve("shared.json"), saved.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("home/team-cache/payload")))
             assertFalse(Files.exists(root.resolve("local/custom-target")))
             assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
@@ -102,7 +102,7 @@ class CandidateSetupTest {
     @Test fun groupExpansionNeverSelectsAndAdviceCollapseKeepsAddedRowsVisible() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml"))
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'b'); await(workers, app)
             enter(app)
             assertFalse(render(app).contains("[ ] .m2"))
@@ -113,7 +113,7 @@ class CandidateSetupTest {
             assertTrue(all(app).contains("[x] .cache/example"))
             // No action on a heading may create rows.
             escape(app); key(app, 's')
-            val saved = ConfigurationLoader().load(root.resolve("config.yaml"))
+            val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(listOf(root.resolve("home/.cache/example")), saved.relocations.map(Relocation::sourcePath))
         }
     }
@@ -121,7 +121,7 @@ class CandidateSetupTest {
     @Test fun checklistAddsInPlaceWithoutReorderingAndKeepsRejectedChoices() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml"))
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'b'); await(workers, app)
             key(app, ' '); key(app, 'a')
             assertTrue(render(app).contains("0 in draft"), "App headings cannot add children")
@@ -147,14 +147,14 @@ class CandidateSetupTest {
             choose(app, ".m2"); key(app, 'e')
             assertTrue(render(app).contains("Edit relocation 1"))
             escape(app); key(app, 's')
-            assertEquals(3, ConfigurationLoader().load(root.resolve("config.yaml")).relocations.size)
+            assertEquals(3, ConfigurationLoader().load(root.resolve("config.json")).relocations.size)
         }
     }
 
     @Test fun missingCandidateCanBeAddedEditedRefreshedAndSavedBeforeTheAppCreatesIt() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml"))
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'b'); await(workers, app); choose(app, "absent-cache")
             assertTrue(render(app).contains("Space/a: Add"))
             assertTrue(render(app).contains("[ ] absent-cache"))
@@ -177,7 +177,7 @@ class CandidateSetupTest {
             assertTrue(all(app).contains("future-cache"))
             escape(app); escape(app); key(app, 's')
             assertTrue(render(app).contains("[1: Workspace]"))
-            val row = ConfigurationLoader().load(root.resolve("config.yaml")).relocations.first()
+            val row = ConfigurationLoader().load(root.resolve("config.json")).relocations.first()
             assertEquals(root.resolve("home/absent-cache"), row.sourcePath)
             assertEquals(root.resolve("local/future-cache"), row.targetPath)
             assertEquals(io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
@@ -190,7 +190,7 @@ class CandidateSetupTest {
     @Test fun overlapRejectionAndManualMatchesDoNotLoseEarlierRows() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml"))
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'a'); type(app, ".m2"); down(app); clear(app); type(app, "manual-target"); escape(app)
             key(app, 'b'); await(workers, app); choose(app, ".m2"); enter(app)
             assertTrue(render(app).contains("e: Edit draft row"))
@@ -205,7 +205,7 @@ class CandidateSetupTest {
             assertTrue(text.contains("Priorchoicesareunchanged"), error)
             assertTrue(text.contains("pathsoverlap"), error)
             escape(app); escape(app); key(app, 's')
-            val saved = ConfigurationLoader().load(root.resolve("config.yaml"))
+            val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(2, saved.relocations.size)
             assertEquals(root.resolve("local/manual-target"), saved.relocations.first().targetPath)
         }
@@ -215,24 +215,24 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml")); key(app, 'b')
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             assertTimeout(Duration.ofSeconds(1), Executable {
                 workers.expire(); render(app); key(app, 'r'); key(app, 'i')
                 assertTrue(all(app).contains("Previous read still pending"))
                 escape(app); escape(app); key(app, 'a'); type(app, "manual"); escape(app)
-                Files.writeString(root.resolve("config.yaml"), "concurrent winner")
+                Files.writeString(root.resolve("config.json"), "concurrent winner")
                 key(app, 's'); assertTrue(all(app).contains("Save failed"))
-                assertEquals("concurrent winner", Files.readString(root.resolve("config.yaml")))
+                assertEquals("concurrent winner", Files.readString(root.resolve("config.json")))
             })
-            Files.delete(root.resolve("config.yaml"))
+            Files.delete(root.resolve("config.json"))
             assertTimeout(Duration.ofSeconds(1), Executable { key(app, 's') })
             assertTrue(render(app).contains("[1: Workspace]"))
             assertNull(workers.workers.first().snapshot().request)
             workers.release.countDown()
             assertTrue(render(app).contains("[1: Workspace]"))
             assertEquals(1, workers.reads.get())
-            assertEquals(1, ConfigurationLoader().load(root.resolve("config.yaml")).relocations.size)
+            assertEquals(1, ConfigurationLoader().load(root.resolve("config.json")).relocations.size)
         }
     }
 
@@ -240,7 +240,7 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml")); key(app, 'b')
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             escape(app); key(app, 'a'); type(app, "manual"); escape(app)
             key(app, 'q'); escape(app)
@@ -254,9 +254,9 @@ class CandidateSetupTest {
             key(app, 'i')
             assertTrue(render(app).contains("Storage locations"))
             assertFalse(render(app).contains("other-home"))
-            assertFalse(render(app).contains("shared.yaml"))
+            assertFalse(render(app).contains("shared.json"))
             enter(app); assertTrue(render(app).contains("No relocations yet"))
-            assertFalse(Files.exists(root.resolve("config.yaml")))
+            assertFalse(Files.exists(root.resolve("config.json")))
             app.closeSetup()
         }
     }
@@ -264,10 +264,10 @@ class CandidateSetupTest {
     @Test fun malformedAndMissingSourcesLeaveBundledAndManualSaveAvailable() {
         for (missing in listOf(false, true)) {
             val root = fixture()
-            if (missing) Files.delete(root.resolve("shared.yaml"))
-            else Files.writeString(root.resolve("shared.yaml"), "apps: [")
+            if (missing) Files.delete(root.resolve("shared.json"))
+            else Files.writeString(root.resolve("shared.json"), "{\"apps\": [")
             SetupDiscoveryFixture().use { workers ->
-                val app = app(root, workers); locations(app, root, root.resolve("shared.yaml")); key(app, 'b'); await(workers, app)
+                val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b'); await(workers, app)
                 assertTrue(render(app).contains("Bundled: current · Shared: unavailable"))
                 key(app, 'i'); assertTrue(all(app).contains(if (missing) "NoSuchFileException" else "line"))
                 escape(app); escape(app); key(app, 'a'); type(app, "manual"); escape(app); key(app, 's')
@@ -301,7 +301,7 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml")); key(app, 'b')
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
             while (!render(app).contains("[ ] .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
@@ -323,7 +323,7 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml")); key(app, 'b')
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             key(app, 'q'); enter(app)
             workers.release.countDown()
@@ -334,7 +334,7 @@ class CandidateSetupTest {
             assertNull(workers.workers.first().snapshot().request)
             key(app, 'i'); enter(app)
             assertTrue(render(app).contains("No relocations yet"))
-            assertFalse(Files.exists(root.resolve("config.yaml")))
+            assertFalse(Files.exists(root.resolve("config.json")))
             app.closeSetup()
         }
     }
@@ -342,13 +342,13 @@ class CandidateSetupTest {
     @Test fun explicitRootChangeRebasesRowsWithoutChangingTargetsOrPolicies() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.yaml"))
+            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'a'); type(app, "manual"); down(app); clear(app); type(app, "chosen-target")
             down(app); key(app, ' '); key(app, ' '); escape(app)
             key(app, 'e'); clear(app); type(app, root.resolve("other-home").toString())
             down(app); clear(app); type(app, root.resolve("other-target").toString())
             down(app); clear(app); enter(app); key(app, 's')
-            val configuration = ConfigurationLoader().load(root.resolve("config.yaml"))
+            val configuration = ConfigurationLoader().load(root.resolve("config.json"))
             val row = configuration.relocations.first()
             assertEquals(root.resolve("other-home/manual"), row.sourcePath)
             assertEquals(root.resolve("other-target/chosen-target"), row.targetPath)
@@ -361,13 +361,13 @@ class CandidateSetupTest {
         val root = Files.createTempDirectory(temporary, "fixture-").toRealPath()
         for (relative in listOf(".m2", ".cache/uv", ".cache/example", ".local/share/uv/tools", "team-cache", "datasets")) Files.createDirectories(root.resolve("home").resolve(relative))
         Files.writeString(root.resolve("home/team-cache/payload"), "unchanged")
-        Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.yaml"), root.resolve("shared.yaml"))
+        Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), root.resolve("shared.json"))
         return root
     }
 
     private companion object {
         fun app(root: Path, workers: SetupDiscoveryFixture): HomeLightApp {
-            val app = HomeLightApp(HomeLightSession(root.resolve("config.yaml")), discoveryFactory = workers::get); key(app, 'i'); return app
+            val app = HomeLightApp(HomeLightSession(root.resolve("config.json")), discoveryFactory = workers::get); key(app, 'i'); return app
         }
         fun locations(app: HomeLightApp, root: Path, shared: Path) {
             clear(app); type(app, root.resolve("home").toString()); down(app); type(app, root.resolve("local").toString())

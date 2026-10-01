@@ -442,12 +442,12 @@ private fun sourceDetails(lines: MutableList<Line>, draft: SetupDraft) {
             lines.add(Line(problemAdvice(problem.kind), Color.YELLOW, false))
             lines.add(Line("Diagnostic: " + literal(problem.detail)))
         }
-        if (source.diagnostics.isNotEmpty()) lines.add(Line("List rejected. Fix the YAML and refresh.", Color.YELLOW, false))
+        if (source.diagnostics.isNotEmpty()) lines.add(Line("List rejected. Fix the JSON and refresh.", Color.YELLOW, false))
         for (d in source.diagnostics) {
             lines.add(
                 Line(
                     literal(d.message) + (if (d.location.isEmpty()) "" else " · " + literal(d.location)) +
-                        " · input line " + d.line + ", column " + d.column,
+                        (if (d.line == 0) "" else " · input line " + d.line + ", column " + d.column),
                     Color.YELLOW, false,
                 ),
             )
@@ -459,7 +459,7 @@ private fun sourceDetails(lines: MutableList<Line>, draft: SetupDraft) {
 private fun problemAdvice(kind: CandidateDiscovery.SourceProblem.Kind): String = when (kind) {
     CandidateDiscovery.SourceProblem.Kind.MISSING -> "The list was not found. Check its location or clear the optional field."
     CandidateDiscovery.SourceProblem.Kind.UNREADABLE -> "The list could not be read. Check access permissions."
-    CandidateDiscovery.SourceProblem.Kind.NOT_REGULAR -> "Choose a regular YAML file, not a directory or special file."
+    CandidateDiscovery.SourceProblem.Kind.NOT_REGULAR -> "Choose a regular JSON file, not a directory or special file."
     CandidateDiscovery.SourceProblem.Kind.IO_ERROR -> "Reading the list failed. Retry when storage is available."
     CandidateDiscovery.SourceProblem.Kind.DEADLINE -> "No response within five seconds. Manual setup remains available."
     CandidateDiscovery.SourceProblem.Kind.PREVIOUS_PENDING -> "Previous read still pending; manual setup remains available."

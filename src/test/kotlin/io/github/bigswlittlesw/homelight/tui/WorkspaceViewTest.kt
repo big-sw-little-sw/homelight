@@ -155,7 +155,7 @@ class WorkspaceViewTest {
 
         fun fixture(directory: Path): Path {
             val root = directory.toRealPath()
-            val body = StringBuilder("homelight:\n  target-root: " + root.resolve("local") + "\n  relocations:\n")
+            val body = StringBuilder("{\"homelight\": {\"target-root\": \"" + root.resolve("local") + "\", \"relocations\": [\n")
             for (name in listOf("conflict", "migrate", "adopt", "discard", "synced", "unchanged")) {
                 val source = root.resolve("home/$name")
                 val target = root.resolve("local/$name")
@@ -164,13 +164,14 @@ class WorkspaceViewTest {
                 if (name != "synced") { Files.createDirectories(source); Files.writeString(source.resolve("payload"), "source") }
                 if (name != "migrate") { Files.createDirectories(target); Files.writeString(target.resolve("payload"), "target") }
                 if (name == "synced") Files.createSymbolicLink(source, target)
-                body.append("    - source-path: ").append(source).append("\n      target-path: ").append(target).append('\n')
-                if (name == "adopt") body.append("      when-source-and-target-directories-exist: adopt\n      when-adopting-target: discard-source\n")
-                if (name == "discard") body.append("      when-source-and-target-directories-exist: discard\n")
-                if (name == "unchanged") body.append("      when-source-and-target-directories-exist: leave-unchanged\n")
-                if (name == "conflict") body.append("      source-archive-root: ").append(root.resolve("archive-destination-distinguishing-suffix")).append('\n')
+                body.append("  {\"source-path\": \"").append(source).append("\", \"target-path\": \"").append(target).append('"')
+                if (name == "adopt") body.append(", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"")
+                if (name == "discard") body.append(", \"when-source-and-target-directories-exist\": \"discard\"")
+                if (name == "unchanged") body.append(", \"when-source-and-target-directories-exist\": \"leave-unchanged\"")
+                if (name == "conflict") body.append(", \"source-archive-root\": \"").append(root.resolve("archive-destination-distinguishing-suffix")).append('"')
+                body.append("},\n") // The parser accepts the trailing comma after the last relocation.
             }
-            return Files.writeString(root.resolve("config.yaml"), body)
+            return Files.writeString(root.resolve("config.json"), body.append("]}}\n"))
         }
     }
 }

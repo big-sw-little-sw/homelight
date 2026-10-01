@@ -11,15 +11,15 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 // Java text blocks end with the newline before the closing delimiter, and `trimIndent` drops it,
-// so each block appends "\n" to keep the YAML byte-identical.
+// so each block appends "\n" to keep the text byte-identical.
 class PlanWorkflowTest {
 
     @Test
     fun returnsUnconfiguredWhenDefaultConfigMissing() {
         val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(Path.of(System.getProperty("user.home"), ".homelight.yaml"))
+        val model = workflow.loadPlan(Path.of(System.getProperty("user.home"), ".homelight.json"))
 
-        if (!Files.exists(Path.of(System.getProperty("user.home"), ".homelight.yaml"))) {
+        if (!Files.exists(Path.of(System.getProperty("user.home"), ".homelight.json"))) {
             assertInstanceOf(PlanModel.Unconfigured::class.java, model)
         }
     }
@@ -27,7 +27,7 @@ class PlanWorkflowTest {
     @Test
     fun returnsInvalidWhenConfigFileDoesNotExist() {
         val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(Path.of("/nonexistent/path/homelight.yaml"))
+        val model = workflow.loadPlan(Path.of("/nonexistent/path/homelight.json"))
 
         assertInstanceOf(PlanModel.Invalid::class.java, model)
         assertTrue((model as PlanModel.Invalid).message.contains("does not exist"))
@@ -40,13 +40,16 @@ class PlanWorkflowTest {
         val target = root.resolve("local/cache")
         Files.writeString(source.resolve("file.txt"), "hello")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val workflow = PlanWorkflow()
@@ -78,13 +81,16 @@ class PlanWorkflowTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("file.txt"), "target content")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val workflow = PlanWorkflow()
@@ -128,14 +134,16 @@ class PlanWorkflowTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("local/archive")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      source-archive-root: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "source-archive-root": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target, archiveRoot))
 
         val session = HomeLightSession(config)
@@ -168,13 +176,16 @@ class PlanWorkflowTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val session = HomeLightSession(config)
@@ -197,13 +208,16 @@ class PlanWorkflowTest {
         Files.createDirectories(source.parent)
         Files.createSymbolicLink(source, target)
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val workflow = PlanWorkflow()

@@ -62,7 +62,7 @@ class SetupDraftTest {
         Files.createDirectories(root.resolve("team-cache"))
         Files.createDirectories(root.resolve(".cache/uv"))
         Files.createDirectories(root.resolve(".m2"))
-        val config = temporary.resolve("existing.yaml")
+        val config = temporary.resolve("existing.json")
         val configured = Relocation(root.resolve(".m2"), temporary.resolve("saved/maven"))
         ConfigurationPublisher().saveNew(config, ConfigurationDraft.of(temporary.resolve("saved"), listOf(configured)))
         val bytes = Files.readAllBytes(config)
@@ -79,7 +79,7 @@ class SetupDraftTest {
                     WhenOnlyTargetExists.ADOPT_TARGET, null, null)
             draft.edit(0, edited)
             val savedRows = draft.rows
-            Files.writeString(shared(), "directories: [")
+            Files.writeString(shared(), "{\"directories\": [")
             refresh(draft, worker)
             assertTrue(checkNotNull(entry(draft, root.resolve("team-cache")).discovery).observation.stale)
             assertEquals(savedRows, draft.rows)
@@ -111,7 +111,7 @@ class SetupDraftTest {
         val draft = draft(root, listOf())
         worker().use { worker ->
             refresh(draft, worker)
-            Files.writeString(shared(), "directories: [")
+            Files.writeString(shared(), "{\"directories\": [")
             refresh(draft, worker)
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("team-cache")) }
             draft.add(root.resolve(".cache/uv"))
@@ -151,9 +151,9 @@ class SetupDraftTest {
             assertEquals(2, draft.entries().size)
             assertThrows(IllegalArgumentException::class.java, draft::validate)
             assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
-                    temporary.resolve("invalid.yaml"), draft.validate()) }
+                    temporary.resolve("invalid.json"), draft.validate()) }
             assertEquals(listOf(first, second), draft.rows)
-            assertFalse(Files.exists(temporary.resolve("invalid.yaml")))
+            assertFalse(Files.exists(temporary.resolve("invalid.json")))
         }
         // Cross source/target intersections and cycles are checked across configured and draft rows.
         val configured = Relocation(root.resolve("a"), temporary.resolve("target/b"))
@@ -206,7 +206,7 @@ class SetupDraftTest {
                 entered.countDown()
                 try { release.await() } catch (exception: InterruptedException) { throw AssertionError(exception) }
                 Files.readAllBytes(shared())
-            }, { r -> CandidateParser().parse(CandidateCatalog.BUNDLED, r, "directories: []".toByteArray()) },
+            }, { r -> CandidateParser().parse(CandidateCatalog.BUNDLED, r, "{\"directories\": []}".toByteArray()) },
                     CandidateMetadata()).use { worker ->
                 draft.refresh(worker)
                 assertTrue(entered.await(3, TimeUnit.SECONDS))
@@ -215,9 +215,9 @@ class SetupDraftTest {
                 draft.append(SetupDraft.Row("manual", "manual"))
                 val blocked = Files.writeString(temporary.resolve("blocked"), "occupied")
                 assertThrows(ConfigurationPublisher.ConfigurationException::class.java) {
-                    ConfigurationPublisher().saveNew(blocked.resolve("config.yaml"), draft.validate()) }
+                    ConfigurationPublisher().saveNew(blocked.resolve("config.json"), draft.validate()) }
                 draft.edit(0, SetupDraft.Row("manual", "edited"))
-                val config = temporary.resolve("saved.yaml")
+                val config = temporary.resolve("saved.json")
                 ConfigurationPublisher().saveNew(config, draft.validate())
                 val loaded = ConfigurationLoader().load(config)
                 assertEquals(shared(), loaded.sharedList)
@@ -264,7 +264,7 @@ class SetupDraftTest {
             draft.add(root.resolve("absent-cache"))
             Files.delete(shared())
             refresh(draft, worker)
-            val path = temporary.resolve("chosen.yaml")
+            val path = temporary.resolve("chosen.json")
             ConfigurationPublisher().saveNew(path, draft.validate())
             val loaded = ConfigurationLoader().load(path)
             assertEquals(draft.validate().relocations, loaded.relocations)
@@ -274,9 +274,9 @@ class SetupDraftTest {
             assertEquals(shared(), loaded.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
             assertFalse(Files.exists(temporary.resolve("target")))
-            val yaml = Files.readString(path)
+            val json = Files.readString(path)
             for (forbidden in listOf("advice", "usually-unnecessary", "Example IDE", "observations", "provenance", "datasets")) {
-                assertFalse(yaml.contains(forbidden), yaml)
+                assertFalse(json.contains(forbidden), json)
             }
         }
     }
@@ -344,12 +344,12 @@ class SetupDraftTest {
                     refresh(draft, worker)
                     val history = draft.entries().first().lastKnownDefinitions
                     assertFalse(history.isEmpty())
-                    Files.writeString(shared(), "directories: []")
+                    Files.writeString(shared(), "{\"directories\": []}")
                     refresh(draft, worker)
                     assertNull(draft.entries().get(0).discovery)
                     assertNull(draft.entries().get(1).discovery)
                     assertThrows(IllegalArgumentException::class.java, draft::validate)
-                    val config = temporary.resolve("duplicates.yaml")
+                    val config = temporary.resolve("duplicates.json")
                     assertThrows(IllegalArgumentException::class.java) {
                         ConfigurationPublisher().saveNew(config, draft.validate()) }
                     assertFalse(Files.exists(config))
@@ -379,7 +379,7 @@ class SetupDraftTest {
                 draft.append(row)
                 val history = draft.entries().first().lastKnownDefinitions
                 assertFalse(history.isEmpty())
-                Files.writeString(shared(), "directories: []")
+                Files.writeString(shared(), "{\"directories\": []}")
                 refresh(draft, worker)
                 draft.append(if (sameObject) row else SetupDraft.Row("team-cache", "team-cache"))
                 assertEquals(history, draft.entries().get(0).lastKnownDefinitions)
@@ -398,7 +398,7 @@ class SetupDraftTest {
     @Test fun editingIntoAnotherRowsValuePreservesBothDistinctHistories() {
         val root = Files.createDirectory(temporary.resolve("home"))
         for (index in 0 until 2) {
-            Files.writeString(shared(), "directories: [{path: first-cache}, {path: second-cache}]")
+            Files.writeString(shared(), "{\"directories\": [{\"path\": \"first-cache\"}, {\"path\": \"second-cache\"}]}")
             val draft = draft(root, listOf())
             draft.append(SetupDraft.Row("first-cache", "first-cache"))
             draft.append(SetupDraft.Row("second-cache", "second-cache"))
@@ -409,7 +409,7 @@ class SetupDraftTest {
                 assertFalse(first.isEmpty())
                 assertFalse(second.isEmpty())
                 assertNotEquals(first, second)
-                Files.writeString(shared(), "directories: []")
+                Files.writeString(shared(), "{\"directories\": []}")
                 refresh(draft, worker)
                 assertNull(draft.entries().get(0).discovery)
                 assertNull(draft.entries().get(1).discovery)
@@ -432,10 +432,10 @@ class SetupDraftTest {
                 { root -> CandidateParser().parse(CandidateCatalog.BUNDLED, root, bundled) }, CandidateMetadata())
     }
 
-    private fun shared(): Path { return temporary.resolve("shared.yaml") }
+    private fun shared(): Path { return temporary.resolve("shared.json") }
 
     companion object {
-        private fun fixture(name: String): Path { return Path.of("docs/research/session-b-fixtures/nested/$name.yaml") }
+        private fun fixture(name: String): Path { return Path.of("docs/research/session-b-fixtures/nested/$name.json") }
         private fun entry(draft: SetupDraft, path: Path): SetupDraft.Entry {
             return draft.entries().stream().filter { row -> row.sourcePath == path }.findFirst().orElseThrow()
         }

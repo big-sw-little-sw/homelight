@@ -50,10 +50,10 @@ class DefaultConfigurationClassificationTest {
             @JvmStatic fun main(args: Array<String>) {
                 val defaultPath = ConfigurationLoader.DEFAULT_PATH
                 val config = if (args[0].equals("explicit-directory"))
-                    defaultPath.resolveSibling("explicit.yaml") else defaultPath
+                    defaultPath.resolveSibling("explicit.json") else defaultPath
                 when (args[0]) {
                     "default-directory", "explicit-directory" -> Files.createDirectory(config)
-                    "default-malformed" -> Files.writeString(config, "homelight: [")
+                    "default-malformed" -> Files.writeString(config, "{\"homelight\": [")
                     "default-missing" -> { }
                     else -> throw IllegalArgumentException(args[0])
                 }
@@ -97,7 +97,7 @@ class DefaultConfigurationClassificationTest {
                 if (args[0].equals("default-directory")) {
                     val retained = evaluator.load(config)
                     Files.delete(config)
-                    Files.writeString(config, "homelight: [")
+                    Files.writeString(config, "{\"homelight\": [")
                     // Adapting a retained result must not reclassify it using a later filesystem state.
                     assertInstanceOf(PlanModel.Unconfigured::class.java, PlanWorkflow.from(retained))
                     assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.replan(retained).evaluation)

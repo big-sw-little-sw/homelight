@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.config
 
+import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.FileAlreadyExistsException
@@ -14,9 +15,9 @@ class ConfigurationPublisher {
         try {
             val parent = destination.parent ?: throw IOException("Configuration path has no parent: $destination")
             Files.createDirectories(parent)
-            val temporary = Files.createTempFile(parent, ".homelight-", ".yaml")
+            val temporary = Files.createTempFile(parent, ".homelight-", ".json")
             try {
-                Files.writeString(temporary, yaml(draft), StandardCharsets.UTF_8)
+                Files.writeString(temporary, json(draft), StandardCharsets.UTF_8)
                 // A hard-link creation is an atomic create-if-absent operation. Unlike move(REPLACE_EXISTING),
                 // it cannot replace a configuration created concurrently.
                 Files.createLink(destination, temporary)
@@ -33,29 +34,23 @@ class ConfigurationPublisher {
     class ConfigurationException(message: String, cause: Throwable) : RuntimeException(message, cause)
 
     companion object {
-        internal fun yaml(draft: ConfigurationDraft): String {
-            val text = StringBuilder("homelight:\n  target-root: ").append(value(draft.targetRoot)).append("\n")
-            draft.sharedList?.let { location ->
-                text.append("  discovery:\n    shared-list: ").append(value(location)).append("\n")
+        /** Pretty-printed for hand editing. Keys keep declaration order, and absent (null) values are omitted. */
+        private val OUTPUT = Json { prettyPrint = true }
+
+        internal fun json(draft: ConfigurationDraft): String {
+            val relocations = draft.relocations.map { relocation ->
+                RelocationFile(
+                    relocation.sourcePath.toString(), relocation.targetPath.toString(),
+                    relocation.whenSourceAndTargetDirectoriesExist?.value, relocation.whenOnlyTargetExists?.value,
+                    relocation.whenAdoptingTarget?.value, relocation.sourceArchiveRoot?.toString(),
+                )
             }
-            text.append("  relocations:\n")
-            for (relocation in draft.relocations) {
-                text.append("    - source-path: ").append(value(relocation.sourcePath)).append("\n")
-                    .append("      target-path: ").append(value(relocation.targetPath)).append("\n")
-                append(text, "when-source-and-target-directories-exist", relocation.whenSourceAndTargetDirectoriesExist?.value)
-                append(text, "when-only-target-exists", relocation.whenOnlyTargetExists?.value)
-                append(text, "when-adopting-target", relocation.whenAdoptingTarget?.value)
-                append(text, "source-archive-root", relocation.sourceArchiveRoot?.toString())
-            }
-            return text.toString()
+            val homelight = HomeLightFile(
+                targetRoot = draft.targetRoot.toString(),
+                discovery = draft.sharedList?.let { DiscoveryFile(it.toString()) },
+                relocations = relocations,
+            )
+            return OUTPUT.encodeToString(ConfigurationFile.serializer(), ConfigurationFile(homelight)) + "\n"
         }
-
-        private fun append(text: StringBuilder, key: String, entry: String?) {
-            if (entry != null) text.append("      ").append(key).append(": ").append(value(entry)).append("\n")
-        }
-
-        private fun value(value: Path): String = value(value.toString())
-
-        private fun value(value: String): String = "'" + value.replace("'", "''") + "'"
     }
 }

@@ -78,7 +78,7 @@ class HomeLightCommandTest {
 
     @Test
     fun shouldFailClearlyWhenInvokedNonInteractivelyWithTopLevelConfig() {
-        val result = execute("--config", "/tmp/custom.yaml")
+        val result = execute("--config", "/tmp/custom.json")
 
         assertEquals(2, result.exitCode)
         assertTrue(result.errorOutput.contains("HomeLight TUI requires an interactive terminal"))
@@ -115,8 +115,8 @@ class HomeLightCommandTest {
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
-        val config = root.resolve("config.yaml")
-        Files.writeString(config, "homelight:\n  target-root: $root\n  relocations:\n    - source-path: $sourcePath\n      target-path: $targetPath\n")
+        val config = root.resolve("config.json")
+        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("status", "--config", config.toString(), "--json")
 
@@ -132,8 +132,8 @@ class HomeLightCommandTest {
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
-        val config = root.resolve("config.yaml")
-        Files.writeString(config, "homelight:\n  target-root: $root\n  relocations:\n    - source-path: $sourcePath\n      target-path: $targetPath\n")
+        val config = root.resolve("config.json")
+        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("status", "-c", config.toString(), "--json")
 
@@ -149,8 +149,8 @@ class HomeLightCommandTest {
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
-        val config = root.resolve("config.yaml")
-        Files.writeString(config, "homelight:\n  target-root: $root\n  relocations:\n    - source-path: $sourcePath\n      target-path: $targetPath\n")
+        val config = root.resolve("config.json")
+        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("--config", config.toString(), "status", "--json")
 
@@ -166,8 +166,8 @@ class HomeLightCommandTest {
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
-        val config = root.resolve("config.yaml")
-        Files.writeString(config, "homelight:\n  target-root: $root\n  relocations:\n    - source-path: $sourcePath\n      target-path: $targetPath\n")
+        val config = root.resolve("config.json")
+        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("-c", config.toString(), "status", "--json")
 
@@ -191,7 +191,7 @@ class HomeLightCommandTest {
     fun unconfiguredStatusReportsJson() {
         val output = StringWriter()
 
-        StatusRenderer().renderUnconfiguredJson(Path.of("/tmp/.homelight.yaml"),
+        StatusRenderer().renderUnconfiguredJson(Path.of("/tmp/.homelight.json"),
             PrintWriter(output, true))
 
         assertTrue(output.toString().contains("\"configured\":false"))

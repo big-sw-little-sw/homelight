@@ -19,22 +19,22 @@ class DiscoverySettingTest {
 
     @Test fun normalizesLocationWithoutInspectingItAndRejectsNonFilesystemInput() {
         assertNull(parseSharedList("  "))
-        assertEquals(temporary.resolve("missing.yaml"),
-                parseSharedList(temporary.resolve("absent/../missing.yaml").toString()))
-        assertEquals(Path.of(System.getProperty("user.home"), "shared.yaml").normalize(),
-                parseSharedList("~/folder/../shared.yaml"))
-        for (invalid in listOf("relative.yaml", "../relative.yaml", "https://example.com/list", "\$HOME/list", "\${HOME}/list", "/tmp/\$LIST", "/tmp/list\n")) {
+        assertEquals(temporary.resolve("missing.json"),
+                parseSharedList(temporary.resolve("absent/../missing.json").toString()))
+        assertEquals(Path.of(System.getProperty("user.home"), "shared.json").normalize(),
+                parseSharedList("~/folder/../shared.json"))
+        for (invalid in listOf("relative.json", "../relative.json", "https://example.com/list", "\$HOME/list", "\${HOME}/list", "/tmp/\$LIST", "/tmp/list\n")) {
             assertThrows(IllegalArgumentException::class.java, { parseSharedList(invalid) }, invalid)
         }
     }
 
     @Test fun unavailableAndMalformedLocationsRoundTripWithoutBeingRead() {
-        val malformed = Files.writeString(temporary.resolve("malformed.yaml"), "directories: [")
+        val malformed = Files.writeString(temporary.resolve("malformed.json"), "{\"directories\": [")
         val directory = Files.createDirectory(temporary.resolve("directory"))
-        val missing = temporary.resolve("unavailable/list.yaml")
+        val missing = temporary.resolve("unavailable/list.json")
         var index = 0
         for (location in listOf(malformed, directory, missing)) {
-            val path = temporary.resolve("config-" + index++ + ".yaml")
+            val path = temporary.resolve("config-" + index++ + ".json")
             val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
                     Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual")),
                     Relocation(temporary.resolve("home/chosen"), temporary.resolve("target/chosen"))),
@@ -47,9 +47,11 @@ class DiscoverySettingTest {
                     io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().load(path))
             assertEquals(loaded.sharedList, evaluation.savedConfiguration.sharedList)
             val text = Files.readString(path)
-            for (forbidden in listOf("apps:", "directories:", "advice:", "reason:", "provenance:", "observations:",
-                    "selected:", "when-source", "when-only", "when-adopting")) assertFalse(text.contains(forbidden), text)
-            val second = temporary.resolve("roundtrip-$index.yaml")
+            for (forbidden in listOf("\"apps\"", "\"directories\"", "\"advice\"", "\"reason\"", "\"provenance\"",
+                    "\"observations\"", "\"selected\"", "when-source", "when-only", "when-adopting")) {
+                assertFalse(text.contains(forbidden), text)
+            }
+            val second = temporary.resolve("roundtrip-$index.json")
             ConfigurationPublisher().saveNew(second,
                     ConfigurationDraft.of(loaded.targetRoot, loaded.relocations, loaded.sharedList))
             assertEquals(text, Files.readString(second))
@@ -57,26 +59,26 @@ class DiscoverySettingTest {
             assertEquals(draft.sharedList, draft.withRelocations(listOf()).sharedList)
         }
         assertFalse(Files.exists(missing))
-        assertEquals("directories: [", Files.readString(malformed))
+        assertEquals("{\"directories\": [", Files.readString(malformed))
     }
 
     @Test fun omittedAndBlankSettingRemainCompatibleAndDoNotCreateAnEmptySection() {
         val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
                 Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual"))))
-        val path = temporary.resolve("old.yaml")
+        val path = temporary.resolve("old.json")
         ConfigurationPublisher().saveNew(path, draft)
         assertNull(ConfigurationLoader().load(path).sharedList)
         val text = Files.readString(path)
-        assertFalse(text.contains("discovery:"))
-        Files.writeString(path, text.replace("  relocations:", "  discovery:\n    shared-list: '   '\n  relocations:"))
+        assertFalse(text.contains("\"discovery\""))
+        Files.writeString(path, text.replace("\"relocations\":", "\"discovery\": {\"shared-list\": \"   \"}, \"relocations\":"))
         assertNull(ConfigurationLoader().load(path).sharedList)
         assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
-                temporary.resolve("setting-only.yaml"), ConfigurationDraft.of(draft.targetRoot, listOf(), path)) }
-        assertFalse(Files.exists(temporary.resolve("setting-only.yaml")))
+                temporary.resolve("setting-only.json"), ConfigurationDraft.of(draft.targetRoot, listOf(), path)) }
+        assertFalse(Files.exists(temporary.resolve("setting-only.json")))
     }
 
     @Test fun concurrentPublicationKeepsOneWholeSettingAndRelocationPair() {
-        val path = temporary.resolve("config.yaml")
+        val path = temporary.resolve("config.json")
         val first = ConfigurationDraft.of(temporary.resolve("target"), listOf(
                 Relocation(temporary.resolve("home/a"), temporary.resolve("target/a"))), temporary.resolve("list-a"))
         val second = ConfigurationDraft.of(temporary.resolve("target"), listOf(

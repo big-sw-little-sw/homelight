@@ -30,7 +30,6 @@ dependencies {
     implementation(libs.tamboui.toolkit)
     implementation(libs.tamboui.jline3.backend)
     implementation(libs.picocli)
-    implementation(libs.snakeyaml)
     implementation(libs.kotlinx.serialization.json)
     picocliCodegen(libs.picocli.codegen)
 

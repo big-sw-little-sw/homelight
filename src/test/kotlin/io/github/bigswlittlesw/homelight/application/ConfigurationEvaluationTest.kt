@@ -30,7 +30,7 @@ class ConfigurationEvaluationTest {
     @BeforeEach
     fun setUp() {
         root = temporary.toRealPath()
-        config = root.resolve("config.yaml")
+        config = root.resolve("config.json")
     }
 
     @ParameterizedTest
@@ -43,13 +43,11 @@ class ConfigurationEvaluationTest {
             Files.writeString(source.resolve("content"), "source")
         }
         Files.writeString(target.resolve("content"), "target")
-        // The Java text block kept six spaces of indentation and its final newline.
-        write(entry("source", "target", ("""
-                when-source-and-target-directories-exist: prompt
-                when-only-target-exists: prompt
-                source-archive-root: %s
-                """.trimIndent().prependIndent("      ") + "\n").format(root.resolve("archive"))))
-        val yaml = Files.readString(config)
+        write(entry("source", "target", mapOf(
+                "when-source-and-target-directories-exist" to "prompt",
+                "when-only-target-exists" to "prompt",
+                "source-archive-root" to root.resolve("archive").toString())))
+        val json = Files.readString(config)
         val loaded = loaded()
         val selected = evaluator.choose(loaded, root.resolve("child/../source"), choice)
 
@@ -63,7 +61,7 @@ class ConfigurationEvaluationTest {
         assertEquals(WhenSourceAndTargetDirectoriesExist.PROMPT,
                 selected.savedConfiguration.relocations.first().whenSourceAndTargetDirectoriesExist)
 
-        // Compare with the established loader + pure planner path using saved YAML policies.
+        // Compare with the established loader + pure planner path using saved policies.
         val properties = when (choice) {
             DecisionChoice.ADOPT_TARGET -> mapOf("when-only-target-exists" to "adopt-target")
             DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> mapOf("when-source-and-target-directories-exist" to "adopt",
@@ -78,15 +76,12 @@ class ConfigurationEvaluationTest {
         policies.put("when-only-target-exists", "prompt")
         policies.put("source-archive-root", root.resolve("archive").toString())
         policies.putAll(properties)
-        val saved = root.resolve("saved.yaml")
-        val lines = StringBuilder()
-        policies.forEach { key, value -> lines.append("      ").append(key).append(": ").append(value).append("\n") }
-        Files.writeString(saved, "homelight:\n  target-root: " + root + "\n  relocations:\n"
-                + entry("source", "target", lines.toString()))
+        val saved = root.resolve("saved.json")
+        Files.writeString(saved, document(entry("source", "target", policies)))
         val expected = evaluator.loadRequired(saved)
         assertEquals(expected.plan, selected.plan)
         assertEquals(ReconciliationPlanner().plan(selected.plan.expectedStates), selected.plan)
-        assertEquals(yaml, Files.readString(config))
+        assertEquals(json, Files.readString(config))
         assertEquals("target", Files.readString(target.resolve("content")))
         if (choice == DecisionChoice.ADOPT_TARGET) {
             assertFalse(Files.exists(source))
@@ -107,7 +102,7 @@ class ConfigurationEvaluationTest {
     fun choosingUsesRetainedConfigSourceTargetAndArchiveObservations() {
         Files.createDirectory(root.resolve("source"))
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", "      source-archive-root: " + root.resolve("archive") + "\n"))
+        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
         val session = HomeLightSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
@@ -119,7 +114,7 @@ class ConfigurationEvaluationTest {
         Files.createSymbolicLink(root.resolve("source"), root.resolve("target"))
         Files.writeString(root.resolve("target/content"), "changed")
         Files.createDirectories(archive.path)
-        Files.writeString(config, "malformed: [")
+        Files.writeString(config, "{\"malformed\": [")
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
 
         val selected = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
@@ -129,7 +124,7 @@ class ConfigurationEvaluationTest {
         assertEquals(RelocationSourceState.DIRECTORY, plan.sourceState)
         assertTrue(selected.plan.actions().stream().anyMatch(ReconciliationAction.ArchiveDirectory::class.java::isInstance))
         assertFalse(selected.plan.hasBlockedActions())
-        assertEquals("malformed: [", Files.readString(config))
+        assertEquals("{\"malformed\": [", Files.readString(config))
         assertTrue(Files.isSymbolicLink(root.resolve("source")))
         assertTrue(Files.isDirectory(archive.path))
         assertEquals("changed", Files.readString(root.resolve("target/content")))
@@ -138,7 +133,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun replacingChoiceStartsFromSavedPolicyAndCancelsReview() {
         bothDirectories("source", "target")
-        write(entry("source", "target", "      source-archive-root: " + root.resolve("archive") + "\n"))
+        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertTrue(session.requestApply())
@@ -156,7 +151,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun rejectsUnknownAndUnavailableChoicesWithoutChangingReview() {
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
@@ -168,7 +163,7 @@ class ConfigurationEvaluationTest {
         assertSame(review, session.applyModel())
 
         bothDirectories("other-source", "other-target")
-        write(entry("other-source", "other-target", ""))
+        write(entry("other-source", "other-target"))
         val noArchive = loaded()
         assertThrows(IllegalArgumentException::class.java) {
             evaluator.choose(noArchive, root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE) }
@@ -178,12 +173,12 @@ class ConfigurationEvaluationTest {
     fun retainsChoicesBySourceAcrossReorderAndReportsRemoval() {
         bothDirectories("first", "first-target")
         bothDirectories("second", "second-target")
-        val first = entry("first", "first-target", "")
-        val second = entry("second", "second-target", "")
-        write(first + second)
+        val first = entry("first", "first-target")
+        val second = entry("second", "second-target")
+        write(first, second)
         var selected = evaluator.choose(loaded(), root.resolve("first"), DecisionChoice.LEAVE_UNCHANGED)
         selected = evaluator.choose(selected, root.resolve("second"), DecisionChoice.DISCARD_BOTH)
-        write(second + first)
+        write(second, first)
         val reordered = evaluator.replan(selected)
         assertTrue(reordered.discardedChoices.isEmpty())
         val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, reordered.evaluation)
@@ -202,18 +197,18 @@ class ConfigurationEvaluationTest {
     @Test
     fun changedDefinitionsNeverInheritDrafts() {
         bothDirectories("source", "target")
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.DISCARD_BOTH)
         for (changed in listOf(
-                entry("source", "other-target", ""),
-                entry("source", "target", "      when-source-and-target-directories-exist: leave-unchanged\n"),
-                entry("source", "target", "      source-archive-root: " + root.resolve("archive") + "\n"))) {
+                entry("source", "other-target"),
+                entry("source", "target", mapOf("when-source-and-target-directories-exist" to "leave-unchanged")),
+                entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))) {
             write(changed)
             val result = evaluator.replan(selected)
             assertEquals(ConfigurationEvaluation.DiscardReason.DEFINITION_CHANGED, result.discardedChoices.first().reason)
             assertTrue(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, result.evaluation).draft.isEmpty())
         }
-        write(entry("new-source", "target", ""))
+        write(entry("new-source", "target"))
         val moved = evaluator.replan(selected)
         assertEquals(ConfigurationEvaluation.DiscardReason.REMOVED, moved.discardedChoices.first().reason)
         assertTrue(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, moved.evaluation).draft.isEmpty())
@@ -222,9 +217,9 @@ class ConfigurationEvaluationTest {
     @Test
     fun duplicateSourceCannotReceiveOrRetainAnAmbiguousDraft() {
         bothDirectories("source", "target")
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.LEAVE_UNCHANGED)
-        write(entry("source", "target", "") + entry("source", "target", ""))
+        write(entry("source", "target"), entry("source", "target"))
         val replanned = evaluator.replan(selected)
         val duplicate = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, replanned.evaluation)
         assertTrue(duplicate.plan.hasBlockedActions())
@@ -237,7 +232,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun reinspectionDiscardsUnavailableChoiceAndClassifiesCurrentSource() {
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         Files.createSymbolicLink(root.resolve("source"), root.resolve("target"))
         val result = evaluator.replan(selected)
@@ -251,11 +246,11 @@ class ConfigurationEvaluationTest {
     @Test
     fun missingAndMalformedConfigDiscardDraftAndRequireFreshReview() {
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
-        Files.writeString(config, "homelight: [")
+        Files.writeString(config, "{\"homelight\": [")
         session.refresh()
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, session.evaluation())
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
@@ -273,7 +268,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun runningAndRetainedResultsRejectEditsUntilExplicitReplan() {
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", ""))
+        write(entry("source", "target"))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
@@ -301,11 +296,15 @@ class ConfigurationEvaluationTest {
         Files.createDirectory(root.resolve(target))
     }
 
-    private fun write(entries: String) {
-        Files.writeString(config, "homelight:\n  target-root: " + root + "\n  relocations:\n" + entries)
+    private fun write(vararg entries: String) {
+        Files.writeString(config, document(*entries))
     }
 
-    private fun entry(source: String, target: String, policies: String): String {
-        return "    - source-path: " + root.resolve(source) + "\n      target-path: " + root.resolve(target) + "\n" + policies
+    private fun document(vararg entries: String): String =
+        "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [\n" + entries.joinToString(",\n") + "\n]}}\n"
+
+    private fun entry(source: String, target: String, policies: Map<String, String> = mapOf()): String {
+        val fields = mapOf("source-path" to root.resolve(source).toString(), "target-path" to root.resolve(target).toString()) + policies
+        return fields.entries.joinToString(", ", "  {", "}") { (key, value) -> "\"$key\": \"$value\"" }
     }
 }

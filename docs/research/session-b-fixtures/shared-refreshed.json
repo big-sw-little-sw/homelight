@@ -1,0 +1,6 @@
+{
+  "directories": [
+    {"path": ".cache/uv", "app": "Revised app label", "advice": "usually-unnecessary", "reason": "Changed advice must not change an existing draft."},
+    {"path": "new-cache", "advice": "consider"}
+  ]
+}

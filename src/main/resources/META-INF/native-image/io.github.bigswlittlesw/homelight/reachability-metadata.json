@@ -55,7 +55,7 @@
   ],
   "resources": [
     {
-      "glob": "candidates.yaml"
+      "glob": "candidates.json"
     },
     {
       "glob": "io/github/bigswlittlesw/homelight/version.properties"
