@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.fs
 
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -19,9 +18,6 @@ class PathInspector {
         }
         return PathObservation(PathState.SYMLINK, target, targetAvailability(target))
     }
-
-    fun inspectRelocationSource(path: Path, expectedTarget: Path): RelocationSourceState =
-        inspect(path).sourceStateForTarget(expectedTarget)
 
     private fun inspectNonLink(path: Path): PathObservation = try {
         val attributes = Files.readAttributes(path, BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)

@@ -160,7 +160,7 @@ class HomeLightSessionTest {
         assertTrue(session.hasConflicts())
         val second = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
                 .first { item -> item.relocation.sourcePath.endsWith("second") }
-        session.resolveDecision(second.relocation, DecisionChoice.ADOPT_TARGET)
+        session.choose(second.relocation.sourcePath, DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())

@@ -29,16 +29,16 @@ class PathInspectorTest {
 
         val correct = root.resolve("correct")
         Files.createSymbolicLink(correct, expected)
-        assertEquals(RelocationSourceState.CORRECT_SYMLINK, inspector.inspectRelocationSource(correct, expected))
+        assertEquals(RelocationSourceState.CORRECT_SYMLINK, inspector.inspect(correct).sourceStateForTarget(expected))
 
         val wrong = root.resolve("wrong")
         val other = Files.createDirectory(root.resolve("other"))
         Files.createSymbolicLink(wrong, other)
-        assertEquals(RelocationSourceState.WRONG_SYMLINK, inspector.inspectRelocationSource(wrong, expected))
+        assertEquals(RelocationSourceState.WRONG_SYMLINK, inspector.inspect(wrong).sourceStateForTarget(expected))
 
         val broken = root.resolve("broken")
         Files.createSymbolicLink(broken, root.resolve("missing"))
-        assertEquals(RelocationSourceState.BROKEN_SYMLINK, inspector.inspectRelocationSource(broken, expected))
+        assertEquals(RelocationSourceState.BROKEN_SYMLINK, inspector.inspect(broken).sourceStateForTarget(expected))
     }
 
     @Test
