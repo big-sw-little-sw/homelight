@@ -403,7 +403,8 @@ class CandidateCatalogTest {
                 }
             }
             var yamlJar = org.yaml.snakeyaml.Yaml.class.getProtectionDomain().getCodeSource().getLocation();
-            try (var loader = new URLClassLoader(new java.net.URL[] {jar.toUri().toURL(), yamlJar}, ClassLoader.getPlatformClassLoader())) {
+            var kotlinJar = kotlin.Unit.class.getProtectionDomain().getCodeSource().getLocation();
+            try (var loader = new URLClassLoader(new java.net.URL[] {jar.toUri().toURL(), yamlJar, kotlinJar}, ClassLoader.getPlatformClassLoader())) {
                 var catalogClass = loader.loadClass(CandidateCatalog.class.getName());
                 assertEquals("jar", catalogClass.getResource("CandidateCatalog.class").getProtocol());
                 var result = catalogClass.getMethod("bundled", Path.class).invoke(null, HOME);
