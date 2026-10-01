@@ -39,7 +39,7 @@ private fun encodeApplyJson(
             relocation.outcome().value,
             relocation.actions.map { action ->
                 actionJson(action.action)
-                    .copy(status = action.status.name.lowercase(Locale.getDefault()), message = action.message)
+                    .copy(status = action.status.name.lowercase(Locale.ROOT), message = action.message)
             },
         )
     }

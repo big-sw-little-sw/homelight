@@ -44,7 +44,7 @@ private fun planJson(plan: ReconciliationPlan) = PlanJson(
             relocation.conflict?.let { conflict ->
                 ConflictJson(
                     conflict.path.toString(), conflict.reason,
-                    conflict.resolutions.map { it.name.lowercase(Locale.getDefault()).replace('_', '-') },
+                    conflict.resolutions.map { it.name.lowercase(Locale.ROOT).replace('_', '-') },
                 )
             },
             relocation.actions.map(::actionJson),
@@ -54,6 +54,6 @@ private fun planJson(plan: ReconciliationPlan) = PlanJson(
 )
 
 private fun diagnosticJson(diagnostic: ReconciliationDiagnostic) = DiagnosticJson(
-    diagnostic.severity.name.lowercase(Locale.getDefault()), diagnostic.source.toString(), diagnostic.code,
+    diagnostic.severity.name.lowercase(Locale.ROOT), diagnostic.source.toString(), diagnostic.code,
     diagnostic.message,
 )

@@ -122,7 +122,7 @@ class ReconciliationExecutor {
         } else if (state != PathState.DIRECTORY) {
             throw StateDriftException(
                 "expected absent or directory at " + action.path
-                        + " but found " + state.name.lowercase(Locale.getDefault()),
+                        + " but found " + state.name.lowercase(Locale.ROOT),
             )
         }
     }
@@ -235,8 +235,8 @@ class ReconciliationExecutor {
         val actual = inspector.inspect(path).state
         if (actual != expected) {
             throw StateDriftException(
-                "expected " + expected.name.lowercase(Locale.getDefault()) + " at " + path
-                        + " but found " + actual.name.lowercase(Locale.getDefault()),
+                "expected " + expected.name.lowercase(Locale.ROOT) + " at " + path
+                        + " but found " + actual.name.lowercase(Locale.ROOT),
             )
         }
     }

@@ -11,7 +11,7 @@ internal fun renderStatusJson(snapshots: List<StatusSnapshot>, output: PrintWrit
     val relocations = snapshots.map { snapshot ->
         StatusJson(
             snapshot.sourcePath.toString(), snapshot.targetPath.toString(),
-            snapshot.state.name.lowercase(Locale.getDefault()),
+            snapshot.state.name.lowercase(Locale.ROOT),
         )
     }
     output.println(encodeJson(ListSerializer(StatusJson.serializer()), relocations))
