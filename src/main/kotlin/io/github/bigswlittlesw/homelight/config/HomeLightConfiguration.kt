@@ -1,44 +1,24 @@
 package io.github.bigswlittlesw.homelight.config
 
 import java.nio.file.Path
-import java.util.Objects
-import java.util.Optional
 
-/**
- * Resolved paths used by the status and reconciliation adapters.
- *
- * Not a `@JvmRecord data class`: the constructor normalizes its components, which a Kotlin record
- * cannot do. Accessors keep the record names; equality and `toString` match the record this replaces.
- */
-class HomeLightConfiguration(
-    targetRoot: Path,
-    relocations: List<Relocation>,
-    ignoredSourcePaths: List<Path>,
-    sharedList: Optional<Path>,
+/** Resolved paths used by the status and reconciliation adapters. */
+@ConsistentCopyVisibility
+data class HomeLightConfiguration private constructor(
+    val targetRoot: Path,
+    val relocations: List<Relocation>,
+    val ignoredSourcePaths: List<Path>,
+    val sharedList: Path?,
 ) {
-    @get:JvmName("targetRoot")
-    val targetRoot: Path = targetRoot
-
-    @get:JvmName("relocations")
-    val relocations: List<Relocation> = java.util.List.copyOf(relocations)
-
-    @get:JvmName("ignoredSourcePaths")
-    val ignoredSourcePaths: List<Path> = java.util.List.copyOf(ignoredSourcePaths)
-
-    @get:JvmName("sharedList")
-    val sharedList: Optional<Path> = sharedList.map(DiscoverySetting::normalize)
-
-    constructor(targetRoot: Path, relocations: List<Relocation>, ignoredSourcePaths: List<Path>) :
-            this(targetRoot, relocations, ignoredSourcePaths, Optional.empty())
-
-    override fun equals(other: Any?): Boolean = other is HomeLightConfiguration
-            && targetRoot == other.targetRoot
-            && relocations == other.relocations
-            && ignoredSourcePaths == other.ignoredSourcePaths
-            && sharedList == other.sharedList
-
-    override fun hashCode(): Int = Objects.hash(targetRoot, relocations, ignoredSourcePaths, sharedList)
-
-    override fun toString(): String = "HomeLightConfiguration[targetRoot=$targetRoot, relocations=$relocations, " +
-            "ignoredSourcePaths=$ignoredSourcePaths, sharedList=$sharedList]"
+    companion object {
+        /** Normalizes `sharedList` and copies the lists. */
+        fun of(
+            targetRoot: Path,
+            relocations: List<Relocation>,
+            ignoredSourcePaths: List<Path>,
+            sharedList: Path? = null,
+        ): HomeLightConfiguration = HomeLightConfiguration(
+            targetRoot, relocations.toList(), ignoredSourcePaths.toList(), sharedList?.let(::normalizeSharedList),
+        )
+    }
 }

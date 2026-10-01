@@ -167,8 +167,7 @@ class ReconciliationPlannerTest {
     companion object {
         private fun relocation(source: Path, target: Path, directories: WhenSourceAndTargetDirectoriesExist?,
                 onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
-            return Relocation(source, target, Optional.ofNullable(directories), Optional.ofNullable(onlyTarget),
-                    Optional.ofNullable(adoption), Optional.ofNullable(archiveRoot))
+            return Relocation(source, target, directories, onlyTarget, adoption, archiveRoot)
         }
 
         private fun sourceRelativeToRoot(source: Path): Path {
@@ -182,7 +181,7 @@ class ReconciliationPlannerTest {
 
         private fun state(relocation: Relocation): RelocationState {
             val inspector = PathInspector()
-            val archive = relocation.sourceArchiveRoot.map { root ->
+            val archive = java.util.Optional.ofNullable(relocation.sourceArchiveRoot).map { root ->
                 val source = relocation.sourcePath.toAbsolutePath()
                 val path = root.resolve(source.root.relativize(source))
                 RelocationState.ArchiveDestination(path, inspector.inspect(path))

@@ -38,9 +38,9 @@ class ConfigurationPublisherTest {
         val duplicateTarget = relocation(root.resolve("home/b"), root.resolve("local/a"))
         val publisher = ConfigurationPublisher()
         assertThrows(IllegalArgumentException::class.java) { publisher.saveNew(path,
-                ConfigurationDraft(root.resolve("local"), listOf(first, overlapping))) }
+                ConfigurationDraft.of(root.resolve("local"), listOf(first, overlapping))) }
         assertThrows(IllegalArgumentException::class.java) { publisher.saveNew(path,
-                ConfigurationDraft(root.resolve("local"), listOf(first, duplicateTarget))) }
+                ConfigurationDraft.of(root.resolve("local"), listOf(first, duplicateTarget))) }
         assertFalse(Files.exists(path))
     }
 
@@ -85,7 +85,7 @@ class ConfigurationPublisherTest {
             catch (expected: ConfigurationPublisher.ConfigurationException) { return false }
         }
         private fun draft(root: Path): ConfigurationDraft {
-            return ConfigurationDraft(root.resolve("local"), listOf(relocation(root.resolve("home/cache"), root.resolve("local/cache"))))
+            return ConfigurationDraft.of(root.resolve("local"), listOf(relocation(root.resolve("home/cache"), root.resolve("local/cache"))))
         }
         private fun relocation(source: Path, target: Path): Relocation { return Relocation(source, target) }
     }

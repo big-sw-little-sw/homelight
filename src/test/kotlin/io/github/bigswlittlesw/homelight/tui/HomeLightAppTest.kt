@@ -18,6 +18,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -51,7 +52,7 @@ class HomeLightAppTest {
         val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
         assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath)
         assertEquals(root.resolve("local/.cache/tool"), relocation.targetPath)
-        assertTrue(relocation.whenSourceAndTargetDirectoriesExist.isEmpty)
+        assertNull(relocation.whenSourceAndTargetDirectoriesExist)
         assertFalse(Files.exists(root.resolve("home/.cache/tool")), "saving must not relocate")
     }
 
@@ -162,7 +163,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('s'))
 
         val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
-        assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot.orElseThrow())
+        assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot)
         assertFalse(Files.exists(temporary.resolve("home/nested/cache")), "saving must not relocate")
     }
 

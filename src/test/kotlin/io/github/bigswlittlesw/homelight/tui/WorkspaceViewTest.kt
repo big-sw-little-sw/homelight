@@ -114,9 +114,8 @@ class WorkspaceViewTest {
         val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.stream()
             .filter { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }.findFirst().orElseThrow()
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
-            java.util.Optional.of(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT),
-            java.util.Optional.empty(), java.util.Optional.of(io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget.DISCARD_SOURCE),
-            java.util.Optional.empty(), java.util.Optional.empty()), item)
+            io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT,
+            null, io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget.DISCARD_SOURCE), item)
         assertEquals("Adopt target; discard source.", policy)
     }
 

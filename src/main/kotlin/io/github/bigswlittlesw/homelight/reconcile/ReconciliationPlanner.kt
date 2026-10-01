@@ -69,7 +69,7 @@ class ReconciliationPlanner {
                 relocation, RelocationOutcome.CONVERGED, java.util.List.of(
                     ReconciliationAction.MigrateDirectoryForPublication(
                         relocation.sourcePath, relocation.targetPath,
-                        relocation.stagingRoot,
+                        java.util.Optional.ofNullable(relocation.stagingRoot),
                     ),
                     ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath),
                 ),
@@ -78,7 +78,7 @@ class ReconciliationPlanner {
         }
 
         fun onlyTargetExists(state: RelocationState): RelocationPlan =
-            if (state.relocation.whenOnlyTargetExists.orElse(WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.ADOPT_TARGET)
+            if ((state.relocation.whenOnlyTargetExists ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.ADOPT_TARGET)
                 outcome(
                     state, java.util.List.of(
                         ReconciliationAction.EnsureDirectory(state.relocation.sourcePath.parent),
@@ -88,7 +88,7 @@ class ReconciliationPlanner {
             else unresolved(state, state.relocation.targetPath, "a real target directory requires an adopt-target decision")
 
         fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
-            when (state.relocation.whenSourceAndTargetDirectoriesExist.orElse(WhenSourceAndTargetDirectoriesExist.PROMPT)) {
+            when (state.relocation.whenSourceAndTargetDirectoriesExist ?: WhenSourceAndTargetDirectoriesExist.PROMPT) {
                 WhenSourceAndTargetDirectoriesExist.PROMPT -> unresolved(
                     state, state.relocation.sourcePath,
                     "both source and target directories exist; choose which directory is authoritative",
@@ -99,7 +99,7 @@ class ReconciliationPlanner {
             }
 
         fun adoptTarget(state: RelocationState): RelocationPlan =
-            when (state.relocation.whenAdoptingTarget.orElse(WhenAdoptingTarget.PROMPT)) {
+            when (state.relocation.whenAdoptingTarget ?: WhenAdoptingTarget.PROMPT) {
                 WhenAdoptingTarget.PROMPT -> unresolved(
                     state, state.relocation.sourcePath, "adopting the target requires a source disposition",
                 )
@@ -115,7 +115,8 @@ class ReconciliationPlanner {
 
         fun archiveSource(state: RelocationState): RelocationPlan {
             val relocation = state.relocation
-            val archivePath = relocation.sourceArchiveRoot.orElseThrow()
+            // validateConfiguration has rejected archive-source without an archive root.
+            val archivePath = relocation.sourceArchiveRoot!!
                 .resolve(sourceRelativePath(relocation.sourcePath)).normalize()
             if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
                 return blocked(state, "source archive path overlaps a relocation path")
@@ -196,9 +197,7 @@ class ReconciliationPlanner {
         fun validateConfiguration(states: List<RelocationState>): List<ReconciliationDiagnostic> {
             for (state in states) {
                 val relocation = state.relocation
-                if (relocation.whenAdoptingTarget.filter { WhenAdoptingTarget.ARCHIVE_SOURCE == it }.isPresent
-                    && relocation.sourceArchiveRoot.isEmpty
-                ) {
+                if (relocation.whenAdoptingTarget == WhenAdoptingTarget.ARCHIVE_SOURCE && relocation.sourceArchiveRoot == null) {
                     return java.util.List.of(
                         configurationError(relocation.sourcePath, "archive-source requires source-archive-root"),
                     )

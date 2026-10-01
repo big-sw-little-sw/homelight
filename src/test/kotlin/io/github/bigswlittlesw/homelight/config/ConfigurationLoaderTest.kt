@@ -1,12 +1,12 @@
 package io.github.bigswlittlesw.homelight.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 
 // Java text blocks end with the newline before the closing delimiter, and `trimIndent` drops it,
 // so each block appends "\n" to keep the YAML byte-identical.
@@ -20,7 +20,7 @@ class ConfigurationLoaderTest {
               when-source-and-target-directories-exist: adopt
               when-adopting-target: archive-source
               source-archive-root: /archive
-        """.trimIndent() + "\n"); val relocation=ConfigurationLoader().load(file).relocations.first(); assertEquals(WhenSourceAndTargetDirectoriesExist.ADOPT,relocation.whenSourceAndTargetDirectoriesExist.orElseThrow()); assertEquals(WhenAdoptingTarget.ARCHIVE_SOURCE,relocation.whenAdoptingTarget.orElseThrow()) }
+        """.trimIndent() + "\n"); val relocation=ConfigurationLoader().load(file).relocations.first(); assertEquals(WhenSourceAndTargetDirectoriesExist.ADOPT,relocation.whenSourceAndTargetDirectoriesExist); assertEquals(WhenAdoptingTarget.ARCHIVE_SOURCE,relocation.whenAdoptingTarget) }
     @Test fun rejectsArchiveWithoutRoot() { val file=Files.createTempFile("homelight", ".yaml"); Files.writeString(file, """
         homelight:
           target-root: /local
@@ -132,9 +132,9 @@ class ConfigurationLoaderTest {
                       when-only-target-exists: adopt-target
                       when-adopting-target: discard-source
                 """.trimIndent() + "\n").relocations.first()
-        assertEquals(Optional.of(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED), relocation.whenSourceAndTargetDirectoriesExist)
-        assertEquals(Optional.of(WhenOnlyTargetExists.ADOPT_TARGET), relocation.whenOnlyTargetExists)
-        assertEquals(Optional.of(WhenAdoptingTarget.DISCARD_SOURCE), relocation.whenAdoptingTarget)
+        assertEquals(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, relocation.whenSourceAndTargetDirectoriesExist)
+        assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, relocation.whenOnlyTargetExists)
+        assertEquals(WhenAdoptingTarget.DISCARD_SOURCE, relocation.whenAdoptingTarget)
     }
 
     @Test fun reportsMalformedYamlWithLocation() {
@@ -160,10 +160,10 @@ class ConfigurationLoaderTest {
         val relocation = configuration.relocations.first()
         assertEquals(home.resolve("cache"), relocation.sourcePath)
         assertEquals(Path.of("/local").resolve(home.relativize(home.resolve("cache"))), relocation.targetPath)
-        assertEquals(Optional.of(Path.of("/local/.staging")), relocation.stagingRoot)
-        assertEquals(Optional.empty<WhenAdoptingTarget>(), relocation.whenAdoptingTarget)
+        assertEquals(Path.of("/local/.staging"), relocation.stagingRoot)
+        assertNull(relocation.whenAdoptingTarget)
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
-        assertEquals(Optional.of(Path.of("/shared/candidates.yaml")), configuration.sharedList)
+        assertEquals(Path.of("/shared/candidates.yaml"), configuration.sharedList)
         assertEquals(listOf<Relocation>(), load("homelight:\n  target-root: /local\n  relocations:\n").relocations)
     }
 
@@ -179,25 +179,25 @@ class ConfigurationLoaderTest {
                       target-path: /local/second
                 """.trimIndent() + "\n")
         val override = ConfigurationLoader.PathOverride(Path.of("/override/source"), Path.of("/override/target"))
-        val relocations = ConfigurationLoader().load(file, Optional.of(override)).relocations
+        val relocations = ConfigurationLoader().load(file, override).relocations
         assertEquals(Path.of("/override/source"), relocations.first().sourcePath)
         assertEquals(Path.of("/override/target"), relocations.first().targetPath)
-        assertEquals(Optional.of(WhenOnlyTargetExists.ADOPT_TARGET), relocations.first().whenOnlyTargetExists)
+        assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, relocations.first().whenOnlyTargetExists)
         assertEquals(Relocation(Path.of("/home/second"), Path.of("/local/second")), relocations.last())
 
         val empty = write("homelight:\n  target-root: /local\n")
         assertEquals(listOf(Relocation(Path.of("/override/source"), Path.of("/override/target"))),
-                ConfigurationLoader().load(empty, Optional.of(override)).relocations)
+                ConfigurationLoader().load(empty, override).relocations)
     }
 
     @Test fun loadsWhatThePublisherWrites() {
         val relocation = Relocation(temporary.resolve("home/it's"), temporary.resolve("local/it's"),
-                Optional.of(WhenSourceAndTargetDirectoriesExist.ADOPT), Optional.of(WhenOnlyTargetExists.PROMPT),
-                Optional.of(WhenAdoptingTarget.ARCHIVE_SOURCE), Optional.of(temporary.resolve("archive")))
-        val draft = ConfigurationDraft(temporary.resolve("local"), listOf(relocation),
-                Optional.of(temporary.resolve("shared.yaml")))
+                WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT,
+                WhenAdoptingTarget.ARCHIVE_SOURCE, temporary.resolve("archive"))
+        val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation),
+                temporary.resolve("shared.yaml"))
         val loaded = ConfigurationLoader().load(write(ConfigurationPublisher.yaml(draft)))
-        assertEquals(HomeLightConfiguration(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+        assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
     }
 
     private fun load(yaml: String): HomeLightConfiguration {

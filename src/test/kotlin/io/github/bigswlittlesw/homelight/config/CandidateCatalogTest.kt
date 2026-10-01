@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -13,7 +14,6 @@ import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 
@@ -31,12 +31,12 @@ class CandidateCatalogTest {
                 assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
                 assertEquals(6, snapshot.definitions.size)
                 assertEquals(root.resolve(".m2"), snapshot.definitions.first().sourcePath)
-                assertEquals(Optional.of("Maven"), snapshot.definitions.first().app)
-                assertEquals(Optional.of(CandidateDefinition.Advice.CONSIDER), snapshot.definitions.first().advice)
-                assertEquals(Optional.of(CandidateDefinition.Advice.USUALLY_UNNECESSARY), snapshot.definitions.get(4).advice)
-                assertTrue(snapshot.definitions.get(1).advice.isEmpty())
-                assertTrue(snapshot.definitions.get(1).reason.isEmpty())
-                assertTrue(snapshot.definitions.get(5).app.isEmpty())
+                assertEquals("Maven", snapshot.definitions.first().app)
+                assertEquals(CandidateDefinition.Advice.CONSIDER, snapshot.definitions.first().advice)
+                assertEquals(CandidateDefinition.Advice.USUALLY_UNNECESSARY, snapshot.definitions.get(4).advice)
+                assertNull(snapshot.definitions.get(1).advice)
+                assertNull(snapshot.definitions.get(1).reason)
+                assertNull(snapshot.definitions.get(5).app)
                 for (definition in snapshot.definitions) {
                     assertEquals(source, definition.source)
                     assertEquals(root.resolve(definition.originalPath).normalize(), definition.sourcePath)
@@ -122,11 +122,11 @@ class CandidateCatalogTest {
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
         assertEquals(listOf("2026-09-23", "true"),
                 snapshot.definitions.stream().map(CandidateDefinition::originalPath).toList())
-        assertEquals(listOf(Optional.of("12"), Optional.of("12")),
+        assertEquals(listOf("12", "12"),
                 snapshot.definitions.stream().map(CandidateDefinition::app).toList())
-        assertEquals(listOf(Optional.of("5"), Optional.empty()),
+        assertEquals(listOf("5", null),
                 snapshot.definitions.stream().map(CandidateDefinition::reason).toList())
-        assertTrue(snapshot.definitions.first().advice.isEmpty())
+        assertNull(snapshot.definitions.first().advice)
         val missing = parse("directories: [{path: '  '}]").diagnostics.first()
         assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 1, 15,
                 "directories[0]", "path", "Missing required key directories[0].path"), missing)
@@ -148,7 +148,7 @@ class CandidateCatalogTest {
         assertKind(CandidateDiagnostic.Kind.SCHEMA, parse("directories: " + "[".repeat(7) + "]".repeat(7)))
         assertKind(CandidateDiagnostic.Kind.LIMIT, parse("directories: " + "[".repeat(8) + "]".repeat(8)))
         val reason = "😀".repeat(CandidateParser.MAX_STRING_CHARACTERS)
-        assertEquals(Optional.of(reason), parse("directories: [{path: cache, reason: " + quoted(reason) + "}]")
+        assertEquals(reason, parse("directories: [{path: cache, reason: " + quoted(reason) + "}]")
                 .definitions.first().reason)
         assertKind(CandidateDiagnostic.Kind.LIMIT,
                 parse("directories: [{path: cache, reason: " + quoted(reason + "x") + "}]"))
@@ -163,9 +163,9 @@ class CandidateCatalogTest {
         }
         val appsOnly = parse("apps: [{name: App, directories: [{path: cache}]}]")
         assertTrue(appsOnly.accepted())
-        assertEquals(Optional.of("App"), appsOnly.definitions.first().app)
-        assertTrue(appsOnly.definitions.first().advice.isEmpty())
-        assertTrue(appsOnly.definitions.first().reason.isEmpty())
+        assertEquals("App", appsOnly.definitions.first().app)
+        assertNull(appsOnly.definitions.first().advice)
+        assertNull(appsOnly.definitions.first().reason)
     }
 
     @Test fun preservesRepeatedGroupsAndCrossGroupOccurrencesInAppFirstOrder() {
@@ -190,12 +190,12 @@ class CandidateCatalogTest {
         assertEquals(listOf("apps[1].directories[0]", "apps[2].directories[0]",
                 "apps[3].directories[0]", "directories[0]"),
                 definitions.stream().map(CandidateDefinition::location).toList())
-        assertEquals(listOf(Optional.of("uv"), Optional.of("uv"), Optional.of("UV"), Optional.empty()),
+        assertEquals(listOf("uv", "uv", "UV", null),
                 definitions.stream().map(CandidateDefinition::app).toList())
-        assertEquals(listOf(Optional.of("First"), Optional.of("Second"), Optional.empty(), Optional.of("Ungrouped")),
+        assertEquals(listOf("First", "Second", null, "Ungrouped"),
                 definitions.stream().map(CandidateDefinition::reason).toList())
-        assertEquals(listOf(Optional.of(CandidateDefinition.Advice.CONSIDER),
-                Optional.of(CandidateDefinition.Advice.USUALLY_UNNECESSARY), Optional.empty(), Optional.empty()),
+        assertEquals(listOf(CandidateDefinition.Advice.CONSIDER,
+                CandidateDefinition.Advice.USUALLY_UNNECESSARY, null, null),
                 definitions.stream().map(CandidateDefinition::advice).toList())
     }
 
@@ -266,14 +266,14 @@ class CandidateCatalogTest {
         assertEquals(11, merged.candidates.size)
         val maven = merged.candidates.first()
         assertEquals(listOf(bundled.definitions.first(), shared.definitions.first()), maven.definitions)
-        assertEquals(listOf(Optional.of("Maven"), Optional.of("Build tools")),
+        assertEquals(listOf("Maven", "Build tools"),
                 maven.definitions.stream().map(CandidateDefinition::app).toList())
-        assertEquals(listOf(Optional.of(CandidateDefinition.Advice.CONSIDER),
-                        Optional.of(CandidateDefinition.Advice.USUALLY_UNNECESSARY)),
+        assertEquals(listOf(CandidateDefinition.Advice.CONSIDER,
+                        CandidateDefinition.Advice.USUALLY_UNNECESSARY),
                 maven.definitions.stream().map(CandidateDefinition::advice).toList())
         val uv = merged.candidates.get(1)
         assertEquals(".cache//uv", uv.definitions.get(1).originalPath)
-        assertTrue(uv.definitions.first().advice.isEmpty())
+        assertNull(uv.definitions.first().advice)
         assertEquals(2, uv.definitions.get(1).recordIndex)
         assertEquals(9, uv.definitions.get(1).line)
         assertEquals("apps[1].directories[0]", uv.definitions.get(1).location)
@@ -283,8 +283,8 @@ class CandidateCatalogTest {
         val duplicate = parse("directories:\n" + ("- path: cache\n  reason: " + quoted(reason) + "\n").repeat(2))
         val occurrences = CandidateCatalog.merge(listOf(duplicate)).candidates.first().definitions
         assertEquals(2, occurrences.size)
-        assertEquals(Optional.of(reason), occurrences.first().reason)
-        assertEquals(Optional.of(reason), occurrences.get(1).reason)
+        assertEquals(reason, occurrences.first().reason)
+        assertEquals(reason, occurrences.get(1).reason)
         assertEquals(1, occurrences.first().recordIndex)
         assertEquals(2, occurrences.get(1).recordIndex)
         assertNotEquals(occurrences.first().line, occurrences.get(1).line)
@@ -311,7 +311,7 @@ class CandidateCatalogTest {
     @Test fun returnedCollectionsAreImmutableAndDefensivelyCopied() {
         val parsed = parse("directories: [{path: cache}]")
         val definitions = ArrayList(parsed.definitions)
-        val copied = CandidateCatalog.Snapshot(SHARED, HOME, definitions, listOf())
+        val copied = CandidateCatalog.Snapshot.of(SHARED, HOME, definitions, listOf())
         definitions.clear()
         assertEquals(1, copied.definitions.size)
         // Kotlin's read-only `List` has no `clear`; the casts reach the JDK lists' mutators.
@@ -322,7 +322,7 @@ class CandidateCatalogTest {
         assertThrows(UnsupportedOperationException::class.java) { (merged.diagnostics as MutableList<*>).clear() }
         assertThrows(UnsupportedOperationException::class.java) {
             (merged.candidates.first().definitions as MutableList<*>).clear() }
-        assertThrows(IllegalArgumentException::class.java) { CandidateCatalog.Snapshot(SHARED, HOME,
+        assertThrows(IllegalArgumentException::class.java) { CandidateCatalog.Snapshot.of(SHARED, HOME,
                 parsed.definitions, parse("").diagnostics) }
     }
 
@@ -358,21 +358,21 @@ class CandidateCatalogTest {
                 ".cache/JetBrains|JetBrains|JetBrains caches",
                 ".vscode-server|VS Code|VS Code server"
         ), snapshot.definitions.stream()
-                .map { d -> d.originalPath + "|" + d.app.orElseThrow() + "|" + d.reason.orElseThrow() }.toList())
+                .map { d -> d.originalPath + "|" + d.app + "|" + d.reason }.toList())
         assertEquals(".m2", snapshot.definitions.first().originalPath)
-        assertEquals(Optional.of("Maven local repository"), snapshot.definitions.first().reason)
+        assertEquals("Maven local repository", snapshot.definitions.first().reason)
         assertEquals(".vscode-server", snapshot.definitions.last().originalPath)
-        assertEquals(Optional.of("VS Code server"), snapshot.definitions.last().reason)
+        assertEquals("VS Code server", snapshot.definitions.last().reason)
         assertTrue(snapshot.definitions.stream().allMatch { d ->
-                d.advice.equals(Optional.of(CandidateDefinition.Advice.CONSIDER)) && d.reason.isPresent() })
-        assertTrue(snapshot.definitions.stream().allMatch { d -> d.app.isPresent() })
-        val jbang = snapshot.definitions.stream().filter { d -> d.app.equals(Optional.of("JBang")) }.toList()
+                d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
+        assertTrue(snapshot.definitions.stream().allMatch { d -> d.app != null })
+        val jbang = snapshot.definitions.stream().filter { d -> d.app == "JBang" }.toList()
         assertEquals(1, jbang.size)
         assertEquals(".jbang/cache", jbang.first().originalPath)
         assertEquals(HOME.resolve(".jbang/cache"), jbang.first().sourcePath)
         for (app in listOf("Gradle", "Yarn", "pnpm", "uv")) {
             val indices = java.util.stream.IntStream.range(0, snapshot.definitions.size)
-                    .filter { i -> snapshot.definitions.get(i).app.equals(Optional.of(app)) }.toArray()
+                    .filter { i -> snapshot.definitions.get(i).app == app }.toArray()
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices[indices.size - 1] - indices[0] + 1, app)
         }
@@ -407,9 +407,10 @@ class CandidateCatalogTest {
             URLClassLoader(arrayOf(jar.toUri().toURL(), yamlJar, kotlinJar), ClassLoader.getPlatformClassLoader()).use { loader ->
                 val catalogClass = loader.loadClass(CandidateCatalog::class.java.name)
                 assertEquals("jar", catalogClass.getResource("CandidateCatalog.class").protocol)
-                val result = catalogClass.getMethod("bundled", Path::class.java).invoke(null, HOME)
+                val catalog = catalogClass.getField("INSTANCE").get(null)
+                val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant.equals("valid"), result.javaClass.getMethod("accepted").invoke(result))
-                val definitions = result.javaClass.getMethod("definitions").invoke(result) as List<*>
+                val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
                 assertEquals(if (variant.equals("valid")) 26 else 0, definitions.size)
             }
         }

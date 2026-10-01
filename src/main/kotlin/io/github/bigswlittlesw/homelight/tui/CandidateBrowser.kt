@@ -186,7 +186,7 @@ internal class CandidateBrowser {
         val groups = LinkedHashMap<Optional<String>, MutableList<SetupDraft.Entry>>()
         for (entry in entriesByPath.values) {
             if (!reveal && hidden(entry, draft)) continue
-            val app = definitions(entry).stream().map { d -> d.app }.flatMap { app -> app.stream() }.findFirst()
+            val app = Optional.ofNullable(definitions(entry).firstNotNullOfOrNull { d -> d.app })
             groups.computeIfAbsent(app) { ArrayList() }.add(entry)
         }
         val result = ArrayList<Item>()
@@ -237,7 +237,7 @@ internal class CandidateBrowser {
         private fun hidden(entry: SetupDraft.Entry, draft: SetupDraft): Boolean {
             val definitions = definitions(entry)
             return !member(entry) && !definitions.isEmpty() && definitions.stream().allMatch { d ->
-                d.advice == Optional.of(CandidateDefinition.Advice.USUALLY_UNNECESSARY) &&
+                d.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY &&
                     draft.discovery().stream().flatMap { r -> r.sources.stream() }.anyMatch { s ->
                         s.source == d.source && s.status == CandidateDiscovery.SourceStatus.CURRENT
                     }
@@ -286,7 +286,7 @@ internal class CandidateBrowser {
         }
 
         private fun adviceSummary(entry: SetupDraft.Entry): String {
-            val values = definitions(entry).stream().map { d -> d.advice }.distinct().toList()
+            val values = definitions(entry).stream().map { d -> Optional.ofNullable(d.advice) }.distinct().toList()
             if (values.stream().flatMap { value -> value.stream() }.distinct().count() > 1) return " · Mixed advice"
             if (values.size > 1) return " · " + advice(values.stream().filter { value -> value.isPresent }.findFirst().orElseThrow()) +
                 "; some advice omitted"
@@ -329,18 +329,18 @@ internal class CandidateBrowser {
                 lines.add(DetailViewport.Line("Saved target: " + literal(r.targetPath.toString())))
                 lines.add(
                     DetailViewport.Line(
-                        "Saved policies: both directories: " + r.whenSourceAndTargetDirectoriesExist.map { v ->
+                        "Saved policies: both directories: " + (r.whenSourceAndTargetDirectoriesExist?.let { v ->
                             when (v) {
                                 WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
                                 WhenSourceAndTargetDirectoriesExist.PROMPT, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                                WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> v.value().replace('-', ' ')
+                                WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> v.value.replace('-', ' ')
                             }
-                        }.orElse("Default (prompt)") +
-                            "; only target: " + r.whenOnlyTargetExists.map { v -> v.value().replace('-', ' ') }.orElse("Default (prompt)") +
-                            "; adopt target: " + r.whenAdoptingTarget.map { v -> v.value().replace('-', ' ') }.orElse("Default (prompt)"),
+                        } ?: "Default (prompt)") +
+                            "; only target: " + (r.whenOnlyTargetExists?.value?.replace('-', ' ') ?: "Default (prompt)") +
+                            "; adopt target: " + (r.whenAdoptingTarget?.value?.replace('-', ' ') ?: "Default (prompt)"),
                     ),
                 )
-                r.sourceArchiveRoot.ifPresent { p -> lines.add(DetailViewport.Line("Saved archive root: " + literal(p.toString()))) }
+                r.sourceArchiveRoot?.let { p -> lines.add(DetailViewport.Line("Saved archive root: " + literal(p.toString()))) }
             }
             entry.draft.ifPresent { r ->
                 lines.add(
@@ -415,11 +415,11 @@ internal class CandidateBrowser {
         private fun definition(lines: MutableList<DetailViewport.Line>, definition: CandidateDefinition, freshness: String) {
             lines.add(
                 DetailViewport.Line(
-                    literal(definition.app.orElse("Ungrouped")) + " · " + sourceName(definition.source) + " · " + freshness,
+                    literal(definition.app ?: "Ungrouped") + " · " + sourceName(definition.source) + " · " + freshness,
                 ),
             )
-            lines.add(DetailViewport.Line("Advice: " + advice(definition.advice)))
-            definition.reason.ifPresent { reason -> lines.add(DetailViewport.Line("Reason: " + literal(reason))) }
+            lines.add(DetailViewport.Line("Advice: " + advice(Optional.ofNullable(definition.advice))))
+            definition.reason?.let { reason -> lines.add(DetailViewport.Line("Reason: " + literal(reason))) }
             lines.add(
                 DetailViewport.Line(
                     "From: " + literal(definition.source.location) + " · " + literal(definition.location) +
