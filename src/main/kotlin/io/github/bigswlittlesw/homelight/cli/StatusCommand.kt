@@ -2,7 +2,7 @@ package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
-import io.github.bigswlittlesw.homelight.tui.TuiLauncher
+import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -24,7 +24,7 @@ internal class StatusCommand : Callable<Int> {
     override fun call(): Int {
         val configPath = parent.config
         if (!json) {
-            return TuiLauncher.launchStatus(configPath, parent.debugStepDelayMillis, commandSpec.commandLine().err)
+            return launchTui(configPath, parent.debugStepDelayMillis, commandSpec.commandLine().err)
         }
         val output = commandSpec.commandLine().out
         if (isUnconfiguredDefault(configPath)) {

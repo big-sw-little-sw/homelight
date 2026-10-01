@@ -39,8 +39,8 @@ class D3PolishTest {
             assertFalse(grown.matches(Regex("(?s).*\\d+–\\d+/\\d+.*")))
         }
         assertTrue(WorkspaceViewTest.render(view, 80, 24).contains("█"))
-        assertEquals(listOf("one two", "three"), DetailViewport.wrap("one two three", 8))
-        assertEquals("/unbreakable/path", DetailViewport.wrap("/unbreakable/path", 5).joinToString(""))
+        assertEquals(listOf("one two", "three"), wrap("one two three", 8))
+        assertEquals("/unbreakable/path", wrap("/unbreakable/path", 5).joinToString(""))
     }
 
     @Test
@@ -48,7 +48,7 @@ class D3PolishTest {
         val session = HomeLightSession(WorkspaceViewTest.fixture(temporary))
         val app = HomeLightApp(session)
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
         app.handleKeyEvent(KeyEvent.ofChar('l'))
         app.handleKeyEvent(KeyEvent.ofChar(' '))
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(80, 24))) {
@@ -93,7 +93,7 @@ class D3PolishTest {
         assertTrue(empty.contains("No configured relocations."), empty)
         assertFalse(empty.contains("already in sync"), empty)
         assertFalse(empty.contains("in sync hidden"), empty)
-        val conflict = WorkspaceViewTest.render(HomeLightApp(WorkspaceViewTest.fixture(temporary)).render(), 200, 50)
+        val conflict = WorkspaceViewTest.render(HomeLightApp(HomeLightSession(WorkspaceViewTest.fixture(temporary))).render(), 200, 50)
         assertTrue(conflict.contains("Choose a decision to see planned changes."), conflict)
         assertFalse(conflict.contains("Planned actions"), conflict)
         assertFalse(conflict.contains("Overlapping risks"), conflict)

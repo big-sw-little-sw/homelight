@@ -48,7 +48,7 @@ class CandidateSetupTest {
             enter(app); down(app); down(app)
         }
         escape(app); key(app, 's')
-        val plan = assertInstanceOf(PlanModel.Configured::class.java, app.session().planModel())
+        val plan = assertInstanceOf(PlanModel.Configured::class.java, app.session.planModel())
         assertEquals(listOf(
             ReconciliationAction.DeleteDirectory(source),
             ReconciliationAction.DeleteDirectory(target),
@@ -59,7 +59,7 @@ class CandidateSetupTest {
             plan.items.first().plan.actions)
         assertEquals("unchanged", Files.readString(source.resolve("payload")))
         assertEquals("target unchanged", Files.readString(target.resolve("payload")))
-        assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
+        assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
     }
 
     @Test fun browseAddEditRefreshRemovalAndSavePreserveChoicesAndHistory() {
@@ -94,7 +94,7 @@ class CandidateSetupTest {
             assertEquals(root.resolve("shared.yaml"), saved.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("home/team-cache/payload")))
             assertFalse(Files.exists(root.resolve("local/custom-target")))
-            assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
+            assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
             assertNull(workers.workers.first().snapshot().request)
         }
     }
@@ -183,7 +183,7 @@ class CandidateSetupTest {
             assertEquals(io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
             assertFalse(Files.exists(row.sourcePath))
             assertFalse(Files.exists(root.resolve("local")))
-            assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
+            assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
         }
     }
 
@@ -294,7 +294,7 @@ class CandidateSetupTest {
         assertFalse(text.contains("a: Add") || text.contains("e: Edit"))
         browser.key(KeyEvent.ofChar('a'), draft); browser.key(KeyEvent.ofChar('e'), draft)
         assertTrue(draft.rows.isEmpty())
-        assertEquals("hello\\u001b[2J\\u000aworld", CandidateBrowser.literal("hello\u001b[2J\nworld"))
+        assertEquals("hello\\u001b[2J\\u000aworld", literal("hello\u001b[2J\nworld"))
     }
 
     @Test fun arrivingResultsDoNotStealPathFocusOrEraseActiveRowText() {
@@ -367,7 +367,7 @@ class CandidateSetupTest {
 
     private companion object {
         fun app(root: Path, workers: SetupDiscoveryFixture): HomeLightApp {
-            val app = HomeLightApp(HomeLightSession(root.resolve("config.yaml")), workers); key(app, 'i'); return app
+            val app = HomeLightApp(HomeLightSession(root.resolve("config.yaml")), discoveryFactory = workers::get); key(app, 'i'); return app
         }
         fun locations(app: HomeLightApp, root: Path, shared: Path) {
             clear(app); type(app, root.resolve("home").toString()); down(app); type(app, root.resolve("local").toString())

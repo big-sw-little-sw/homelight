@@ -4,7 +4,7 @@ import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.tui.TuiLauncher
+import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Option
@@ -51,6 +51,6 @@ internal class PlanCommand : Callable<Int> {
             return 0
         }
 
-        return TuiLauncher.launchPlan(configPath, parent.debugStepDelayMillis, spec.commandLine().err)
+        return launchTui(configPath, parent.debugStepDelayMillis, spec.commandLine().err)
     }
 }

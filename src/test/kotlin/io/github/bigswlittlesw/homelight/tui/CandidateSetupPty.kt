@@ -14,7 +14,7 @@ object CandidateSetupPty {
         SetupDiscoveryFixture().use { fixture ->
             fixture.realTime = true
             if (args.size > 1) { fixture.block = true; fixture.releaseFile = Path.of(args[1]) }
-            val app = HomeLightApp(HomeLightSession(Path.of(args[0])), fixture)
+            val app = HomeLightApp(HomeLightSession(Path.of(args[0])), discoveryFactory = fixture::get)
             app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofChar('i'))
             app.run()
         }

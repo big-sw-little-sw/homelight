@@ -235,35 +235,35 @@ class HomeLightAppTest {
                     - source-path: %s
                       target-path: %s
                 """.trimIndent() + "\n").format(root, source, target))
-        val app = HomeLightApp(config)
+        val app = HomeLightApp(HomeLightSession(config))
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.APPLY, app.activeScreen())
+        assertEquals(Screen.APPLY, app.activeScreen)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        assertTrue(app.session().applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation)
+        assertTrue(app.session.applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
         app.handleKeyEvent(KeyEvent.ofChar('n'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
         app.handleKeyEvent(KeyEvent.ofChar('a'))
         app.handleKeyEvent(KeyEvent.ofChar('y'))
-        app.session().awaitExecution()
+        app.session.awaitExecution()
         assertTrue(Files.isSymbolicLink(source))
-        assertTrue(app.session().applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Result)
+        assertTrue(app.session.applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
         assertEquals(1, (app.planModel() as PlanModel.Configured).summary.inSync)
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertTrue(app.session().applyModel() is ApplyModel.Result)
+        assertTrue(app.session.applyModel() is ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofChar('r'))
-        assertTrue(app.session().isPlanReady())
+        assertTrue(app.session.isPlanReady())
         assertFalse((app.planModel() as PlanModel.Configured).plan.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
-        val unchanged = app.session().applyModel()
+        val unchanged = app.session.applyModel()
         app.handleKeyEvent(KeyEvent.ofChar('y'))
-        org.junit.jupiter.api.Assertions.assertSame(unchanged, app.session().applyModel())
-        assertFalse(app.session().isApplying())
+        org.junit.jupiter.api.Assertions.assertSame(unchanged, app.session.applyModel())
+        assertFalse(app.session.isApplying())
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
     }
 
     @Test
@@ -276,15 +276,15 @@ class HomeLightAppTest {
                     - source-path: %s
                       target-path: %s
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
-        val app = HomeLightApp(config)
+        val app = HomeLightApp(HomeLightSession(config))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
         val tasks = java.util.ArrayList<Runnable>()
-        app.session().confirmApply(Executor { tasks.add(it) })
-        val running = app.session().applyModel()
+        app.session.confirmApply(Executor { tasks.add(it) })
+        val running = app.session.applyModel()
         for (key in charArrayOf('r', 'y', 'a', '1', '2', 'q')) {
             assertEquals(dev.tamboui.toolkit.event.EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)))
-            assertEquals(Screen.APPLY, app.activeScreen())
-            org.junit.jupiter.api.Assertions.assertSame(running, app.session().applyModel())
+            assertEquals(Screen.APPLY, app.activeScreen)
+            org.junit.jupiter.api.Assertions.assertSame(running, app.session.applyModel())
         }
         tasks.first().run()
         assertTrue(Files.isSymbolicLink(root.resolve("source")))
@@ -381,7 +381,7 @@ class HomeLightAppTest {
         val app = HomeLightApp(session)
 
         // When there is an unresolved item, showInSync defaults to false
-        assertFalse(app.showInSync())
+        assertFalse(app.showInSync)
         assertEquals(0, app.selectedIndex())
 
         // Moving down stays at 0 because only 1 active item is visible
@@ -390,7 +390,7 @@ class HomeLightAppTest {
 
         // Press 'c' to toggle showInSync to true
         app.handleKeyEvent(KeyEvent.ofChar('c'))
-        assertTrue(app.showInSync())
+        assertTrue(app.showInSync)
 
         // Now all 3 items are navigable
         app.handleKeyEvent(KeyEvent.ofChar('j'))
@@ -400,7 +400,7 @@ class HomeLightAppTest {
 
         // Press SPACE to toggle showInSync back to false
         app.handleKeyEvent(KeyEvent.ofChar('c'))
-        assertFalse(app.showInSync())
+        assertFalse(app.showInSync)
         assertEquals(0, app.selectedIndex())
     }
 
@@ -423,29 +423,29 @@ class HomeLightAppTest {
         }
 
         val app = HomeLightApp(session)
-        assertTrue(app.showInSync())
+        assertTrue(app.showInSync)
         assertEquals(0, app.selectedIndex())
     }
 
     @Test
     fun switchesScreensViaKeys() {
-        val app = HomeLightApp(Path.of("/nonexistent/config.yaml"))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.yaml")))
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('1'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('p'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('s'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
     }
 
     @Test
@@ -464,29 +464,29 @@ class HomeLightAppTest {
                       target-path: %s
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val app = HomeLightApp(config)
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
-        assertTrue(app.session().hasConflicts())
+        val app = HomeLightApp(HomeLightSession(config))
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        assertTrue(app.session.hasConflicts())
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Press TAB to focus detail pane
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex())
+        assertEquals(0, app.detailSelectedIndex)
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.WORKSPACE, app.activeScreen())
+        assertEquals(Screen.WORKSPACE, app.activeScreen)
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Press SPACE in detail pane to resolve highlighted decision
         app.handleKeyEvent(KeyEvent.ofChar(' '))
-        assertFalse(app.session().hasConflicts())
-        assertTrue(app.session().isPlanReady())
+        assertFalse(app.session.hasConflicts())
+        assertTrue(app.session.isPlanReady())
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
-        assertEquals(Screen.APPLY, app.activeScreen())
+        assertEquals(Screen.APPLY, app.activeScreen)
         assertEquals(PaneFocus.MASTER, app.paneFocus())
-        assertTrue(app.session().applyModel() is ApplyModel.Confirmation)
+        assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
     }
 
@@ -514,26 +514,26 @@ class HomeLightAppTest {
                       target-path: %s
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val app = HomeLightApp(config)
+        val app = HomeLightApp(HomeLightSession(config))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
         assertEquals(0, app.selectedIndex())
 
         // Press 'l' (vim right) to move focus to DETAIL pane
         app.handleKeyEvent(KeyEvent.ofChar('l'))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex())
+        assertEquals(0, app.detailSelectedIndex)
 
         // Press 'j' to move down resolution options
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(1, app.detailSelectedIndex())
+        assertEquals(1, app.detailSelectedIndex)
 
         // Press 'j' again
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(2, app.detailSelectedIndex())
+        assertEquals(2, app.detailSelectedIndex)
 
         // Press 'k' to move back up
         app.handleKeyEvent(KeyEvent.ofChar('k'))
-        assertEquals(1, app.detailSelectedIndex())
+        assertEquals(1, app.detailSelectedIndex)
 
         // Press 'h' (vim left) to return to MASTER pane
         app.handleKeyEvent(KeyEvent.ofChar('h'))
@@ -617,18 +617,18 @@ class HomeLightAppTest {
                       target-path: %s
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val app = HomeLightApp(config)
+        val app = HomeLightApp(HomeLightSession(config))
         assertEquals(0, app.selectedIndex())
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Focus detail pane with 'l'
         app.handleKeyEvent(KeyEvent.ofChar('l'))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex()) // 0 is ADOPT_AND_DISCARD_SOURCE
+        assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
         // Move to choice 1: LEAVE_UNCHANGED (Skipped)
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(1, app.detailSelectedIndex())
+        assertEquals(1, app.detailSelectedIndex)
 
         // Select it (Space)
         app.handleKeyEvent(KeyEvent.ofChar(' '))
@@ -636,12 +636,12 @@ class HomeLightAppTest {
 
         // The item must stay selected and visible as SKIPPED
         (app.planModel() as? PlanModel.Configured)?.let { configured ->
-            val visible = WorkspaceView.visibleItems(configured, app.showInSync())
+            val visible = WorkspaceView.visibleItems(configured, app.showInSync)
             assertTrue(visible.size >= 2)
             val currentItem = visible[app.selectedIndex()]
             assertEquals(source1, currentItem.relocation.sourcePath)
             assertEquals(PlanBadge.SKIPPED, currentItem.badge())
-            assertEquals(1, app.detailSelectedIndex())
+            assertEquals(1, app.detailSelectedIndex)
         }
 
         // Return to master list with 'h'
@@ -660,12 +660,12 @@ class HomeLightAppTest {
         // Select choice 2: DISCARD_BOTH (index 2)
         app.handleKeyEvent(KeyEvent.ofChar('j'))
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(2, app.detailSelectedIndex())
+        assertEquals(2, app.detailSelectedIndex)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
 
         // The second item must stay selected and have DISCARD badge
         (app.planModel() as? PlanModel.Configured)?.let { configured ->
-            val visible = WorkspaceView.visibleItems(configured, app.showInSync())
+            val visible = WorkspaceView.visibleItems(configured, app.showInSync)
             val currentItem = visible[app.selectedIndex()]
             assertEquals(source2, currentItem.relocation.sourcePath)
             assertEquals(PlanBadge.DISCARD, currentItem.badge())

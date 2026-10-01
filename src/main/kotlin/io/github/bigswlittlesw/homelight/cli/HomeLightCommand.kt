@@ -1,7 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.tui.TuiLauncher
+import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
@@ -41,7 +41,7 @@ class HomeLightCommand : Callable<Int> {
     @field:Spec
     private lateinit var spec: CommandSpec
 
-    override fun call(): Int = TuiLauncher.launchStatus(config, debugStepDelayMillis, spec.commandLine().err)
+    override fun call(): Int = launchTui(config, debugStepDelayMillis, spec.commandLine().err)
 
     companion object {
         // The application and native-image entry point.

@@ -5,7 +5,7 @@ import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.ReviewedExecution
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
-import io.github.bigswlittlesw.homelight.tui.TuiLauncher
+import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -35,7 +35,7 @@ internal class ApplyCommand(private val worker: Executor = Executor { it.run() }
     override fun call(): Int {
         val config = parent.config
         if (!json) {
-            return TuiLauncher.launchPlan(config, parent.debugStepDelayMillis, spec.commandLine().err)
+            return launchTui(config, parent.debugStepDelayMillis, spec.commandLine().err)
         }
         if (!yes) {
             spec.commandLine().err.println("JSON apply requires --yes.")
