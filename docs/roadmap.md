@@ -21,8 +21,9 @@ line, then continue. Update the status line when a step's state changes.
 - Stay on Java 25. GraalVM Native Image works on Linux x86_64 and arm64.
 - Release targets: Linux x86_64 (static musl) and Linux arm64 (`--static-nolibc`,
   built on Oracle Linux 8, glibc 2.17+). macOS is a development platform only.
-- Replace smallrye-config with snakeyaml. Drop environment and system-property
-  config overrides; they were an unused SmallRye side effect. Keep `${USER}` expansion.
+- Replace smallrye-config (with snakeyaml, then Jackson in step 4b). Drop environment
+  and system-property config overrides; they were an unused SmallRye side effect.
+  Keep `${USER}` expansion.
 - Native builds default JLine to the exec terminal provider.
 - #25: preserve the nine POSIX permission bits on every published directory; refuse
   publication where the filesystem cannot represent them. Ownership, ACLs,
@@ -57,10 +58,8 @@ Status: done (PR #33).
 
 Done when: a PR shows the check and `main` cannot merge without it.
 
-Status: CI green on PR #34 (first Linux run exposed a wrap-dependent assertion in
-`CandidateSetupTest`, fixed). Repo made public so branch protection is available.
-Remaining: user merges #34 and applies branch protection (required check `JVM verify`,
-PRs required, no force-push).
+Status: done (PR #34). Branch protection on `main`: PRs required, 7 required checks
+(`JVM verify`, `Native build`, `Native test` and `Native distros` for x86_64 and arm64).
 
 ### 3. Remove native-image blockers
 
@@ -103,13 +102,12 @@ Remaining: user merges PR.
 Done when: every PR produces both binaries and the checks pass; `ci/try-pr` works
 from the user's Mac.
 
-Status: done on `step4/native-ci` (PR #37). Jobs `Native build`, `Native test` and
+Status: done (PR #37). Jobs `Native build`, `Native test` and
 `Native distros` for x86_64 and arm64; about 6 minutes wall clock after `JVM verify`
 starts in parallel. Scripts in `ci/native/`, `ci/try-pr` for local tries. Distros:
 x86_64 on Oracle Linux 7 (full), Oracle Linux 8, Debian 13, Fedora (CLI), Ubuntu 24.04
 with noexec `/tmp` (full), Alpine (smoke); arm64 on Oracle Linux 8 and Ubuntu 24.04
 noexec (full), Fedora (CLI); both runners also run the full suite on Ubuntu 24.04.
-Remaining: user merges PR; add the new jobs as required checks.
 
 ### 4b. Adopt Jackson databind for YAML and JSON
 
@@ -130,7 +128,12 @@ shows a concrete blocker.
 Done when: merged with CI green on JVM and native, and less code than before; or a
 recorded reason in `docs/decisions.md` for not adopting it.
 
-Status: not started. Runs after step 4.
+Status: in review on `step4b/jackson`. Jackson 3.2.3 binds configuration and candidate
+lists into private file-shape records (`YamlDocument` replaces `YamlMapping`) and writes
+the JSON responses from records; JSON output is byte-identical. Configuration error
+messages are unchanged; differences are listed in `docs/decisions.md`. The arm64 binary
+grows from 26.6 to 40.9 MB, 7.6 MB of it the JDK XML stack that Jackson's DOM support
+pulls in. Remaining: user decides on the size, merges the PR.
 
 ### 5. Cloud setup (user performs account steps)
 

@@ -114,6 +114,21 @@ Candidate lists keep the protections that matter for shared, untrusted input: si
 
 This lets configuration and candidate lists share one reader, and allows a standard binding library (Jackson, roadmap step 4b) to replace hand-written parsing.
 
+## 2026-09-30: Bind YAML and JSON with Jackson 3
+
+Configuration and candidate lists bind into private file-shape records with Jackson 3.2.3 (`jackson-databind`, `jackson-dataformat-yaml`); `ConfigurationLoader` and `CandidateParser` turn those into the domain records. The JSON responses of `plan`, `apply` and `status` are records serialized by Jackson. This replaces `YamlMapping` and the node walking, snakeyaml 2.4, and the hand-written jackson-core 2.18 writers. The JSON output is byte-identical.
+
+Jackson 3 rather than 2.x: 3.x is the current, stable major line, needs no extra modules, and its exceptions are unchecked, which removes the `IOException` handling around every write. Its YAML module uses snakeyaml-engine (YAML 1.2), pinned to 3.1.1: the 3.0.1 that Jackson declares throws `IndexOutOfBoundsException` when an emoji straddles its read buffer. Native Image needs no metadata for Jackson itself; ours registers the constructors and methods of each bound or serialized record and enum (21 entries).
+
+`YamlDocument` reads every token before binding. That pass enforces the depth and length limits (`StreamReadConstraints`) on the whole document, rejects aliases, which Jackson would read as the anchor's name, rejects duplicate keys, and records where each key and value starts. Jackson reports an unknown key on a record without a position and a missing key at the end of its mapping, so error positions come from that record instead. Configuration error messages are unchanged.
+
+Trade-offs:
+
+- The arm64 binary grows from 26.6 MB to 40.9 MB. About 7.6 MB is the JDK XML stack, reachable through Jackson's DOM support; a GraalVM substitution removing it measured 33.3 MB but depends on Native Image internals and was not adopted.
+- Behaviour changes: aliases are rejected in configuration too, while anchors and tags alone are accepted in candidate lists. List items are never absent: `[a, '']` is an error in any list. `source-path` is required even when a CLI override replaces it. String and key length count UTF-16 code units, and the limits apply to configuration too. Keys that are not scalars are syntax errors. Malformed-YAML wording comes from snakeyaml-engine.
+
+Rejected: Jackson 2.x, the maintenance line, with checked exceptions and the same XML stack in the binary.
+
 ## How to add decisions
 
 Use this format:
