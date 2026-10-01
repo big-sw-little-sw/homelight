@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher
 import picocli.CommandLine
@@ -27,7 +28,7 @@ class StatusCommand : Callable<Int> {
     override fun call(): Int {
         val configPath = config()
         if (json) {
-            if (ConfigurationEvaluation.isUnconfiguredDefault(configPath)) {
+            if (isUnconfiguredDefault(configPath)) {
                 StatusRenderer().renderUnconfiguredJson(configPath, commandSpec.commandLine().out)
                 return CommandLine.ExitCode.OK
             }

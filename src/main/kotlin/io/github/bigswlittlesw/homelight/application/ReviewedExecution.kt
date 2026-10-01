@@ -4,7 +4,6 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
-import java.util.Optional
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
@@ -12,26 +11,16 @@ import java.util.concurrent.Executor
  * One captured plan's preflight, execution, immutable progress, and retained result.
  * Capturing performs no I/O; starting never reloads or substitutes the plan.
  */
-class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
-    private val plan: ReconciliationPlan = plan
-    private val debugStepDelayMillis: Long
-
-    // Guarded by this instance's monitor, as in the Java original.
+class ReviewedExecution(private val plan: ReconciliationPlan, private val debugStepDelayMillis: Long = 0) {
+    // Guarded by this instance's monitor. The worker thread publishes progress through it.
     private var snapshot: ApplyModel
     private var completion: CompletableFuture<Void?>? = null
 
     init {
-        if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            throw IllegalArgumentException("Review requires a resolved, unblocked plan")
-        }
-        if (debugStepDelayMillis < 0 || debugStepDelayMillis > 60_000) {
-            throw IllegalArgumentException("debug step delay must be between 0 and 60000 milliseconds")
-        }
-        this.debugStepDelayMillis = debugStepDelayMillis
+        require(!plan.hasBlockedActions() && !plan.hasConflicts()) { "Review requires a resolved, unblocked plan" }
+        require(debugStepDelayMillis in 0L..60_000L) { "debug step delay must be between 0 and 60000 milliseconds" }
         snapshot = ApplyModel.Confirmation(plan)
     }
-
-    constructor(plan: ReconciliationPlan) : this(plan, 0)
 
     @Synchronized
     fun snapshot(): ApplyModel = snapshot
@@ -42,25 +31,22 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
      */
     @Synchronized
     fun start(worker: Executor): CompletableFuture<Void?> {
-        val existing = completion
-        if (existing != null) {
-            return existing
-        }
+        completion?.let { return it }
         val completion = CompletableFuture<Void?>()
         this.completion = completion
-        snapshot = ApplyModel.Running(plan, pendingSteps(plan))
+        snapshot = ApplyModel.Running.of(plan, pendingSteps(plan))
         try {
             worker.execute {
                 try {
                     executeReviewed(plan)
                     completion.complete(null)
                 } catch (error: Error) {
-                    finishWithoutExecution(plan, java.util.List.of(message(error)), false)
+                    finishWithoutExecution(plan, listOf(message(error)), false)
                     completion.completeExceptionally(error)
                 }
             }
         } catch (exception: RuntimeException) {
-            finishWithoutExecution(plan, java.util.List.of(message(exception)), false)
+            finishWithoutExecution(plan, listOf(message(exception)), false)
             completion.complete(null)
         }
         return completion
@@ -68,10 +54,7 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
 
     /** Waits for started work without cancelling or interrupting its mutation sequence. */
     fun awaitExecution() {
-        val pending: CompletableFuture<Void?>?
-        synchronized(this) {
-            pending = completion
-        }
+        val pending = synchronized(this) { completion }
         pending?.join()
     }
 
@@ -79,8 +62,8 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
         try {
             val executor = ReconciliationExecutor()
             val drift = executor.preflight(plan)
-            if (!drift.isEmpty()) {
-                finishWithoutExecution(plan, drift.stream().map { diagnostic -> diagnostic.message }.toList(), true)
+            if (drift.isNotEmpty()) {
+                finishWithoutExecution(plan, drift.map { it.message }, true)
                 return
             }
             val result = executor.execute(plan, object : ReconciliationExecutor.ProgressListener {
@@ -95,22 +78,17 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
                     updateStep(relocation, action.action, stepStatus(action.status), action.message)
                 }
             })
-            val steps = result.relocations.stream().flatMap { relocation ->
-                relocation.actions.stream()
-                    .map { action ->
-                        ApplyModel.Step(
-                            relocation.relocation, action.action,
-                            stepStatus(action.status), action.message,
-                        )
-                    }
-            }.toList()
-            val stale = result.relocations.stream().flatMap { relocation -> relocation.actions.stream() }
-                .anyMatch(ReconciliationExecutor.ActionExecution::stateDrift)
+            val steps = result.relocations.flatMap { relocation ->
+                relocation.actions.map { action ->
+                    ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message)
+                }
+            }
+            val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
             synchronized(this) {
-                snapshot = ApplyModel.Result(plan, steps, Optional.of(result), java.util.List.of(), stale)
+                snapshot = ApplyModel.Result.of(plan, steps, result, listOf(), stale)
             }
         } catch (exception: RuntimeException) {
-            finishWithoutExecution(plan, java.util.List.of(message(exception)), false)
+            finishWithoutExecution(plan, listOf(message(exception)), false)
         }
     }
 
@@ -132,42 +110,38 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
         relocation: RelocationPlan, action: ReconciliationAction,
         status: ApplyModel.StepStatus, message: String,
     ) {
-        val running = snapshot
-        if (running is ApplyModel.Running) {
-            val steps = running.steps.stream().map { step ->
-                if (step.relocation === relocation && step.action === action)
-                    ApplyModel.Step(relocation, action, status, message) else step
-            }.toList()
-            snapshot = ApplyModel.Running(running.plan, steps)
+        val running = snapshot as? ApplyModel.Running ?: return
+        val steps = running.steps.map { step ->
+            if (step.relocation === relocation && step.action === action) {
+                ApplyModel.Step(relocation, action, status, message)
+            } else step
         }
+        snapshot = ApplyModel.Running.of(running.plan, steps)
     }
 
     @Synchronized
     private fun finishWithoutExecution(plan: ReconciliationPlan, diagnostics: List<String>, stale: Boolean) {
         val current = snapshot
-        var steps = if (current is ApplyModel.Running) current.steps else pendingSteps(plan)
-        steps = steps.stream().map { step ->
-            if (step.status == ApplyModel.StepStatus.RUNNING)
-                ApplyModel.Step(step.relocation, step.action, ApplyModel.StepStatus.FAILED, diagnostics.first())
-            else step
-        }.toList()
-        snapshot = ApplyModel.Result(plan, steps, Optional.empty(), diagnostics, stale)
-    }
-
-    private companion object {
-        fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
-            plan.relocations.stream().flatMap { relocation ->
-                relocation.actions.stream()
-                    .map { action -> ApplyModel.Step(relocation, action, ApplyModel.StepStatus.PENDING, "Not started") }
-            }.toList()
-
-        fun stepStatus(status: ReconciliationExecutor.ActionStatus): ApplyModel.StepStatus = when (status) {
-            ReconciliationExecutor.ActionStatus.COMPLETED -> ApplyModel.StepStatus.COMPLETED
-            ReconciliationExecutor.ActionStatus.FAILED -> ApplyModel.StepStatus.FAILED
-            ReconciliationExecutor.ActionStatus.PENDING -> ApplyModel.StepStatus.PENDING
+        val steps = (if (current is ApplyModel.Running) current.steps else pendingSteps(plan)).map { step ->
+            if (step.status == ApplyModel.StepStatus.RUNNING) {
+                step.copy(status = ApplyModel.StepStatus.FAILED, message = diagnostics.first())
+            } else step
         }
-
-        fun message(exception: Throwable): String =
-            if (exception.message == null) exception.toString() else exception.message!!
+        snapshot = ApplyModel.Result.of(plan, steps, null, diagnostics, stale)
     }
 }
+
+private fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
+    plan.relocations.flatMap { relocation ->
+        relocation.actions.map { action ->
+            ApplyModel.Step(relocation, action, ApplyModel.StepStatus.PENDING, "Not started")
+        }
+    }
+
+private fun stepStatus(status: ReconciliationExecutor.ActionStatus): ApplyModel.StepStatus = when (status) {
+    ReconciliationExecutor.ActionStatus.COMPLETED -> ApplyModel.StepStatus.COMPLETED
+    ReconciliationExecutor.ActionStatus.FAILED -> ApplyModel.StepStatus.FAILED
+    ReconciliationExecutor.ActionStatus.PENDING -> ApplyModel.StepStatus.PENDING
+}
+
+private fun message(exception: Throwable): String = exception.message ?: exception.toString()

@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -45,16 +44,16 @@ class SetupDraftTest {
         worker().use { worker ->
             refresh(draft, worker)
             val maven = entry(draft, root.resolve(".m2"))
-            assertSame(configured, maven.configured.orElseThrow())
-            assertEquals(2, maven.discovery.orElseThrow().catalog.definitions.size)
+            assertSame(configured, maven.configured)
+            assertEquals(2, checkNotNull(maven.discovery).catalog.definitions.size)
             assertTrue(entry(draft, outside.sourcePath).outsideRoot)
-            assertSame(manual, entry(draft, root.resolve("datasets")).draft.orElseThrow())
+            assertSame(manual, entry(draft, root.resolve("datasets")).draft)
             assertEquals(12, draft.entries().size) // 11 catalog identities plus the outside row
             assertEquals(listOf(configured, outside, Relocation(root.resolve("datasets"),
                     temporary.resolve("target/my-data"))), draft.validate().relocations)
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".m2")) }
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("datasets")) }
-            assertEquals(listOf(manual), draft.rows())
+            assertEquals(listOf(manual), draft.rows)
         }
     }
 
@@ -76,27 +75,27 @@ class SetupDraftTest {
             refresh(draft, worker)
             draft.add(root.resolve("team-cache"))
             draft.add(root.resolve(".cache/uv"))
-            val edited = SetupDraft.Row("team-cache", "custom-team", Optional.empty(),
-                    Optional.of(WhenOnlyTargetExists.ADOPT_TARGET), Optional.empty(), Optional.empty())
+            val edited = SetupDraft.Row("team-cache", "custom-team", null,
+                    WhenOnlyTargetExists.ADOPT_TARGET, null, null)
             draft.edit(0, edited)
-            val savedRows = draft.rows()
+            val savedRows = draft.rows
             Files.writeString(shared(), "directories: [")
             refresh(draft, worker)
-            assertTrue(entry(draft, root.resolve("team-cache")).discovery.orElseThrow().observation.stale)
-            assertEquals(savedRows, draft.rows())
+            assertTrue(checkNotNull(entry(draft, root.resolve("team-cache")).discovery).observation.stale)
+            assertEquals(savedRows, draft.rows)
             Files.copy(fixture("shared-refreshed"), shared(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             Files.delete(root.resolve(".cache/uv"))
             refresh(draft, worker)
-            assertSame(edited, draft.rows().first())
+            assertSame(edited, draft.rows.first())
             val removed = entry(draft, root.resolve("team-cache"))
-            assertTrue(removed.discovery.isEmpty())
+            assertNull(removed.discovery)
             assertFalse(removed.lastKnownDefinitions.isEmpty())
-            assertTrue(entry(draft, root.resolve("new-cache")).draft.isEmpty())
+            assertNull(entry(draft, root.resolve("new-cache")).draft)
             assertEquals(CandidateObservation.Kind.MISSING,
-                    entry(draft, root.resolve(".cache/uv")).discovery.orElseThrow().observation.kind)
-            assertEquals(savedRows, draft.rows())
-            assertEquals(2, entry(draft, root.resolve(".cache/uv")).discovery.orElseThrow().catalog.definitions.size)
-            assertEquals(savedRows, draft.rows())
+                    checkNotNull(entry(draft, root.resolve(".cache/uv")).discovery).observation.kind)
+            assertEquals(savedRows, draft.rows)
+            assertEquals(2, checkNotNull(entry(draft, root.resolve(".cache/uv")).discovery).catalog.definitions.size)
+            assertEquals(savedRows, draft.rows)
             assertArrayEquals(bytes, Files.readAllBytes(config))
             assertSame(plan, session.planModel())
             assertEquals(review, session.applyModel())
@@ -116,7 +115,7 @@ class SetupDraftTest {
             refresh(draft, worker)
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("team-cache")) }
             draft.add(root.resolve(".cache/uv"))
-            assertEquals(listOf(SetupDraft.Row(".cache/uv", ".cache/uv")), draft.rows())
+            assertEquals(listOf(SetupDraft.Row(".cache/uv", ".cache/uv")), draft.rows)
         }
     }
 
@@ -126,17 +125,17 @@ class SetupDraftTest {
         val draft = draft(root, listOf())
         worker().use { worker ->
             refresh(draft, worker)
-            assertTrue(draft.rows().isEmpty())
+            assertTrue(draft.rows.isEmpty())
             draft.add(root.resolve(".local/share/uv"))
-            val chosen = draft.rows()
+            val chosen = draft.rows
             assertEquals(listOf(SetupDraft.Row(".local/share/uv", ".local/share/uv")), chosen)
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv/tools")) }
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv")) }
-            assertEquals(chosen, draft.rows())
+            assertEquals(chosen, draft.rows)
             draft.remove(0)
             draft.add(root.resolve(".local/share/uv/tools"))
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv")) }
-            assertEquals(1, draft.rows().size)
+            assertEquals(1, draft.rows.size)
         }
     }
 
@@ -153,15 +152,15 @@ class SetupDraftTest {
             assertThrows(IllegalArgumentException::class.java, draft::validate)
             assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
                     temporary.resolve("invalid.yaml"), draft.validate()) }
-            assertEquals(listOf(first, second), draft.rows())
+            assertEquals(listOf(first, second), draft.rows)
             assertFalse(Files.exists(temporary.resolve("invalid.yaml")))
         }
         // Cross source/target intersections and cycles are checked across configured and draft rows.
         val configured = Relocation(root.resolve("a"), temporary.resolve("target/b"))
-        val cross = SetupDraft(root, root, Optional.empty(), listOf(configured))
+        val cross = SetupDraft(root, root, null, listOf(configured))
         cross.append(SetupDraft.Row("c", "a"))
         assertThrows(IllegalArgumentException::class.java, cross::validate)
-        val cycle = SetupDraft(temporary.resolve("target"), root, Optional.empty(), listOf(configured))
+        val cycle = SetupDraft(temporary.resolve("target"), root, null, listOf(configured))
         cycle.append(SetupDraft.Row("b", "a"))
         assertThrows(IllegalArgumentException::class.java, cycle::validate)
     }
@@ -174,10 +173,10 @@ class SetupDraftTest {
         worker().use { worker ->
             val old = refresh(draft, worker)
             draft.add(root.resolve("team-cache"))
-            val rows = draft.rows()
+            val rows = draft.rows
             draft.roots(other, temporary.resolve("new-target"))
             assertFalse(draft.accept(old))
-            assertTrue(draft.entries().first().discovery.isEmpty())
+            assertNull(draft.entries().first().discovery)
             assertEquals(other.resolve("team-cache"), draft.validate().relocations.first().sourcePath)
             assertEquals(temporary.resolve("new-target/team-cache"), draft.validate().relocations.first().targetPath)
             refresh(draft, worker)
@@ -187,7 +186,7 @@ class SetupDraftTest {
             assertFalse(draft.accept(old))
             draft.sharedList("")
             assertFalse(draft.accept(old))
-            assertEquals(rows, draft.rows())
+            assertEquals(rows, draft.rows)
             assertNull(draft.validate().sharedList)
             assertFalse(draft.entries().first().lastKnownDefinitions.isEmpty())
         }
@@ -226,7 +225,7 @@ class SetupDraftTest {
                 assertEquals("keep", Files.readString(cache.resolve("data")))
                 assertEquals(Path.of("manual"), Files.readSymbolicLink(link))
                 assertFalse(Files.exists(temporary.resolve("target")))
-                assertEquals(1, draft.rows().size)
+                assertEquals(1, draft.rows.size)
                 draft.sharedList("")
                 release.countDown()
                 assertFalse(draft.accept(worker.snapshot()))
@@ -244,9 +243,9 @@ class SetupDraftTest {
             draft.append(SetupDraft.Row("manual", "custom"))
             worker().use { worker ->
                 refresh(draft, worker)
-                val before = draft.rows()
+                val before = draft.rows
                 assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("team-cache")) }
-                assertEquals(before, draft.rows())
+                assertEquals(before, draft.rows)
             }
         }
     }
@@ -284,7 +283,7 @@ class SetupDraftTest {
 
     private fun draft(root: Path, configured: List<Relocation>): SetupDraft {
         if (!Files.exists(shared())) Files.copy(fixture("shared"), shared())
-        return SetupDraft(root, temporary.resolve("target"), Optional.of(shared()), configured)
+        return SetupDraft(root, temporary.resolve("target"), shared(), configured)
     }
 
     @Test fun onlyCurrentDirectoryOrMissingObservationsAllowAddition() {
@@ -293,10 +292,10 @@ class SetupDraftTest {
         val path = root.resolve("absent-cache")
         worker().use { worker ->
             val result = refresh(draft, worker)
-            val candidate = entry(draft, path).discovery.orElseThrow()
+            val candidate = checkNotNull(entry(draft, path).discovery)
             assertEquals(CandidateObservation.Kind.MISSING, candidate.observation.kind)
             for (kind in CandidateObservation.Kind.values()) for (current in listOf(true, false)) {
-                val observation = CandidateObservation(path, kind, Optional.empty(),
+                val observation = CandidateObservation(path, kind, null,
                         result.generation - (if (current) 0 else 1), java.time.Instant.now(), !current, listOf())
                 assertTrue(draft.accept(CandidateDiscovery.Result(result.generation, result.request, result.sources,
                         listOf(CandidateDiscovery.Candidate(candidate.catalog, observation, candidate.ancestors)), result.rootFailure)))
@@ -306,10 +305,10 @@ class SetupDraftTest {
                     draft.add(path)
                     assertFalse(draft.canAdd(entry(draft, path)))
                     assertThrows(IllegalArgumentException::class.java) { draft.add(path) }
-                    assertEquals(listOf(SetupDraft.Row("absent-cache", "absent-cache")), draft.rows())
+                    assertEquals(listOf(SetupDraft.Row("absent-cache", "absent-cache")), draft.rows)
                     draft.remove(0)
                 } else assertThrows(IllegalArgumentException::class.java) { draft.add(path) }
-                assertTrue(draft.rows().isEmpty())
+                assertTrue(draft.rows.isEmpty())
             }
             assertTrue(draft.accept(result))
             val oldEntry = entry(draft, path)
@@ -326,7 +325,7 @@ class SetupDraftTest {
             refresh(draft, worker)
             draft.add(root.resolve(".local/share/uv"))
             assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv/tools")) }
-            assertEquals(listOf(SetupDraft.Row(".local/share/uv", ".local/share/uv")), draft.rows())
+            assertEquals(listOf(SetupDraft.Row(".local/share/uv", ".local/share/uv")), draft.rows)
             assertFalse(Files.exists(root.resolve(".local")))
             assertFalse(Files.exists(temporary.resolve("target")))
         }
@@ -347,8 +346,8 @@ class SetupDraftTest {
                     assertFalse(history.isEmpty())
                     Files.writeString(shared(), "directories: []")
                     refresh(draft, worker)
-                    assertTrue(draft.entries().get(0).discovery.isEmpty())
-                    assertTrue(draft.entries().get(1).discovery.isEmpty())
+                    assertNull(draft.entries().get(0).discovery)
+                    assertNull(draft.entries().get(1).discovery)
                     assertThrows(IllegalArgumentException::class.java, draft::validate)
                     val config = temporary.resolve("duplicates.yaml")
                     assertThrows(IllegalArgumentException::class.java) {
@@ -358,7 +357,7 @@ class SetupDraftTest {
                     if (remove) draft.remove(index)
                     else draft.edit(index, SetupDraft.Row("edited", "edited"))
                     refresh(draft, worker)
-                    val selected = draft.entries().stream().filter { entry -> entry.draft.isPresent() }.toList()
+                    val selected = draft.entries().stream().filter { entry -> entry.draft != null }.toList()
                     assertEquals(if (remove) 1 else 2, selected.size)
                     selected.forEach { entry -> assertEquals(history, entry.lastKnownDefinitions) }
                     assertEquals(history, before.get(0).lastKnownDefinitions)
@@ -412,10 +411,10 @@ class SetupDraftTest {
                 assertNotEquals(first, second)
                 Files.writeString(shared(), "directories: []")
                 refresh(draft, worker)
-                assertTrue(draft.entries().get(0).discovery.isEmpty())
-                assertTrue(draft.entries().get(1).discovery.isEmpty())
-                draft.edit(index, draft.rows().get(1 - index))
-                assertSame(draft.rows().get(0), draft.rows().get(1))
+                assertNull(draft.entries().get(0).discovery)
+                assertNull(draft.entries().get(1).discovery)
+                draft.edit(index, draft.rows.get(1 - index))
+                assertSame(draft.rows.get(0), draft.rows.get(1))
                 assertThrows(IllegalArgumentException::class.java, draft::validate)
                 refresh(draft, worker)
                 assertEquals(first, draft.entries().get(0).lastKnownDefinitions)
@@ -438,7 +437,7 @@ class SetupDraftTest {
     companion object {
         private fun fixture(name: String): Path { return Path.of("docs/research/session-b-fixtures/nested/$name.yaml") }
         private fun entry(draft: SetupDraft, path: Path): SetupDraft.Entry {
-            return draft.entries().stream().filter { row -> row.sourcePath.equals(Optional.of(path)) }.findFirst().orElseThrow()
+            return draft.entries().stream().filter { row -> row.sourcePath == path }.findFirst().orElseThrow()
         }
 
         private fun refresh(draft: SetupDraft, worker: CandidateDiscovery): CandidateDiscovery.Result {

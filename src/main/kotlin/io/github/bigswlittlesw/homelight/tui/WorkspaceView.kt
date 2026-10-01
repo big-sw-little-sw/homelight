@@ -58,7 +58,7 @@ internal object WorkspaceView {
                 header,
                 viewport.render(
                     "Configuration",
-                    listOf(Line("Config: " + session.configPath()), Line(message, Color.YELLOW, false)),
+                    listOf(Line("Config: " + session.configPath), Line(message, Color.YELLOW, false)),
                     focus == PaneFocus.DETAIL, 0,
                 ),
                 viewport.help(
@@ -75,7 +75,7 @@ internal object WorkspaceView {
             .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         for (i in items.indices) {
             val item = items[i]
-            val label = if (item.badge() == PlanBadge.SKIPPED) "Unchanged" else item.badge().label()
+            val label = if (item.badge() == PlanBadge.SKIPPED) "Unchanged" else item.badge().label
             master.add(
                 Toolkit.row(
                     Toolkit.text(if (i == selected) "❯ " else "  ").cyan().length(2),
@@ -99,7 +99,7 @@ internal object WorkspaceView {
             !items[Math.clamp(selected.toLong(), 0, items.size - 1)].availableResolutions.isEmpty()
         val content = ArrayList<Element>()
         content.add(header)
-        content.add(DetailViewport.text("Config: " + session.configPath(), Color.GRAY))
+        content.add(DetailViewport.text("Config: " + session.configPath, Color.GRAY))
         content.add(summaryElement(summary.first()))
         if (!summary.last().isEmpty()) content.add(DetailViewport.text(summary.last(), Color.YELLOW))
         if (!session.discardedChoices().isEmpty()) content.add(
@@ -212,17 +212,17 @@ internal object WorkspaceView {
             val option = item.availableResolutions[i]
             lines.add(Line(""))
             if (i == choice) anchor = lines.size
-            val chosen = item.selectedResolution().orElse(null) == option
+            val chosen = item.selectedResolution() == option
             lines.add(
                 Line(
                     (if (i == choice && focus == PaneFocus.DETAIL) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") +
-                        option.label(),
+                        option.label,
                     if (chosen) Color.GREEN else Color.CYAN, i == choice,
                 ),
             )
             lines.add(
                 Line(
-                    option.description() +
+                    option.description +
                         if (option == DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE || option == DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
                             " Replace source with a link to target." else "",
                 ),

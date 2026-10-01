@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Size
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -65,8 +66,8 @@ class CandidateMetadataTest {
         for (name in listOf("link", "broken")) {
             val result = reader.inspect(anchor, alias.resolve(name), 1)
             assertState(result, Kind.LINK)
-            assertEquals(Files.readSymbolicLink(physical.resolve(name)), result.rawLinkTarget.orElseThrow())
-            assertEquals(LinkTargetStatus.UNKNOWN, result.linkTargetStatus())
+            assertEquals(Files.readSymbolicLink(physical.resolve(name)), result.rawLinkTarget)
+            assertEquals(LinkTargetStatus.UNKNOWN, result.linkTargetStatus)
             assertEquals(alias.resolve(name), result.path)
         }
         for (path in listOf("link/cache", "inside-parent/child")) {
@@ -130,10 +131,10 @@ class CandidateMetadataTest {
         for (method in CandidateMetadata.Access::class.java.declaredMethods) names.add(method.name)
         assertEquals(setOf("attributes", "realPath", "readLink"), names)
         for (kind in Kind.values()) {
-            val value = CandidateObservation(temporary, kind, java.util.Optional.empty(), 1,
+            val value = CandidateObservation(temporary, kind, null, 1,
                     java.time.Instant.now(), false, listOf())
-            assertEquals(Size.NOT_ESTIMATED, value.size())
-            assertTrue(value.size().bytes().isEmpty())
+            assertEquals(Size.NOT_ESTIMATED, value.size)
+            assertNull(value.size.bytes)
         }
     }
 
@@ -153,9 +154,9 @@ class CandidateMetadataTest {
     companion object {
         private fun assertState(result: CandidateObservation, kind: Kind) {
             assertEquals(kind, result.kind, result.toString())
-            assertEquals(Size.NOT_ESTIMATED, result.size())
-            assertTrue(result.size().bytes().isEmpty())
-            assertEquals(Ownership.NOT_EVALUATED, result.ownership())
+            assertEquals(Size.NOT_ESTIMATED, result.size)
+            assertNull(result.size.bytes)
+            assertEquals(Ownership.NOT_EVALUATED, result.ownership)
         }
         private fun assertReason(result: CandidateObservation, reason: Reason) {
             assertTrue(result.diagnostics.stream().anyMatch { d -> d.reason == reason }, result.toString())

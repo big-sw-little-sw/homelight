@@ -4,6 +4,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -65,7 +66,7 @@ class ReviewedExecutionTest {
         val result = assertInstanceOf(ApplyModel.Result::class.java, review.snapshot())
         assertFalse(result.succeeded())
         assertFalse(result.stale)
-        assertTrue(result.execution.isEmpty())
+        assertNull(result.execution)
         assertEquals(java.util.List.of("worker unavailable"), result.diagnostics)
         assertTrue(result.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertSame(completion, review.start { task -> fail<Unit>("Rejected review cannot restart") })
@@ -79,7 +80,7 @@ class ReviewedExecutionTest {
         review.start(Runnable::run).join()
         val result = assertInstanceOf(ApplyModel.Result::class.java, review.snapshot())
         assertTrue(result.stale)
-        assertTrue(result.execution.isEmpty())
+        assertNull(result.execution)
         assertFalse(result.diagnostics.isEmpty())
         assertTrue(result.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(Files.exists(directory.resolve("local/first")))
@@ -120,7 +121,7 @@ class ReviewedExecutionTest {
         }
         completion.join()
         val result = assertInstanceOf(ApplyModel.Result::class.java, review.snapshot())
-        assertFalse(result.execution.orElseThrow().succeeded())
+        assertFalse(checkNotNull(result.execution).succeeded())
         assertEquals("Interrupted during visual-test delay", result.steps.first().message)
         assertEquals(ApplyModel.StepStatus.FAILED, result.steps.first().status)
         assertTrue(result.steps.stream().skip(1).allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })

@@ -8,7 +8,6 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Candidate
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Companion.METADATA_NANOS
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Lanes
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Result
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SharedReader
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutcome
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProblem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceStatus
@@ -18,6 +17,7 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Size
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTimeout
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -32,7 +32,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Duration
-import java.util.Optional
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -50,47 +49,47 @@ class CandidateDiscoveryTest {
         Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.yaml"), shared)
         Files.createDirectories(temporary.resolve(".local/share/uv/tools"))
         CandidateDiscovery().use { discovery ->
-            discovery.refresh(temporary, Optional.of(shared))
+            discovery.refresh(temporary, shared)
             val result = awaitResult(discovery, ::finished)
             assertTrue(result.sources.stream().allMatch { s -> s.status == SourceStatus.CURRENT })
             val child = row(result, temporary.resolve(".local/share/uv/tools"))
             assertEquals(listOf(temporary.resolve(".local/share/uv")), child.ancestors)
-            assertEquals(Size.NOT_ESTIMATED, child.observation.size())
-            assertTrue(child.observation.size().bytes().isEmpty())
+            assertEquals(Size.NOT_ESTIMATED, child.observation.size)
+            assertNull(child.observation.size.bytes)
             val maven = row(result, temporary.resolve(".m2"))
             assertEquals(2, maven.catalog.definitions.size)
             assertEquals(shared.toString(), maven.catalog.definitions.get(1).source.location)
             // Kotlin's read-only `List` has no `clear`; the cast reaches the JDK list's mutator.
             assertThrows(UnsupportedOperationException::class.java) { (result.candidates as MutableList<*>).clear() }
             assertThrows(UnsupportedOperationException::class.java) { (child.ancestors as MutableList<*>).clear() }
-            assertEquals(Ownership.NOT_EVALUATED, child.observation.ownership())
+            assertEquals(Ownership.NOT_EVALUATED, child.observation.ownership)
         }
     }
 
     @Test fun missingWrongKindMalformedOversizeAndLinkedSharedInputs() {
         val shared = temporary.resolve("shared.yaml")
         CandidateDiscovery().use { discovery ->
-            discovery.refresh(temporary, Optional.of(shared))
+            discovery.refresh(temporary, shared)
             val result = awaitResult(discovery, ::finished)
             assertProblem(result, SourceProblem.Kind.MISSING)
             assertFalse(result.candidates.isEmpty())
-            discovery.refresh(temporary, Optional.of(temporary))
+            discovery.refresh(temporary, temporary)
             assertProblem(awaitResult(discovery, ::finished), SourceProblem.Kind.NOT_REGULAR)
             Files.writeString(shared, "directories: [")
-            discovery.refresh(temporary, Optional.of(shared))
+            discovery.refresh(temporary, shared)
             val malformed = awaitResult(discovery, ::finished)
             assertEquals(CandidateDiagnostic.Kind.SYNTAX, shared(malformed).diagnostics.first().kind)
             Files.write(shared, ByteArray(CandidateParser.MAX_BYTES + 1))
-            discovery.refresh(temporary, Optional.of(shared))
+            discovery.refresh(temporary, shared)
             assertEquals(CandidateDiagnostic.Kind.LIMIT, shared(awaitResult(discovery,
                     ::finished)).diagnostics.first().kind)
             Files.writeString(shared, "directories: [{path: team-cache}]")
             val link = Files.createSymbolicLink(temporary.resolve("shared-link"), shared)
-            discovery.refresh(temporary, Optional.of(link))
+            discovery.refresh(temporary, link)
             val linked = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.CURRENT, shared(linked).status)
-            assertEquals(link.toString(), shared(linked).catalog.orElseThrow().source.location)
-            discovery.refresh(temporary, Optional.empty())
+            assertEquals(link.toString(), checkNotNull(shared(linked).catalog).source.location)
+            discovery.refresh(temporary, null)
             val cleared = awaitResult(discovery, ::finished)
             assertEquals(1, cleared.sources.size)
             assertFalse(cleared.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("team-cache") })
@@ -103,20 +102,20 @@ class CandidateDiscoveryTest {
         Files.createDirectory(temporary.resolve("team-cache"))
         val location = temporary.resolve("shared")
         discovery(lanes, AtomicLong(), { ignored -> input.get() }, "cache", CandidateMetadata()).use { discovery ->
-            val original = discovery.refresh(temporary, Optional.of(location))
+            val original = discovery.refresh(temporary, location)
             val first = awaitResult(discovery, ::finished)
             val originalRow = row(first, temporary.resolve("team-cache"))
             await { lanes.shared.availablePermits() == 1 }
             input.set(bytes("directories: ["))
-            discovery.refresh(temporary, Optional.of(location))
+            discovery.refresh(temporary, location)
             val failed = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.STALE, shared(failed).status)
             val retained = row(failed, temporary.resolve("team-cache"))
             assertTrue(retained.observation.stale)
             assertEquals(original, retained.observation.generation)
             assertEquals(originalRow.catalog, retained.catalog)
-            assertEquals(Size.NOT_ESTIMATED, retained.observation.size())
-            discovery.refresh(temporary, Optional.of(temporary.resolve("other-location")))
+            assertEquals(Size.NOT_ESTIMATED, retained.observation.size)
+            discovery.refresh(temporary, temporary.resolve("other-location"))
             val changed = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.FAILED, shared(changed).status)
             assertFalse(changed.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("team-cache") })
@@ -130,7 +129,7 @@ class CandidateDiscoveryTest {
                 // Simulates a reader failing after receiving a prefix: no prefix is returned for parsing.
                 throw IOException("Read failed after partial bytes")
             }, "cache", CandidateMetadata()).use { discovery ->
-                discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                discovery.refresh(temporary, temporary.resolve("shared"))
                 val result = awaitResult(discovery, ::finished)
                 assertProblem(result, if (denied) SourceProblem.Kind.UNREADABLE else SourceProblem.Kind.IO_ERROR)
                 assertEquals(1, result.candidates.size)
@@ -152,7 +151,7 @@ class CandidateDiscoveryTest {
         }, "cache", CandidateMetadata())
         try {
             assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary,
-                    Optional.of(temporary.resolve("shared"))) })
+                    temporary.resolve("shared")) })
             assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
             awaitResult(discovery) { r -> !r.candidates.isEmpty()
                     && r.candidates.first().observation.kind == Kind.MISSING }
@@ -161,7 +160,7 @@ class CandidateDiscoveryTest {
             assertProblem(discovery.snapshot(), SourceProblem.Kind.DEADLINE)
             for (i in 0 until 20) {
                 assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary,
-                        Optional.of(temporary.resolve("shared"))) })
+                        temporary.resolve("shared")) })
                 assertProblem(discovery.snapshot(), SourceProblem.Kind.PREVIOUS_PENDING)
             }
             assertEquals(1, calls.get())
@@ -171,7 +170,7 @@ class CandidateDiscoveryTest {
             // Reopening a session with the same process lanes cannot replace a stuck worker.
             discovery(lanes, clock, { path -> fail<Unit>("Extra read"); ByteArray(0) },
                     "cache", CandidateMetadata()).use { reopened ->
-                reopened.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                reopened.refresh(temporary, temporary.resolve("shared"))
                 assertProblem(reopened.snapshot(), SourceProblem.Kind.PREVIOUS_PENDING)
             }
         } finally {
@@ -181,7 +180,7 @@ class CandidateDiscoveryTest {
                     && lanes.bundled.availablePermits() == 1 }
         }
         assertTrue(discovery.snapshot().sources.isEmpty())
-        assertThrows(IllegalStateException::class.java) { discovery.refresh(temporary, Optional.empty()) }
+        assertThrows(IllegalStateException::class.java) { discovery.refresh(temporary, null) }
     }
 
     @Test fun lateCompletionBeyondDeadlineRejectedEvenWithoutEarlierPoll() {
@@ -193,14 +192,14 @@ class CandidateDiscoveryTest {
                 gate.block()
                 bytes("directories: [{path: late}]")
             }, "cache", CandidateMetadata()).use { discovery ->
-                discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(5_000_000_001L)
                 gate.release.countDown()
                 await { lanes.shared.availablePermits() == 1 }
                 val result = discovery.snapshot()
                 assertProblem(result, SourceProblem.Kind.DEADLINE)
-                assertTrue(shared(result).catalog.isEmpty())
+                assertNull(shared(result).catalog)
             }
         } finally { gate.release.countDown() }
     }
@@ -215,20 +214,20 @@ class CandidateDiscoveryTest {
                     gate.block()
                     bytes("directories: [{path: obsolete}]")
                 }, "cache", CandidateMetadata()).use { discovery ->
-                    val first = discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                    val first = discovery.refresh(temporary, temporary.resolve("shared"))
                     assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                     if (cancel) discovery.cancel()
-                    else discovery.refresh(other, Optional.of(other.resolve("new-location")))
+                    else discovery.refresh(other, other.resolve("new-location"))
                     gate.release.countDown()
                     await { lanes.shared.availablePermits() == 1 }
                     val result = discovery.snapshot()
                     assertTrue(result.generation > first)
                     assertFalse(result.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("obsolete") })
                     if (cancel) {
-                        assertTrue(result.request.isEmpty())
+                        assertNull(result.request)
                         assertTrue(result.sources.isEmpty())
                     } else {
-                        assertEquals(other, result.request.orElseThrow().root)
+                        assertEquals(other, checkNotNull(result.request).root)
                         assertProblem(result, SourceProblem.Kind.PREVIOUS_PENDING)
                     }
                 }
@@ -248,17 +247,17 @@ class CandidateDiscoveryTest {
             }
         })
         discovery(lanes, AtomicLong(), { path -> bytes("directories: []") }, "cache", metadata).use { discovery ->
-            val first = discovery.refresh(temporary, Optional.empty())
+            val first = discovery.refresh(temporary, null)
             awaitResult(discovery, ::finished)
             await { lanes.filesystem.availablePermits() == 1 && lanes.bundled.availablePermits() == 1 }
             fail.set(1)
-            discovery.refresh(temporary, Optional.empty())
+            discovery.refresh(temporary, null)
             val result = awaitResult(discovery) { r -> !r.candidates.isEmpty() && r.candidates.first()
                     .observation.diagnostics.stream().anyMatch { d -> d.reason == Reason.ACCESS_DENIED } }
             val retained = result.candidates.first().observation
             assertTrue(retained.stale)
             assertEquals(Kind.DIRECTORY, retained.kind)
-            assertTrue(retained.size().bytes().isEmpty())
+            assertNull(retained.size.bytes)
             assertEquals(first, retained.generation)
         }
     }
@@ -283,7 +282,7 @@ class CandidateDiscoveryTest {
         val discovery = discovery(lanes, clock, { path -> bytes("directories: []") },
                 "cache0,cache1,cache2,cache3,cache4,cache5", metadata)
         try {
-            discovery.refresh(temporary, Optional.empty())
+            discovery.refresh(temporary, null)
             awaitResult(discovery) { r -> r.candidates.size == 6 && lanes.filesystem.availablePermits() == 0 }
             assertTrue(entered.await(3, TimeUnit.SECONDS))
             clock.set(CandidateDiscovery.METADATA_NANOS)
@@ -291,16 +290,16 @@ class CandidateDiscoveryTest {
             assertEquals(1L, timed.candidates.stream().filter { c -> c.observation.kind == Kind.UNKNOWN }.count())
             assertEquals(5L, timed.candidates.stream().filter { c -> c.observation.kind == Kind.PENDING }.count())
             for (i in 0 until 20) {
-                discovery.refresh(temporary, Optional.empty())
-                assertEquals(Reason.CAPACITY, discovery.snapshot().rootFailure.orElseThrow().reason)
+                discovery.refresh(temporary, null)
+                assertEquals(Reason.CAPACITY, checkNotNull(discovery.snapshot().rootFailure).reason)
             }
             assertEquals(1, calls.get())
             assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             assertEquals(0, lanes.filesystem.availablePermits())
             discovery(lanes, clock, { p -> bytes("directories: []") },
                     "cache0", CandidateMetadata()).use { reopened ->
-                reopened.refresh(temporary, Optional.empty())
-                assertEquals(Reason.CAPACITY, reopened.snapshot().rootFailure.orElseThrow().reason)
+                reopened.refresh(temporary, null)
+                assertEquals(Reason.CAPACITY, checkNotNull(reopened.snapshot().rootFailure).reason)
                 assertEquals(1, calls.get())
             }
         } finally {
@@ -322,7 +321,7 @@ class CandidateDiscoveryTest {
         })
         discovery(Lanes(), AtomicLong(), { path -> bytes("directories: []") },
                 "cache0,cache1,cache2,cache3,cache4,cache5,cache6,cache7", metadata).use { discovery ->
-            discovery.refresh(temporary, Optional.empty())
+            discovery.refresh(temporary, null)
             assertTrue(last.await(3, TimeUnit.SECONDS), "Work depended on snapshot polling")
             val result = awaitResult(discovery, ::finished)
             assertEquals(8, result.candidates.size)
@@ -345,9 +344,9 @@ class CandidateDiscoveryTest {
         })
         try {
             discovery(lanes, AtomicLong(), { path -> bytes("directories: []") }, "cache", metadata).use { discovery ->
-                discovery.refresh(firstRoot, Optional.empty())
+                discovery.refresh(firstRoot, null)
                 awaitResult(discovery) { r -> gate.entered.count == 0L }
-                val generation = discovery.refresh(secondRoot, Optional.empty())
+                val generation = discovery.refresh(secondRoot, null)
                 val second = awaitResult(discovery, ::finished)
                 assertEquals(Kind.UNKNOWN, second.candidates.first().observation.kind)
                 gate.release.countDown()
@@ -372,13 +371,13 @@ class CandidateDiscoveryTest {
         })
         try {
             discovery(lanes, clock, { p -> bytes("directories: [{path: team}]") }, "cache", metadata).use { discovery ->
-                discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 awaitResult(discovery) { r -> shared(r).status == SourceStatus.CURRENT }
                 clock.set(CandidateDiscovery.METADATA_NANOS)
                 val result = discovery.snapshot()
-                assertEquals(Reason.DEADLINE, result.rootFailure.orElseThrow().reason)
-                assertTrue(result.candidates.stream().allMatch { c -> c.observation.size().bytes().isEmpty() })
+                assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
+                assertTrue(result.candidates.stream().allMatch { c -> c.observation.size.bytes == null })
                 assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             }
         } finally {
@@ -413,7 +412,7 @@ class CandidateDiscoveryTest {
                     bytes("directories: []")
                 }, "cache", metadata).use { discovery ->
                     val root = Path.of(args[0])
-                    discovery.refresh(root, Optional.of(root.resolve("shared")))
+                    discovery.refresh(root, root.resolve("shared"))
                     if (!gate.entered.await(3, TimeUnit.SECONDS)) throw AssertionError("Reader did not start")
                     if (!metadataGate.entered.await(3, TimeUnit.SECONDS)) throw AssertionError("Metadata did not start")
                 }
@@ -432,7 +431,7 @@ class CandidateDiscoveryTest {
                         gate.block()
                         CandidateParser().parse(CandidateCatalog.BUNDLED, root, bytes("directories: []"))
                     }, CandidateMetadata()).use { discovery ->
-                discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+                discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 val result = awaitResult(discovery) { r -> !r.candidates.isEmpty()
                         && r.candidates.first().observation.kind == Kind.DIRECTORY }
@@ -451,7 +450,7 @@ class CandidateDiscoveryTest {
                 CandidateCatalog.BUNDLED, CandidateDiagnostic.Kind.RESOURCE, 0, 0, 0, "", "",
                 "Controlled packaging failure"))) },
                 CandidateMetadata()).use { discovery ->
-            discovery.refresh(temporary, Optional.of(temporary.resolve("shared")))
+            discovery.refresh(temporary, temporary.resolve("shared"))
             val result = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.FAILED, result.sources.first().status)
             assertEquals(SourceStatus.CURRENT, shared(result).status)
@@ -473,10 +472,10 @@ class CandidateDiscoveryTest {
         })
         try {
             discovery(lanes, clock, { p -> bytes("directories: []") }, "cache", metadata).use { discovery ->
-                val original = discovery.refresh(temporary, Optional.empty())
+                val original = discovery.refresh(temporary, null)
                 awaitResult(discovery, ::finished)
                 block.set(1)
-                discovery.refresh(temporary, Optional.empty())
+                discovery.refresh(temporary, null)
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(METADATA_NANOS)
                 // No snapshot until the late completion has returned.
@@ -487,7 +486,7 @@ class CandidateDiscoveryTest {
                 assertTrue(observation.stale)
                 assertEquals(original, observation.generation)
                 assertTrue(observation.diagnostics.stream().anyMatch { d -> d.reason == Reason.DEADLINE })
-                assertTrue(observation.size().bytes().isEmpty())
+                assertNull(observation.size.bytes)
             }
         } finally { gate.release.countDown() }
     }
@@ -503,7 +502,7 @@ class CandidateDiscoveryTest {
                 if (block.get() == 1) gate.block()
                 contents.get()
             }, "cache", CandidateMetadata()).use { discovery ->
-                val location = Optional.of(temporary.resolve("shared"))
+                val location = temporary.resolve("shared")
                 val original = discovery.refresh(temporary, location)
                 awaitResult(discovery, ::finished)
                 block.set(1)
@@ -528,7 +527,7 @@ class CandidateDiscoveryTest {
     }
 
     companion object {
-        private fun discovery(lanes: Lanes, clock: AtomicLong, reader: SharedReader,
+        private fun discovery(lanes: Lanes, clock: AtomicLong, reader: (Path) -> ByteArray,
                               paths: String, metadata: CandidateMetadata): CandidateDiscovery {
             val yaml = StringBuilder("directories:\n")
             for (path in paths.split(",")) yaml.append("  - path: ").append(path).append('\n')

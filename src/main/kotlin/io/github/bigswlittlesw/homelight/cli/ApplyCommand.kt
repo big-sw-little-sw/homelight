@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.cli
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.ReviewedExecution
+import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.homelight.tui.TuiLauncher
@@ -42,7 +43,7 @@ internal class ApplyCommand(private val worker: Executor) : Callable<Int> {
             return CommandLine.ExitCode.USAGE
         }
         val output = spec.commandLine().out
-        if (ConfigurationEvaluation.isUnconfiguredDefault(config)) {
+        if (isUnconfiguredDefault(config)) {
             ApplyRenderer().renderJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
             return 0
         }

@@ -88,12 +88,12 @@ internal object ApplyView {
                 "Confirm reviewed plan: " + destructive + " destructive action(s). Content may be permanently removed."
             else "Confirm reviewed plan. No changes have been made."
             is ApplyModel.Running -> "Applying reviewed plan. Wait for execution to finish."
-            is ApplyModel.Result -> if (model.stale && model.execution.isEmpty
+            is ApplyModel.Result -> if (model.stale && model.execution == null
                 && model.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
                 "Plan stale: preflight rejected before any mutation. Inspect details."
             else if (model.stale) "Plan stale during execution. Inspect failed and not-run actions."
             else if (model.succeeded()) "Application complete. Observations refreshed. Results retained."
-            else if (model.execution.isEmpty) "Worker stopped unexpectedly. Mutation extent may be uncertain; inspect evidence."
+            else if (model.execution == null) "Worker stopped unexpectedly. Mutation extent may be uncertain; inspect evidence."
             else "Application stopped. Inspect failed and not-run actions, then re-plan."
             is ApplyModel.Idle -> throw IllegalStateException()
         }
