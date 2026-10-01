@@ -366,7 +366,7 @@ internal class CandidateBrowser {
                             else " · Earlier request",
                     ),
                 )
-                observation.rawLinkTarget.ifPresent { path ->
+                observation.rawLinkTarget?.let { path ->
                     lines.add(DetailViewport.Line("Link text: " + literal(path.toString()) + " · Target not checked"))
                 }
                 observation.diagnostics.forEach { d ->
@@ -484,7 +484,7 @@ internal class CandidateBrowser {
                         )
                     }
                 }
-                result.rootFailure.ifPresent { d ->
+                result.rootFailure?.let { d ->
                     lines.add(DetailViewport.Line("Root: " + literal(d.detail) + " · " + literal(d.path.toString())))
                 }
             }

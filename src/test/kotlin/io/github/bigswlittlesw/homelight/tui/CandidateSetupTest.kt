@@ -96,7 +96,7 @@ class CandidateSetupTest {
             assertEquals("unchanged", Files.readString(root.resolve("home/team-cache/payload")))
             assertFalse(Files.exists(root.resolve("local/custom-target")))
             assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
-            assertTrue(workers.workers.first().snapshot().request.isEmpty)
+            assertNull(workers.workers.first().snapshot().request)
         }
     }
 
@@ -229,7 +229,7 @@ class CandidateSetupTest {
             Files.delete(root.resolve("config.yaml"))
             assertTimeout(Duration.ofSeconds(1), Executable { key(app, 's') })
             assertTrue(render(app).contains("[1: Workspace]"))
-            assertTrue(workers.workers.first().snapshot().request.isEmpty)
+            assertNull(workers.workers.first().snapshot().request)
             workers.release.countDown()
             assertTrue(render(app).contains("[1: Workspace]"))
             assertEquals(1, workers.reads.get())
@@ -251,7 +251,7 @@ class CandidateSetupTest {
             workers.release.countDown(); await(workers, app)
             assertFalse(all(app).contains("team-cache"))
             escape(app); key(app, 'q'); enter(app)
-            assertTrue(workers.workers.first().snapshot().request.isEmpty)
+            assertNull(workers.workers.first().snapshot().request)
             key(app, 'i')
             assertTrue(render(app).contains("Storage locations"))
             assertFalse(render(app).contains("other-home"))
@@ -332,7 +332,7 @@ class CandidateSetupTest {
                 assertFalse(render(app).contains("[Setup]"))
                 LockSupport.parkNanos(1_000_000)
             }
-            assertTrue(workers.workers.first().snapshot().request.isEmpty)
+            assertNull(workers.workers.first().snapshot().request)
             key(app, 'i'); enter(app)
             assertTrue(render(app).contains("No relocations yet"))
             assertFalse(Files.exists(root.resolve("config.yaml")))

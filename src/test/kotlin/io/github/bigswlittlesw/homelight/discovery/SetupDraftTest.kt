@@ -296,7 +296,7 @@ class SetupDraftTest {
             val candidate = entry(draft, path).discovery.orElseThrow()
             assertEquals(CandidateObservation.Kind.MISSING, candidate.observation.kind)
             for (kind in CandidateObservation.Kind.values()) for (current in listOf(true, false)) {
-                val observation = CandidateObservation(path, kind, Optional.empty(),
+                val observation = CandidateObservation(path, kind, null,
                         result.generation - (if (current) 0 else 1), java.time.Instant.now(), !current, listOf())
                 assertTrue(draft.accept(CandidateDiscovery.Result(result.generation, result.request, result.sources,
                         listOf(CandidateDiscovery.Candidate(candidate.catalog, observation, candidate.ancestors)), result.rootFailure)))

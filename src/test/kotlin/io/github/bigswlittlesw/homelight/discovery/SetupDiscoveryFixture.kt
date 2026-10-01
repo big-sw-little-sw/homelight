@@ -9,7 +9,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-import java.util.function.LongSupplier
 import java.util.function.Supplier
 
 /** Test-only access to the accepted worker seams, shared by UI tests and PTYs. */
@@ -26,7 +25,7 @@ class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
     var realTime = false
 
     override fun get(): CandidateDiscovery {
-        val time = if (realTime) LongSupplier(System::nanoTime) else LongSupplier(clock::get)
+        val time = if (realTime) System::nanoTime else clock::get
         val discovery = CandidateDiscovery(lanes, time, { path ->
             reads.incrementAndGet()
             if (block) {

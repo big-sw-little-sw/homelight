@@ -58,13 +58,13 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
      * its snapshots on the same thread that edits this draft.
      */
     fun refresh(worker: CandidateDiscovery) {
-        generation = worker.refresh(sourceRoot, sharedList)
+        generation = worker.refresh(sourceRoot, sharedList.orElse(null))
         discovery = Optional.empty()
     }
 
     fun accept(result: CandidateDiscovery.Result): Boolean {
         if (generation < 0 || result.generation != generation
-            || result.request != Optional.of(CandidateDiscovery.Request(sourceRoot, sharedList))
+            || result.request != CandidateDiscovery.Request.of(sourceRoot, sharedList.orElse(null))
         ) return false
         discovery = Optional.of(result)
         val candidates = candidates()
