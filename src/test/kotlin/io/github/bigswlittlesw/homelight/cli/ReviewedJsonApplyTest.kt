@@ -82,7 +82,7 @@ class ReviewedJsonApplyTest {
         val root = directory.toRealPath()
         Files.createDirectories(root.resolve("home/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "  staging-root: $staging\n", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
         val result = execute(config, Executor { task ->
             write(staging, "not a directory")
             task.run()
@@ -156,7 +156,7 @@ class ReviewedJsonApplyTest {
 
     @Test
     fun missingYesRejectsBeforeConfigurationLoadingOrExecution() {
-        val result = execute(directory.resolve("missing.yaml"), Executor { fail<Unit>("Must not start") }, "--json")
+        val result = execute(directory.resolve("missing.json"), Executor { fail<Unit>("Must not start") }, "--json")
         assertEquals(2, result.exitCode)
         assertEquals("", result.output)
         assertEquals("JSON apply requires --yes." + System.lineSeparator(), result.error)
@@ -187,7 +187,7 @@ class ReviewedJsonApplyTest {
         val root = directory.toRealPath()
         Files.createDirectories(root.resolve("home/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "  staging-root: $staging\n", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
         val execution = ReviewedExecution(ConfigurationEvaluation().loadRequired(config).plan)
         Files.writeString(staging, "not a directory")
         val completion = execution.start(Runnable::run)
@@ -251,14 +251,15 @@ class ReviewedJsonApplyTest {
             return Result(exitCode, output.toString(), error.toString())
         }
 
+        /** `globals` are JSON members of `homelight`, each followed by a comma. */
         fun configuration(root: Path, globals: String, vararg names: String): Path {
             Files.createDirectories(root.resolve("home"))
-            val yaml = StringBuilder("homelight:\n  target-root: " + root.resolve("local") + "\n" + globals + "  relocations:\n")
-            for (name in names) {
-                yaml.append("    - source-path: ").append(root.resolve("home").resolve(name)).append('\n')
-                yaml.append("      target-path: ").append(root.resolve("local").resolve(name)).append('\n')
+            val relocations = names.joinToString(",\n") { name ->
+                "    {\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
+                    " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
             }
-            return Files.writeString(root.resolve("config.yaml"), yaml)
+            val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
+            return Files.writeString(root.resolve("config.json"), json)
         }
 
         fun write(path: Path, content: String) {

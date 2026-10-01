@@ -15,7 +15,7 @@ import java.util.concurrent.Executors
 
 class ConfigurationPublisherTest {
     @Test fun validatesThenCreatesAndReloadsWithoutApplying(@TempDir root: Path) {
-        val path = root.resolve("new/config.yaml")
+        val path = root.resolve("new/config.json")
         val draft = draft(root)
         val session = HomeLightSession(path)
         assertFalse(session.requestApply())
@@ -32,7 +32,7 @@ class ConfigurationPublisherTest {
     }
 
     @Test fun rejectsOverlapsAndDuplicateTargetsWithoutPublishing(@TempDir root: Path) {
-        val path = root.resolve("config.yaml")
+        val path = root.resolve("config.json")
         val first = relocation(root.resolve("home/a"), root.resolve("local/a"))
         val overlapping = relocation(root.resolve("home/a/child"), root.resolve("local/b"))
         val duplicateTarget = relocation(root.resolve("home/b"), root.resolve("local/a"))
@@ -48,17 +48,17 @@ class ConfigurationPublisherTest {
         val draft = draft(root)
         val blockedParent = Files.writeString(root.resolve("not-a-directory"), "occupied")
         assertThrows(ConfigurationPublisher.ConfigurationException::class.java) {
-            ConfigurationPublisher().saveNew(blockedParent.resolve("config.yaml"), draft) }
+            ConfigurationPublisher().saveNew(blockedParent.resolve("config.json"), draft) }
 
-        val path = root.resolve("config.yaml")
-        Files.writeString(path, "homelight: [")
+        val path = root.resolve("config.json")
+        Files.writeString(path, "{\"homelight\": [")
         assertThrows(ConfigurationPublisher.ConfigurationException::class.java) { ConfigurationPublisher().saveNew(path, draft) }
-        assertEquals("homelight: [", Files.readString(path))
+        assertEquals("{\"homelight\": [", Files.readString(path))
         assertThrows(RuntimeException::class.java) { ConfigurationLoader().load(path) }
     }
 
     @Test fun concurrentCreationPublishesExactlyOneCompleteConfiguration(@TempDir root: Path) {
-        val path = root.resolve("config.yaml")
+        val path = root.resolve("config.json")
         val publisher = ConfigurationPublisher()
         Executors.newFixedThreadPool(2).use { pool ->
             val results = pool.invokeAll(listOf<Callable<Boolean>>(
@@ -71,7 +71,7 @@ class ConfigurationPublisherTest {
     }
 
     @Test fun cancellingManualSetupWritesNothing(@TempDir root: Path) {
-        val path = root.resolve("config.yaml")
+        val path = root.resolve("config.json")
         val app = HomeLightApp(HomeLightSession(path))
         app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofChar('i'))
         app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofKey(dev.tamboui.tui.event.KeyCode.ESCAPE))

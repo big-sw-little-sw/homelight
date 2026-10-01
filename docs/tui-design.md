@@ -73,7 +73,7 @@ The selected relocation should answer these questions without repeated metadata:
    `Current: Source and target are directories.` Keep meaningful link, inaccessible
    and missing-path exceptions explicit.
 2. What saved policy applies to this observed case? Show the relevant branch in
-   plain language, not all YAML keys or policy branches.
+   plain language, not all configuration keys or policy branches.
 3. What draft choice is selected? Label it unsaved; show saved policy separately.
 4. What is the expected outcome and consequence? State destructive effects
    explicitly, for example: `Keep target contents; delete the source directory

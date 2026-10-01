@@ -5,7 +5,7 @@
 #
 # Downloads homelight-linux-arm64 from the PR branch's latest successful CI run (gh run download),
 # starts a throwaway ubuntu:24.04 arm64 container with fixture directories and a sample
-# ~/.homelight.yaml, and opens the homelight TUI. Quitting the TUI leaves you in a bash shell in
+# ~/.homelight.json, and opens the homelight TUI. Quitting the TUI leaves you in a bash shell in
 # the same container (try `homelight plan --json`); exiting the shell removes the container.
 #
 # Needs gh (authenticated) and docker on an arm64 host, e.g. OrbStack on an Apple silicon Mac.
@@ -41,23 +41,27 @@ echo nested > ~/.cache/tool-a/sub/n.txt
 echo b-src > ~/.cache/tool-b/src.txt
 echo b-tgt > /scratch/local/tool-b/tgt.txt
 ln -s /scratch/local/tool-c ~/.cache/tool-c
-cat > ~/.homelight.yaml <<EOF
-homelight:
-  target-root: /scratch/local
-  relocations:
-    - source-path: ~/.cache/tool-a
-      target-path: /scratch/local/tool-a
-    - source-path: ~/.cache/tool-b
-      target-path: /scratch/local/tool-b
-      when-source-and-target-directories-exist: adopt
-      when-adopting-target: archive-source
-      source-archive-root: /scratch/archive
-    - source-path: ~/.cache/tool-c
-      target-path: /scratch/local/tool-c
+cat > ~/.homelight.json <<EOF
+{
+  "homelight": {
+    "target-root": "/scratch/local",
+    "relocations": [
+      {"source-path": "~/.cache/tool-a", "target-path": "/scratch/local/tool-a"},
+      {
+        "source-path": "~/.cache/tool-b",
+        "target-path": "/scratch/local/tool-b",
+        "when-source-and-target-directories-exist": "adopt",
+        "when-adopting-target": "archive-source",
+        "source-archive-root": "/scratch/archive"
+      },
+      {"source-path": "~/.cache/tool-c", "target-path": "/scratch/local/tool-c"}
+    ]
+  }
+}
 EOF
 cd ~
 homelight || echo "homelight exited with status $?"
-echo "Shell in the disposable container: config ~/.homelight.yaml, targets /scratch. exit to remove it."
+echo "Shell in the disposable container: config ~/.homelight.json, targets /scratch. exit to remove it."
 exec bash
 '
 

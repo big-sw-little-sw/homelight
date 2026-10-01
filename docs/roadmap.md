@@ -24,7 +24,7 @@ line, then continue. Update the status line when a step's state changes.
 - Configuration and candidate lists move from YAML to JSON (2026-10-01).
 - Release targets: Linux x86_64 (static musl) and Linux arm64 (`--static-nolibc`,
   built on Oracle Linux 8, glibc 2.17+). macOS is a development platform only.
-- Replace smallrye-config with snakeyaml (until the JSON switch). Drop environment and system-property
+- Replace smallrye-config with snakeyaml (replaced by kotlinx.serialization JSON in K6b). Drop environment and system-property
   config overrides; they were an unused SmallRye side effect. Keep `${USER}` expansion.
 - Native builds default JLine to the exec terminal provider.
 - #25: preserve the nine POSIX permission bits on every published directory; refuse

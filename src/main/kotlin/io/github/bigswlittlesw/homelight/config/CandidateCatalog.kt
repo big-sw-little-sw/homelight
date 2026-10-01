@@ -10,7 +10,7 @@ import java.nio.file.Path
  * cast to a mutable list can alter a snapshot.
  */
 object CandidateCatalog {
-    val BUNDLED = CandidateSource(CandidateSource.Kind.BUNDLED, "/candidates.yaml")
+    val BUNDLED = CandidateSource(CandidateSource.Kind.BUNDLED, "/candidates.json")
 
     fun bundled(root: Path): Snapshot {
         val parser = CandidateParser()

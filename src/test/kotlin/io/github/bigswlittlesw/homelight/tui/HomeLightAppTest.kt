@@ -31,7 +31,7 @@ class HomeLightAppTest {
     @Test
     fun createsRootRelativeRowsWithDefaultPolicies(@org.junit.jupiter.api.io.TempDir temporary: Path) {
         val root = temporary.toRealPath()
-        val config = root.resolve("new/config.yaml")
+        val config = root.resolve("new/config.json")
         val app = HomeLightApp(HomeLightSession(config))
         app.handleKeyEvent(KeyEvent.ofChar('i'))
         app.handleKeyEvent(KeyEvent.ofChar('\u0015'))
@@ -57,7 +57,7 @@ class HomeLightAppTest {
 
     @Test
     fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@org.junit.jupiter.api.io.TempDir temporary: Path) {
-        val app = HomeLightApp(HomeLightSession(temporary.resolve("config.yaml")))
+        val app = HomeLightApp(HomeLightSession(temporary.resolve("config.json")))
         app.handleKeyEvent(KeyEvent.ofChar('i'))
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
@@ -88,7 +88,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
         table = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(table.contains(".cache/tool"), table)
-        assertFalse(Files.exists(temporary.resolve("config.yaml")))
+        assertFalse(Files.exists(temporary.resolve("config.json")))
 
         app.handleKeyEvent(KeyEvent.ofChar('q'))
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
@@ -102,7 +102,7 @@ class HomeLightAppTest {
     @Test
     fun rejectsUnsafeRelativeRowsUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
         for (invalid in listOf("", ".", "..")) {
-            val config = temporary.resolve("config-" + (if (invalid.isEmpty()) "blank" else invalid.replace('.', 'd')) + ".yaml")
+            val config = temporary.resolve("config-" + (if (invalid.isEmpty()) "blank" else invalid.replace('.', 'd')) + ".json")
             val app = setupWithEmptyRow(config, temporary)
             type(app, invalid)
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
@@ -124,7 +124,7 @@ class HomeLightAppTest {
     fun rejectsInvalidTargetsWithValidSourcesUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
         var index = 0
         for (invalid in listOf("", ".", "../escape")) {
-            val config = temporary.resolve("invalid-target-" + index++ + ".yaml")
+            val config = temporary.resolve("invalid-target-" + index++ + ".json")
             val app = setupWithEmptyRow(config, temporary)
             type(app, "valid/source")
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
@@ -146,7 +146,7 @@ class HomeLightAppTest {
 
     @Test
     fun rejectsRelativeArchiveRootUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
-        val config = temporary.resolve("archive.yaml")
+        val config = temporary.resolve("archive.json")
         val app = setupWithEmptyRow(config, temporary)
         type(app, "nested/cache")
         repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN)) }
@@ -177,7 +177,7 @@ class HomeLightAppTest {
             listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
         val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
         val progress = java.util.concurrent.atomic.AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun applyModel(): ApplyModel {
                 return progress.get()
             }
@@ -228,12 +228,13 @@ class HomeLightAppTest {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.writeString(root.resolve("config.yaml"), ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+        val config = Files.writeString(root.resolve("config.json"), ("""
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, source, target))
         val app = HomeLightApp(HomeLightSession(config))
 
@@ -269,12 +270,13 @@ class HomeLightAppTest {
     @Test
     fun runningApplyConsumesQuitRefreshAndRepeatedConfirmation(@org.junit.jupiter.api.io.TempDir temporary: Path) {
         val root = temporary.toRealPath()
-        val config = Files.writeString(root.resolve("config.yaml"), ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+        val config = Files.writeString(root.resolve("config.json"), ("""
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
         val app = HomeLightApp(HomeLightSession(config))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
@@ -307,10 +309,10 @@ class HomeLightAppTest {
 
         val items = listOf(item1, item2, item3)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
 
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun planModel(): PlanModel {
                 return configured
             }
@@ -369,10 +371,10 @@ class HomeLightAppTest {
 
         val items = listOf(item1, item2, item3)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
 
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun planModel(): PlanModel {
                 return configured
             }
@@ -413,10 +415,10 @@ class HomeLightAppTest {
 
         val items = listOf(item1)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1), listOf()), items, summary)
 
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun planModel(): PlanModel {
                 return configured
             }
@@ -429,7 +431,7 @@ class HomeLightAppTest {
 
     @Test
     fun switchesScreensViaKeys() {
-        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.yaml")))
+        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.json")))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
         app.handleKeyEvent(KeyEvent.ofChar('2'))
@@ -455,13 +457,14 @@ class HomeLightAppTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("file.txt"), "target content")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, source, target))
 
         val app = HomeLightApp(HomeLightSession(config))
@@ -503,15 +506,15 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                    - source-path: %s
-                      target-path: %s
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"},
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
         val app = HomeLightApp(HomeLightSession(config))
@@ -573,10 +576,10 @@ class HomeLightAppTest {
 
         val items = listOf(item1)
         val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.yaml"), Path.of("/target"),
+        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
             ReconciliationPlan(listOf(plan1), listOf()), items, summary)
 
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun planModel(): PlanModel {
                 return configured
             }
@@ -606,15 +609,15 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile("homelight", ".yaml")
+        val config = Files.createTempFile("homelight", ".json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                    - source-path: %s
-                      target-path: %s
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"},
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
         val app = HomeLightApp(HomeLightSession(config))
@@ -674,8 +677,8 @@ class HomeLightAppTest {
 
     @Test
     fun rendersAppElement() {
-        val unconfigured = PlanModel.Unconfigured(Path.of("/tmp/.homelight.yaml"))
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
+        val unconfigured = PlanModel.Unconfigured(Path.of("/tmp/.homelight.json"))
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun planModel(): PlanModel {
                 return unconfigured
             }

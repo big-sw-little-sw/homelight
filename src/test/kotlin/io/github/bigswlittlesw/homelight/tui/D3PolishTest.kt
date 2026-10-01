@@ -81,8 +81,8 @@ class D3PolishTest {
 
     @Test
     fun emptyWorkspaceAndUnresolvedWorkspaceHaveDifferentExplanations() {
-        val config = Files.writeString(temporary.resolve("empty.yaml"),
-            "homelight:\n  target-root: " + temporary.resolve("target") + "\n  relocations: []\n")
+        val config = Files.writeString(temporary.resolve("empty.json"),
+            "{\"homelight\": {\"target-root\": \"" + temporary.resolve("target") + "\", \"relocations\": []}}\n")
         val session = object : HomeLightSession(config) {
             override fun planModel(): PlanModel =
                 PlanModel.Configured.of(config, temporary, ReconciliationPlan(listOf(), listOf()),

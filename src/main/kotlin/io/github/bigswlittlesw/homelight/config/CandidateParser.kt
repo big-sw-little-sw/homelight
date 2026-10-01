@@ -1,30 +1,19 @@
 package io.github.bigswlittlesw.homelight.config
 
 import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic.Kind
-import org.yaml.snakeyaml.LoaderOptions
-import org.yaml.snakeyaml.Yaml
-import org.yaml.snakeyaml.constructor.SafeConstructor
-import org.yaml.snakeyaml.error.Mark
-import org.yaml.snakeyaml.error.MarkedYAMLException
-import org.yaml.snakeyaml.error.YAMLException
-import org.yaml.snakeyaml.events.AliasEvent
-import org.yaml.snakeyaml.events.CollectionEndEvent
-import org.yaml.snakeyaml.events.CollectionStartEvent
-import org.yaml.snakeyaml.events.DocumentStartEvent
-import org.yaml.snakeyaml.events.NodeEvent
-import org.yaml.snakeyaml.events.ScalarEvent
-import org.yaml.snakeyaml.nodes.Node
-import org.yaml.snakeyaml.nodes.SequenceNode
-import org.yaml.snakeyaml.nodes.Tag
-import java.io.StringReader
+import kotlinx.serialization.Serializable
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 /**
- * Strict, atomic parsing of already-read UTF-8 contents for either source kind.
+ * Strict, atomic parsing of already-read UTF-8 JSON contents for either source kind.
  * Shared I/O and its deadlines belong to the caller, not this lexical boundary.
+ *
+ * A shared list is written by someone else, so input is bounded: its size before decoding, and its records,
+ * groups and string lengths after. Nesting needs no separate limit: the fixed file shape rejects any value
+ * nested deeper than a record as a wrong type, before reading into it.
  */
 class CandidateParser {
     fun parse(source: CandidateSource, root: Path, contents: ByteArray): CandidateCatalog.Snapshot {
@@ -33,129 +22,107 @@ class CandidateParser {
         if (contents.size > MAX_BYTES) {
             return failure(source, root, Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit")
         }
-        try {
-            val text = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(contents)).toString()
-            val options = LoaderOptions()
-            options.setAllowDuplicateKeys(false)
-            options.setMaxAliasesForCollections(0)
-            options.setNestingDepthLimit(MAX_DEPTH)
-            options.setCodePointLimit(MAX_BYTES)
-            val yaml = Yaml(SafeConstructor(options))
-            // Events retain anchors and explicit tags which composition can otherwise erase.
-            // Bound depth before composition; never construct arbitrary Java objects.
-            validateEvents(source, yaml, text)
-            val document: Node? = yaml.compose(StringReader(text))
-            val top = YamlMapping.of("", document, TOP_KEYS)
-            val apps = top.list("apps")
-            val directories = top.list("directories")
-            if (apps == null && directories == null) {
-                throw invalid(
-                    source, Kind.SCHEMA, document?.startMark, 0, "", "",
-                    "At least one of apps or directories is required",
-                )
-            }
-            val definitions = ArrayList<CandidateDefinition>()
-            val groups: List<Node> = apps?.value.orEmpty()
-            if (groups.size > MAX_APPS) {
-                throw invalid(source, Kind.LIMIT, apps?.startMark, 0, "", "apps", "Too many app groups")
-            }
-            for (i in groups.indices) {
-                val fields = YamlMapping.of("apps[$i]", groups[i], APP_KEYS)
-                val name = fields.requiredString("name")
-                if (name != name.javaStrip()) {
-                    throw invalid(
-                        source, Kind.SCHEMA, fields.values.getValue("name").startMark, 0, fields.path,
-                        "name", "App label must not have leading or trailing whitespace",
-                    )
-                }
-                appendDirectories(
-                    fields.requiredList("directories"), root, source, name,
-                    fields.qualify("directories"), definitions,
-                )
-            }
-            if (directories != null) {
-                appendDirectories(directories, root, source, null, "directories", definitions)
-            }
-            return CandidateCatalog.Snapshot.of(source, root, definitions, listOf())
+        val text = try {
+            StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(contents)).toString()
         } catch (e: CharacterCodingException) {
             return failure(source, root, Kind.ENCODING, "Input is not valid UTF-8")
-        } catch (e: YamlMapping.Violation) {
-            return rejected(root, schema(source, e, 0))
+        }
+        return try {
+            val file = decodeJson(CandidateListFile.serializer(), text)
+            CandidateCatalog.Snapshot.of(source, root, Reader(source, root).definitions(file), listOf())
+        } catch (e: JsonInputException) {
+            // The message names the dotted path where kotlinx knows it.
+            rejected(root, Invalid(CandidateDiagnostic(source, Kind.SYNTAX, 0, e.line, e.column, e.path, "", e.message)))
         } catch (e: Invalid) {
-            return rejected(root, e)
-        } catch (e: MarkedYAMLException) {
-            return rejected(
-                root, invalid(
-                    source, Kind.SYNTAX, e.problemMark, 0, "", "",
-                    e.problem ?: "Invalid YAML",
-                ),
-            )
-        } catch (e: YAMLException) {
-            return failure(source, root, Kind.SYNTAX, "Invalid YAML: " + e.message)
+            rejected(root, e)
         }
     }
 
     internal fun failure(source: CandidateSource, root: Path, kind: Kind, message: String): CandidateCatalog.Snapshot =
-        rejected(root, invalid(source, kind, null, 0, "", "", message))
+        rejected(root, Invalid(CandidateDiagnostic(source, kind, 0, 0, 0, "", "", message)))
 
     /** Rejects the whole source with one diagnostic. */
     private class Invalid(val diagnostic: CandidateDiagnostic) : RuntimeException(diagnostic.message)
+
+    /**
+     * Converts the decoded file into definitions. Its diagnostics have no line or column: kotlinx keeps no
+     * positions once decoded, so they name the record by `location` and `key` instead.
+     */
+    private class Reader(val source: CandidateSource, val root: Path) {
+        private val definitions = ArrayList<CandidateDefinition>()
+
+        fun definitions(file: CandidateListFile): List<CandidateDefinition> {
+            if (file.apps == null && file.directories == null) {
+                throw invalid(Kind.SCHEMA, 0, "", "", "At least one of apps or directories is required")
+            }
+            val apps = file.apps.orEmpty()
+            if (apps.size > MAX_APPS) throw invalid(Kind.LIMIT, 0, "", "apps", "Too many app groups")
+            apps.forEachIndexed { i, app ->
+                val location = "apps[$i]"
+                val name = required(text(app.name, 0, location, "name"), 0, location, "name")
+                if (name != name.javaStrip()) {
+                    throw invalid(Kind.SCHEMA, 0, location, "name", "App label must not have leading or trailing whitespace")
+                }
+                val directories = app.directories ?: throw missing(0, location, "directories")
+                append(directories, name, "$location.directories")
+            }
+            file.directories?.let { directories -> append(directories, null, "directories") }
+            return definitions
+        }
+
+        private fun append(directories: List<DirectoryFile>, app: String?, location: String) {
+            if (directories.size > MAX_RECORDS - definitions.size) {
+                throw invalid(Kind.LIMIT, 0, location, "directories", "Too many records across catalog")
+            }
+            directories.forEachIndexed { i, directory ->
+                val index = definitions.size + 1
+                val record = "$location[$i]"
+                val path = required(text(directory.path, index, record, "path"), index, record, "path")
+                val resolved = try {
+                    resolve(root, path)
+                } catch (e: IllegalArgumentException) {
+                    // Both resolve's own failures and Path.of's InvalidPathException carry a message.
+                    throw invalid(Kind.UNSAFE_PATH, index, record, "path", e.message!!)
+                }
+                val advice = text(directory.advice, index, record, "advice")?.let { value ->
+                    CandidateDefinition.Advice.entries.firstOrNull { advice(it) == value } ?: throw invalid(
+                        Kind.SCHEMA, index, record, "advice",
+                        "Invalid value '$value' for $record.advice; expected one of " +
+                            CandidateDefinition.Advice.entries.joinToString(", ", transform = ::advice),
+                    )
+                }
+                val reason = text(directory.reason, index, record, "reason")
+                definitions.add(CandidateDefinition(resolved, source, index, record, path, app, advice, reason))
+            }
+        }
+
+        /** A bounded string; null, empty or blank is absent. */
+        private fun text(value: String?, index: Int, location: String, key: String): String? {
+            if (value != null && value.codePointCount(0, value.length) > MAX_STRING_CHARACTERS) {
+                throw invalid(Kind.LIMIT, index, location, key, "String exceeds 4096 characters")
+            }
+            return value?.takeUnless { it.isJavaBlank() }
+        }
+
+        private fun required(value: String?, index: Int, location: String, key: String): String =
+            value ?: throw missing(index, location, key)
+
+        private fun missing(index: Int, location: String, key: String): Invalid =
+            invalid(Kind.SCHEMA, index, location, key, "Missing required key $location.$key")
+
+        private fun invalid(kind: Kind, index: Int, location: String, key: String, message: String): Invalid =
+            Invalid(CandidateDiagnostic(source, kind, index, 0, 0, location, key, message))
+
+        private fun advice(advice: CandidateDefinition.Advice): String =
+            if (advice == CandidateDefinition.Advice.CONSIDER) "consider" else "usually-unnecessary"
+    }
 
     companion object {
         const val MAX_BYTES = 1_048_576
         const val MAX_RECORDS = 10_000
         const val MAX_APPS = 10_000
-        const val MAX_DEPTH = 8
         const val MAX_STRING_CHARACTERS = 4_096
-        private val TOP_KEYS = setOf("apps", "directories")
-        private val APP_KEYS = setOf("name", "directories")
-        private val RECORD_KEYS = setOf("path", "advice", "reason")
-        private val CORE_TAGS = setOf(
-            Tag.STR.value, Tag.MAP.value, Tag.SEQ.value, Tag.NULL.value,
-            Tag.BOOL.value, Tag.INT.value, Tag.FLOAT.value, Tag.TIMESTAMP.value,
-        )
         private val EXPANSION = Regex("\\$(?:\\{|[A-Za-z_])")
-
-        private fun appendDirectories(
-            sequence: SequenceNode, root: Path, source: CandidateSource,
-            app: String?, location: String, definitions: MutableList<CandidateDefinition>,
-        ) {
-            if (sequence.value.size > MAX_RECORDS - definitions.size) {
-                throw invalid(
-                    source, Kind.LIMIT, sequence.startMark, 0, location, "directories",
-                    "Too many records across catalog",
-                )
-            }
-            for (i in sequence.value.indices) {
-                val node = sequence.value[i]
-                val index = definitions.size + 1
-                try {
-                    val fields = YamlMapping.of("$location[$i]", node, RECORD_KEYS)
-                    val path = fields.requiredString("path")
-                    val resolved = try {
-                        resolve(root, path)
-                    } catch (e: IllegalArgumentException) {
-                        // Both resolve's own failures and Path.of's InvalidPathException carry a message.
-                        throw invalid(
-                            source, Kind.UNSAFE_PATH, fields.values.getValue("path").startMark, index,
-                            fields.path, "path", e.message!!,
-                        )
-                    }
-                    val advice = fields.choice("advice", CandidateDefinition.Advice.entries) { choice ->
-                        if (choice == CandidateDefinition.Advice.CONSIDER) "consider" else "usually-unnecessary"
-                    }
-                    val mark = node.startMark
-                    definitions.add(
-                        CandidateDefinition(
-                            resolved, source, index, mark.line + 1,
-                            mark.column + 1, fields.path, path, app, advice, fields.string("reason"),
-                        ),
-                    )
-                } catch (e: YamlMapping.Violation) {
-                    throw schema(source, e, index)
-                }
-            }
-        }
 
         internal fun normalizedRoot(root: Path): Path {
             require(root.isAbsolute) { "Source root must be absolute" }
@@ -189,58 +156,19 @@ class CandidateParser {
             return resolved
         }
 
-        /**
-         * Rules beyond [YamlMapping], because a shared candidate list is written by someone else: one
-         * document, no anchors or aliases (no expansion bombs), only core tags, and bounded depth and strings.
-         * Events are checked because composed nodes no longer show anchors, and tags only as resolved.
-         */
-        private fun validateEvents(source: CandidateSource, yaml: Yaml, text: String) {
-            var depth = 0
-            var documents = 0
-            for (event in yaml.parse(StringReader(text))) {
-                if (event is DocumentStartEvent && ++documents > 1) {
-                    throw invalid(source, Kind.SCHEMA, event.startMark, 0, "", "", "Only one document is allowed")
-                }
-                if (event is AliasEvent || event is NodeEvent && event.anchor != null) {
-                    throw invalid(source, Kind.SCHEMA, event.startMark, 0, "", "", "Aliases and anchors are forbidden")
-                }
-                var tag: String? = null
-                if (event is CollectionStartEvent) {
-                    depth++
-                    tag = event.tag
-                } else if (event is CollectionEndEvent) {
-                    depth--
-                } else if (event is ScalarEvent) {
-                    tag = event.tag
-                    if (event.value.codePointCount(0, event.value.length) > MAX_STRING_CHARACTERS) {
-                        throw invalid(source, Kind.LIMIT, event.startMark, 0, "", "", "String exceeds 4096 characters")
-                    }
-                }
-                if (depth > MAX_DEPTH) {
-                    throw invalid(source, Kind.LIMIT, event.startMark, 0, "", "", "Nesting exceeds depth 8")
-                }
-                if (tag != null && !CORE_TAGS.contains(tag)) {
-                    throw invalid(source, Kind.SCHEMA, event.startMark, 0, "", "", "Unsupported YAML tag")
-                }
-            }
-        }
-
         private fun rejected(root: Path, e: Invalid): CandidateCatalog.Snapshot =
             CandidateCatalog.Snapshot.of(e.diagnostic.source, root, listOf(), listOf(e.diagnostic))
-
-        /** `mark` is null when there is no position. */
-        private fun invalid(
-            source: CandidateSource, kind: Kind, mark: Mark?, index: Int, location: String,
-            key: String, message: String,
-        ): Invalid = Invalid(
-            CandidateDiagnostic(
-                source, kind, index, if (mark == null) 0 else mark.line + 1,
-                if (mark == null) 0 else mark.column + 1, location, key, message,
-            ),
-        )
-
-        /** The reader's message already names the value; the diagnostic adds the record index and location. */
-        private fun schema(source: CandidateSource, violation: YamlMapping.Violation, index: Int): Invalid =
-            invalid(source, Kind.SCHEMA, violation.mark, index, violation.path, violation.key, violation.message)
     }
 }
+
+// File shape of a candidate list. Every value is optional here so that a missing key and a blank value are
+// reported alike, by the parser.
+
+@Serializable
+private data class CandidateListFile(val apps: List<AppFile>? = null, val directories: List<DirectoryFile>? = null)
+
+@Serializable
+private data class AppFile(val name: String? = null, val directories: List<DirectoryFile>? = null)
+
+@Serializable
+private data class DirectoryFile(val path: String? = null, val advice: String? = null, val reason: String? = null)

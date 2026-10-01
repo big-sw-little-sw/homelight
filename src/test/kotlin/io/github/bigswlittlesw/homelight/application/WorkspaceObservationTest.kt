@@ -9,13 +9,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 // Java text blocks end with the newline before the closing delimiter, and `trimIndent` drops it,
-// so each block appends "\n" to keep the YAML byte-identical.
+// so each block appends "\n" to keep the text byte-identical.
 class WorkspaceObservationTest {
 
     @Test
     fun unconfiguredWhenDefaultPathDoesNotExist(@TempDir tempDir: Path) {
         val workflow = PlanWorkflow()
-        val result = workflow.loadPlan(tempDir.resolve(".homelight.yaml"))
+        val result = workflow.loadPlan(tempDir.resolve(".homelight.json"))
 
         // If it's not the default path and doesn't exist, it's invalid
         assertInstanceOf(PlanModel.Invalid::class.java, result)
@@ -28,13 +28,16 @@ class WorkspaceObservationTest {
         Files.createDirectories(root)
         Files.createSymbolicLink(source, root)
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, root))
 
         val workflow = PlanWorkflow()
@@ -53,14 +56,16 @@ class WorkspaceObservationTest {
         val source = tempDir.resolve("source")
         Files.createDirectories(root)
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-only-target-exists: adopt-target
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-only-target-exists": "adopt-target"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, root))
 
         val workflow = PlanWorkflow()
@@ -79,14 +84,16 @@ class WorkspaceObservationTest {
         Files.createDirectories(root)
         Files.createDirectories(source)
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: prompt
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "prompt"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, root))
 
         val workflow = PlanWorkflow()
@@ -104,13 +111,16 @@ class WorkspaceObservationTest {
         val source = tempDir.resolve("source")
         Files.writeString(source, "content")
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, root))
 
         val workflow = PlanWorkflow()
@@ -130,13 +140,16 @@ class WorkspaceObservationTest {
         Files.createDirectories(root)
         Files.createSymbolicLink(source, nonExistent)
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, root))
 
         val workflow = PlanWorkflow()
@@ -173,18 +186,18 @@ class WorkspaceObservationTest {
         Files.writeString(sourceC, "file")
         Files.createDirectories(targetC)
 
-        val config = tempDir.resolve("config.yaml")
+        val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: prompt
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"},
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "prompt"},
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root,
                 sourceA, targetA,
                 sourceB, targetB,
@@ -211,8 +224,8 @@ class WorkspaceObservationTest {
 
     @Test
     fun invalidWhenConfigIsMalformed(@TempDir tempDir: Path) {
-        val config = tempDir.resolve("config.yaml")
-        Files.writeString(config, "invalid: : yaml")
+        val config = tempDir.resolve("config.json")
+        Files.writeString(config, "{\"invalid\": : }")
 
         val workflow = PlanWorkflow()
         val model = workflow.loadPlan(config)

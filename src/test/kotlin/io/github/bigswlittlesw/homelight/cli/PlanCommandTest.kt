@@ -12,18 +12,20 @@ class PlanCommandTest {
     @Test
     fun pathOverridesAffectOnlyFirstRelocationAndPreserveJsonContract(@org.junit.jupiter.api.io.TempDir temporary: java.nio.file.Path) {
         val root = temporary.toRealPath()
-        val config = root.resolve("config.yaml")
-        val yaml = ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                    - source-path: %s
-                      target-path: %s
+        val config = root.resolve("config.json")
+        val json = ("""
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"},
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, root.resolve("old-source"), root.resolve("old-target"),
             root.resolve("second-source"), root.resolve("second-target"))
-        Files.writeString(config, yaml)
+        Files.writeString(config, json)
         val source = root.resolve("new-source")
         val target = root.resolve("new-target")
         val command = HomeLightCommand.createCommandLine()
@@ -41,7 +43,7 @@ class PlanCommandTest {
         assertEquals(rendered.toString(), out.toString())
         assertEquals(source, expected.plan.relocations.first().relocation.sourcePath)
         assertEquals(root.resolve("second-source"), expected.plan.relocations.last().relocation.sourcePath)
-        assertEquals(yaml, Files.readString(config))
+        assertEquals(json, Files.readString(config))
         assertTrue(Files.notExists(source))
         assertTrue(Files.notExists(target))
 
@@ -54,14 +56,16 @@ class PlanCommandTest {
         val root = Files.createTempDirectory("homelight")
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
-        val config = root.resolve("config.yaml")
+        val config = root.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: leave-unchanged
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val command = HomeLightCommand.createCommandLine()
@@ -80,14 +84,16 @@ class PlanCommandTest {
         val root = Files.createTempDirectory("homelight")
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
-        val config = root.resolve("config.yaml")
+        val config = root.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: leave-unchanged
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val command = HomeLightCommand.createCommandLine()
@@ -106,14 +112,16 @@ class PlanCommandTest {
         val root = Files.createTempDirectory("homelight")
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
-        val config = root.resolve("config.yaml")
+        val config = root.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: leave-unchanged
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val command = HomeLightCommand.createCommandLine()
@@ -132,14 +140,16 @@ class PlanCommandTest {
         val root = Files.createTempDirectory("homelight")
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
-        val config = root.resolve("config.yaml")
+        val config = root.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
-                      when-source-and-target-directories-exist: leave-unchanged
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val command = HomeLightCommand.createCommandLine()
@@ -158,13 +168,16 @@ class PlanCommandTest {
         val root = Files.createTempDirectory("homelight")
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
-        val config = root.resolve("config.yaml")
+        val config = root.resolve("config.json")
         Files.writeString(config, ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s"}
+                    ]
+                  }
+                }
                 """.trimIndent() + "\n").format(root, source, target))
 
         val command = HomeLightCommand.createCommandLine()

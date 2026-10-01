@@ -1,0 +1,27 @@
+{
+  "apps": [
+    {
+      "name": "Maven",
+      "directories": [
+        {"path": ".m2", "advice": "consider", "reason": "May contain substantial locally downloaded artifacts."}
+      ]
+    },
+    {
+      "name": "uv",
+      "directories": [
+        {"path": ".cache/uv"},
+        {"path": ".local/share/uv"},
+        {"path": ".local/share/uv/tools", "reason": "Nested candidate for overlap testing."}
+      ]
+    },
+    {
+      "name": "Example IDE",
+      "directories": [
+        {"path": ".cache/example", "advice": "usually-unnecessary", "reason": "Often small in this fixture environment."}
+      ]
+    }
+  ],
+  "directories": [
+    {"path": "datasets", "reason": "Ungrouped local datasets."}
+  ]
+}

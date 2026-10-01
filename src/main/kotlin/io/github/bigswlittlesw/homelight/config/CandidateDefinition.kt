@@ -4,19 +4,19 @@ import java.nio.file.Path
 
 /**
  * One attributed occurrence, including its original spelling and literal reason.
- * Record, line and column numbers are one-based. Consumers must escape control
- * characters when displaying text; reasons are not terminal markup or commands.
+ * The record index is one-based. Consumers must escape control characters when
+ * displaying text; reasons are not terminal markup or commands.
  * Structural locations use zero-based indices, e.g. `apps[1].directories[0]`.
  */
 data class CandidateDefinition(
     val sourcePath: Path, val source: CandidateSource, val recordIndex: Int,
-    val line: Int, val column: Int, val location: String, val originalPath: String,
+    val location: String, val originalPath: String,
     val app: String?, val advice: Advice?, val reason: String?,
 ) {
     init {
         require(
             sourcePath.isAbsolute && sourcePath == sourcePath.normalize()
-                    && recordIndex >= 1 && line >= 1 && column >= 1 && !location.isJavaBlank(),
+                    && recordIndex >= 1 && !location.isJavaBlank(),
         ) { "Definition requires normalized absolute identity and location" }
         CandidateParser.validatePath(originalPath)
         require((app == null || !app.isJavaBlank() && app == app.javaStrip()) && (reason == null || !reason.isJavaBlank())) {

@@ -113,7 +113,7 @@ class ApplyViewTest {
                 viewport.reset()
                 val evidence = StringBuilder()
                 repeat(180) {
-                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.yaml"), result, selected,
+                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, selected,
                         0, PaneFocus.DETAIL, viewport), size[0], size[1])
                     assertTrue(screen.contains("Action details"), screen)
                     assertTrue(screen.contains("r: Re-plan"), screen)
@@ -164,7 +164,7 @@ class ApplyViewTest {
             marker.invoke(null)
             try {
                 val buffer = Buffer.empty(Rect.of(width, height))
-                ApplyView.render(Path.of("/config.yaml"), model, selected, spinnerFrame)
+                ApplyView.render(Path.of("/config.json"), model, selected, spinnerFrame)
                     .render(Frame.forTesting(buffer), Rect.of(width, height), RenderContext.empty())
                 val text = StringBuilder()
                 for (y in 0 until height) {

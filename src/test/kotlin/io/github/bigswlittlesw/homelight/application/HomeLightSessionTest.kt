@@ -46,7 +46,7 @@ class HomeLightSessionTest {
         val config = configuration(root, "", "cache")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
-        Files.writeString(config, "homelight: [invalid")
+        Files.writeString(config, "{\"homelight\": [invalid")
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
         assertInstanceOf(PlanModel.Invalid::class.java, session.planModel())
@@ -173,13 +173,8 @@ class HomeLightSessionTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
         Files.createDirectories(root.resolve("local/cache"))
-        val config = configuration(root, "", "cache")
-        // The Java text block kept six spaces of indentation and its final newline.
-        Files.writeString(config, Files.readString(config) + ("""
-                when-source-and-target-directories-exist: adopt
-                when-adopting-target: archive-source
-                source-archive-root: %s
-                """.trimIndent().prependIndent("      ") + "\n").format(root.resolve("archive")))
+        val config = configuration(root, "", "cache", policies = "\"when-source-and-target-directories-exist\": \"adopt\"," +
+            " \"when-adopting-target\": \"archive-source\", \"source-archive-root\": \"${root.resolve("archive")}\", ")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
         val archive = root.resolve("archive").resolve(source.root.relativize(source))
@@ -222,7 +217,7 @@ class HomeLightSessionTest {
         val root = directory.toRealPath()
         Files.createDirectories(root.resolve("home/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "  staging-root: $staging\n", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply(), session.planModel().toString())
         Files.writeString(staging, "not a directory")
@@ -249,12 +244,13 @@ class HomeLightSessionTest {
         assertEquals(3, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
     }
 
-    private fun configuration(root: Path, globals: String, vararg names: String): Path {
-        val yaml = StringBuilder("homelight:\n  target-root: " + root.resolve("local") + "\n" + globals + "  relocations:\n")
-        for (name in names) {
-            yaml.append("    - source-path: ").append(root.resolve("home").resolve(name)).append('\n')
-            yaml.append("      target-path: ").append(root.resolve("local").resolve(name)).append('\n')
+    /** `globals` and `policies` are JSON members, each followed by a comma; `policies` go in every relocation. */
+    private fun configuration(root: Path, globals: String, vararg names: String, policies: String = ""): Path {
+        val relocations = names.joinToString(",\n") { name ->
+            "    {$policies\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
+                " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
         }
-        return Files.writeString(root.resolve("config.yaml"), yaml)
+        val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
+        return Files.writeString(root.resolve("config.json"), json)
     }
 }

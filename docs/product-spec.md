@@ -35,26 +35,22 @@ Users should normally create and update configuration through the TUI rather tha
 
 An illustrative configuration is:
 
-```yaml
-target-root: /local/home/${USER}
-
-externallyManagedSourceRoots:
-  - ~/dotfiles/stow
-
-relocations:
-  - source-path: ~/.m2
-    when-source-and-target-directories-exist: prompt
-
-  - source-path: ~/.cache/uv
-    when-source-and-target-directories-exist: discard
-
-  - source-path: ~/.config/agent-tools
-    when-source-and-target-directories-exist: prompt
-
-links:
-  - path: ~/.config/agent-tools/AGENTS.md
-    source: ~/dotfiles/agent-guidance/global-agent-defaults.md
+```json
+{
+  "target-root": "/local/home/${USER}",
+  "externallyManagedSourceRoots": ["~/dotfiles/stow"],
+  "relocations": [
+    {"source-path": "~/.m2", "when-source-and-target-directories-exist": "prompt"},
+    {"source-path": "~/.cache/uv", "when-source-and-target-directories-exist": "discard"},
+    {"source-path": "~/.config/agent-tools", "when-source-and-target-directories-exist": "prompt"}
+  ],
+  "links": [
+    {"path": "~/.config/agent-tools/AGENTS.md", "source": "~/dotfiles/agent-guidance/global-agent-defaults.md"}
+  ]
+}
 ```
+
+Configuration and candidate lists are JSON; comments and trailing commas are allowed for hand editing.
 
 The schema may evolve. Path expansion and validation belong at the configuration boundary.
 

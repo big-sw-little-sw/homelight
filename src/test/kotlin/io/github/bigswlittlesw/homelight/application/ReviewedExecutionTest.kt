@@ -37,7 +37,7 @@ class ReviewedExecutionTest {
         assertThrows(UnsupportedOperationException::class.java) { (running.steps as MutableList<*>).clear() }
 
         // Execution owns the captured plan, with no configuration dependency after capture.
-        Files.delete(directory.resolve("config.yaml"))
+        Files.delete(directory.resolve("config.json"))
         val atCompletion = AtomicReference<ApplyModel>()
         val observed = completion.thenRun { atCompletion.set(review.snapshot()) }
         tasks.first().run()
@@ -131,12 +131,12 @@ class ReviewedExecutionTest {
 
     private fun plan(vararg names: String): ReconciliationPlan {
         val root = directory.toRealPath()
-        val yaml = StringBuilder("homelight:\n  target-root: " + root.resolve("local") + "\n  relocations:\n")
-        for (name in names) {
-            yaml.append("    - source-path: ").append(root.resolve("home").resolve(name)).append('\n')
-            yaml.append("      target-path: ").append(root.resolve("local").resolve(name)).append('\n')
+        val relocations = names.joinToString(",\n") { name ->
+            "    {\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
+                " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
         }
-        val config = Files.writeString(root.resolve("config.yaml"), yaml)
+        val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n"
+        val config = Files.writeString(root.resolve("config.json"), json)
         return assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ConfigurationEvaluation().load(config)).plan
     }
 }

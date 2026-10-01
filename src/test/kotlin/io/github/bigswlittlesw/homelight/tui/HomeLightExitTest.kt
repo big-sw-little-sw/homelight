@@ -208,12 +208,13 @@ class HomeLightExitTest {
 
     companion object {
         fun configuration(root: Path): Path =
-            Files.writeString(root.resolve("config.yaml"), ("""
-                homelight:
-                  target-root: %s
-                  relocations:
-                    - source-path: %s
-                      target-path: %s
+            Files.writeString(root.resolve("config.json"), ("""
+                {"homelight": {
+                  "target-root": "%s",
+                  "relocations": [
+                    {"source-path": "%s", "target-path": "%s"}
+                  ]
+                }}
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
 
         private fun key(app: HomeLightApp, code: KeyCode) {

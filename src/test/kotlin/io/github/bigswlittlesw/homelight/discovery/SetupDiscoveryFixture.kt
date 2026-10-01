@@ -39,7 +39,7 @@ class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
         }, { root ->
             try {
                 CandidateParser().parse(CandidateCatalog.BUNDLED, root,
-                        Files.readAllBytes(Path.of("docs/research/session-b-fixtures/nested/bundled.yaml")))
+                        Files.readAllBytes(Path.of("docs/research/session-b-fixtures/nested/bundled.json")))
             } catch (error: IOException) { throw IllegalStateException(error) }
         }, CandidateMetadata())
         workers.add(discovery)
