@@ -39,8 +39,8 @@ dependencies {
 }
 
 // Native Image needs reflection metadata for the picocli command classes. picocli's annotation processor
-// cannot see Kotlin sources, and kapt cannot stub `@JvmRecord` classes, so picocli-codegen generates the
-// metadata from the compiled classes on every build, at the path the processor used.
+// cannot see Kotlin sources, so picocli-codegen generates the metadata from the compiled classes on every
+// build, at the path the processor used. This avoids kapt.
 val generatePicocliMetadata = tasks.register<JavaExec>("generatePicocliMetadata") {
     description = "Generates the picocli reflection metadata for Native Image."
     val outputDir = layout.buildDirectory.dir("generated/picocli-metadata")
