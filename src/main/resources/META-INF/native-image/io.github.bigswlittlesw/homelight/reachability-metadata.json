@@ -4,6 +4,56 @@
       "type": "dev.tamboui.backend.jline3.JLineBackendProvider"
     },
     {
+      "type": "io.github.bigswlittlesw.homelight.cli.ActionJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.ApplyJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.ApplyJson$ActionResultJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.ApplyJson$RelocationJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.PlanJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.PlanJson$ConflictJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.PlanJson$DiagnosticJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.PlanJson$RelocationJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.StatusRenderer$StatusJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.cli.StatusRenderer$UnconfiguredJson",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
       "type": "io.github.bigswlittlesw.homelight.config.CandidateDefinition$Advice",
       "allDeclaredConstructors": true,
       "allDeclaredMethods": true

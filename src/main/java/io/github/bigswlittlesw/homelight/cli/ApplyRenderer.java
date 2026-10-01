@@ -1,12 +1,12 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.github.bigswlittlesw.homelight.application.ApplyModel;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
 
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 
 final class ApplyRenderer {
@@ -24,57 +24,36 @@ final class ApplyRenderer {
                             case FAILED, RUNNING -> ReconciliationExecutor.ActionStatus.FAILED;
                             case PENDING -> ReconciliationExecutor.ActionStatus.PENDING;
                         }, step.message())).toList())).toList();
-        output.println(toJson(false, relocations, result.diagnostics(), result.stale()));
+        JsonOutput.print(toJson(false, relocations, result.diagnostics(), result.stale()), output);
     }
 
     void renderJson(ReconciliationExecutor.ExecutionResult result, PrintWriter output) {
-        output.println(toJson(result));
+        JsonOutput.print(toJson(result.succeeded(), result.relocations(), List.of(), false), output);
     }
 
-    private final JsonFactory jsonFactory = new JsonFactory();
-
-    private String toJson(ReconciliationExecutor.ExecutionResult result) {
-        return toJson(result.succeeded(), result.relocations(), List.of(), false);
-    }
-
-    private String toJson(boolean succeeded, List<ReconciliationExecutor.RelocationExecution> relocations,
+    private static ApplyJson toJson(boolean succeeded, List<ReconciliationExecutor.RelocationExecution> relocations,
             List<String> diagnostics, boolean stale) {
-        var json = new StringWriter();
-        try (var generator = jsonFactory.createGenerator(json)) {
-            generator.writeStartObject();
-            generator.writeBooleanField("succeeded", succeeded);
-            generator.writeArrayFieldStart("relocations");
-            for (var relocation : relocations) {
-                var configuredRelocation = relocation.relocation().relocation();
-                generator.writeStartObject();
-                generator.writeStringField("source", configuredRelocation.sourcePath().toString());
-                generator.writeStringField("target", configuredRelocation.targetPath().toString());
-                generator.writeStringField("outcome", relocation.outcome().value());
-                generator.writeArrayFieldStart("actions");
-                for (var action : relocation.actions()) {
-                    generator.writeStartObject();
-                    ActionJson.writeFields(generator, action.action());
-                    generator.writeStringField("status", action.status().name().toLowerCase());
-                    generator.writeStringField("message", action.message());
-                    generator.writeEndObject();
-                }
-                generator.writeEndArray();
-                generator.writeEndObject();
-            }
-            generator.writeEndArray();
-            if (!diagnostics.isEmpty()) {
-                generator.writeBooleanField("stale", stale);
-                generator.writeArrayFieldStart("diagnostics");
-                for (var diagnostic : diagnostics) {
-                    generator.writeString(diagnostic);
-                }
-                generator.writeEndArray();
-            }
-            generator.writeEndObject();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to render apply result as JSON", exception);
-        }
-        return json.toString();
+        var executed = relocations.stream().map(relocation -> new ApplyJson.RelocationJson(
+                relocation.relocation().relocation().sourcePath().toString(),
+                relocation.relocation().relocation().targetPath().toString(),
+                relocation.outcome().value(),
+                relocation.actions().stream().map(action -> new ApplyJson.ActionResultJson(
+                        ActionJson.of(action.action()), action.status().name().toLowerCase(), action.message())).toList()))
+                .toList();
+        // `stale` and `diagnostics` appear only when there are diagnostics.
+        return diagnostics.isEmpty()
+                ? new ApplyJson(succeeded, executed, null, null)
+                : new ApplyJson(succeeded, executed, stale, diagnostics);
+    }
+}
+
+/// The `apply --json` response. Component order is the contract's field order.
+record ApplyJson(boolean succeeded, List<RelocationJson> relocations,
+                 @JsonInclude(Include.NON_NULL) Boolean stale, @JsonInclude(Include.NON_NULL) List<String> diagnostics) {
+    record RelocationJson(String source, String target, String outcome, List<ActionResultJson> actions) {
     }
 
+    /// The plan's action fields followed by its execution status.
+    record ActionResultJson(@JsonUnwrapped ActionJson action, String status, String message) {
+    }
 }

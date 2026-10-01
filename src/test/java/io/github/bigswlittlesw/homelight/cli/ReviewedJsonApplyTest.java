@@ -1,13 +1,13 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonToken;
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation;
 import io.github.bigswlittlesw.homelight.application.ReviewedExecution;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -272,9 +272,9 @@ class ReviewedJsonApplyTest {
         var values = new ArrayList<String>();
         try (var parser = new JsonFactory().createParser(json)) {
             while (parser.nextToken() != null) {
-                if (parser.currentToken() == JsonToken.FIELD_NAME && parser.currentName().equals(field)) {
+                if (parser.currentToken() == JsonToken.PROPERTY_NAME && parser.currentName().equals(field)) {
                     parser.nextToken();
-                    values.add(parser.getText());
+                    values.add(parser.getString());
                 }
             }
         }

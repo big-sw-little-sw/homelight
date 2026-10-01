@@ -1,32 +1,33 @@
 package io.github.bigswlittlesw.homelight.cli;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import io.github.bigswlittlesw.homelight.cli.PlanJson.ConflictJson;
+import io.github.bigswlittlesw.homelight.cli.PlanJson.DiagnosticJson;
+import io.github.bigswlittlesw.homelight.cli.PlanJson.RelocationJson;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationDiagnostic;
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan;
+import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan;
 
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.util.List;
 
 final class PlanRenderer {
-    private final JsonFactory jsonFactory = new JsonFactory();
-
     void render(ReconciliationPlan plan, boolean json, PrintWriter output) {
         render(plan, json, false, output);
     }
 
     void render(ReconciliationPlan plan, boolean json, boolean noColor, PrintWriter output) {
         if (json) {
-            output.println(toJson(plan));
+            renderJson(plan, output);
             return;
         }
         renderForConfirmation(plan, noColor, output);
     }
 
     void renderJson(ReconciliationPlan plan, PrintWriter output) {
-        output.println(toJson(plan));
+        JsonOutput.print(toJson(plan), output);
     }
 
     void renderForConfirmation(ReconciliationPlan plan, boolean noColor, PrintWriter output) {
@@ -90,7 +91,7 @@ final class PlanRenderer {
         output.println("  " + label + " (" + diagnostic.source() + ")");
     }
 
-    private String intent(io.github.bigswlittlesw.homelight.reconcile.RelocationPlan relocation) {
+    private String intent(RelocationPlan relocation) {
         var actions = relocation.actions();
         if (actions.stream().anyMatch(ReconciliationAction.Blocked.class::isInstance)) {
             var blocked = (ReconciliationAction.Blocked) actions.stream()
@@ -122,76 +123,38 @@ final class PlanRenderer {
         return count == 1 ? " " + noun : " " + noun + "s";
     }
 
-    public String toJson(ReconciliationPlan plan) {
-        var json = new StringWriter();
-        try (var generator = jsonFactory.createGenerator(json)) {
-            generator.writeStartObject();
-            generator.writeBooleanField("blocked", plan.hasBlockedActions());
-            generator.writeBooleanField("conflicts", plan.hasConflicts());
-            generator.writeArrayFieldStart("diagnostics");
-            for (var diagnostic : plan.diagnostics()) {
-                writeDiagnostic(generator, diagnostic);
-            }
-            generator.writeEndArray();
-            generator.writeArrayFieldStart("relocations");
-            for (var relocation : plan.relocations()) {
-                generator.writeStartObject();
-                generator.writeStringField("source", relocation.relocation().sourcePath().toString());
-                generator.writeStringField("target", relocation.relocation().targetPath().toString());
-                generator.writeStringField("outcome", relocation.outcome().value());
-                generator.writeArrayFieldStart("diagnostics");
-                for (var diagnostic : relocation.diagnostics()) {
-                    writeDiagnostic(generator, diagnostic);
-                }
-                generator.writeEndArray();
-                relocation.conflict().ifPresent(conflict -> {
-                    try {
-                        generator.writeObjectFieldStart("conflict");
-                        generator.writeStringField("path", conflict.path().toString());
-                        generator.writeStringField("reason", conflict.reason());
-                        generator.writeArrayFieldStart("resolutions");
-                        for (var resolution : conflict.resolutions()) {
-                            generator.writeString(resolution.name().toLowerCase().replace('_', '-'));
-                        }
-                        generator.writeEndArray();
-                        generator.writeEndObject();
-                    } catch (IOException exception) {
-                        throw new IllegalStateException(exception);
-                    }
-                });
-                generator.writeArrayFieldStart("actions");
-                for (var action : relocation.actions()) {
-                    writeAction(generator, action);
-                }
-                generator.writeEndArray();
-                generator.writeEndObject();
-            }
-            generator.writeEndArray();
-            generator.writeArrayFieldStart("actions");
-            for (var action : plan.actions()) {
-                writeAction(generator, action);
-            }
-            generator.writeEndArray();
-            generator.writeEndObject();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to render reconciliation plan as JSON", exception);
-        }
-        return json.toString();
+    private static PlanJson toJson(ReconciliationPlan plan) {
+        return new PlanJson(plan.hasBlockedActions(), plan.hasConflicts(), diagnostics(plan.diagnostics()),
+                plan.relocations().stream().map(PlanRenderer::toJson).toList(),
+                plan.actions().stream().map(ActionJson::of).toList());
     }
 
-    private void writeDiagnostic(JsonGenerator generator, ReconciliationDiagnostic diagnostic)
-            throws IOException {
-        generator.writeStartObject();
-        generator.writeStringField("severity", diagnostic.severity().name().toLowerCase());
-        generator.writeStringField("source", diagnostic.source().toString());
-        generator.writeStringField("code", diagnostic.code());
-        generator.writeStringField("message", diagnostic.message());
-        generator.writeEndObject();
+    private static RelocationJson toJson(RelocationPlan relocation) {
+        var conflict = relocation.conflict().map(found -> new ConflictJson(found.path().toString(), found.reason(),
+                found.resolutions().stream().map(resolution -> resolution.name().toLowerCase().replace('_', '-')).toList()));
+        return new RelocationJson(relocation.relocation().sourcePath().toString(),
+                relocation.relocation().targetPath().toString(), relocation.outcome().value(),
+                diagnostics(relocation.diagnostics()), conflict.orElse(null),
+                relocation.actions().stream().map(ActionJson::of).toList());
     }
 
-    private void writeAction(JsonGenerator generator, ReconciliationAction action) throws IOException {
-        generator.writeStartObject();
-        ActionJson.writeFields(generator, action);
-        generator.writeEndObject();
+    private static List<DiagnosticJson> diagnostics(List<ReconciliationDiagnostic> diagnostics) {
+        return diagnostics.stream().map(diagnostic -> new DiagnosticJson(diagnostic.severity().name().toLowerCase(),
+                diagnostic.source().toString(), diagnostic.code(), diagnostic.message())).toList();
+    }
+}
+
+/// The `plan --json` response. Component order is the contract's field order.
+record PlanJson(boolean blocked, boolean conflicts, List<DiagnosticJson> diagnostics,
+                List<RelocationJson> relocations, List<ActionJson> actions) {
+    /// `conflict` is present only for a relocation that needs a decision.
+    record RelocationJson(String source, String target, String outcome, List<DiagnosticJson> diagnostics,
+                          @JsonInclude(Include.NON_NULL) ConflictJson conflict, List<ActionJson> actions) {
+    }
+
+    record ConflictJson(String path, String reason, List<String> resolutions) {
+    }
+
+    record DiagnosticJson(String severity, String source, String code, String message) {
     }
 }
