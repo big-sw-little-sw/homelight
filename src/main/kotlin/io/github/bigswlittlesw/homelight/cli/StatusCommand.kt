@@ -19,14 +19,14 @@ internal class StatusCommand : Callable<Int> {
     private var json = false
 
     @field:Spec
-    private lateinit var commandSpec: CommandLine.Model.CommandSpec
+    private lateinit var spec: CommandLine.Model.CommandSpec
 
     override fun call(): Int {
         val configPath = parent.config
         if (!json) {
-            return launchTui(configPath, parent.debugStepDelayMillis, commandSpec.commandLine().err)
+            return launchTui(configPath, parent.debugStepDelayMillis, spec.commandLine().err)
         }
-        val output = commandSpec.commandLine().out
+        val output = spec.commandLine().out
         if (isUnconfiguredDefault(configPath)) {
             renderUnconfiguredStatusJson(configPath, output)
             return CommandLine.ExitCode.OK

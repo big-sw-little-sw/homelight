@@ -44,7 +44,7 @@ internal class ApplyCommand(private val worker: Executor = Executor { it.run() }
         val output = spec.commandLine().out
         if (isUnconfiguredDefault(config)) {
             renderApplyJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
-            return 0
+            return CommandLine.ExitCode.OK
         }
         val plan = ConfigurationEvaluation().loadRequired(config).plan
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
@@ -69,6 +69,7 @@ internal fun renderCompletion(execution: ReviewedExecution, output: PrintWriter)
         }
         throw exception
     }
+    // ReviewedExecution publishes its terminal Result snapshot before completion settles.
     val result = execution.snapshot() as ApplyModel.Result
     renderApplyJson(result, output)
     return if (result.succeeded()) 0 else 1

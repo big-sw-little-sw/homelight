@@ -53,7 +53,7 @@ internal class DetailViewport {
                 val height = maxOf(1, area.height() - 2)
                 val overflow = lines.sumOf { line -> wrap(line.text, width).size } > height
                 if (overflow) width = maxOf(1, width - 1)
-                val wrapped = ArrayList<Line>()
+                val wrapped = mutableListOf<Line>()
                 var anchor = 0
                 for ((i, line) in lines.withIndex()) {
                     if (i == choiceLine) anchor = wrapped.size
@@ -102,7 +102,7 @@ internal fun wrappedText(value: String, color: Color): Element {
 
 /** Wraps at spaces where possible, breaking long words at the cell width. */
 internal fun wrap(text: String, width: Int): List<String> {
-    val result = ArrayList<String>()
+    val result = mutableListOf<String>()
     for (paragraph in text.split("\n")) {
         val line = StringBuilder()
         var cells = 0

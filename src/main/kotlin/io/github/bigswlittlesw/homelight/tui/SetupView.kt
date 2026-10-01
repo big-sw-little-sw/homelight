@@ -50,7 +50,7 @@ internal class SetupView(
         if (!closed) discovery?.let { draft.accept(it.snapshot()) }
         var content = if (mode == Mode.CANDIDATES) browser.render(draft)
         else {
-            val lines = ArrayList<Line>()
+            val lines = mutableListOf<Line>()
             lines.add(Line("Create configuration", Color.CYAN, true))
             lines.add(Line("Config: " + literal(session.configPath.toString())))
             val anchor = when (mode) {

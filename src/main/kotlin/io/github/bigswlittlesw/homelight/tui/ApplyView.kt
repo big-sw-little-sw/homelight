@@ -187,7 +187,7 @@ internal object ApplyView {
         is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> null
     }
 
-    fun actionLabel(action: ReconciliationAction): String = when (action) {
+    private fun actionLabel(action: ReconciliationAction): String = when (action) {
         is ReconciliationAction.EnsureDirectory -> "Ensure parent directory"
         is ReconciliationAction.CreateDirectory -> "Create directory"
         is ReconciliationAction.CopyDirectory -> "Copy directory"

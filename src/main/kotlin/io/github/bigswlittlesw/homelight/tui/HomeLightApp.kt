@@ -22,7 +22,7 @@ import java.nio.file.Path
  *
  * `discoveryFactory` gives each reopened setup its own discovery lifetime.
  */
-class HomeLightApp(
+internal class HomeLightApp(
     val session: HomeLightSession,
     private val customTuiConfig: TuiConfig? = null,
     startSetup: Boolean = false,
@@ -252,7 +252,7 @@ class HomeLightApp(
         activeScreen = screen
     }
 
-    fun refresh() {
+    private fun refresh() {
         if (session.isApplying() || !session.executionSettled()) return
         val source = selectedPlanItem()?.relocation?.sourcePath
         session.refresh()
@@ -262,7 +262,7 @@ class HomeLightApp(
         resetDetailSelection()
     }
 
-    fun resolveSelected(choice: DecisionChoice) {
+    private fun resolveSelected(choice: DecisionChoice) {
         val item = selectedPlanItem()
         if (item == null || session.applyModel() is ApplyModel.Result) return
         session.choose(item.relocation.sourcePath, choice)
@@ -282,17 +282,17 @@ class HomeLightApp(
         return if (items.isEmpty()) null else items[selectedIndex.coerceIn(0, items.size - 1)]
     }
 
-    fun toggleInSync() {
+    private fun toggleInSync() {
         val source = selectedPlanItem()?.relocation?.sourcePath
         showInSync = !showInSync
         userShowInSync = showInSync
         restoreSelection(source)
     }
 
-    fun selectPrevious() { select(-1, false) }
-    fun selectNext() { select(1, false) }
-    fun selectFirst() { select(0, true) }
-    fun selectLast() { select(Int.MAX_VALUE, true) }
+    private fun selectPrevious() { select(-1, false) }
+    private fun selectNext() { select(1, false) }
+    private fun selectFirst() { select(0, true) }
+    private fun selectLast() { select(Int.MAX_VALUE, true) }
 
     private fun select(value: Int, absolute: Boolean) {
         if (activeScreen == Screen.APPLY) {
