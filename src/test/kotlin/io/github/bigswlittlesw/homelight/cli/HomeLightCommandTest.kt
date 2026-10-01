@@ -182,7 +182,7 @@ class HomeLightCommandTest {
         val snapshot = StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
             io.github.bigswlittlesw.homelight.domain.RelocationSourceState.ABSENT)
 
-        StatusRenderer().renderJson(listOf(snapshot), PrintWriter(output, true))
+        renderStatusJson(listOf(snapshot), PrintWriter(output, true))
 
         assertTrue(output.toString().contains("line\\nbreak"))
     }
@@ -191,7 +191,7 @@ class HomeLightCommandTest {
     fun unconfiguredStatusReportsJson() {
         val output = StringWriter()
 
-        StatusRenderer().renderUnconfiguredJson(Path.of("/tmp/.homelight.json"),
+        renderUnconfiguredStatusJson(Path.of("/tmp/.homelight.json"),
             PrintWriter(output, true))
 
         assertTrue(output.toString().contains("\"configured\":false"))

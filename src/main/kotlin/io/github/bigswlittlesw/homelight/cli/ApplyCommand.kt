@@ -43,12 +43,12 @@ internal class ApplyCommand(private val worker: Executor = Executor { it.run() }
         }
         val output = spec.commandLine().out
         if (isUnconfiguredDefault(config)) {
-            ApplyRenderer().renderJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
+            renderApplyJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
             return 0
         }
         val plan = ConfigurationEvaluation().loadRequired(config).plan
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            PlanRenderer().renderJson(plan, output)
+            renderPlanJson(plan, output)
             return 1
         }
         val execution = ReviewedExecution(plan)
@@ -64,12 +64,12 @@ internal fun renderCompletion(execution: ReviewedExecution, output: PrintWriter)
         // Completion failure must not hide evidence already published by the worker.
         val snapshot = execution.snapshot()
         if (snapshot is ApplyModel.Result && !snapshot.succeeded()) {
-            ApplyRenderer().renderJson(snapshot, output)
+            renderApplyJson(snapshot, output)
             return 1
         }
         throw exception
     }
     val result = execution.snapshot() as ApplyModel.Result
-    ApplyRenderer().renderJson(result, output)
+    renderApplyJson(result, output)
     return if (result.succeeded()) 0 else 1
 }

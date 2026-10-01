@@ -70,7 +70,7 @@ class ReviewedJsonApplyTest {
         configuration(root, "", "first")
         val plan = ConfigurationEvaluation().loadRequired(config).plan
         val expected = StringWriter()
-        ApplyRenderer().renderJson(ReconciliationExecutor().execute(plan), PrintWriter(expected, true))
+        renderApplyJson(ReconciliationExecutor().execute(plan), PrintWriter(expected, true))
         val repeated = execute(config, Executor(Runnable::run), "--json", "--yes")
         assertEquals(0, repeated.exitCode)
         assertEquals(expected.toString(), repeated.output)

@@ -7,22 +7,19 @@ import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Locale
 
-/** Machine-readable JSON renderer for relocation status. */
-internal class StatusRenderer {
-    fun renderJson(snapshots: List<StatusSnapshot>, output: PrintWriter) {
-        val relocations = snapshots.map { snapshot ->
-            StatusJson(
-                snapshot.sourcePath.toString(), snapshot.targetPath.toString(),
-                snapshot.state.name.lowercase(Locale.getDefault()),
-            )
-        }
-        output.println(encodeJson(ListSerializer(StatusJson.serializer()), relocations))
+internal fun renderStatusJson(snapshots: List<StatusSnapshot>, output: PrintWriter) {
+    val relocations = snapshots.map { snapshot ->
+        StatusJson(
+            snapshot.sourcePath.toString(), snapshot.targetPath.toString(),
+            snapshot.state.name.lowercase(Locale.getDefault()),
+        )
     }
+    output.println(encodeJson(ListSerializer(StatusJson.serializer()), relocations))
+}
 
-    fun renderUnconfiguredJson(config: Path, output: PrintWriter) {
-        val status = UnconfiguredStatusJson(false, config.toAbsolutePath().normalize().toString(), listOf())
-        output.println(encodeJson(UnconfiguredStatusJson.serializer(), status))
-    }
+internal fun renderUnconfiguredStatusJson(config: Path, output: PrintWriter) {
+    val status = UnconfiguredStatusJson(false, config.toAbsolutePath().normalize().toString(), listOf())
+    output.println(encodeJson(UnconfiguredStatusJson.serializer(), status))
 }
 
 internal data class StatusSnapshot(val sourcePath: Path, val targetPath: Path, val state: RelocationSourceState)

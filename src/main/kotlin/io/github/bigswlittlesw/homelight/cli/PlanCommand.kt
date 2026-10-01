@@ -47,7 +47,7 @@ internal class PlanCommand : Callable<Int> {
         if (json) {
             val plan = if (isUnconfiguredDefault(configPath)) ReconciliationPlan(listOf(), listOf())
             else ConfigurationEvaluation().loadRequired(configPath, override).plan
-            PlanRenderer().renderJson(plan, spec.commandLine().out)
+            renderPlanJson(plan, spec.commandLine().out)
             return 0
         }
 

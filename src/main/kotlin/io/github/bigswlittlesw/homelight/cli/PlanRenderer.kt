@@ -6,10 +6,8 @@ import kotlinx.serialization.Serializable
 import java.io.PrintWriter
 import java.util.Locale
 
-internal class PlanRenderer {
-    fun renderJson(plan: ReconciliationPlan, output: PrintWriter) {
-        output.println(encodeJson(PlanJson.serializer(), planJson(plan)))
-    }
+internal fun renderPlanJson(plan: ReconciliationPlan, output: PrintWriter) {
+    output.println(encodeJson(PlanJson.serializer(), planJson(plan)))
 }
 
 @Serializable

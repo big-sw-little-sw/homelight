@@ -39,7 +39,7 @@ class PlanCommandTest {
         val expected = io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().loadRequired(config,
             io.github.bigswlittlesw.homelight.config.ConfigurationLoader.PathOverride(source, target))
         val rendered = StringWriter()
-        PlanRenderer().renderJson(expected.plan, PrintWriter(rendered, true))
+        renderPlanJson(expected.plan, PrintWriter(rendered, true))
         assertEquals(rendered.toString(), out.toString())
         assertEquals(source, expected.plan.relocations.first().relocation.sourcePath)
         assertEquals(root.resolve("second-source"), expected.plan.relocations.last().relocation.sourcePath)
