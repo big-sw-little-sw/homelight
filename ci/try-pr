@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Tries a pull request's Linux arm64 native binary in a disposable container.
+#
+#   ci/try-pr <pr-number>
+#
+# Downloads homelight-linux-arm64 from the PR branch's latest successful CI run (gh run download),
+# starts a throwaway ubuntu:24.04 arm64 container with fixture directories and a sample
+# ~/.homelight.yaml, and opens the homelight TUI. Quitting the TUI leaves you in a bash shell in
+# the same container (try `homelight plan --json`); exiting the shell removes the container.
+#
+# Needs gh (authenticated) and docker on an arm64 host, e.g. OrbStack on an Apple silicon Mac.
+# Nothing is mounted from the host except the downloaded binary (read-only); the container's home
+# is its own. TERM inside is xterm-256color; set HOMELIGHT_TERM to try another value.
+set -euo pipefail
+
+pr=${1:?usage: ci/try-pr <pr-number>}
+repo=big-sw-little-sw/homelight
+
+branch=$(gh pr view "$pr" --repo "$repo" --json headRefName --jq .headRefName)
+run=$(gh run list --repo "$repo" --workflow ci.yml --branch "$branch" --status success --limit 1 \
+  --json databaseId,headSha --jq '.[0] | "\(.databaseId) \(.headSha[0:7])"')
+if [ -z "$run" ]; then
+  echo "No successful CI run for PR #$pr (branch $branch) yet." >&2
+  exit 1
+fi
+read -r run_id sha <<< "$run"
+
+dir=$(mktemp -d "${TMPDIR:-/tmp}/homelight-pr$pr.XXXXXX")
+trap 'rm -rf "$dir"' EXIT
+echo "PR #$pr ($branch @ $sha), run $run_id: downloading homelight-linux-arm64"
+gh run download "$run_id" --repo "$repo" --name homelight-linux-arm64 --dir "$dir"
+
+# Mirrors the CLI comparison fixture (ci/native/compare.sh): a directory to migrate, one that
+# conflicts with an existing target, and one already relocated.
+setup='
+set -e
+install -m 755 /hl/homelight /usr/local/bin/homelight
+mkdir -p ~/.cache/tool-a/sub ~/.cache/tool-b /scratch/local/tool-b /scratch/local/tool-c /scratch/archive
+echo a > ~/.cache/tool-a/file.txt
+echo nested > ~/.cache/tool-a/sub/n.txt
+echo b-src > ~/.cache/tool-b/src.txt
+echo b-tgt > /scratch/local/tool-b/tgt.txt
+ln -s /scratch/local/tool-c ~/.cache/tool-c
+cat > ~/.homelight.yaml <<EOF
+homelight:
+  target-root: /scratch/local
+  relocations:
+    - source-path: ~/.cache/tool-a
+      target-path: /scratch/local/tool-a
+    - source-path: ~/.cache/tool-b
+      target-path: /scratch/local/tool-b
+      when-source-and-target-directories-exist: adopt
+      when-adopting-target: archive-source
+      source-archive-root: /scratch/archive
+    - source-path: ~/.cache/tool-c
+      target-path: /scratch/local/tool-c
+EOF
+cd ~
+homelight || echo "homelight exited with status $?"
+echo "Shell in the disposable container: config ~/.homelight.yaml, targets /scratch. exit to remove it."
+exec bash
+'
+
+docker run --rm -it --platform linux/arm64 --hostname "homelight-pr$pr" \
+  -e TERM="${HOMELIGHT_TERM:-xterm-256color}" -v "$dir:/hl:ro" \
+  ubuntu:24.04 bash -c "$setup"
