@@ -47,7 +47,7 @@ config -> domain
 domain -> Java standard library only where practical
 ```
 
-The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete YAML implementation. JSON commands must not initialize or depend on a live terminal session.
+The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete configuration format. JSON commands must not initialize or depend on a live terminal session.
 
 ## Application workflow
 

@@ -7,6 +7,14 @@ changed by this specification session. Proposed ticket text is in
 [session-b-ticket-updates.md](session-b-ticket-updates.md); concrete inputs and
 fixture recipes are in [session-b-fixtures](session-b-fixtures/README.md).
 
+Format change, 2026-10-01 (#49): candidate lists and configuration are now JSON,
+read with kotlinx.serialization; see `docs/decisions.md`. The YAML examples below
+are historical. The structure is unchanged, for example
+`{"apps": [{"name": "Maven", "directories": [{"path": ".m2", "advice": "consider"}]}]}`,
+and the bundled list is `src/main/resources/candidates.json`. YAML-only rules
+(anchors, aliases, tags, multiple documents, any scalar read as text) no longer
+apply: JSON has none of them, and non-string values are rejected.
+
 Accepted UX revision, 2026-09-24: #32b uses direct Space/a Add, Enter inspection
 and e editing in a grouped checklist. Current-generation confirmed-missing
 paths are eligible alongside directories, allowing configuration before app
