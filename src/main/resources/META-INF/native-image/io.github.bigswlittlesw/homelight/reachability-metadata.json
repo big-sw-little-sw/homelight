@@ -1,0 +1,70 @@
+{
+  "reflection": [
+    {
+      "type": "dev.tamboui.backend.jline3.JLineBackendProvider"
+    },
+    {
+      "type": "java.lang.Boolean",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "getBoolean",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.lang.System",
+      "methods": [
+        {
+          "name": "console",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "sun.misc.Signal",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "handle",
+          "parameterTypes": [
+            "sun.misc.Signal",
+            "sun.misc.SignalHandler"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.misc.SignalHandler"
+    },
+    {
+      "type": {
+        "proxy": [
+          "sun.misc.SignalHandler"
+        ]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "glob": "candidates.yaml"
+    },
+    {
+      "glob": "io/github/bigswlittlesw/homelight/version.properties"
+    },
+    {
+      "glob": "META-INF/services/dev.tamboui.terminal.BackendProvider"
+    },
+    {
+      "glob": "dev/tamboui/tui/bindings/*.properties"
+    }
+  ]
+}
