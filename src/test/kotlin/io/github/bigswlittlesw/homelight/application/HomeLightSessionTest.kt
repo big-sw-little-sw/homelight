@@ -101,7 +101,7 @@ class HomeLightSessionTest {
         assertEquals(1, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
         val repeated = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan
         assertNotSame(reviewed, repeated)
-        assertFalse(repeated.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem))
+        assertFalse(repeated.actions().any(ReconciliationAction::mutatesFilesystem))
         assertTrue(session.requestApply())
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
@@ -151,15 +151,15 @@ class HomeLightSessionTest {
         assertTrue(stale.stale)
         assertNull(stale.execution)
         assertTrue(stale.diagnostics.first().contains("local/second"))
-        assertTrue(stale.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(stale.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(Files.exists(root.resolve("local/first")))
         assertFalse(Files.exists(root.resolve("home")))
         assertFalse(session.requestApply())
 
         session.refresh()
         assertTrue(session.hasConflicts())
-        val second = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.stream()
-                .filter { item -> item.relocation.sourcePath.endsWith("second") }.findFirst().orElseThrow()
+        val second = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+                .first { item -> item.relocation.sourcePath.endsWith("second") }
         session.resolveDecision(second.relocation, DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
         session.confirmApply(Runnable::run).join()
@@ -191,7 +191,7 @@ class HomeLightSessionTest {
     fun runningSnapshotIsImmutableAndRepeatedIntentsCannotStartOrReplaceExecution() {
         val root = directory.toRealPath()
         val session = HomeLightSession(configuration(root, "", "cache"))
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         session.requestApply()
         val execution = session.confirmApply(tasks::add)
         val running = assertInstanceOf(ApplyModel.Running::class.java, session.applyModel())
@@ -206,9 +206,9 @@ class HomeLightSessionTest {
 
         tasks.first().run()
         execution.join()
-        assertTrue(running.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(running.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
-        assertTrue(result.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.COMPLETED })
+        assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.COMPLETED })
         assertEquals(1, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
     }
 
@@ -225,11 +225,11 @@ class HomeLightSessionTest {
 
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertFalse(result.succeeded())
-        assertTrue(result.steps.stream().anyMatch { step -> step.status == ApplyModel.StepStatus.COMPLETED })
-        val failed = result.steps.stream().filter { step -> step.status == ApplyModel.StepStatus.FAILED }.findFirst().orElseThrow()
+        assertTrue(result.steps.any { step -> step.status == ApplyModel.StepStatus.COMPLETED })
+        val failed = result.steps.first { step -> step.status == ApplyModel.StepStatus.FAILED }
         assertTrue(failed.relocation.relocation.sourcePath.endsWith("second"))
         assertFalse(failed.message.isJavaBlank())
-        assertTrue(result.steps.stream().anyMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(result.steps.any { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
         assertFalse(Files.exists(root.resolve("home/third")))
         assertFalse(session.requestApply())

@@ -40,7 +40,7 @@ class ReviewedJsonApplyTest {
         assertEquals(listOf("true"), values(result.output, "stale"))
         val statuses = values(result.output, "status")
         assertFalse(statuses.isEmpty())
-        assertTrue(statuses.stream().allMatch("pending"::equals))
+        assertTrue(statuses.all { it == "pending" })
         assertTrue(result.output.contains("Filesystem state changed since review: " + root.resolve("home/second")))
         assertTrue(result.output.contains("Filesystem state changed since review: " + root.resolve("home/third")))
         assertTrue(Files.notExists(root.resolve("home/first")))
@@ -61,7 +61,7 @@ class ReviewedJsonApplyTest {
 
         assertEquals(0, result.exitCode, result.error)
         assertEquals(listOf("true"), values(result.output, "succeeded"))
-        assertTrue(values(result.output, "status").stream().allMatch("completed"::equals))
+        assertTrue(values(result.output, "status").all { it == "completed" })
         assertFalse(result.output.contains("diagnostics"))
         assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
         assertEquals(root.resolve("local/first"), Files.readSymbolicLink(root.resolve("home/first")))
@@ -179,7 +179,7 @@ class ReviewedJsonApplyTest {
         assertTrue(output.toString().contains("\"diagnostics\":[\"retained worker diagnostic\"]"))
         val statuses = values(output.toString(), "status")
         assertFalse(statuses.isEmpty())
-        assertTrue(statuses.stream().allMatch("pending"::equals))
+        assertTrue(statuses.all { it == "pending" })
     }
 
     @Test
@@ -228,7 +228,7 @@ class ReviewedJsonApplyTest {
         assertEquals(listOf("false"), values(result.output, "succeeded"))
         assertEquals(listOf("false"), values(result.output, "stale"))
         assertTrue(result.output.contains("worker unavailable"))
-        assertTrue(values(result.output, "status").stream().allMatch("pending"::equals))
+        assertTrue(values(result.output, "status").all { it == "pending" })
         assertTrue(Files.notExists(root.resolve("local")))
     }
 
@@ -245,7 +245,7 @@ class ReviewedJsonApplyTest {
             val error = StringWriter()
             command.setOut(PrintWriter(output, true))
             command.setErr(PrintWriter(error, true))
-            val arguments = ArrayList(listOf("--config", config.toString(), "apply"))
+            val arguments = mutableListOf("--config", config.toString(), "apply")
             arguments.addAll(listOf(*options))
             val exitCode: Int = command.execute(*arguments.toTypedArray())
             return Result(exitCode, output.toString(), error.toString())

@@ -343,7 +343,7 @@ class CandidateCatalogTest {
 
     @Test fun returnedCollectionsAreImmutableAndDefensivelyCopied() {
         val parsed = parse("""{"directories": [{"path": "cache"}]}""")
-        val definitions = ArrayList(parsed.definitions)
+        val definitions = parsed.definitions.toMutableList()
         val copied = CandidateCatalog.Snapshot.of(SHARED, HOME, definitions, listOf())
         definitions.clear()
         assertEquals(1, copied.definitions.size)

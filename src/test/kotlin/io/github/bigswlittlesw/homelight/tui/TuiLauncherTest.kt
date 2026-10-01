@@ -70,7 +70,7 @@ class TuiLauncherTest {
             }
         }
         session.requestApply()
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         val completion = session.confirmApply(Executor { tasks.add(it) })
         val backend = LifecycleBackend()
         val app = HomeLightApp(session, config(backend))

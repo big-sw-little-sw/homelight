@@ -9,6 +9,7 @@ import java.nio.file.Path
  * No test controls are exposed by the production CLI.
  */
 object CandidateSetupPty {
+    // JVM entry point: docs/research/session-b32b/pty-check.py launches this class by name.
     @JvmStatic
     fun main(args: Array<String>) {
         SetupDiscoveryFixture().use { fixture ->

@@ -47,9 +47,10 @@ class DefaultConfigurationClassificationTest {
 
     class Probe {
         companion object {
+            // JVM entry point for the subprocess this test launches.
             @JvmStatic fun main(args: Array<String>) {
                 val defaultPath = ConfigurationLoader.DEFAULT_PATH
-                val config = if (args[0].equals("explicit-directory"))
+                val config = if (args[0] == "explicit-directory")
                     defaultPath.resolveSibling("explicit.json") else defaultPath
                 when (args[0]) {
                     "default-directory", "explicit-directory" -> Files.createDirectory(config)
@@ -75,7 +76,7 @@ class DefaultConfigurationClassificationTest {
                     val err = StringWriter()
                     cli.setOut(PrintWriter(out, true))
                     cli.setErr(PrintWriter(err, true))
-                    val arguments = ArrayList(listOf(command, "--config", config.toString(), "--json"))
+                    val arguments = mutableListOf(command, "--config", config.toString(), "--json")
                     if (command.equals("apply")) {
                         arguments.add("--yes")
                     }

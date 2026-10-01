@@ -63,9 +63,9 @@ class ConfigurationPublisherTest {
         Executors.newFixedThreadPool(2).use { pool ->
             val results = pool.invokeAll(listOf<Callable<Boolean>>(
                     Callable { save(publisher, path, draft(root)) }, Callable { save(publisher, path, draft(root)) }))
-            assertEquals(1L, results.stream().filter { result ->
+            assertEquals(1, results.count { result ->
                 try { result.get() } catch (exception: Exception) { throw AssertionError(exception) }
-            }.count())
+            })
         }
         assertEquals(1, ConfigurationLoader().load(path).relocations.size)
     }

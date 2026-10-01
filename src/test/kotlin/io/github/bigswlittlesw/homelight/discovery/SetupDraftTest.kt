@@ -269,7 +269,7 @@ class SetupDraftTest {
             val loaded = ConfigurationLoader().load(path)
             assertEquals(draft.validate().relocations, loaded.relocations)
             assertEquals(3, loaded.relocations.size)
-            assertTrue(loaded.relocations.stream().allMatch { r -> r.whenSourceAndTargetDirectoriesExist == null
+            assertTrue(loaded.relocations.all { r -> r.whenSourceAndTargetDirectoriesExist == null
                     && r.whenOnlyTargetExists == null && r.whenAdoptingTarget == null })
             assertEquals(shared(), loaded.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
@@ -357,7 +357,7 @@ class SetupDraftTest {
                     if (remove) draft.remove(index)
                     else draft.edit(index, SetupDraft.Row("edited", "edited"))
                     refresh(draft, worker)
-                    val selected = draft.entries().stream().filter { entry -> entry.draft != null }.toList()
+                    val selected = draft.entries().filter { entry -> entry.draft != null }
                     assertEquals(if (remove) 1 else 2, selected.size)
                     selected.forEach { entry -> assertEquals(history, entry.lastKnownDefinitions) }
                     assertEquals(history, before.get(0).lastKnownDefinitions)
@@ -437,7 +437,7 @@ class SetupDraftTest {
     companion object {
         private fun fixture(name: String): Path { return Path.of("docs/research/session-b-fixtures/nested/$name.json") }
         private fun entry(draft: SetupDraft, path: Path): SetupDraft.Entry {
-            return draft.entries().stream().filter { row -> row.sourcePath == path }.findFirst().orElseThrow()
+            return draft.entries().first { row -> row.sourcePath == path }
         }
 
         private fun refresh(draft: SetupDraft, worker: CandidateDiscovery): CandidateDiscovery.Result {
@@ -445,14 +445,14 @@ class SetupDraftTest {
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4)
             while (true) {
                 val result = worker.snapshot()
-                val currentSources = result.sources.stream()
+                val currentSources = result.sources
                         .filter { source -> source.status == CandidateDiscovery.SourceStatus.CURRENT }
-                        .map(CandidateDiscovery.SourceOutcome::source).toList()
-                if (result.sources.stream().noneMatch { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
-                        && result.candidates.stream().noneMatch { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
-                        && result.candidates.stream().filter { c -> c.catalog.definitions.stream()
-                                .anyMatch { definition -> currentSources.contains(definition.source) } }
-                                .allMatch { c -> c.observation.generation == result.generation }) {
+                        .map(CandidateDiscovery.SourceOutcome::source)
+                if (result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
+                        && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
+                        && result.candidates.filter { c -> c.catalog.definitions
+                                .any { definition -> currentSources.contains(definition.source) } }
+                                .all { c -> c.observation.generation == result.generation }) {
                     assertTrue(draft.accept(result))
                     return result
                 }

@@ -27,7 +27,7 @@ class ReviewedExecutionTest {
         review.awaitExecution()
         assertSame(plan, assertInstanceOf(ApplyModel.Confirmation::class.java, review.snapshot()).plan)
         assertFalse(Files.exists(directory.resolve("local")))
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         val completion = review.start(tasks::add)
         val running = assertInstanceOf(ApplyModel.Running::class.java, review.snapshot())
         assertSame(completion, review.start(tasks::add))
@@ -50,7 +50,7 @@ class ReviewedExecutionTest {
         assertSame(plan, result.plan)
         assertSame(plan.relocations.first(), result.steps.first().relocation)
         assertSame(plan.actions().first(), result.steps.first().action)
-        assertTrue(running.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(running.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertSame(completion, review.start { task -> fail<Unit>("Must not reschedule a retained result") })
         assertSame(result, review.snapshot())
         assertTrue(Files.isSymbolicLink(directory.resolve("home/cache")))
@@ -68,7 +68,7 @@ class ReviewedExecutionTest {
         assertFalse(result.stale)
         assertNull(result.execution)
         assertEquals(java.util.List.of("worker unavailable"), result.diagnostics)
-        assertTrue(result.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertSame(completion, review.start { task -> fail<Unit>("Rejected review cannot restart") })
         assertFalse(Files.exists(directory.resolve("local")))
     }
@@ -82,7 +82,7 @@ class ReviewedExecutionTest {
         assertTrue(result.stale)
         assertNull(result.execution)
         assertFalse(result.diagnostics.isEmpty())
-        assertTrue(result.steps.stream().allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(Files.exists(directory.resolve("local/first")))
         assertFalse(Files.exists(directory.resolve("home")))
     }
@@ -110,7 +110,7 @@ class ReviewedExecutionTest {
     @Test
     fun workerFailureRetainsFailedAndNotStartedEvidence() {
         val review = ReviewedExecution(plan("cache"), 1)
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         val completion = review.start(tasks::add)
         // Exercise the existing debug-delay failure path deterministically, without a timing race.
         Thread.currentThread().interrupt()
@@ -124,7 +124,7 @@ class ReviewedExecutionTest {
         assertFalse(checkNotNull(result.execution).succeeded())
         assertEquals("Interrupted during visual-test delay", result.steps.first().message)
         assertEquals(ApplyModel.StepStatus.FAILED, result.steps.first().status)
-        assertTrue(result.steps.stream().skip(1).allMatch { step -> step.status == ApplyModel.StepStatus.PENDING })
+        assertTrue(result.steps.drop(1).all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(result.stale)
         assertFalse(Files.exists(directory.resolve("local")))
     }

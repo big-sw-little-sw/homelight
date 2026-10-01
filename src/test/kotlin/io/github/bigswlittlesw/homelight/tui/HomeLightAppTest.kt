@@ -187,7 +187,7 @@ class HomeLightAppTest {
         app.render()
 
         for (active in 0 until 3) {
-            val steps = java.util.ArrayList<ApplyModel.Step>()
+            val steps = mutableListOf<ApplyModel.Step>()
             for (relocation in plan.relocations) {
                 for (action in relocation.actions) {
                     val status = if (steps.size < active) ApplyModel.StepStatus.COMPLETED
@@ -257,7 +257,7 @@ class HomeLightAppTest {
         assertTrue(app.session.applyModel() is ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofChar('r'))
         assertTrue(app.session.isPlanReady())
-        assertFalse((app.planModel() as PlanModel.Configured).plan.actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem))
+        assertFalse((app.planModel() as PlanModel.Configured).plan.actions().any(ReconciliationAction::mutatesFilesystem))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
         val unchanged = app.session.applyModel()
         app.handleKeyEvent(KeyEvent.ofChar('y'))
@@ -280,7 +280,7 @@ class HomeLightAppTest {
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
         val app = HomeLightApp(HomeLightSession(config))
         app.handleKeyEvent(KeyEvent.ofChar('a'))
-        val tasks = java.util.ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         app.session.confirmApply(Executor { tasks.add(it) })
         val running = app.session.applyModel()
         for (key in charArrayOf('r', 'y', 'a', '1', '2', 'q')) {

@@ -21,8 +21,8 @@ class ReconciliationPlannerTest {
         val plan = plan(Relocation(source, root.resolve("local/cache")))
 
         assertEquals(RelocationOutcome.CONVERGED, plan.relocations.first().outcome)
-        assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication::class.java::isInstance))
-        assertTrue(plan.actions().stream().anyMatch(ReconciliationAction.ReplaceDirectoryWithSymlink::class.java::isInstance))
+        assertTrue(plan.actions().any { it is ReconciliationAction.MigrateDirectoryForPublication })
+        assertTrue(plan.actions().any { it is ReconciliationAction.ReplaceDirectoryWithSymlink })
         assertFalse(plan.hasBlockedActions())
     }
 
@@ -73,9 +73,7 @@ class ReconciliationPlannerTest {
         val relocation = relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
                 null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)
 
-        val archive = plan(relocation).actions().stream()
-                .filter(ReconciliationAction.ArchiveDirectory::class.java::isInstance).findFirst().orElseThrow()
-                as ReconciliationAction.ArchiveDirectory
+        val archive = plan(relocation).actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().first()
         assertEquals(archiveRoot.resolve(sourceRelativeToRoot(source)), archive.target)
 
         Files.createDirectories(archive.target)
@@ -112,7 +110,7 @@ class ReconciliationPlannerTest {
 
         assertTrue(unavailable.hasBlockedActions())
         assertEquals(RelocationOutcome.CONVERGED, repair.relocations.first().outcome)
-        assertTrue(repair.actions().stream().anyMatch(ReconciliationAction.ReplaceSymlink::class.java::isInstance))
+        assertTrue(repair.actions().any { it is ReconciliationAction.ReplaceSymlink })
     }
 
     @Test
