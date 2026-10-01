@@ -15,7 +15,6 @@
         <propertiesEncoding>UTF-8</propertiesEncoding>
         <picocli.version>4.7.7</picocli.version>
         <jackson.version>2.18.3</jackson.version>
-        <smallrye.config.version>3.13.3</smallrye.config.version>
         <junit.version>5.12.0</junit.version>
         <tamboui.version>0.5.0-SNAPSHOT</tamboui.version>
     </properties>
@@ -81,16 +80,6 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.smallrye.config</groupId>
-            <artifactId>smallrye-config</artifactId>
-            <version>${smallrye.config.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.smallrye.config</groupId>
-            <artifactId>smallrye-config-source-yaml</artifactId>
-            <version>${smallrye.config.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

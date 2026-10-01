@@ -14,7 +14,6 @@ import picocli.CommandLine.Spec;
 
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -58,7 +57,7 @@ final class ApplyCommand implements Callable<Integer> {
             new ApplyRenderer().renderJson(new ReconciliationExecutor.ExecutionResult(List.of()), output);
             return 0;
         }
-        var plan = new ConfigurationEvaluation().loadRequired(config, Map.of()).plan();
+        var plan = new ConfigurationEvaluation().loadRequired(config).plan();
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
             new PlanRenderer().renderJson(plan, output);
             return 1;

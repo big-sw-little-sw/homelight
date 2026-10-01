@@ -76,7 +76,11 @@ PRs required, no force-push).
 
 Done when: SmallRye dependencies are gone, tests cover the new cases, CI is green.
 
-Status: not started.
+Status: done on `step3/native-blockers`. snakeyaml loader with line/column errors
+(SmallRye and jboss-logging gone from the dependency tree), typed
+`ConfigurationLoader.PathOverride`, exec provider default in native builds, dumb
+terminal refused with exit 2. 252 tests pass on macOS and Linux.
+Remaining: user merges PR.
 
 ### 4. Native Linux CI
 
@@ -99,6 +103,27 @@ Done when: every PR produces both binaries and the checks pass; `ci/try-pr` work
 from the user's Mac.
 
 Status: not started. Recipe and scripts in `ci/spike/`.
+
+### 4b. Adopt Jackson databind for YAML and JSON
+
+Jackson is the de facto standard; the intent is to adopt it unless the trial
+shows a concrete blocker.
+
+- Bind configuration and candidate lists into records with jackson-databind and
+  jackson-dataformat-yaml: kebab-case naming, unknown and duplicate keys rejected,
+  required components, policy enums via `@JsonValue`. Candidate lists keep size,
+  depth, alias and string-length limits through Jackson and snakeyaml settings.
+- Replace the hand-written jackson-core JSON writers (`PlanRenderer`,
+  `ApplyRenderer`, `StatusRenderer`, `ActionJson`) with response records, keeping
+  the versioned JSON contracts byte-for-byte or recording any change.
+- Translate Jackson exceptions into short messages with line, column and key path.
+- Add reflection metadata for the bound records; native CI (step 4) must pass.
+- Remove `YamlMapping` and the hand-written walking if nothing still needs them.
+
+Done when: merged with CI green on JVM and native, and less code than before; or a
+recorded reason in `docs/decisions.md` for not adopting it.
+
+Status: not started. Runs after step 4.
 
 ### 5. Cloud setup (user performs account steps)
 

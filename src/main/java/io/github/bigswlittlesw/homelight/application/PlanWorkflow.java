@@ -6,7 +6,6 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Map;
 
 /// Adapts shared evaluation to the existing plan presentation.
 public class PlanWorkflow {
@@ -21,11 +20,7 @@ public class PlanWorkflow {
     }
 
     public PlanModel loadPlan(Path configPath) {
-        return loadPlan(configPath, Map.of());
-    }
-
-    public PlanModel loadPlan(Path configPath, Map<String, String> inputOverrides) {
-        return from(evaluator.load(configPath, inputOverrides));
+        return from(evaluator.load(configPath));
     }
 
     static PlanModel from(ConfigurationEvaluation.Evaluation evaluation) {

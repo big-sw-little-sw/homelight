@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.config;
 
+import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic.Kind;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -7,7 +8,8 @@ import org.yaml.snakeyaml.error.Mark;
 import org.yaml.snakeyaml.error.MarkedYAMLException;
 import org.yaml.snakeyaml.error.YAMLException;
 import org.yaml.snakeyaml.events.*;
-import org.yaml.snakeyaml.nodes.*;
+import org.yaml.snakeyaml.nodes.SequenceNode;
+import org.yaml.snakeyaml.nodes.Tag;
 
 import java.io.StringReader;
 import java.nio.ByteBuffer;
@@ -15,9 +17,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -31,7 +31,9 @@ public final class CandidateParser {
     public static final int MAX_APPS = 10_000;
     public static final int MAX_DEPTH = 8;
     public static final int MAX_STRING_CHARACTERS = 4_096;
-    private static final Set<String> FIELDS = Set.of("path", "advice", "reason");
+    private static final Set<String> TOP_KEYS = Set.of("apps", "directories");
+    private static final Set<String> APP_KEYS = Set.of("name", "directories");
+    private static final Set<String> RECORD_KEYS = Set.of("path", "advice", "reason");
     private static final Set<String> CORE_TAGS = Set.of(
             Tag.STR.getValue(), Tag.MAP.getValue(), Tag.SEQ.getValue(), Tag.NULL.getValue(),
             Tag.BOOL.getValue(), Tag.INT.getValue(), Tag.FLOAT.getValue(), Tag.TIMESTAMP.getValue());
@@ -42,7 +44,7 @@ public final class CandidateParser {
         root = normalizedRoot(root);
         Objects.requireNonNull(contents);
         if (contents.length > MAX_BYTES) {
-            return failure(source, root, CandidateDiagnostic.Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit");
+            return failure(source, root, Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit");
         }
         try {
             var text = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(contents)).toString();
@@ -54,111 +56,80 @@ public final class CandidateParser {
             var yaml = new Yaml(new SafeConstructor(options));
             // Events retain anchors and explicit tags which composition can otherwise erase.
             // Bound depth before composition; never construct arbitrary Java objects.
-            validateEvents(yaml, text);
+            validateEvents(source, yaml, text);
             var document = yaml.compose(new StringReader(text));
-            var top = mapping(document, Set.of("apps", "directories"), 0);
-            if (top.isEmpty()) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, document, 0, "",
+            var top = YamlMapping.of("", document, TOP_KEYS);
+            var apps = top.list("apps");
+            var directories = top.list("directories");
+            if (apps.isEmpty() && directories.isEmpty()) {
+                throw invalid(source, Kind.SCHEMA, document == null ? null : document.getStartMark(), 0, "", "",
                         "At least one of apps or directories is required");
             }
             var definitions = new ArrayList<CandidateDefinition>();
-            if (top.containsKey("apps")) {
-                var apps = sequence(top.get("apps"), 0, "apps");
-                if (apps.getValue().size() > MAX_APPS) {
-                    throw invalid(CandidateDiagnostic.Kind.LIMIT, apps, 0, "apps", "Too many app groups");
-                }
-                for (int i = 0; i < apps.getValue().size(); i++) {
-                    var node = apps.getValue().get(i);
-                    var location = "apps[" + i + "]";
-                    try {
-                        var fields = mapping(node, Set.of("name", "directories"), 0);
-                        var name = string(fields.get("name"), 0, "name");
-                        if (!name.equals(name.strip())) {
-                            throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.get("name"), 0, "name",
-                                    "App label must not have leading or trailing whitespace");
-                        }
-                        appendDirectories(fields.get("directories"), root, source, Optional.of(name),
-                                location + ".directories", definitions);
-                    } catch (Invalid e) {
-                        throw e.at(location, node);
-                    }
-                }
+            var groups = apps.map(SequenceNode::getValue).orElse(List.of());
+            if (groups.size() > MAX_APPS) {
+                throw invalid(source, Kind.LIMIT, apps.get().getStartMark(), 0, "", "apps", "Too many app groups");
             }
-            if (top.containsKey("directories")) {
-                appendDirectories(top.get("directories"), root, source, Optional.empty(), "directories", definitions);
+            for (int i = 0; i < groups.size(); i++) {
+                var fields = YamlMapping.of("apps[" + i + "]", groups.get(i), APP_KEYS);
+                var name = fields.requiredString("name");
+                if (!name.equals(name.strip())) {
+                    throw invalid(source, Kind.SCHEMA, fields.values().get("name").getStartMark(), 0, fields.path(),
+                            "name", "App label must not have leading or trailing whitespace");
+                }
+                appendDirectories(fields.requiredList("directories"), root, source, Optional.of(name),
+                        fields.qualify("directories"), definitions);
+            }
+            if (directories.isPresent()) {
+                appendDirectories(directories.get(), root, source, Optional.empty(), "directories", definitions);
             }
             return new CandidateCatalog.Snapshot(source, root, definitions, List.of());
         } catch (CharacterCodingException e) {
-            return failure(source, root, CandidateDiagnostic.Kind.ENCODING, "Input is not valid UTF-8");
+            return failure(source, root, Kind.ENCODING, "Input is not valid UTF-8");
+        } catch (YamlMapping.Violation e) {
+            return rejected(root, schema(source, e, 0));
         } catch (Invalid e) {
-            var diagnostic = new CandidateDiagnostic(source, e.kind, e.recordIndex,
-                    e.mark == null ? 0 : e.mark.getLine() + 1,
-                    e.mark == null ? 0 : e.mark.getColumn() + 1, e.location, e.key, e.getMessage());
-            return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
+            return rejected(root, e);
         } catch (MarkedYAMLException e) {
-            var mark = e.getProblemMark();
-            var diagnostic = new CandidateDiagnostic(source, CandidateDiagnostic.Kind.SYNTAX, 0,
-                    mark == null ? 0 : mark.getLine() + 1, mark == null ? 0 : mark.getColumn() + 1,
-                    "", "", e.getProblem() == null ? "Invalid YAML" : e.getProblem());
-            return new CandidateCatalog.Snapshot(source, root, List.of(), List.of(diagnostic));
+            return rejected(root, invalid(source, Kind.SYNTAX, e.getProblemMark(), 0, "", "",
+                    e.getProblem() == null ? "Invalid YAML" : e.getProblem()));
         } catch (YAMLException e) {
-            return failure(source, root, CandidateDiagnostic.Kind.SYNTAX, "Invalid YAML: " + e.getMessage());
+            return failure(source, root, Kind.SYNTAX, "Invalid YAML: " + e.getMessage());
         }
     }
 
-    private static SequenceNode sequence(Node node, int index, String key) {
-        if (!(node instanceof SequenceNode sequence) || !Tag.SEQ.equals(node.getTag())) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, key, "Required sequence is missing or invalid");
+    private static void appendDirectories(SequenceNode sequence, Path root, CandidateSource source,
+                                          Optional<String> app, String location, List<CandidateDefinition> definitions) {
+        if (sequence.getValue().size() > MAX_RECORDS - definitions.size()) {
+            throw invalid(source, Kind.LIMIT, sequence.getStartMark(), 0, location, "directories",
+                    "Too many records across catalog");
         }
-        return sequence;
-    }
-
-    private static void appendDirectories(Node directories, Path root, CandidateSource source, Optional<String> app,
-                                          String location, List<CandidateDefinition> definitions) {
-        try {
-            var sequence = sequence(directories, 0, "directories");
-            if (sequence.getValue().size() > MAX_RECORDS - definitions.size()) {
-                throw invalid(CandidateDiagnostic.Kind.LIMIT, sequence, 0, "directories", "Too many records across catalog");
-            }
-            for (int i = 0; i < sequence.getValue().size(); i++) {
-                var node = sequence.getValue().get(i);
-                var recordLocation = location + "[" + i + "]";
+        for (int i = 0; i < sequence.getValue().size(); i++) {
+            var node = sequence.getValue().get(i);
+            int index = definitions.size() + 1;
+            try {
+                var fields = YamlMapping.of(location + "[" + i + "]", node, RECORD_KEYS);
+                var path = fields.requiredString("path");
+                Path resolved;
                 try {
-                    int index = definitions.size() + 1;
-                    var fields = mapping(node, FIELDS, index);
-                    if (!fields.containsKey("path")) {
-                        throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "path", "Required path is missing");
-                    }
-                    var path = string(fields.get("path"), index, "path");
-                    Path resolved;
-                    try {
-                        resolved = resolve(root, path);
-                    } catch (IllegalArgumentException e) {
-                        throw invalid(CandidateDiagnostic.Kind.UNSAFE_PATH, fields.get("path"), index, "path", e.getMessage());
-                    }
-                    var adviceText = optionalString(fields, "advice", index);
-                    Optional<CandidateDefinition.Advice> advice = adviceText.map(value -> switch (value) {
-                        case "consider" -> CandidateDefinition.Advice.CONSIDER;
-                        case "usually-unnecessary" -> CandidateDefinition.Advice.USUALLY_UNNECESSARY;
-                        default -> throw invalid(CandidateDiagnostic.Kind.SCHEMA, fields.get("advice"), index,
-                                "advice", "Advice must be consider or usually-unnecessary");
-                    });
-                    var reason = optionalString(fields, "reason", index);
-                    var mark = node.getStartMark();
-                    definitions.add(new CandidateDefinition(resolved, source, index,
-                            mark.getLine() + 1, mark.getColumn() + 1, recordLocation, path, app, advice, reason));
-                } catch (Invalid e) {
-                    throw e.at(recordLocation, node);
+                    resolved = resolve(root, path);
+                } catch (IllegalArgumentException e) {
+                    throw invalid(source, Kind.UNSAFE_PATH, fields.values().get("path").getStartMark(), index,
+                            fields.path(), "path", e.getMessage());
                 }
+                var advice = fields.choice("advice", CandidateDefinition.Advice.values(),
+                        choice -> choice == CandidateDefinition.Advice.CONSIDER ? "consider" : "usually-unnecessary");
+                var mark = node.getStartMark();
+                definitions.add(new CandidateDefinition(resolved, source, index, mark.getLine() + 1,
+                        mark.getColumn() + 1, fields.path(), path, app, advice, fields.string("reason")));
+            } catch (YamlMapping.Violation e) {
+                throw schema(source, e, index);
             }
-        } catch (Invalid e) {
-            throw e.at(location, directories);
         }
     }
 
-    CandidateCatalog.Snapshot failure(CandidateSource source, Path root, CandidateDiagnostic.Kind kind, String message) {
-        return new CandidateCatalog.Snapshot(source, root, List.of(),
-                List.of(new CandidateDiagnostic(source, kind, 0, 0, 0, "", "", message)));
+    CandidateCatalog.Snapshot failure(CandidateSource source, Path root, Kind kind, String message) {
+        return rejected(root, invalid(source, kind, null, 0, "", "", message));
     }
 
     static Path normalizedRoot(Path root) {
@@ -193,15 +164,18 @@ public final class CandidateParser {
         return resolved;
     }
 
-    private static void validateEvents(Yaml yaml, String text) {
+    /// Rules beyond [YamlMapping], because a shared candidate list is written by someone else: one
+    /// document, no anchors or aliases (no expansion bombs), only core tags, and bounded depth and strings.
+    /// Events are checked because composed nodes no longer show anchors, and tags only as resolved.
+    private static void validateEvents(CandidateSource source, Yaml yaml, String text) {
         int depth = 0;
         int documents = 0;
         for (var event : yaml.parse(new StringReader(text))) {
             if (event instanceof DocumentStartEvent && ++documents > 1) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Only one document is allowed");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Only one document is allowed");
             }
             if (event instanceof AliasEvent || event instanceof NodeEvent node && node.getAnchor() != null) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Aliases and anchors are forbidden");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Aliases and anchors are forbidden");
             }
             String tag = null;
             if (event instanceof CollectionStartEvent collection) {
@@ -212,69 +186,41 @@ public final class CandidateParser {
             } else if (event instanceof ScalarEvent scalar) {
                 tag = scalar.getTag();
                 if (scalar.getValue().codePointCount(0, scalar.getValue().length()) > MAX_STRING_CHARACTERS) {
-                    throw new Invalid(CandidateDiagnostic.Kind.LIMIT, event.getStartMark(), 0, "", "String exceeds 4096 characters");
+                    throw invalid(source, Kind.LIMIT, event.getStartMark(), 0, "", "", "String exceeds 4096 characters");
                 }
             }
             if (depth > MAX_DEPTH) {
-                throw new Invalid(CandidateDiagnostic.Kind.LIMIT, event.getStartMark(), 0, "", "Nesting exceeds depth 8");
+                throw invalid(source, Kind.LIMIT, event.getStartMark(), 0, "", "", "Nesting exceeds depth 8");
             }
             if (tag != null && !CORE_TAGS.contains(tag)) {
-                throw new Invalid(CandidateDiagnostic.Kind.SCHEMA, event.getStartMark(), 0, "", "Unsupported YAML tag");
+                throw invalid(source, Kind.SCHEMA, event.getStartMark(), 0, "", "", "Unsupported YAML tag");
             }
         }
     }
 
-    private static Map<String, Node> mapping(Node node, Set<String> allowed, int index) {
-        if (!(node instanceof MappingNode mapping) || !Tag.MAP.equals(node.getTag())) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, "", "Expected a mapping");
-        }
-        var values = new LinkedHashMap<String, Node>();
-        for (var tuple : mapping.getValue()) {
-            var key = string(tuple.getKeyNode(), index, "");
-            if (!allowed.contains(key)) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, tuple.getKeyNode(), index, key, "Unknown key: " + key);
-            }
-            if (values.putIfAbsent(key, tuple.getValueNode()) != null) {
-                throw invalid(CandidateDiagnostic.Kind.SCHEMA, tuple.getKeyNode(), index, key, "Duplicate key: " + key);
-            }
-        }
-        return values;
+    private static CandidateCatalog.Snapshot rejected(Path root, Invalid e) {
+        return new CandidateCatalog.Snapshot(e.diagnostic.source(), root, List.of(), List.of(e.diagnostic));
     }
 
-    private static String string(Node node, int index, String key) {
-        if (!(node instanceof ScalarNode scalar) || !Tag.STR.equals(node.getTag()) || scalar.getValue().isBlank()) {
-            throw invalid(CandidateDiagnostic.Kind.SCHEMA, node, index, key, "Expected a nonblank string");
-        }
-        return scalar.getValue();
+    /// `mark` is null when there is no position.
+    private static Invalid invalid(CandidateSource source, Kind kind, Mark mark, int index, String location,
+                                   String key, String message) {
+        return new Invalid(new CandidateDiagnostic(source, kind, index, mark == null ? 0 : mark.getLine() + 1,
+                mark == null ? 0 : mark.getColumn() + 1, location, key, message));
     }
 
-    private static Optional<String> optionalString(Map<String, Node> fields, String key, int index) {
-        return fields.containsKey(key) ? Optional.of(string(fields.get(key), index, key)) : Optional.empty();
+    /// The reader's message already names the value; the diagnostic adds the record index and location.
+    private static Invalid schema(CandidateSource source, YamlMapping.Violation violation, int index) {
+        return invalid(source, Kind.SCHEMA, violation.mark, index, violation.path, violation.key, violation.getMessage());
     }
 
-    private static Invalid invalid(CandidateDiagnostic.Kind kind, Node node, int index, String key, String message) {
-        return new Invalid(kind, node == null ? null : node.getStartMark(), index, key, message);
-    }
-
+    /// Rejects the whole source with one diagnostic.
     private static final class Invalid extends RuntimeException {
-        private final CandidateDiagnostic.Kind kind;
-        private Mark mark;
-        private final int recordIndex;
-        private final String key;
-        private String location = "";
+        private final CandidateDiagnostic diagnostic;
 
-        private Invalid at(String location, Node fallback) {
-            if (this.location.isEmpty()) this.location = location;
-            if (mark == null && fallback != null) mark = fallback.getStartMark();
-            return this;
-        }
-
-        private Invalid(CandidateDiagnostic.Kind kind, Mark mark, int recordIndex, String key, String message) {
-            super(message);
-            this.kind = kind;
-            this.mark = mark;
-            this.recordIndex = recordIndex;
-            this.key = key;
+        private Invalid(CandidateDiagnostic diagnostic) {
+            super(diagnostic.message());
+            this.diagnostic = diagnostic;
         }
     }
 }

@@ -37,8 +37,7 @@ class PlanCommandTest {
         assertEquals(0, command.execute("plan", "-c", config.toString(), "--json",
                 "--source-path", source.toString(), "--target-path", target.toString()));
         var expected = new io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().loadRequired(config,
-                java.util.Map.of("homelight.relocations[0].source-path", source.toString(),
-                        "homelight.relocations[0].target-path", target.toString()));
+                java.util.Optional.of(new io.github.bigswlittlesw.homelight.config.ConfigurationLoader.PathOverride(source, target)));
         var rendered = new StringWriter();
         new PlanRenderer().renderJson(expected.plan(), new PrintWriter(rendered, true));
         assertEquals(rendered.toString(), out.toString());

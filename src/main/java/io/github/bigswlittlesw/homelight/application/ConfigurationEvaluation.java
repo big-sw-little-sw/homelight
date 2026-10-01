@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /// Loads and inspects once; draft choices replan solely from the retained observations.
 /// This bounded inspection pass is not an atomic filesystem snapshot.
@@ -74,15 +75,11 @@ public final class ConfigurationEvaluation {
     }
 
     public Evaluation load(Path configPath) {
-        return load(configPath, Map.of());
-    }
-
-    public Evaluation load(Path configPath, Map<String, String> inputOverrides) {
         if (isUnconfiguredDefault(configPath)) {
             return new Unconfigured(configPath);
         }
         try {
-            return loadRequired(configPath, inputOverrides);
+            return loadRequired(configPath);
         } catch (RuntimeException exception) {
             var message = exception.getMessage() == null ? exception.toString() : exception.getMessage();
             return Files.notExists(configPath) ? new Missing(configPath, message) : new Invalid(configPath, message);
@@ -95,9 +92,13 @@ public final class ConfigurationEvaluation {
                 && !Files.isRegularFile(configPath);
     }
 
-    /// Preserves loader exceptions for existing CLI error handling. Overrides are inputs, never draft storage.
-    public Loaded loadRequired(Path configPath, Map<String, String> inputOverrides) {
-        var configuration = loader.load(configPath, inputOverrides);
+    public Loaded loadRequired(Path configPath) {
+        return loadRequired(configPath, Optional.empty());
+    }
+
+    /// Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage.
+    public Loaded loadRequired(Path configPath, Optional<ConfigurationLoader.PathOverride> override) {
+        var configuration = loader.load(configPath, override);
         var observations = configuration.relocations().stream().map(relocation -> new RelocationState(relocation,
                 inspector.inspect(relocation.sourcePath()), inspector.inspect(relocation.targetPath()),
                 relocation.sourceArchiveRoot().map(root -> {

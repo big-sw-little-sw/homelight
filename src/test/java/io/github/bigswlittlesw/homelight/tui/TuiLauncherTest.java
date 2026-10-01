@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +25,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TuiLauncherTest {
     @TempDir Path temporary;
+
+    @Test
+    void refusesNonInteractiveAndDumbTerminalsBeforeOpeningOne() {
+        assertEquals(Optional.of(TuiLauncher.NOT_INTERACTIVE), TuiLauncher.refusal(false, "xterm-256color"));
+        assertEquals(Optional.of(TuiLauncher.NOT_INTERACTIVE), TuiLauncher.refusal(false, "dumb"));
+        assertEquals(Optional.of(TuiLauncher.DUMB_TERMINAL), TuiLauncher.refusal(true, "dumb"));
+        assertEquals(Optional.of(TuiLauncher.DUMB_TERMINAL), TuiLauncher.refusal(true, "dumb-color"));
+        assertEquals(Optional.empty(), TuiLauncher.refusal(true, "xterm-256color"));
+        assertEquals(Optional.empty(), TuiLauncher.refusal(true, null));
+    }
 
     @Test
     void closesTerminalExactlyOnceAfterNormalAndExceptionalSettlement() throws Exception {

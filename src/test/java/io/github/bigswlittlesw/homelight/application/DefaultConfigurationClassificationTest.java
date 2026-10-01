@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,7 +66,7 @@ class DefaultConfigurationClassificationTest {
                 var evaluation = evaluator.load(path);
                 var session = new HomeLightSession(path);
                 assertClassification(evaluation, session.planModel(), unconfigured);
-                assertClassification(evaluation, new PlanWorkflow().loadPlan(path, Map.of()), unconfigured);
+                assertClassification(evaluation, new PlanWorkflow().loadPlan(path), unconfigured);
                 session.refresh();
                 assertClassification(session.evaluation(), session.planModel(), unconfigured);
                 assertFalse(session.requestApply());

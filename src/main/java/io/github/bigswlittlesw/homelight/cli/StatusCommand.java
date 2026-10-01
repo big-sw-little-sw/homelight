@@ -11,7 +11,6 @@ import picocli.CommandLine.Spec;
 
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
-import java.util.Map;
 
 @Command(name = "status", description = "Show the state of the configured relocations.")
 public final class StatusCommand implements Callable<Integer> {
@@ -36,7 +35,7 @@ public final class StatusCommand implements Callable<Integer> {
                 new StatusRenderer().renderUnconfiguredJson(configPath, commandSpec.commandLine().getOut());
                 return CommandLine.ExitCode.OK;
             }
-            var evaluation = new ConfigurationEvaluation().loadRequired(configPath, Map.of());
+            var evaluation = new ConfigurationEvaluation().loadRequired(configPath);
             var snapshots = evaluation.observations().stream()
                     .map(state -> new StatusSnapshot(state.relocation().sourcePath(), state.relocation().targetPath(),
                             state.source().sourceStateForTarget(state.relocation().targetPath())))
