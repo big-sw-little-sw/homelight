@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
+    # labeled: adding the `native` label starts the native jobs (see native-build).
+    types: [opened, synchronize, reopened, labeled]
   push:
-    branches: [main]
+    branches: [main, kotlin-migration]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -27,8 +29,12 @@ jobs:
       - run: ./gradlew build
 
   # Linux native binaries. Scripts and the distro matrix are in ci/native/; they also run locally.
+  # The native jobs run on pushes, on PRs into main, and on PRs labeled `native`; otherwise they
+  # are skipped (native-test and native-distros follow native-build). A skipped required check
+  # counts as passed, but PRs into main always run them.
   native-build:
     name: Native build (${{ matrix.arch }})
+    if: github.event_name == 'push' || github.base_ref == 'main' || contains(github.event.pull_request.labels.*.name, 'native')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:

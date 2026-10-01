@@ -149,6 +149,7 @@ behavior; the Java tests guard behavior until K5.
 - K0: tickets and docs.
 - K1 (#41): Maven to Gradle Kotlin DSL, Java sources unchanged; CI and `ci/native`
   scripts updated.
+  Native CI jobs run only on pushes, PRs into `main` and PRs labeled `native`.
 - K2 (#42): add Kotlin; convert `domain`, `fs`, `config` main code.
 - K3 (#43): convert `reconcile`, `discovery`, `application` main code.
 - K4 (#44): convert `cli`, `tui` main code.
