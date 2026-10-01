@@ -40,7 +40,7 @@ internal fun actionJson(action: ReconciliationAction): ActionJson {
 }
 
 /**
- * Encodes one JSON response on a single line, byte for byte as the versioned contracts specify.
+ * Encodes one JSON response on a single line.
  *
  * The response classes rely on the default [Json] settings: properties in declaration order, a
  * property with a `null` default is omitted while it is `null` (`encodeDefaults = false`), and a
@@ -48,11 +48,4 @@ internal fun actionJson(action: ReconciliationAction): ActionJson {
  * to optional properties.
  */
 internal fun <T> encodeJson(serializer: SerializationStrategy<T>, value: T): String =
-    lowerCaseControlEscape.replace(Json.encodeToString(serializer, value)) { match ->
-        match.groupValues[1] + match.groupValues[2].uppercase()
-    }
-
-// The contracts escape control characters as `\u001F`, in upper-case hex; kotlinx writes `\u001f`.
-// It writes `\uXXXX` only for U+0000..U+001F. A backslash starts an escape only after an even run
-// of backslashes, since `\\` is an escaped backslash.
-private val lowerCaseControlEscape = Regex("""(?<!\\)((?:\\\\)*\\u00)([0-9a-f]{2})""")
+    Json.encodeToString(serializer, value)
