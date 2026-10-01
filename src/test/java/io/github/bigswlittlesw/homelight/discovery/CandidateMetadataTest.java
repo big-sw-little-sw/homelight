@@ -76,7 +76,7 @@ class CandidateMetadataTest {
 
     @Test void permissionsAndGenericErrorsHaveTypedUnknownEvidence() throws Exception {
         var reader = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.endsWith("denied")) throw new AccessDeniedException(path.toString());
                 if (path.endsWith("error")) throw new IOException("Controlled I/O failure");
                 return super.attributes(path);
@@ -96,7 +96,7 @@ class CandidateMetadataTest {
         var outside = Files.createDirectory(temporary.resolve("outside"));
         var reads = new AtomicInteger();
         var reader = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 assertFalse(path.endsWith("child"), "Traversed changed intermediate component");
                 if (path.endsWith("parent") && reads.incrementAndGet() == 2) {
                     Files.move(path, path.resolveSibling("original"));
@@ -137,11 +137,11 @@ class CandidateMetadataTest {
 
     private CandidateMetadata guarded(Path lexicalRoot, Set<Path> allowed) {
         return new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override Path realPath(Path path) throws IOException {
+            @Override public Path realPath(Path path) throws IOException {
                 assertEquals(lexicalRoot, path, "Only the chosen root may be resolved physically");
                 return super.realPath(path);
             }
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 assertTrue(allowed.contains(path), "Unexpected descendant/target probe: " + path);
                 return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             }

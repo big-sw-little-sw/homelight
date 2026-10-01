@@ -224,7 +224,7 @@ class CandidateDiscoveryTest {
         var fail = new AtomicInteger();
         var lanes = new Lanes();
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.endsWith("cache") && fail.get() == 1) throw new AccessDeniedException(path.toString());
                 return super.attributes(path);
             }
@@ -253,7 +253,7 @@ class CandidateDiscoveryTest {
         var clock = new AtomicLong();
         for (int i = 0; i < 6; i++) Files.createDirectory(temporary.resolve("cache" + i));
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.getFileName().toString().startsWith("cache")) {
                     calls.incrementAndGet();
                     entered.countDown();
@@ -297,7 +297,7 @@ class CandidateDiscoveryTest {
         for (int i = 0; i < 8; i++) Files.createDirectory(temporary.resolve("cache" + i));
         var last = new CountDownLatch(1);
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.endsWith("cache7")) last.countDown();
                 return super.attributes(path);
             }
@@ -320,7 +320,7 @@ class CandidateDiscoveryTest {
         var secondRoot = Files.createDirectory(temporary.resolve("second"));
         Files.createDirectory(firstRoot.resolve("cache"));
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.equals(physicalFirstRoot.resolve("cache"))) gate.block();
                 return super.attributes(path);
             }
@@ -345,7 +345,7 @@ class CandidateDiscoveryTest {
         var clock = new AtomicLong();
         var lanes = new Lanes();
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override Path realPath(Path path) throws IOException {
+            @Override public Path realPath(Path path) throws IOException {
                 gate.block();
                 return super.realPath(path);
             }
@@ -380,7 +380,7 @@ class CandidateDiscoveryTest {
             var gate = new Gate();
             var metadataGate = new Gate();
             var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-                @Override Path realPath(Path path) throws IOException {
+                @Override public Path realPath(Path path) throws IOException {
                     metadataGate.block();
                     return super.realPath(path);
                 }
@@ -440,7 +440,7 @@ class CandidateDiscoveryTest {
         var block = new AtomicInteger();
         Files.createDirectory(temporary.resolve("cache"));
         var metadata = new CandidateMetadata(new CandidateMetadata.Access() {
-            @Override BasicFileAttributes attributes(Path path) throws IOException {
+            @Override public BasicFileAttributes attributes(Path path) throws IOException {
                 if (path.endsWith("cache") && block.get() == 1) gate.block();
                 return super.attributes(path);
             }
