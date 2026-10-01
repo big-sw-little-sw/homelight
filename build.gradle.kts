@@ -1,6 +1,7 @@
 plugins {
     application
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.graalvm.native)
 }
 
@@ -30,7 +31,7 @@ dependencies {
     implementation(libs.tamboui.jline3.backend)
     implementation(libs.picocli)
     implementation(libs.snakeyaml)
-    implementation(libs.jackson.core)
+    implementation(libs.kotlinx.serialization.json)
     picocliCodegen(libs.picocli.codegen)
 
     testImplementation(platform(libs.junit.bom))

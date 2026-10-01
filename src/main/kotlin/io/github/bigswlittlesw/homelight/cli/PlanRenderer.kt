@@ -1,21 +1,16 @@
 package io.github.bigswlittlesw.homelight.cli
 
-import com.fasterxml.jackson.core.JsonFactory
-import com.fasterxml.jackson.core.JsonGenerator
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationDiagnostic
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
-import java.io.IOException
+import kotlinx.serialization.Serializable
 import java.io.PrintWriter
-import java.io.StringWriter
 import java.util.Locale
 
 internal class PlanRenderer {
-    private val jsonFactory = JsonFactory()
-
     fun renderJson(plan: ReconciliationPlan, output: PrintWriter) {
-        output.println(toJson(plan))
+        output.println(encodeJson(PlanJson.serializer(), planJson(plan)))
     }
 
     fun renderForConfirmation(plan: ReconciliationPlan, noColor: Boolean, output: PrintWriter) {
@@ -46,61 +41,6 @@ internal class PlanRenderer {
                 else -> "No changes have been made. Confirm to apply this plan."
             },
         )
-    }
-
-    private fun toJson(plan: ReconciliationPlan): String {
-        val json = StringWriter()
-        try {
-            jsonFactory.createGenerator(json).use { generator ->
-                generator.writeStartObject()
-                generator.writeBooleanField("blocked", plan.hasBlockedActions())
-                generator.writeBooleanField("conflicts", plan.hasConflicts())
-                generator.writeArrayFieldStart("diagnostics")
-                for (diagnostic in plan.diagnostics) {
-                    writeDiagnostic(generator, diagnostic)
-                }
-                generator.writeEndArray()
-                generator.writeArrayFieldStart("relocations")
-                for (relocation in plan.relocations) {
-                    generator.writeStartObject()
-                    generator.writeStringField("source", relocation.relocation.sourcePath.toString())
-                    generator.writeStringField("target", relocation.relocation.targetPath.toString())
-                    generator.writeStringField("outcome", relocation.outcome.value)
-                    generator.writeArrayFieldStart("diagnostics")
-                    for (diagnostic in relocation.diagnostics) {
-                        writeDiagnostic(generator, diagnostic)
-                    }
-                    generator.writeEndArray()
-                    relocation.conflict?.let { conflict ->
-                        generator.writeObjectFieldStart("conflict")
-                        generator.writeStringField("path", conflict.path.toString())
-                        generator.writeStringField("reason", conflict.reason)
-                        generator.writeArrayFieldStart("resolutions")
-                        for (resolution in conflict.resolutions) {
-                            generator.writeString(resolution.name.lowercase(Locale.getDefault()).replace('_', '-'))
-                        }
-                        generator.writeEndArray()
-                        generator.writeEndObject()
-                    }
-                    generator.writeArrayFieldStart("actions")
-                    for (action in relocation.actions) {
-                        writeAction(generator, action)
-                    }
-                    generator.writeEndArray()
-                    generator.writeEndObject()
-                }
-                generator.writeEndArray()
-                generator.writeArrayFieldStart("actions")
-                for (action in plan.actions()) {
-                    writeAction(generator, action)
-                }
-                generator.writeEndArray()
-                generator.writeEndObject()
-            }
-        } catch (exception: IOException) {
-            throw IllegalStateException("Unable to render reconciliation plan as JSON", exception)
-        }
-        return json.toString()
     }
 }
 
@@ -136,17 +76,50 @@ private fun heading(plan: ReconciliationPlan, ready: Int): String = when {
 private fun firstBlockedReason(plan: ReconciliationPlan): String =
     plan.actions().filterIsInstance<ReconciliationAction.Blocked>().first().reason
 
-private fun writeDiagnostic(generator: JsonGenerator, diagnostic: ReconciliationDiagnostic) {
-    generator.writeStartObject()
-    generator.writeStringField("severity", diagnostic.severity.name.lowercase(Locale.getDefault()))
-    generator.writeStringField("source", diagnostic.source.toString())
-    generator.writeStringField("code", diagnostic.code)
-    generator.writeStringField("message", diagnostic.message)
-    generator.writeEndObject()
-}
+@Serializable
+private data class PlanJson(
+    val blocked: Boolean,
+    val conflicts: Boolean,
+    val diagnostics: List<DiagnosticJson>,
+    val relocations: List<RelocationPlanJson>,
+    val actions: List<ActionJson>,
+)
 
-private fun writeAction(generator: JsonGenerator, action: ReconciliationAction) {
-    generator.writeStartObject()
-    writeActionFields(generator, action)
-    generator.writeEndObject()
-}
+@Serializable
+private data class RelocationPlanJson(
+    val source: String,
+    val target: String,
+    val outcome: String,
+    val diagnostics: List<DiagnosticJson>,
+    val conflict: ConflictJson? = null,
+    val actions: List<ActionJson>,
+)
+
+@Serializable
+private data class ConflictJson(val path: String, val reason: String, val resolutions: List<String>)
+
+@Serializable
+private data class DiagnosticJson(val severity: String, val source: String, val code: String, val message: String)
+
+private fun planJson(plan: ReconciliationPlan) = PlanJson(
+    plan.hasBlockedActions(), plan.hasConflicts(), plan.diagnostics.map(::diagnosticJson),
+    plan.relocations.map { relocation ->
+        RelocationPlanJson(
+            relocation.relocation.sourcePath.toString(), relocation.relocation.targetPath.toString(),
+            relocation.outcome.value, relocation.diagnostics.map(::diagnosticJson),
+            relocation.conflict?.let { conflict ->
+                ConflictJson(
+                    conflict.path.toString(), conflict.reason,
+                    conflict.resolutions.map { it.name.lowercase(Locale.getDefault()).replace('_', '-') },
+                )
+            },
+            relocation.actions.map(::actionJson),
+        )
+    },
+    plan.actions().map(::actionJson),
+)
+
+private fun diagnosticJson(diagnostic: ReconciliationDiagnostic) = DiagnosticJson(
+    diagnostic.severity.name.lowercase(Locale.getDefault()), diagnostic.source.toString(), diagnostic.code,
+    diagnostic.message,
+)
