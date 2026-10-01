@@ -38,6 +38,7 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// Only the tests are Java.
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
