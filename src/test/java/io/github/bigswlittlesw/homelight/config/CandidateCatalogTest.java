@@ -96,9 +96,8 @@ class CandidateCatalogTest {
                 "directories: [{path: cache, app: null}]", "directories: [{path: cache, app: ' Maven'}]", "directories: [{path: cache, app: 'Maven '}]",
                 "directories: [{path: cache, advice: Consider}]", "directories: [{path: cache, advice: safe}]",
                 "directories: [{path: cache, selected: true}]", "directories: [{path: cache, policy: move}]",
-                "directories: [{path: cache, path: other}]", "directories: &list []",
+                "directories: [{path: cache, path: other}]",
                 "directories: [{path: &p cache}, {path: *p}]", "directories: [{path: *p}]",
-                "directories: [{path: !custom cache}]", "directories: !custom []",
                 "directories: [{path: cache, <<: {app: Maven}}]", "directories: [{[path]: cache}]",
                 "directories: [{path: [cache]}]", "directories: [{path: cache, app: {name: Maven}}]");
         for (var source : List.of(CandidateCatalog.BUNDLED, SHARED)) {
@@ -111,6 +110,10 @@ class CandidateCatalogTest {
         }
         assertTrue(parse("directories: []").accepted());
         assertTrue(parse("directories: [{path: !!str 12}]").accepted());
+        // Without aliases an anchor has no effect, and a tag never constructs an object.
+        for (var input : List.of("directories: &list []", "directories: [{path: !custom cache}]", "directories: !custom []")) {
+            assertTrue(parse(input).accepted(), input);
+        }
     }
 
     @Test void readsAnyScalarAsTextAndNullOrBlankValuesAsAbsent() {
@@ -149,11 +152,14 @@ class CandidateCatalogTest {
         // Root map is depth 1; nested collections at depth 8 pass the limit but fail schema.
         assertKind(CandidateDiagnostic.Kind.SCHEMA, parse("directories: " + "[".repeat(7) + "]".repeat(7)));
         assertKind(CandidateDiagnostic.Kind.LIMIT, parse("directories: " + "[".repeat(8) + "]".repeat(8)));
-        var reason = "😀".repeat(CandidateParser.MAX_STRING_CHARACTERS);
+        // The string limit counts UTF-16 code units, as Jackson does: an emoji counts twice.
+        var reason = "😀".repeat(YamlDocument.MAX_STRING_LENGTH / 2);
         assertEquals(Optional.of(reason), parse("directories: [{path: cache, reason: " + quoted(reason) + "}]")
                 .definitions().getFirst().reason());
         assertKind(CandidateDiagnostic.Kind.LIMIT,
                 parse("directories: [{path: cache, reason: " + quoted(reason + "x") + "}]"));
+        assertKind(CandidateDiagnostic.Kind.LIMIT,
+                parse("directories: [{path: cache, " + "k".repeat(YamlDocument.MAX_STRING_LENGTH + 1) + ": x}]"));
     }
 
     @Test void acceptsEmptyAndOptionalSequences() {
@@ -402,8 +408,13 @@ class CandidateCatalogTest {
                     output.closeEntry();
                 }
             }
-            var yamlJar = org.yaml.snakeyaml.Yaml.class.getProtectionDomain().getCodeSource().getLocation();
-            try (var loader = new URLClassLoader(new java.net.URL[] {jar.toUri().toURL(), yamlJar}, ClassLoader.getPlatformClassLoader())) {
+            var urls = new ArrayList<java.net.URL>(List.of(jar.toUri().toURL()));
+            for (var library : List.of(tools.jackson.databind.ObjectMapper.class, tools.jackson.core.JsonParser.class,
+                    com.fasterxml.jackson.annotation.JsonValue.class, tools.jackson.dataformat.yaml.YAMLMapper.class,
+                    org.snakeyaml.engine.v2.api.LoadSettings.class)) {
+                urls.add(library.getProtectionDomain().getCodeSource().getLocation());
+            }
+            try (var loader = new URLClassLoader(urls.toArray(java.net.URL[]::new), ClassLoader.getPlatformClassLoader())) {
                 var catalogClass = loader.loadClass(CandidateCatalog.class.getName());
                 assertEquals("jar", catalogClass.getResource("CandidateCatalog.class").getProtocol());
                 var result = catalogClass.getMethod("bundled", Path.class).invoke(null, HOME);

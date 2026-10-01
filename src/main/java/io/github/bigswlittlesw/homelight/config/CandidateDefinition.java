@@ -1,6 +1,9 @@
 package io.github.bigswlittlesw.homelight.config;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -30,5 +33,13 @@ public record CandidateDefinition(Path sourcePath, CandidateSource source, int r
         }
     }
 
-    public enum Advice { CONSIDER, USUALLY_UNNECESSARY }
+    public enum Advice {
+        CONSIDER, USUALLY_UNNECESSARY;
+
+        /// Returns the candidate-list spelling.
+        @JsonValue
+        public String value() {
+            return name().toLowerCase(Locale.ROOT).replace('_', '-');
+        }
+    }
 }

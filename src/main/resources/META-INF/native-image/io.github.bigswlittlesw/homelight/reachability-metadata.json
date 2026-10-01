@@ -4,6 +4,61 @@
       "type": "dev.tamboui.backend.jline3.JLineBackendProvider"
     },
     {
+      "type": "io.github.bigswlittlesw.homelight.config.CandidateDefinition$Advice",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.CandidateParser$AppGroup",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.CandidateParser$CandidateFile",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.CandidateParser$DirectoryEntry",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.ConfigurationLoader$ConfigurationFile",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.ConfigurationLoader$Discovery",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.ConfigurationLoader$RelocationEntry",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.ConfigurationLoader$Settings",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
+      "type": "io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    },
+    {
       "type": "java.lang.Boolean",
       "jniAccessible": true,
       "methods": [

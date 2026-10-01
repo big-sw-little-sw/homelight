@@ -1,39 +1,22 @@
 package io.github.bigswlittlesw.homelight.config;
 
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
-import org.yaml.snakeyaml.error.Mark;
-import org.yaml.snakeyaml.error.MarkedYAMLException;
-import org.yaml.snakeyaml.error.YAMLException;
-import org.yaml.snakeyaml.nodes.Node;
-import org.yaml.snakeyaml.nodes.SequenceNode;
+import io.github.bigswlittlesw.homelight.config.YamlDocument.Required;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /// Loads one YAML configuration rooted at `homelight`.
 ///
 /// Unknown keys, missing required keys and values of the wrong shape are rejected with their line and
-/// column, as [YamlMapping] reads them. Paths expand `~`, `~/` and `${USER}`, then become
+/// column, as [YamlDocument] binds them. Paths expand `~`, `~/` and `${USER}`, then become
 /// absolute and normalized. Environment variables and system properties never override values.
 public final class ConfigurationLoader {
     public static final Path DEFAULT_PATH = Path.of(System.getProperty("user.home"), ".homelight.yaml");
-
-    private static final Set<String> ROOT_KEYS = Set.of("homelight");
-    private static final Set<String> HOMELIGHT_KEYS = Set.of(
-            "target-root", "staging-root", "relocations", "ignored-source-paths", "discovery");
-    private static final Set<String> DISCOVERY_KEYS = Set.of("shared-list");
-    private static final Set<String> RELOCATION_KEYS = Set.of(
-            "source-path", "target-path", "when-source-and-target-directories-exist", "when-only-target-exists",
-            "when-adopting-target", "source-archive-root");
 
     /// Replaces the first relocation's source and target paths for one command; the file is unchanged.
     /// With no configured relocations it supplies the first one.
@@ -49,76 +32,62 @@ public final class ConfigurationLoader {
     }
 
     public HomeLightConfiguration load(Path path, Optional<PathOverride> override) {
-        var document = document(path);
-        try {
-            return configuration(document, override);
-        } catch (YamlMapping.Violation violation) {
-            throw new ConfigurationException(at(violation.mark) + violation.getMessage());
+        if (!Files.isRegularFile(path)) {
+            throw new ConfigurationException("Configuration file does not exist: " + path);
         }
+        ConfigurationFile file;
+        try {
+            file = YamlDocument.parse(Files.readString(path)).bind(ConfigurationFile.class);
+        } catch (IOException exception) {
+            throw new ConfigurationException("Unable to read configuration " + path, exception);
+        } catch (YamlDocument.Violation violation) {
+            throw new ConfigurationException(violation.positioned());
+        }
+        if (file == null) {
+            throw new ConfigurationException("Missing required key homelight");
+        }
+        return configuration(file.homelight(), override);
     }
 
-    private static HomeLightConfiguration configuration(Node document, Optional<PathOverride> override) {
-        var homelight = YamlMapping.of("", document, ROOT_KEYS).requiredMapping("homelight", HOMELIGHT_KEYS);
-        var targetRoot = resolve(homelight.requiredString("target-root"));
-        var stagingRoot = homelight.string("staging-root").map(ConfigurationLoader::resolve);
+    private static HomeLightConfiguration configuration(Settings settings, Optional<PathOverride> override) {
+        var targetRoot = resolve(settings.targetRoot());
+        var stagingRoot = Optional.ofNullable(settings.stagingRoot()).map(ConfigurationLoader::resolve);
         if (stagingRoot.filter(root -> !root.startsWith(targetRoot)).isPresent()) {
             throw new ConfigurationException("staging-root must be under target-root");
         }
         // The override replaces the first relocation's paths, or supplies it when none is configured.
-        var relocationNodes = homelight.list("relocations").map(SequenceNode::getValue).orElse(List.of());
+        var entries = Objects.requireNonNullElse(settings.relocations(), List.<RelocationEntry>of());
         var relocations = new ArrayList<Relocation>();
-        for (int i = 0; i < relocationNodes.size(); i++) {
-            var fields = YamlMapping.of(homelight.qualify("relocations") + "[" + i + "]", relocationNodes.get(i),
-                    RELOCATION_KEYS);
-            relocations.add(relocation(fields, targetRoot, stagingRoot, i == 0 ? override : Optional.empty()));
+        for (int i = 0; i < entries.size(); i++) {
+            relocations.add(relocation(entries.get(i), targetRoot, stagingRoot, i == 0 ? override : Optional.empty()));
         }
         if (relocations.isEmpty() && override.isPresent()) {
-            relocations.add(relocation(YamlMapping.of("", null, RELOCATION_KEYS), targetRoot, stagingRoot, override));
+            var empty = new RelocationEntry(null, null, null, null, null, null);
+            relocations.add(relocation(empty, targetRoot, stagingRoot, override));
         }
-        var ignoredSourcePaths = homelight.strings("ignored-source-paths").stream()
+        var ignoredSourcePaths = Objects.requireNonNullElse(settings.ignoredSourcePaths(), List.<String>of()).stream()
                 .map(ConfigurationLoader::resolve)
                 .toList();
-        var sharedList = homelight.mapping("discovery", DISCOVERY_KEYS)
-                .flatMap(discovery -> discovery.string("shared-list"))
+        var sharedList = Optional.ofNullable(settings.discovery())
+                .map(Discovery::sharedList)
                 .flatMap(DiscoverySetting::parse);
         return new HomeLightConfiguration(targetRoot, relocations, ignoredSourcePaths, sharedList);
     }
 
-    private static Node document(Path path) {
-        if (!Files.isRegularFile(path)) {
-            throw new ConfigurationException("Configuration file does not exist: " + path);
-        }
-        try {
-            // compose() builds nodes only, so explicit tags never instantiate Java types.
-            return new Yaml(new SafeConstructor(new LoaderOptions())).compose(new StringReader(Files.readString(path)));
-        } catch (IOException exception) {
-            throw new ConfigurationException("Unable to read configuration " + path, exception);
-        } catch (MarkedYAMLException exception) {
-            var problem = exception.getProblem() == null ? "invalid syntax" : exception.getProblem();
-            throw new ConfigurationException(at(exception.getProblemMark()) + "Malformed YAML: " + problem, exception);
-        } catch (YAMLException exception) {
-            throw new ConfigurationException("Malformed YAML: " + exception.getMessage(), exception);
-        }
-    }
-
-    private static Relocation relocation(YamlMapping fields, Path targetRoot, Optional<Path> stagingRoot,
+    private static Relocation relocation(RelocationEntry entry, Path targetRoot, Optional<Path> stagingRoot,
             Optional<PathOverride> override) {
         var sourcePath = override.map(paths -> resolve(paths.sourcePath().toString()))
-                .orElseGet(() -> resolve(fields.requiredString("source-path")));
+                .orElseGet(() -> resolve(entry.sourcePath()));
         var targetPath = override.map(paths -> resolve(paths.targetPath().toString()))
-                .or(() -> fields.string("target-path").map(ConfigurationLoader::resolve))
+                .or(() -> Optional.ofNullable(entry.targetPath()).map(ConfigurationLoader::resolve))
                 .orElseGet(() -> deriveTarget(targetRoot, sourcePath));
-        var whenAdoptingTarget = fields.choice("when-adopting-target",
-                WhenAdoptingTarget.values(), WhenAdoptingTarget::value);
-        var archiveRoot = fields.string("source-archive-root").map(ConfigurationLoader::resolve);
+        var whenAdoptingTarget = Optional.ofNullable(entry.whenAdoptingTarget());
+        var archiveRoot = Optional.ofNullable(entry.sourceArchiveRoot()).map(ConfigurationLoader::resolve);
         if (whenAdoptingTarget.filter(WhenAdoptingTarget.ARCHIVE_SOURCE::equals).isPresent() && archiveRoot.isEmpty()) {
             throw new ConfigurationException("source-archive-root is required when when-adopting-target is archive-source");
         }
-        return new Relocation(sourcePath, targetPath,
-                fields.choice("when-source-and-target-directories-exist",
-                        WhenSourceAndTargetDirectoriesExist.values(), WhenSourceAndTargetDirectoriesExist::value),
-                fields.choice("when-only-target-exists", WhenOnlyTargetExists.values(), WhenOnlyTargetExists::value),
-                whenAdoptingTarget, archiveRoot, stagingRoot);
+        return new Relocation(sourcePath, targetPath, Optional.ofNullable(entry.whenSourceAndTargetDirectoriesExist()),
+                Optional.ofNullable(entry.whenOnlyTargetExists()), whenAdoptingTarget, archiveRoot, stagingRoot);
     }
 
     private static Path resolve(String value) {
@@ -139,10 +108,6 @@ public final class ConfigurationLoader {
         return targetRoot.resolve(home.relativize(sourcePath)).normalize();
     }
 
-    private static String at(Mark mark) {
-        return mark == null ? "" : "Line " + (mark.getLine() + 1) + ", column " + (mark.getColumn() + 1) + ": ";
-    }
-
     public static final class ConfigurationException extends RuntimeException {
         public ConfigurationException(String message) {
             super(message);
@@ -151,5 +116,23 @@ public final class ConfigurationLoader {
         public ConfigurationException(String message, Throwable cause) {
             super(message, cause);
         }
+    }
+
+    /// The file as written, bound by [YamlDocument]: absent values are null until `configuration` resolves them.
+    private record ConfigurationFile(@Required Settings homelight) {
+    }
+
+    private record Settings(@Required String targetRoot, String stagingRoot,
+            List<RelocationEntry> relocations,
+            List<String> ignoredSourcePaths, Discovery discovery) {
+    }
+
+    private record Discovery(String sharedList) {
+    }
+
+    private record RelocationEntry(@Required String sourcePath, String targetPath,
+            WhenSourceAndTargetDirectoriesExist whenSourceAndTargetDirectoriesExist,
+            WhenOnlyTargetExists whenOnlyTargetExists, WhenAdoptingTarget whenAdoptingTarget,
+            String sourceArchiveRoot) {
     }
 }

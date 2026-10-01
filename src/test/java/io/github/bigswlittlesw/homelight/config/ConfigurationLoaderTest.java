@@ -190,6 +190,47 @@ class ConfigurationLoaderTest {
                 new ConfigurationLoader().load(empty, Optional.of(override)).relocations());
     }
 
+    @Test void treatsBlankValuesOfEveryShapeAsAbsentButNeverListItems() throws Exception {
+        assertEquals("Line 1, column 1: Missing required key homelight", failure("homelight: '  '\n"));
+        var relocation = load("""
+                homelight:
+                  target-root: /local
+                  staging-root: ' '
+                  discovery: ''
+                  ignored-source-paths:
+                  relocations:
+                    - source-path: /home/cache
+                      target-path: /local/cache
+                      when-adopting-target: '  '
+                """).relocations().getFirst();
+        assertEquals(Optional.empty(), relocation.whenAdoptingTarget());
+        assertEquals(Optional.empty(), relocation.stagingRoot());
+        assertEquals("Line 3, column 30: Missing required value homelight.ignored-source-paths[1]", failure("""
+                homelight:
+                  target-root: /local
+                  ignored-source-paths: [/a, '']
+                """));
+    }
+
+    @Test void readsScalarsAsWrittenAndRejectsAliasesAndExtraDocuments() throws Exception {
+        assertEquals(List.of(Path.of("/1.10"), Path.of("/0x1F"), Path.of("/2026-09-23")), load("""
+                homelight:
+                  target-root: /local
+                  ignored-source-paths: [/1.10, /0x1F, /2026-09-23]
+                """).ignoredSourcePaths());
+        assertEquals(Path.of("/local"), load("homelight:\n  target-root: !!java.io.File /local\n").targetRoot());
+        assertEquals("Line 3, column 17: Aliases are not supported", failure("""
+                homelight:
+                  target-root: &root /local
+                  staging-root: *root
+                """));
+        assertEquals("Line 3, column 1: Only one document is allowed", failure("""
+                homelight: {target-root: /local}
+                ---
+                homelight: {target-root: /other}
+                """));
+    }
+
     @Test void loadsWhatThePublisherWrites() throws Exception {
         var relocation = new Relocation(temporary.resolve("home/it's"), temporary.resolve("local/it's"),
                 Optional.of(WhenSourceAndTargetDirectoriesExist.ADOPT), Optional.of(WhenOnlyTargetExists.PROMPT),
