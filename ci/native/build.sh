@@ -41,6 +41,7 @@ fetch() { # <url> <sha256>: downloads into $cache/dl once, verifying the checksu
 }
 
 mkdir -p "$cache/dl" "$cache/m2" "$out"
+out=$(cd "$out" && pwd)  # docker treats a relative -v source as a volume name
 fetch "https://download.oracle.com/graalvm/25/archive/graalvm-jdk-${graalvm_version}_linux-${graalvm_arch}_bin.tar.gz" "$graalvm_sha"
 fetch "https://archive.apache.org/dist/maven/maven-3/${maven_version}/binaries/apache-maven-${maven_version}-bin.tar.gz" \
   80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb
