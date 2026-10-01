@@ -36,7 +36,7 @@ internal class PlanRenderer {
             return
         }
         val style = TerminalStyle(noColor)
-        val ready = plan.relocations.stream().filter { relocation -> relocation.conflict.isEmpty }.count()
+        val ready = plan.relocations.stream().filter { relocation -> relocation.conflict == null }.count()
         val heading = heading(plan, ready)
         output.println(style.heading(heading))
         output.println()
@@ -48,11 +48,13 @@ internal class PlanRenderer {
                 renderDiagnostic(diagnostic, style, output)
             }
             output.println("  " + relocation.relocation.sourcePath + " → " + relocation.relocation.targetPath)
-            output.println("    Plan outcome: " + relocation.outcome.value())
-            relocation.conflict.ifPresentOrElse(
-                { conflict -> output.println("    " + style.error("! " + conflict.reason)) },
-                { output.println("    " + intent(relocation)) },
-            )
+            output.println("    Plan outcome: " + relocation.outcome.value)
+            val conflict = relocation.conflict
+            if (conflict != null) {
+                output.println("    " + style.error("! " + conflict.reason))
+            } else {
+                output.println("    " + intent(relocation))
+            }
         }
         if (plan.hasBlockedActions()) {
             output.println()
@@ -119,13 +121,13 @@ internal class PlanRenderer {
                     generator.writeStartObject()
                     generator.writeStringField("source", relocation.relocation.sourcePath.toString())
                     generator.writeStringField("target", relocation.relocation.targetPath.toString())
-                    generator.writeStringField("outcome", relocation.outcome.value())
+                    generator.writeStringField("outcome", relocation.outcome.value)
                     generator.writeArrayFieldStart("diagnostics")
                     for (diagnostic in relocation.diagnostics) {
                         writeDiagnostic(generator, diagnostic)
                     }
                     generator.writeEndArray()
-                    relocation.conflict.ifPresent { conflict ->
+                    relocation.conflict?.let { conflict ->
                         try {
                             generator.writeObjectFieldStart("conflict")
                             generator.writeStringField("path", conflict.path.toString())

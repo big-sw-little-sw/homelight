@@ -68,7 +68,7 @@ internal object ApplyView {
                 checklist.add(
                     Toolkit.text(
                         prefix + glyph(step, spinnerFrame) + " " + actionLabel(action) +
-                            (if (action.destructive()) " ⚠" else ""),
+                            (if (action.destructive) " ⚠" else ""),
                     ).fg(color(step)),
                 )
                 row++
@@ -159,7 +159,7 @@ internal object ApplyView {
         lines.add(DetailViewport.Line(actionLabel(action), color(step), true))
         if (step.status != ApplyModel.StepStatus.PENDING)
             lines.add(DetailViewport.Line(step.message, color(step), false))
-        if (action.destructive()) lines.add(
+        if (action.destructive) lines.add(
             DetailViewport.Line("⚠ Destructive: existing content or link will be removed.", Color.YELLOW, true),
         )
         lines.add(DetailViewport.Line(affectedPath(action)))
@@ -224,13 +224,13 @@ internal object ApplyView {
     }
 
     private fun glyph(step: ApplyModel.Step, spinnerFrame: Int): String {
-        if (!step.action.mutatesFilesystem() && step.status != ApplyModel.StepStatus.FAILED) {
+        if (!step.action.mutatesFilesystem && step.status != ApplyModel.StepStatus.FAILED) {
             return "─"
         }
         return when (step.status) {
             ApplyModel.StepStatus.PENDING -> "○"
             ApplyModel.StepStatus.RUNNING -> SPINNER_FRAMES[Math.floorMod(spinnerFrame, SPINNER_FRAMES.size)]
-            ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem()) "✔" else "─"
+            ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) "✔" else "─"
             ApplyModel.StepStatus.FAILED -> "✖"
         }
     }
@@ -238,12 +238,12 @@ internal object ApplyView {
     private fun color(step: ApplyModel.Step): Color = when (step.status) {
         ApplyModel.StepStatus.PENDING -> Color.GRAY
         ApplyModel.StepStatus.RUNNING -> Color.CYAN
-        ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem()) Color.GREEN else Color.GRAY
+        ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) Color.GREEN else Color.GRAY
         ApplyModel.StepStatus.FAILED -> Color.RED
     }
 
     private fun progress(steps: List<ApplyModel.Step>): String {
-        val changes = steps.stream().filter { step -> step.action.mutatesFilesystem() }.toList()
+        val changes = steps.stream().filter { step -> step.action.mutatesFilesystem }.toList()
         if (changes.isEmpty()) {
             return ""
         }
@@ -253,7 +253,7 @@ internal object ApplyView {
     }
 
     private fun counts(steps: List<ApplyModel.Step>, result: Boolean): String {
-        val changes = steps.stream().filter { step -> step.action.mutatesFilesystem() }.toList()
+        val changes = steps.stream().filter { step -> step.action.mutatesFilesystem }.toList()
         val completed = changes.stream().filter { step -> step.status == ApplyModel.StepStatus.COMPLETED }.count()
         val failed = changes.stream().filter { step -> step.status == ApplyModel.StepStatus.FAILED }.count()
         val pending = changes.stream().filter { step -> step.status == ApplyModel.StepStatus.PENDING }.count()

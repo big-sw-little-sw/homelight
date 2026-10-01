@@ -173,9 +173,9 @@ class HomeLightAppTest {
         val second = Relocation(Path.of("/home/second"), Path.of("/local/second"))
         val firstPlan = RelocationPlan(first, RelocationOutcome.CONVERGED,
             listOf(ReconciliationAction.CreateDirectory(first.targetPath),
-                ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf(), Optional.empty())
+                ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf())
         val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf(), Optional.empty())
+            listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
         val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
         val progress = java.util.concurrent.atomic.AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
         val session = object : HomeLightSession(Path.of("/nonexistent/config.yaml")) {
@@ -297,9 +297,9 @@ class HomeLightAppTest {
         val rel2 = Relocation(Path.of("/source2"), Path.of("/target2"))
         val rel3 = Relocation(Path.of("/source3"), Path.of("/target3"))
 
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf(), Optional.empty())
-        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf(), Optional.empty())
-        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf(), Optional.empty())
+        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
+        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf())
+        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf())
 
         val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
         val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
@@ -359,9 +359,9 @@ class HomeLightAppTest {
         // plan1 is CONFLICT, plan2 and plan3 are CONVERGED
         val conflict = io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict(
             rel1.sourcePath, "conflict", listOf(io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.UNRESOLVED, listOf(), listOf(), Optional.of(conflict))
-        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf(), Optional.empty())
-        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf(), Optional.empty())
+        val plan1 = RelocationPlan(rel1, RelocationOutcome.UNRESOLVED, listOf(), listOf(), conflict)
+        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf())
+        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf())
 
         val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
         val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
@@ -408,7 +408,7 @@ class HomeLightAppTest {
     @Test
     fun allInSyncDefaultsToShowInSync() {
         val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf(), Optional.empty())
+        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
         val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
         val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
 
@@ -568,7 +568,7 @@ class HomeLightAppTest {
     @Test
     fun canInspectDetailsWhenNoResolutionsAvailable() {
         val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf(), Optional.empty())
+        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
         val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
         val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
 

@@ -136,7 +136,7 @@ class ReconciliationExecutorTest {
     companion object {
         private fun plan(relocation: Relocation): ReconciliationPlan {
             val inspector = PathInspector()
-            val archive = java.util.Optional.ofNullable(relocation.sourceArchiveRoot).map { root ->
+            val archive = relocation.sourceArchiveRoot?.let { root ->
                 val source = relocation.sourcePath.toAbsolutePath()
                 val path = root.resolve(source.root.relativize(source))
                 RelocationState.ArchiveDestination(path, inspector.inspect(path))

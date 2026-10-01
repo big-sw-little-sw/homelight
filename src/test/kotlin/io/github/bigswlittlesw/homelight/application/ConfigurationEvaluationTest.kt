@@ -111,7 +111,7 @@ class ConfigurationEvaluationTest {
         val session = HomeLightSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
-        val archive = observation.archiveDestination.orElseThrow()
+        val archive = checkNotNull(observation.archiveDestination)
         assertEquals(root.resolve("archive").resolve(root.root.relativize(root.resolve("source"))), archive.path)
         assertEquals(PathState.ABSENT, archive.observation.state)
 

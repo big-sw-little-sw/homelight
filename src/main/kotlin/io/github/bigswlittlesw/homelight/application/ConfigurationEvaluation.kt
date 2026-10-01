@@ -149,7 +149,7 @@ class ConfigurationEvaluation(
             RelocationState(
                 relocation,
                 inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath),
-                Optional.ofNullable(relocation.sourceArchiveRoot).map { root ->
+                relocation.sourceArchiveRoot?.let { root ->
                     val source = normalize(relocation.sourcePath)
                     val path = root.resolve(source.root.relativize(source)).normalize()
                     RelocationState.ArchiveDestination(path, inspector.inspect(path))
@@ -256,7 +256,7 @@ class ConfigurationEvaluation(
                 return java.util.List.copyOf(choices)
             }
             if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
-                && (plan.conflict.isPresent || state.relocation.whenOnlyTargetExists != null)
+                && (plan.conflict != null || state.relocation.whenOnlyTargetExists != null)
             ) {
                 return java.util.List.of(DecisionChoice.ADOPT_TARGET)
             }

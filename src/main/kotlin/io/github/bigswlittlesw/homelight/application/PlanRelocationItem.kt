@@ -53,7 +53,7 @@ class PlanRelocationItem(
         if (plan.actions.stream().anyMatch { it is ReconciliationAction.Blocked }) {
             return PlanBadge.BLOCKED
         }
-        if (plan.conflict.isPresent || plan.outcome == RelocationOutcome.UNRESOLVED) {
+        if (plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED) {
             return PlanBadge.CONFLICT
         }
         if (plan.actions.stream().anyMatch { it is ReconciliationAction.ArchiveDirectory }) {
@@ -99,7 +99,7 @@ class PlanRelocationItem(
                 || plan.diagnostics.stream()
             .anyMatch { diagnostic -> diagnostic.severity == ReconciliationDiagnostic.Severity.WARNING }
 
-    fun hasConflict(): Boolean = plan.conflict.isPresent || plan.outcome == RelocationOutcome.UNRESOLVED
+    fun hasConflict(): Boolean = plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED
 
     fun isBlocked(): Boolean = badge() == PlanBadge.BLOCKED || badge() == PlanBadge.INACCESSIBLE
 

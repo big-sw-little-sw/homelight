@@ -25,7 +25,7 @@ class ApplyViewTest {
             ReconciliationAction.LeaveUnchanged(relocation.sourcePath))) {
             val plan = ReconciliationPlan(listOf(RelocationPlan(relocation,
                 if (action is ReconciliationAction.NoOp) RelocationOutcome.CONVERGED else RelocationOutcome.UNCHANGED,
-                listOf(action), listOf(), Optional.empty())), listOf())
+                listOf(action), listOf())), listOf())
             val text = render(ApplyModel.Confirmation(plan), 0, 80, 24)
             assertTrue(text.contains("No changes to apply"), text)
             assertTrue(text.contains("1/Enter/n/Esc: Workspace"), text)
@@ -41,7 +41,7 @@ class ApplyViewTest {
         val changing = plan().relocations.first()
         val relocation = Relocation(Path.of("/home/unchanged"), Path.of("/local/unchanged"))
         val unchanged = RelocationPlan(relocation, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.NoOp(relocation.sourcePath)), listOf(), Optional.empty())
+            listOf(ReconciliationAction.NoOp(relocation.sourcePath)), listOf())
         val plan = ReconciliationPlan(listOf(unchanged, changing), listOf())
         val text = render(ApplyModel.Confirmation(plan), 0, 80, 24)
         assertTrue(text.contains("2 planned changes"), text)
@@ -103,7 +103,7 @@ class ApplyViewTest {
         val actions = listOf<ReconciliationAction>(ReconciliationAction.ArchiveDirectory(source, archive),
             ReconciliationAction.MigrateDirectoryForPublication(source, target),
             ReconciliationAction.ReplaceDirectoryWithSymlink(source, target))
-        val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED, actions, listOf(), Optional.empty())
+        val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED, actions, listOf())
         val plan = ReconciliationPlan(listOf(relocationPlan), listOf())
         val cause = "Failure at /staging/" + "segment/".repeat(40) + "failure-cause-suffix"
         val steps = actions.map { action -> ApplyModel.Step(relocationPlan, action, ApplyModel.StepStatus.FAILED, cause) }
@@ -134,7 +134,7 @@ class ApplyViewTest {
     @Test
     fun detailsUseExactDestinationPathsWhenDecidingWhetherToRepeatTheTarget() {
         val relocation = Relocation(Path.of("/home/cache"), Path.of("/local/cache"))
-        val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED, listOf(), listOf(), Optional.empty())
+        val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED, listOf(), listOf())
 
         val archive = ReconciliationAction.ArchiveDirectory(relocation.sourcePath, Path.of("/archive/local/cache"))
         val archiveLines = ApplyView.details(ApplyModel.Step(relocationPlan, archive, ApplyModel.StepStatus.PENDING, "Not started"))
@@ -151,7 +151,7 @@ class ApplyViewTest {
             return ReconciliationPlan(listOf(RelocationPlan(relocation, RelocationOutcome.CONVERGED,
                 listOf(ReconciliationAction.MigrateDirectoryForPublication(relocation.sourcePath, relocation.targetPath),
                     ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath)),
-                listOf(), Optional.empty())), listOf())
+                listOf())), listOf())
         }
 
         fun render(model: ApplyModel, selected: Int, width: Int, height: Int): String =

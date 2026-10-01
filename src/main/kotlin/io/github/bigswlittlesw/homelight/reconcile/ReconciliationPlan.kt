@@ -1,46 +1,21 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
-import java.util.Objects
-
 /**
  * The complete, filesystem-independent result of reconciliation planning.
  *
- * Not a `@JvmRecord data class`: the constructor copies its lists, which a Kotlin record cannot do.
- * Accessors keep the record names; equality and `toString` match the record this replaces.
+ * `expectedStates` is the review snapshot that whole-plan preflight compares against. A hand-assembled
+ * plan leaves it empty and so cannot pass preflight.
  */
-class ReconciliationPlan(
-    relocations: List<RelocationPlan>, diagnostics: List<ReconciliationDiagnostic>,
-    expectedStates: List<RelocationState>,
+data class ReconciliationPlan(
+    val relocations: List<RelocationPlan>,
+    val diagnostics: List<ReconciliationDiagnostic>,
+    val expectedStates: List<RelocationState> = listOf(),
 ) {
-    @get:JvmName("relocations")
-    val relocations: List<RelocationPlan> = java.util.List.copyOf(relocations)
+    fun actions(): List<ReconciliationAction> = relocations.flatMap { relocation -> relocation.actions }
 
-    @get:JvmName("diagnostics")
-    val diagnostics: List<ReconciliationDiagnostic> = java.util.List.copyOf(diagnostics)
+    fun hasBlockedActions(): Boolean = actions().any { it is ReconciliationAction.Blocked }
 
-    @get:JvmName("expectedStates")
-    val expectedStates: List<RelocationState> = java.util.List.copyOf(expectedStates)
+    fun hasChanges(): Boolean = actions().any { it.mutatesFilesystem }
 
-    /** Hand-assembled plans have no review snapshot and cannot pass whole-plan preflight. */
-    constructor(relocations: List<RelocationPlan>, diagnostics: List<ReconciliationDiagnostic>) :
-            this(relocations, diagnostics, java.util.List.of())
-
-    fun actions(): List<ReconciliationAction> =
-        relocations.stream().flatMap { relocation -> relocation.actions.stream() }.toList()
-
-    fun hasBlockedActions(): Boolean = actions().stream().anyMatch { it is ReconciliationAction.Blocked }
-
-    fun hasChanges(): Boolean = actions().stream().anyMatch(ReconciliationAction::mutatesFilesystem)
-
-    fun hasConflicts(): Boolean = relocations.stream().anyMatch { relocation -> relocation.conflict.isPresent }
-
-    override fun equals(other: Any?): Boolean = other is ReconciliationPlan
-            && relocations == other.relocations
-            && diagnostics == other.diagnostics
-            && expectedStates == other.expectedStates
-
-    override fun hashCode(): Int = Objects.hash(relocations, diagnostics, expectedStates)
-
-    override fun toString(): String =
-        "ReconciliationPlan[relocations=$relocations, diagnostics=$diagnostics, expectedStates=$expectedStates]"
+    fun hasConflicts(): Boolean = relocations.any { relocation -> relocation.conflict != null }
 }

@@ -20,7 +20,6 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Locale
-import java.util.Objects
 import java.util.UUID
 
 /** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
@@ -33,20 +32,16 @@ class ReconciliationExecutor {
      * Per-action guards remain necessary because preflight cannot lock out external writers.
      */
     fun preflight(plan: ReconciliationPlan): List<ReconciliationDiagnostic> {
-        if (plan.expectedStates.stream().map(RelocationState::relocation).toList()
-            != plan.relocations.stream().map(RelocationPlan::relocation).toList()
-        ) {
-            throw IllegalArgumentException("Plan has no complete review snapshot")
+        require(plan.expectedStates.map { it.relocation } == plan.relocations.map { it.relocation }) {
+            "Plan has no complete review snapshot"
         }
         val diagnostics = ArrayList<ReconciliationDiagnostic>()
         for (state in plan.expectedStates) {
             checkObservation(state.relocation.sourcePath, state.source, diagnostics)
             checkObservation(state.relocation.targetPath, state.target, diagnostics)
-            state.archiveDestination.ifPresent { archive ->
-                checkObservation(archive.path, archive.observation, diagnostics)
-            }
+            state.archiveDestination?.let { archive -> checkObservation(archive.path, archive.observation, diagnostics) }
         }
-        return java.util.List.copyOf(diagnostics)
+        return diagnostics
     }
 
     private fun checkObservation(
@@ -63,12 +58,8 @@ class ReconciliationExecutor {
         }
     }
 
-    fun execute(plan: ReconciliationPlan): ExecutionResult = execute(plan, ProgressListener.NONE)
-
-    fun execute(plan: ReconciliationPlan, progress: ProgressListener): ExecutionResult {
-        if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            throw IllegalArgumentException("Only fully resolved plans can be executed")
-        }
+    fun execute(plan: ReconciliationPlan, progress: ProgressListener = ProgressListener.NONE): ExecutionResult {
+        require(!plan.hasBlockedActions() && !plan.hasConflicts()) { "Only fully resolved plans can be executed" }
         val relocations = ArrayList<RelocationExecution>()
         var halted = false
         for (relocation in plan.relocations) {
@@ -78,23 +69,25 @@ class ReconciliationExecutor {
                     actions.add(ActionExecution(action, ActionStatus.PENDING, "not run after a previous failure"))
                     continue
                 }
-                try {
-                    progress.started(relocation, action)
-                    val message = apply(action)
-                    val execution = ActionExecution(action, ActionStatus.COMPLETED, message)
-                    actions.add(execution)
-                    progress.finished(relocation, execution)
-                } catch (exception: Exception) {
-                    // Java's multi-catch of IOException and IllegalStateException; anything else propagates.
-                    if (exception !is IOException && exception !is IllegalStateException) throw exception
+                fun fail(exception: Exception) {
                     val execution = ActionExecution(
-                        action, ActionStatus.FAILED,
-                        if (exception.message == null) exception.toString() else exception.message!!,
+                        action, ActionStatus.FAILED, exception.message ?: exception.toString(),
                         exception is StateDriftException,
                     )
                     actions.add(execution)
                     progress.finished(relocation, execution)
                     halted = true
+                }
+                // Only I/O and state failures halt the plan; anything else propagates.
+                try {
+                    progress.started(relocation, action)
+                    val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
+                    actions.add(execution)
+                    progress.finished(relocation, execution)
+                } catch (exception: IOException) {
+                    fail(exception)
+                } catch (exception: IllegalStateException) {
+                    fail(exception)
                 }
             }
             relocations.add(RelocationExecution(relocation, actions))
@@ -147,7 +140,7 @@ class ReconciliationExecutor {
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = action.target.parent
             ?: throw IllegalStateException("target has no parent directory: " + action.target)
-        val stagingRoot = action.stagingRoot.orElseGet { targetParent.resolve(".homelight-staging") }
+        val stagingRoot = action.stagingRoot ?: targetParent.resolve(".homelight-staging")
         if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
             throw IllegalStateException("staging root is not on the target filesystem: $stagingRoot")
         }
@@ -163,8 +156,8 @@ class ReconciliationExecutor {
         var lockSupported = true
         try {
             FileChannel.open(lockPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
-                acquireLock(channel).use { ignored ->
-                    lockSupported = ignored != null
+                acquireLock(channel).use { lock ->
+                    lockSupported = lock != null
                     val copy = operation.resolve("copy")
                     Files.createDirectory(copy)
                     Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
@@ -268,324 +261,279 @@ class ReconciliationExecutor {
         fun finished(relocation: RelocationPlan, action: ActionExecution) {}
 
         companion object {
-            @JvmField
             val NONE: ProgressListener = object : ProgressListener {}
         }
     }
 
-    @JvmRecord
     data class ActionExecution(
         val action: ReconciliationAction, val status: ActionStatus, val message: String,
-        val stateDrift: Boolean,
-    ) {
-        constructor(action: ReconciliationAction, status: ActionStatus, message: String) :
-                this(action, status, message, false)
-    }
+        val stateDrift: Boolean = false,
+    )
 
-    private class StateDriftException(message: String) : IllegalStateException(message)
-
-    /**
-     * Not a `@JvmRecord data class`: the constructor copies `actions`, which a Kotlin record cannot do.
-     * Accessors keep the record names; equality and `toString` match the record this replaces.
-     */
-    class RelocationExecution(relocation: RelocationPlan, actions: List<ActionExecution>) {
-        @get:JvmName("relocation")
-        val relocation: RelocationPlan = relocation
-
-        @get:JvmName("actions")
-        val actions: List<ActionExecution> = java.util.List.copyOf(actions)
-
+    data class RelocationExecution(val relocation: RelocationPlan, val actions: List<ActionExecution>) {
         /** Returns the execution outcome after accounting for an interrupted source replacement. */
         fun outcome(): ExecutionOutcome {
-            val notRun = actions.stream().anyMatch { action -> action.status == ActionStatus.PENDING }
-            if (notRun) {
+            if (actions.any { action -> action.status == ActionStatus.PENDING }) {
                 return ExecutionOutcome.UNRESOLVED
             }
-            val failed = actions.stream().anyMatch { action -> action.status == ActionStatus.FAILED }
-            if (!failed) {
+            if (actions.none { action -> action.status == ActionStatus.FAILED }) {
                 return when (relocation.outcome) {
                     RelocationOutcome.CONVERGED -> ExecutionOutcome.CONVERGED
                     RelocationOutcome.UNCHANGED -> ExecutionOutcome.UNCHANGED
                     RelocationOutcome.UNRESOLVED -> ExecutionOutcome.UNRESOLVED
                 }
             }
-            val targetPublished = actions.stream()
-                .anyMatch { action ->
-                    action.action is ReconciliationAction.MigrateDirectoryForPublication
-                            && action.status == ActionStatus.COMPLETED
-                }
+            val targetPublished = actions.any { action ->
+                action.action is ReconciliationAction.MigrateDirectoryForPublication && action.status == ActionStatus.COMPLETED
+            }
             return if (targetPublished) ExecutionOutcome.FAILED_RECOVERY else ExecutionOutcome.UNRESOLVED
         }
-
-        override fun equals(other: Any?): Boolean = other is RelocationExecution
-                && relocation == other.relocation
-                && actions == other.actions
-
-        override fun hashCode(): Int = Objects.hash(relocation, actions)
-
-        override fun toString(): String = "RelocationExecution[relocation=$relocation, actions=$actions]"
     }
 
-    /** The observed result of one relocation after its actions have run. */
-    enum class ExecutionOutcome(private val value: String) {
-        CONVERGED(RelocationOutcome.CONVERGED.value()),
-        UNCHANGED(RelocationOutcome.UNCHANGED.value()),
-        UNRESOLVED(RelocationOutcome.UNRESOLVED.value()),
-        FAILED_RECOVERY("failed-recovery");
-
-        /** Returns the stable machine-readable outcome name. */
-        fun value(): String = value
+    /** The observed result of one relocation after its actions have run; `value` is its stable machine-readable name. */
+    enum class ExecutionOutcome(val value: String) {
+        CONVERGED(RelocationOutcome.CONVERGED.value),
+        UNCHANGED(RelocationOutcome.UNCHANGED.value),
+        UNRESOLVED(RelocationOutcome.UNRESOLVED.value),
+        FAILED_RECOVERY("failed-recovery"),
     }
 
-    /**
-     * Not a `@JvmRecord data class`: the constructor copies `relocations`, which a Kotlin record cannot do.
-     * Accessors keep the record names; equality and `toString` match the record this replaces.
-     */
-    class ExecutionResult(relocations: List<RelocationExecution>) {
-        @get:JvmName("relocations")
-        val relocations: List<RelocationExecution> = java.util.List.copyOf(relocations)
-
-        fun succeeded(): Boolean = relocations.stream().flatMap { relocation -> relocation.actions.stream() }
-            .noneMatch { action -> action.status == ActionStatus.FAILED }
-
-        override fun equals(other: Any?): Boolean = other is ExecutionResult && relocations == other.relocations
-
-        override fun hashCode(): Int = Objects.hash(relocations)
-
-        override fun toString(): String = "ExecutionResult[relocations=$relocations]"
-    }
-
-    private companion object {
-        const val OPERATION_PREFIX = "operation-"
-        const val MARKER_HEADER = "homelight-staging-v1\n"
-
-        fun ensureRealDirectories(path: Path) {
-            val absolute = path.toAbsolutePath().normalize()
-            var current = absolute.root
-            for (name in absolute) {
-                current = current.resolve(name)
-                if (Files.notExists(current, LinkOption.NOFOLLOW_LINKS)) {
-                    Files.createDirectory(current)
-                } else if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-                    throw StateDriftException("expected real directory at $current")
-                }
-            }
-        }
-
-        fun acquireLock(channel: FileChannel): FileLock? {
-            try {
-                return channel.lock()
-            } catch (exception: UnsupportedOperationException) {
-                return null
-            }
-        }
-
-        fun probeAtomicMove(stagingRoot: Path) {
-            val probe = Files.createTempDirectory(stagingRoot, "atomic-probe-")
-            val published = probe.resolveSibling(probe.fileName.toString() + ".published")
-            try {
-                Files.move(probe, published, StandardCopyOption.ATOMIC_MOVE)
-            } finally {
-                if (Files.exists(published, LinkOption.NOFOLLOW_LINKS)) {
-                    deleteTree(published)
-                } else if (Files.exists(probe, LinkOption.NOFOLLOW_LINKS)) {
-                    deleteTree(probe)
-                }
-            }
-        }
-
-        fun cleanStaleStaging(stagingRoot: Path) {
-            Files.list(stagingRoot).use { entries ->
-                for (entry in entries.toList()) {
-                    if (!isOwnedOperation(entry)) {
-                        continue
-                    }
-                    val marker = entry.resolve("target")
-                    val lock = entry.resolve("lock")
-                    if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)
-                        || !Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)
-                    ) {
-                        continue
-                    }
-                    val target = markedTarget(marker)
-                    if (target == null || !hasOnlyOperationEntries(entry) || containsSymlink(entry)) {
-                        continue
-                    }
-                    if (!sameFileStore(stagingRoot, target.parent) || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                        continue
-                    }
-                    try {
-                        FileChannel.open(lock, StandardOpenOption.WRITE).use { channel ->
-                            val held = tryAcquireLock(channel)
-                            if (held != null) {
-                                held.use {
-                                    deleteTree(entry)
-                                }
-                            }
-                        }
-                    } catch (ignored: UnsupportedOperationException) {
-                        return
-                    }
-                }
-            }
-        }
-
-        fun isOwnedOperation(entry: Path): Boolean {
-            val name = entry.fileName.toString()
-            if (!name.startsWith(OPERATION_PREFIX) || !Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)
-                || Files.isSymbolicLink(entry)
-            ) {
-                return false
-            }
-            try {
-                UUID.fromString(name.substring(OPERATION_PREFIX.length))
-                return true
-            } catch (exception: IllegalArgumentException) {
-                return false
-            }
-        }
-
-        fun markedTarget(marker: Path): Path? {
-            val text = Files.readString(marker, StandardCharsets.UTF_8)
-            if (!text.startsWith(MARKER_HEADER) || !text.endsWith("\n")) {
-                return null
-            }
-            val value = text.substring(MARKER_HEADER.length, text.length - 1)
-            if (value.isJavaBlank() || value.contains("\n")) {
-                return null
-            }
-            try {
-                return Path.of(value).toAbsolutePath().normalize()
-            } catch (exception: InvalidPathException) {
-                return null
-            }
-        }
-
-        fun containsSymlink(root: Path): Boolean {
-            val symlink = BooleanArray(1)
-            Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-                override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    if (Files.isSymbolicLink(file)) {
-                        symlink[0] = true
-                        return FileVisitResult.TERMINATE
-                    }
-                    return FileVisitResult.CONTINUE
-                }
-            })
-            return symlink[0]
-        }
-
-        fun hasOnlyOperationEntries(operation: Path): Boolean =
-            Files.list(operation).use { entries ->
-                entries.allMatch { entry ->
-                    when (entry.fileName.toString()) {
-                        "target", "lock" -> Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)
-                        "copy" -> Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)
-                        else -> false
-                    }
-                }
-            }
-
-        fun sameFileStore(left: Path, right: Path): Boolean {
-            try {
-                return Files.getFileStore(left) == Files.getFileStore(right)
-            } catch (exception: IOException) {
-                return false
-            }
-        }
-
-        fun fileStoreOfExistingAncestor(path: Path): FileStore {
-            var current: Path? = path.toAbsolutePath().normalize()
-            while (current != null) {
-                if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-                    if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-                        throw StateDriftException("expected real directory at $current")
-                    }
-                    return Files.getFileStore(current)
-                }
-                current = current.parent
-            }
-            throw IOException("no existing ancestor for $path")
-        }
-
-        fun tryAcquireLock(channel: FileChannel): FileLock? {
-            try {
-                return channel.tryLock()
-            } catch (exception: OverlappingFileLockException) {
-                return null
-            }
-        }
-
-        fun prepareLink(path: Path, target: Path): Path {
-            val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
-            Files.delete(temporary)
-            Files.createSymbolicLink(temporary, target)
-            return temporary
-        }
-
-        fun deleteTree(root: Path) {
-            Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-                override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    Files.delete(file)
-                    return FileVisitResult.CONTINUE
-                }
-
-                override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
-                    if (exception != null) {
-                        throw exception
-                    }
-                    Files.delete(directory)
-                    return FileVisitResult.CONTINUE
-                }
-            })
-        }
-
-        fun verifyCopy(source: Path, copy: Path) {
-            Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
-                override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    val copiedDirectory = copiedPath(source, copy, directory)
-                    if (!Files.isDirectory(copiedDirectory, LinkOption.NOFOLLOW_LINKS)) {
-                        throw IOException("copied directory is missing: $copiedDirectory")
-                    }
-                    return FileVisitResult.CONTINUE
-                }
-
-                override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    val copiedFile = copiedPath(source, copy, file)
-                    if (Files.isSymbolicLink(file)) {
-                        if (!Files.isSymbolicLink(copiedFile)
-                            || Files.readSymbolicLink(file) != Files.readSymbolicLink(copiedFile)
-                        ) {
-                            throw IOException("copied symlink differs: $copiedFile")
-                        }
-                    } else if (!Files.isRegularFile(copiedFile, LinkOption.NOFOLLOW_LINKS)
-                        || Files.size(file) != Files.size(copiedFile)
-                    ) {
-                        throw IOException("copied file differs: $copiedFile")
-                    }
-                    return FileVisitResult.CONTINUE
-                }
-            })
-            Files.walkFileTree(copy, object : SimpleFileVisitor<Path>() {
-                override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    verifySourceEntry(source, copy, directory)
-                    return FileVisitResult.CONTINUE
-                }
-
-                override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-                    verifySourceEntry(source, copy, file)
-                    return FileVisitResult.CONTINUE
-                }
-            })
-        }
-
-        fun verifySourceEntry(source: Path, copy: Path, copiedEntry: Path) {
-            val sourceEntry = copiedPath(copy, source, copiedEntry)
-            if (Files.notExists(sourceEntry, LinkOption.NOFOLLOW_LINKS)) {
-                throw IOException("copied directory has an unexpected entry: $copiedEntry")
-            }
-        }
-
-        fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))
+    data class ExecutionResult(val relocations: List<RelocationExecution>) {
+        fun succeeded(): Boolean =
+            relocations.none { relocation -> relocation.actions.any { action -> action.status == ActionStatus.FAILED } }
     }
 }
+
+private class StateDriftException(message: String) : IllegalStateException(message)
+
+private const val OPERATION_PREFIX = "operation-"
+private const val MARKER_HEADER = "homelight-staging-v1\n"
+
+private fun ensureRealDirectories(path: Path) {
+    val absolute = path.toAbsolutePath().normalize()
+    var current = absolute.root
+    for (name in absolute) {
+        current = current.resolve(name)
+        if (Files.notExists(current, LinkOption.NOFOLLOW_LINKS)) {
+            Files.createDirectory(current)
+        } else if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw StateDriftException("expected real directory at $current")
+        }
+    }
+}
+
+private fun acquireLock(channel: FileChannel): FileLock? {
+    try {
+        return channel.lock()
+    } catch (exception: UnsupportedOperationException) {
+        return null
+    }
+}
+
+private fun probeAtomicMove(stagingRoot: Path) {
+    val probe = Files.createTempDirectory(stagingRoot, "atomic-probe-")
+    val published = probe.resolveSibling(probe.fileName.toString() + ".published")
+    try {
+        Files.move(probe, published, StandardCopyOption.ATOMIC_MOVE)
+    } finally {
+        if (Files.exists(published, LinkOption.NOFOLLOW_LINKS)) {
+            deleteTree(published)
+        } else if (Files.exists(probe, LinkOption.NOFOLLOW_LINKS)) {
+            deleteTree(probe)
+        }
+    }
+}
+
+private fun cleanStaleStaging(stagingRoot: Path) {
+    Files.list(stagingRoot).use { entries ->
+        for (entry in entries.toList()) {
+            if (!isOwnedOperation(entry)) {
+                continue
+            }
+            val marker = entry.resolve("target")
+            val lock = entry.resolve("lock")
+            if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)
+                || !Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)
+            ) {
+                continue
+            }
+            val target = markedTarget(marker)
+            if (target == null || !hasOnlyOperationEntries(entry) || containsSymlink(entry)) {
+                continue
+            }
+            if (!sameFileStore(stagingRoot, target.parent) || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                continue
+            }
+            try {
+                FileChannel.open(lock, StandardOpenOption.WRITE).use { channel ->
+                    val held = tryAcquireLock(channel)
+                    if (held != null) {
+                        held.use {
+                            deleteTree(entry)
+                        }
+                    }
+                }
+            } catch (ignored: UnsupportedOperationException) {
+                return
+            }
+        }
+    }
+}
+
+private fun isOwnedOperation(entry: Path): Boolean {
+    val name = entry.fileName.toString()
+    if (!name.startsWith(OPERATION_PREFIX) || !Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)
+        || Files.isSymbolicLink(entry)
+    ) {
+        return false
+    }
+    try {
+        UUID.fromString(name.substring(OPERATION_PREFIX.length))
+        return true
+    } catch (exception: IllegalArgumentException) {
+        return false
+    }
+}
+
+private fun markedTarget(marker: Path): Path? {
+    val text = Files.readString(marker, StandardCharsets.UTF_8)
+    if (!text.startsWith(MARKER_HEADER) || !text.endsWith("\n")) {
+        return null
+    }
+    val value = text.substring(MARKER_HEADER.length, text.length - 1)
+    if (value.isJavaBlank() || value.contains("\n")) {
+        return null
+    }
+    try {
+        return Path.of(value).toAbsolutePath().normalize()
+    } catch (exception: InvalidPathException) {
+        return null
+    }
+}
+
+private fun containsSymlink(root: Path): Boolean {
+    var symlink = false
+    Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
+            if (Files.isSymbolicLink(file)) {
+                symlink = true
+                return FileVisitResult.TERMINATE
+            }
+            return FileVisitResult.CONTINUE
+        }
+    })
+    return symlink
+}
+
+private fun hasOnlyOperationEntries(operation: Path): Boolean =
+    Files.list(operation).use { entries ->
+        entries.allMatch { entry ->
+            when (entry.fileName.toString()) {
+                "target", "lock" -> Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)
+                "copy" -> Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)
+                else -> false
+            }
+        }
+    }
+
+private fun sameFileStore(left: Path, right: Path): Boolean {
+    try {
+        return Files.getFileStore(left) == Files.getFileStore(right)
+    } catch (exception: IOException) {
+        return false
+    }
+}
+
+private fun fileStoreOfExistingAncestor(path: Path): FileStore {
+    var current: Path? = path.toAbsolutePath().normalize()
+    while (current != null) {
+        if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+            if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+                throw StateDriftException("expected real directory at $current")
+            }
+            return Files.getFileStore(current)
+        }
+        current = current.parent
+    }
+    throw IOException("no existing ancestor for $path")
+}
+
+private fun tryAcquireLock(channel: FileChannel): FileLock? {
+    try {
+        return channel.tryLock()
+    } catch (exception: OverlappingFileLockException) {
+        return null
+    }
+}
+
+private fun prepareLink(path: Path, target: Path): Path {
+    val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
+    Files.delete(temporary)
+    Files.createSymbolicLink(temporary, target)
+    return temporary
+}
+
+private fun deleteTree(root: Path) {
+    Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
+            Files.delete(file)
+            return FileVisitResult.CONTINUE
+        }
+
+        override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
+            if (exception != null) {
+                throw exception
+            }
+            Files.delete(directory)
+            return FileVisitResult.CONTINUE
+        }
+    })
+}
+
+private fun verifyCopy(source: Path, copy: Path) {
+    Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
+        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
+            val copiedDirectory = copiedPath(source, copy, directory)
+            if (!Files.isDirectory(copiedDirectory, LinkOption.NOFOLLOW_LINKS)) {
+                throw IOException("copied directory is missing: $copiedDirectory")
+            }
+            return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
+            val copiedFile = copiedPath(source, copy, file)
+            if (Files.isSymbolicLink(file)) {
+                if (!Files.isSymbolicLink(copiedFile)
+                    || Files.readSymbolicLink(file) != Files.readSymbolicLink(copiedFile)
+                ) {
+                    throw IOException("copied symlink differs: $copiedFile")
+                }
+            } else if (!Files.isRegularFile(copiedFile, LinkOption.NOFOLLOW_LINKS)
+                || Files.size(file) != Files.size(copiedFile)
+            ) {
+                throw IOException("copied file differs: $copiedFile")
+            }
+            return FileVisitResult.CONTINUE
+        }
+    })
+    Files.walkFileTree(copy, object : SimpleFileVisitor<Path>() {
+        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
+            verifySourceEntry(source, copy, directory)
+            return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
+            verifySourceEntry(source, copy, file)
+            return FileVisitResult.CONTINUE
+        }
+    })
+}
+
+private fun verifySourceEntry(source: Path, copy: Path, copiedEntry: Path) {
+    val sourceEntry = copiedPath(copy, source, copiedEntry)
+    if (Files.notExists(sourceEntry, LinkOption.NOFOLLOW_LINKS)) {
+        throw IOException("copied directory has an unexpected entry: $copiedEntry")
+    }
+}
+
+private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))

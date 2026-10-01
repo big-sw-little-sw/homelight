@@ -23,7 +23,6 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
-import java.util.Optional
 
 // Characterizes #25's current gaps, not a promise to retain provider-default modes.
 // Change the mode expectations when the coordinator establishes the platform policy.
@@ -261,7 +260,7 @@ class StagedPermissionTest {
             val target = zip.getPath("/target")
             val relocation = Relocation(source, target)
             val planned = ReconciliationPlan(listOf(RelocationPlan(relocation, RelocationOutcome.CONVERGED,
-                    listOf(ReconciliationAction.CopyDirectory(source, target)), listOf(), Optional.empty())), listOf())
+                    listOf(ReconciliationAction.CopyDirectory(source, target)), listOf())), listOf())
 
             val result = ReconciliationExecutor().execute(planned)
 
