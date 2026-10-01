@@ -9,6 +9,8 @@
 #
 # Prints one line of key=value results. Exit status: 0 all checks passed, 1 a check failed,
 # 3 the command exited without rendering (the expected outcome for TERM=dumb).
+# Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
+encoding system iso8859-1
 set logfile [lindex $argv 0]
 set cmd [join [lrange $argv 1 end] " "]
 set lf [open $logfile w]
