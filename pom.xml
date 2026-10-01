@@ -144,4 +144,41 @@
         </plugins>
     </build>
 
+    <profiles>
+        <!-- GraalVM Native Image build: `mvn -Pnative -DskipTests package` with JAVA_HOME on a GraalVM 25 JDK.
+             Platform flags (static linking, libc, -march) come from NATIVE_IMAGE_OPTIONS; see ci/native/. -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>1.1.8</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <imageName>homelight</imageName>
+                            <mainClass>io.github.bigswlittlesw.homelight.cli.HomeLightCommand</mainClass>
+                            <buildArgs>
+                                <buildArg>--no-fallback</buildArg>
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                                <!-- JLine's JNI provider calls System.load; silences the JDK restricted-method warning. -->
+                                <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

@@ -71,7 +71,7 @@ PRs required, no force-push).
   `PlanCommand` and tests) with a typed override.
 - Add tests for missing keys, wrong types and unknown keys (`ConfigurationLoaderTest`
   has three today).
-- Default JLine to exec in native builds (spike change in `ci/spike/patch/tracked.diff`).
+- Default JLine to exec in native builds (spike change).
 - Refuse a dumb terminal with a clear error instead of hanging.
 
 Done when: SmallRye dependencies are gone, tests cover the new cases, CI is green.
@@ -92,8 +92,9 @@ Remaining: user merges PR.
 - Tests per binary: CLI comparison, TUI checks (resize, `TERM` values, noexec
   `/tmp`, terminal restore), and runs on Oracle Linux 7/8, Ubuntu 24.04, Debian 13,
   Fedora (latest).
-- Upload both binaries as artifacts. Post rendered TUI screens (80x24, 120x30) as
-  a PR comment.
+- Upload both binaries as artifacts. Write rendered TUI screens (80x24, 120x30) to
+  the job summary (no PR comment, so CI needs no write permission).
+- Release publishing: on a version tag, attach both Linux binaries to a GitHub Release. PR artifacts expire after 3 days.
 - `ci/try-pr <n>`: download a PR's arm64 binary and run it in an OrbStack Linux
   container with a disposable home and fixture directories.
 - Move the `native` profile and trimmed metadata from `ci/spike/patch/` into the
@@ -102,7 +103,13 @@ Remaining: user merges PR.
 Done when: every PR produces both binaries and the checks pass; `ci/try-pr` works
 from the user's Mac.
 
-Status: not started. Recipe and scripts in `ci/spike/`.
+Status: done on `step4/native-ci` (PR #37). Jobs `Native build`, `Native test` and
+`Native distros` for x86_64 and arm64; about 6 minutes wall clock after `JVM verify`
+starts in parallel. Scripts in `ci/native/`, `ci/try-pr` for local tries. Distros:
+x86_64 on Oracle Linux 7 (full), Oracle Linux 8, Debian 13, Fedora (CLI), Ubuntu 24.04
+with noexec `/tmp` (full), Alpine (smoke); arm64 on Oracle Linux 8 and Ubuntu 24.04
+noexec (full), Fedora (CLI); both runners also run the full suite on Ubuntu 24.04.
+Remaining: user merges PR; add the new jobs as required checks.
 
 ### 4b. Adopt Jackson databind for YAML and JSON
 

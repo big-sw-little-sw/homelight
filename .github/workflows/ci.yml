@@ -25,3 +25,116 @@ jobs:
           java-version: '25'
           cache: maven
       - run: mvn -B -ntp verify
+
+  # Linux native binaries. Scripts and the distro matrix are in ci/native/; they also run locally.
+  native-build:
+    name: Native build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      # GraalVM, Maven and the musl toolchain; build.sh pins their versions and checksums.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/homelight-ci/dl
+          key: native-dl-${{ matrix.arch }}-${{ hashFiles('ci/native/build.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/homelight-ci/m2
+          key: native-m2-${{ matrix.arch }}-${{ hashFiles('pom.xml') }}
+          restore-keys: native-m2-${{ matrix.arch }}-
+      - run: ci/native/build.sh ${{ matrix.arch }} dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: homelight-linux-${{ matrix.arch }}
+          path: dist/homelight
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jvm-reference-${{ matrix.arch }}
+          path: dist/jvm-reference.txt
+          if-no-files-found: error
+          retention-days: 3
+
+  native-test:
+    name: Native test (${{ matrix.arch }})
+    needs: native-build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: homelight-linux-${{ matrix.arch }}
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: jvm-reference-${{ matrix.arch }}
+          path: dist
+      - name: Install expect, terminfo and pyte
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends expect ncurses-term python3-pyte
+      - name: CLI comparison and TUI checks
+        run: |
+          chmod +x dist/homelight
+          ci/native/test.sh dist/homelight dist/jvm-reference.txt full results
+      - name: Rendered TUI screens
+        if: ${{ !cancelled() }}
+        run: |
+          status=0
+          python3 ci/native/render.py results/tui-xterm-256color.log 80x24 120x30 > results/screens.txt || status=$?
+          {
+            echo "### TUI screens, ${{ matrix.arch }}, TERM=xterm-256color"
+            echo '```'
+            cat results/screens.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: native-test-${{ matrix.arch }}
+          path: |
+            results/screens.txt
+            results/*.log
+            results/native-transcript.txt
+          retention-days: 3
+
+  native-distros:
+    name: Native distros (${{ matrix.arch }})
+    needs: native-build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: homelight-linux-${{ matrix.arch }}
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: jvm-reference-${{ matrix.arch }}
+          path: dist
+      - run: |
+          chmod +x dist/homelight
+          ci/native/distros.sh ${{ matrix.arch }} dist results

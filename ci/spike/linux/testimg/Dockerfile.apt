@@ -1,3 +1,0 @@
-ARG BASE
-FROM ${BASE}
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends expect procps time binutils file ncurses-term ncurses-base && (apt-get install -y --no-install-recommends hyperfine || true) && rm -rf /var/lib/apt/lists/*

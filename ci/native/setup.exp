@@ -1,0 +1,63 @@
+#!/usr/bin/expect -f
+# Drives the TUI setup flow on a pty: discovery from the bundled candidate list, then cancel.
+#
+#   expect ci/native/setup.exp <logfile> <source-root> <target-root> <command...>
+#
+# <source-root> must contain a .m2 directory; the command must point at a missing config file
+# (`homelight -c <new.yaml> init`). Enters both roots, opens the candidate browser and expects the
+# bundled Maven candidate, which proves candidates.yaml is in the binary. Then discards the draft
+# and quits. Prints one line of key=value results; exit status 0 when every check passed.
+# Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
+encoding system iso8859-1
+set logfile [lindex $argv 0]
+set source [lindex $argv 1]
+set target [lindex $argv 2]
+set cmd [join [lrange $argv 3 end] " "]
+log_user 0
+log_file -a -noappend $logfile
+set stty_init "rows 30 cols 120"
+set env(PS1) "PROMPT> "
+set result ""
+set failed 0
+
+proc step {name pattern} {
+  global result failed
+  expect {
+    -re $pattern { append result "$name=ok " }
+    timeout { append result "$name=timeout(FAIL) "; set failed 1 }
+    eof { append result "$name=eof(FAIL) "; set failed 1 }
+  }
+}
+
+spawn -noecho /bin/sh
+set timeout 20
+expect "PROMPT> "
+send "$cmd; echo EXITCODE=\$?\r"
+step setup {Create configuration}
+# Source root: the directory holding .m2; then down to target root, Enter to Relocations.
+send "\025$source"
+after 300
+send "\033\[B"
+after 300
+send $target
+after 300
+send "\r"
+step relocations {No relocations yet}
+send "b"
+step discovery {Maven}
+send_log "\n@@QUIT@@\n"
+# Back to Relocations, discard the draft (q, then Enter to confirm), quit the workspace.
+foreach key {"\033" q "\r" q} {
+  send $key
+  after 300
+}
+expect {
+  -re {EXITCODE=([0-9]+)} {
+    append result "exit=$expect_out(1,string) "
+    if {$expect_out(1,string) != 0} { set failed 1 }
+  }
+  timeout { append result "exit=hang(FAIL) "; set failed 1; send "\003" }
+}
+log_file
+puts [string trim $result]
+exit $failed

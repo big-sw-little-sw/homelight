@@ -1,5 +1,0 @@
-# Fully static musl builder (amd64): OL7 GraalVM builder + Oracle's musl toolchain (bundles libz.a).
-FROM homelight-spike-ol7:amd64
-COPY musl.tar.gz /tmp/
-RUN tar -xzf /tmp/musl.tar.gz -C /opt && rm /tmp/musl.tar.gz
-ENV PATH=/opt/musl-toolchain/bin:$PATH
