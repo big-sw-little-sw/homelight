@@ -1,16 +1,15 @@
 package io.github.bigswlittlesw.homelight.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 import java.util.concurrent.Callable
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
@@ -19,13 +18,13 @@ class DiscoverySettingTest {
     @TempDir lateinit var temporary: Path
 
     @Test fun normalizesLocationWithoutInspectingItAndRejectsNonFilesystemInput() {
-        assertEquals(Optional.empty<Path>(), DiscoverySetting.parse("  "))
-        assertEquals(Optional.of(temporary.resolve("missing.yaml")),
-                DiscoverySetting.parse(temporary.resolve("absent/../missing.yaml").toString()))
-        assertEquals(Optional.of(Path.of(System.getProperty("user.home"), "shared.yaml").normalize()),
-                DiscoverySetting.parse("~/folder/../shared.yaml"))
+        assertNull(parseSharedList("  "))
+        assertEquals(temporary.resolve("missing.yaml"),
+                parseSharedList(temporary.resolve("absent/../missing.yaml").toString()))
+        assertEquals(Path.of(System.getProperty("user.home"), "shared.yaml").normalize(),
+                parseSharedList("~/folder/../shared.yaml"))
         for (invalid in listOf("relative.yaml", "../relative.yaml", "https://example.com/list", "\$HOME/list", "\${HOME}/list", "/tmp/\$LIST", "/tmp/list\n")) {
-            assertThrows(IllegalArgumentException::class.java, { DiscoverySetting.parse(invalid) }, invalid)
+            assertThrows(IllegalArgumentException::class.java, { parseSharedList(invalid) }, invalid)
         }
     }
 
@@ -36,13 +35,13 @@ class DiscoverySettingTest {
         var index = 0
         for (location in listOf(malformed, directory, missing)) {
             val path = temporary.resolve("config-" + index++ + ".yaml")
-            val draft = ConfigurationDraft(temporary.resolve("target"), listOf(
+            val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
                     Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual")),
                     Relocation(temporary.resolve("home/chosen"), temporary.resolve("target/chosen"))),
-                    Optional.of(location.parent.resolve("unused/../" + location.fileName)))
+                    location.parent.resolve("unused/../" + location.fileName))
             ConfigurationPublisher().saveNew(path, draft)
             val loaded = ConfigurationLoader().load(path)
-            assertEquals(Optional.of(location), loaded.sharedList)
+            assertEquals(location, loaded.sharedList)
             assertEquals(draft.relocations, loaded.relocations)
             val evaluation = assertInstanceOf(io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Loaded::class.java,
                     io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().load(path))
@@ -52,7 +51,7 @@ class DiscoverySettingTest {
                     "selected:", "when-source", "when-only", "when-adopting")) assertFalse(text.contains(forbidden), text)
             val second = temporary.resolve("roundtrip-$index.yaml")
             ConfigurationPublisher().saveNew(second,
-                    ConfigurationDraft(loaded.targetRoot, loaded.relocations, loaded.sharedList))
+                    ConfigurationDraft.of(loaded.targetRoot, loaded.relocations, loaded.sharedList))
             assertEquals(text, Files.readString(second))
             assertEquals(draft.sharedList, draft.withTargetRoot(temporary.resolve("other")).sharedList)
             assertEquals(draft.sharedList, draft.withRelocations(listOf()).sharedList)
@@ -62,26 +61,26 @@ class DiscoverySettingTest {
     }
 
     @Test fun omittedAndBlankSettingRemainCompatibleAndDoNotCreateAnEmptySection() {
-        val draft = ConfigurationDraft(temporary.resolve("target"), listOf(
+        val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
                 Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual"))))
         val path = temporary.resolve("old.yaml")
         ConfigurationPublisher().saveNew(path, draft)
-        assertTrue(ConfigurationLoader().load(path).sharedList.isEmpty())
+        assertNull(ConfigurationLoader().load(path).sharedList)
         val text = Files.readString(path)
         assertFalse(text.contains("discovery:"))
         Files.writeString(path, text.replace("  relocations:", "  discovery:\n    shared-list: '   '\n  relocations:"))
-        assertTrue(ConfigurationLoader().load(path).sharedList.isEmpty())
+        assertNull(ConfigurationLoader().load(path).sharedList)
         assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
-                temporary.resolve("setting-only.yaml"), ConfigurationDraft(draft.targetRoot, listOf(), Optional.of(path))) }
+                temporary.resolve("setting-only.yaml"), ConfigurationDraft.of(draft.targetRoot, listOf(), path)) }
         assertFalse(Files.exists(temporary.resolve("setting-only.yaml")))
     }
 
     @Test fun concurrentPublicationKeepsOneWholeSettingAndRelocationPair() {
         val path = temporary.resolve("config.yaml")
-        val first = ConfigurationDraft(temporary.resolve("target"), listOf(
-                Relocation(temporary.resolve("home/a"), temporary.resolve("target/a"))), Optional.of(temporary.resolve("list-a")))
-        val second = ConfigurationDraft(temporary.resolve("target"), listOf(
-                Relocation(temporary.resolve("home/b"), temporary.resolve("target/b"))), Optional.of(temporary.resolve("list-b")))
+        val first = ConfigurationDraft.of(temporary.resolve("target"), listOf(
+                Relocation(temporary.resolve("home/a"), temporary.resolve("target/a"))), temporary.resolve("list-a"))
+        val second = ConfigurationDraft.of(temporary.resolve("target"), listOf(
+                Relocation(temporary.resolve("home/b"), temporary.resolve("target/b"))), temporary.resolve("list-b"))
         val gate = CyclicBarrier(2)
         Executors.newFixedThreadPool(2).use { pool ->
             val results = pool.invokeAll(listOf<Callable<Boolean>>(Callable { save(path, first, gate) }, Callable { save(path, second, gate) }))

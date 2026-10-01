@@ -53,7 +53,7 @@ internal class ApplyRenderer {
                     generator.writeStartObject()
                     generator.writeStringField("source", configuredRelocation.sourcePath.toString())
                     generator.writeStringField("target", configuredRelocation.targetPath.toString())
-                    generator.writeStringField("outcome", relocation.outcome().value())
+                    generator.writeStringField("outcome", relocation.outcome().value)
                     generator.writeArrayFieldStart("actions")
                     for (action in relocation.actions) {
                         generator.writeStartObject()

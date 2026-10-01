@@ -6,9 +6,9 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 /** Keeps the machine-readable action contract consistent between plans and execution results. */
 internal object ActionJson {
     fun writeFields(generator: JsonGenerator, action: ReconciliationAction) {
-        generator.writeStringField("type", action.type())
+        generator.writeStringField("type", action.type)
         generator.writeStringField("path", action.path.toString())
-        generator.writeBooleanField("destructive", action.destructive())
+        generator.writeBooleanField("destructive", action.destructive)
         when (action) {
             is ReconciliationAction.CopyDirectory -> generator.writeStringField("target", action.target.toString())
             is ReconciliationAction.MigrateDirectoryForPublication -> generator.writeStringField("target", action.target.toString())

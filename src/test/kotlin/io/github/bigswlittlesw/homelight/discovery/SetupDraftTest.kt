@@ -12,6 +12,7 @@ import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -36,7 +37,7 @@ class SetupDraftTest {
         Files.createDirectories(root.resolve(".m2"))
         Files.createDirectories(root.resolve("datasets"))
         val configured = Relocation(root.resolve("x/../.m2"), temporary.resolve("custom/maven"),
-                Optional.of(WhenSourceAndTargetDirectoriesExist.ADOPT), Optional.empty(), Optional.empty(), Optional.empty())
+                WhenSourceAndTargetDirectoriesExist.ADOPT)
         val outside = Relocation(temporary.resolve("outside"), temporary.resolve("custom/outside"))
         val draft = draft(root, listOf(configured, outside))
         val manual = SetupDraft.Row("./datasets", "my-data")
@@ -64,7 +65,7 @@ class SetupDraftTest {
         Files.createDirectories(root.resolve(".m2"))
         val config = temporary.resolve("existing.yaml")
         val configured = Relocation(root.resolve(".m2"), temporary.resolve("saved/maven"))
-        ConfigurationPublisher().saveNew(config, ConfigurationDraft(temporary.resolve("saved"), listOf(configured)))
+        ConfigurationPublisher().saveNew(config, ConfigurationDraft.of(temporary.resolve("saved"), listOf(configured)))
         val bytes = Files.readAllBytes(config)
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
@@ -187,7 +188,7 @@ class SetupDraftTest {
             draft.sharedList("")
             assertFalse(draft.accept(old))
             assertEquals(rows, draft.rows())
-            assertTrue(draft.validate().sharedList.isEmpty())
+            assertNull(draft.validate().sharedList)
             assertFalse(draft.entries().first().lastKnownDefinitions.isEmpty())
         }
     }
@@ -220,7 +221,7 @@ class SetupDraftTest {
                 val config = temporary.resolve("saved.yaml")
                 ConfigurationPublisher().saveNew(config, draft.validate())
                 val loaded = ConfigurationLoader().load(config)
-                assertEquals(Optional.of(shared()), loaded.sharedList)
+                assertEquals(shared(), loaded.sharedList)
                 assertEquals(temporary.resolve("target/edited"), loaded.relocations.first().targetPath)
                 assertEquals("keep", Files.readString(cache.resolve("data")))
                 assertEquals(Path.of("manual"), Files.readSymbolicLink(link))
@@ -269,9 +270,9 @@ class SetupDraftTest {
             val loaded = ConfigurationLoader().load(path)
             assertEquals(draft.validate().relocations, loaded.relocations)
             assertEquals(3, loaded.relocations.size)
-            assertTrue(loaded.relocations.stream().allMatch { r -> r.whenSourceAndTargetDirectoriesExist.isEmpty()
-                    && r.whenOnlyTargetExists.isEmpty() && r.whenAdoptingTarget.isEmpty() })
-            assertEquals(Optional.of(shared()), loaded.sharedList)
+            assertTrue(loaded.relocations.stream().allMatch { r -> r.whenSourceAndTargetDirectoriesExist == null
+                    && r.whenOnlyTargetExists == null && r.whenAdoptingTarget == null })
+            assertEquals(shared(), loaded.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
             assertFalse(Files.exists(temporary.resolve("target")))
             val yaml = Files.readString(path)

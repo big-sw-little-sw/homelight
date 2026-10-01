@@ -53,7 +53,7 @@ class PlanRelocationItem(
         if (plan.actions.stream().anyMatch { it is ReconciliationAction.Blocked }) {
             return PlanBadge.BLOCKED
         }
-        if (plan.conflict.isPresent || plan.outcome == RelocationOutcome.UNRESOLVED) {
+        if (plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED) {
             return PlanBadge.CONFLICT
         }
         if (plan.actions.stream().anyMatch { it is ReconciliationAction.ArchiveDirectory }) {
@@ -99,16 +99,16 @@ class PlanRelocationItem(
                 || plan.diagnostics.stream()
             .anyMatch { diagnostic -> diagnostic.severity == ReconciliationDiagnostic.Severity.WARNING }
 
-    fun hasConflict(): Boolean = plan.conflict.isPresent || plan.outcome == RelocationOutcome.UNRESOLVED
+    fun hasConflict(): Boolean = plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED
 
     fun isBlocked(): Boolean = badge() == PlanBadge.BLOCKED || badge() == PlanBadge.INACCESSIBLE
 
     fun selectedResolution(): Optional<DecisionChoice> {
-        if (relocation.whenSourceAndTargetDirectoriesExist.isPresent) {
-            val whenBoth = relocation.whenSourceAndTargetDirectoriesExist.get()
+        val whenBoth = relocation.whenSourceAndTargetDirectoriesExist
+        if (whenBoth != null) {
             return when (whenBoth) {
                 WhenSourceAndTargetDirectoriesExist.ADOPT -> {
-                    val adopting = relocation.whenAdoptingTarget.orElse(WhenAdoptingTarget.PROMPT)
+                    val adopting = relocation.whenAdoptingTarget ?: WhenAdoptingTarget.PROMPT
                     when (adopting) {
                         WhenAdoptingTarget.DISCARD_SOURCE -> Optional.of(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
                         WhenAdoptingTarget.ARCHIVE_SOURCE -> Optional.of(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
@@ -120,8 +120,8 @@ class PlanRelocationItem(
                 WhenSourceAndTargetDirectoriesExist.PROMPT -> Optional.empty()
             }
         }
-        if (relocation.whenOnlyTargetExists.isPresent) {
-            val whenOnly = relocation.whenOnlyTargetExists.get()
+        val whenOnly = relocation.whenOnlyTargetExists
+        if (whenOnly != null) {
             return when (whenOnly) {
                 WhenOnlyTargetExists.ADOPT_TARGET -> Optional.of(DecisionChoice.ADOPT_TARGET)
                 WhenOnlyTargetExists.PROMPT -> Optional.empty()

@@ -92,7 +92,7 @@ class CandidateSetupTest {
             val saved = ConfigurationLoader().load(root.resolve("config.yaml"))
             assertEquals(1, saved.relocations.size)
             assertEquals(root.resolve("local/custom-target"), saved.relocations.first().targetPath)
-            assertEquals(Optional.of(root.resolve("shared.yaml")), saved.sharedList)
+            assertEquals(root.resolve("shared.yaml"), saved.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("home/team-cache/payload")))
             assertFalse(Files.exists(root.resolve("local/custom-target")))
             assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
@@ -181,7 +181,7 @@ class CandidateSetupTest {
             val row = ConfigurationLoader().load(root.resolve("config.yaml")).relocations.first()
             assertEquals(root.resolve("home/absent-cache"), row.sourcePath)
             assertEquals(root.resolve("local/future-cache"), row.targetPath)
-            assertEquals(Optional.of(io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists.ADOPT_TARGET), row.whenOnlyTargetExists)
+            assertEquals(io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
             assertFalse(Files.exists(row.sourcePath))
             assertFalse(Files.exists(root.resolve("local")))
             assertInstanceOf(ApplyModel.Idle::class.java, app.session().applyModel())
@@ -283,8 +283,7 @@ class CandidateSetupTest {
         val emptyText = WorkspaceViewTest.render(empty.render(SetupDraft(root.resolve("home"), root.resolve("local"), Optional.empty(), listOf())), 80, 24)
         assertFalse(emptyText.contains("Enter:") || emptyText.contains("a: Add"), emptyText)
         val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"),
-            Optional.of(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.DISCARD),
-            Optional.empty(), Optional.empty(), Optional.empty())
+            io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.DISCARD)
         val draft = SetupDraft(root.resolve("home"), root.resolve("local"), Optional.empty(), listOf(relocation))
         val browser = CandidateBrowser()
         WorkspaceViewTest.render(browser.render(draft), 80, 24)
@@ -354,8 +353,8 @@ class CandidateSetupTest {
             val row = configuration.relocations.first()
             assertEquals(root.resolve("other-home/manual"), row.sourcePath)
             assertEquals(root.resolve("other-target/chosen-target"), row.targetPath)
-            assertEquals(Optional.of(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT), row.whenSourceAndTargetDirectoriesExist)
-            assertTrue(configuration.sharedList.isEmpty)
+            assertEquals(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT, row.whenSourceAndTargetDirectoriesExist)
+            assertNull(configuration.sharedList)
         }
     }
 

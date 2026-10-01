@@ -8,7 +8,7 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
-import io.github.bigswlittlesw.homelight.config.DiscoverySetting
+import io.github.bigswlittlesw.homelight.config.parseSharedList
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
@@ -101,7 +101,7 @@ internal class SetupView(
             ),
         )
         if (!sharedList.isJavaBlank()) {
-            try { lines.add(DetailViewport.Line("Resolved list: " + DiscoverySetting.parse(sharedList).orElseThrow())) }
+            try { lines.add(DetailViewport.Line("Resolved list: " + parseSharedList(sharedList))) }
             catch (error: IllegalArgumentException) { lines.add(DetailViewport.Line(error.message!!, Color.YELLOW, false)) }
         }
         return 3 + field
@@ -269,7 +269,7 @@ internal class SetupView(
         val source = Path.of(sourceRoot)
         val target = Path.of(targetRoot)
         if (!source.isAbsolute || !target.isAbsolute) throw IllegalArgumentException("Storage roots must be absolute")
-        val shared = DiscoverySetting.parse(sharedList)
+        val shared = java.util.Optional.ofNullable(parseSharedList(sharedList))
         if (!locationsChanged && source.normalize() == draft.sourceRoot() && target.normalize() == draft.targetRoot() &&
             shared == draft.sharedList()
         ) return

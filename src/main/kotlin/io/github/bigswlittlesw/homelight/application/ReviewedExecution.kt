@@ -86,7 +86,7 @@ class ReviewedExecution(plan: ReconciliationPlan, debugStepDelayMillis: Long) {
             val result = executor.execute(plan, object : ReconciliationExecutor.ProgressListener {
                 override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
                     updateStep(relocation, action, ApplyModel.StepStatus.RUNNING, "Running")
-                    if (action.mutatesFilesystem()) {
+                    if (action.mutatesFilesystem) {
                         pauseForVisualTesting()
                     }
                 }

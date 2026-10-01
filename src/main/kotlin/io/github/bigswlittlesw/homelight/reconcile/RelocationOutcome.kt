@@ -8,6 +8,6 @@ enum class RelocationOutcome {
     UNCHANGED,
     UNRESOLVED;
 
-    /** Returns the stable machine-readable outcome name. */
-    fun value(): String = name.lowercase(Locale.ROOT).replace('_', '-')
+    /** The stable machine-readable outcome name. */
+    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
 }

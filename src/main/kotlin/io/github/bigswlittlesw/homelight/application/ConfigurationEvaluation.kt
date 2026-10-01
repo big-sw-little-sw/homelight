@@ -59,7 +59,7 @@ class ConfigurationEvaluation(
         override val configPath: Path = configPath
 
         @get:JvmName("savedConfiguration")
-        val savedConfiguration: HomeLightConfiguration = HomeLightConfiguration(
+        val savedConfiguration: HomeLightConfiguration = HomeLightConfiguration.of(
             savedConfiguration.targetRoot,
             java.util.List.copyOf(savedConfiguration.relocations), java.util.List.copyOf(savedConfiguration.ignoredSourcePaths),
             savedConfiguration.sharedList,
@@ -144,12 +144,12 @@ class ConfigurationEvaluation(
 
     /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
     fun loadRequired(configPath: Path, override: Optional<ConfigurationLoader.PathOverride>): Loaded {
-        val configuration = loader.load(configPath, override)
+        val configuration = loader.load(configPath, override.orElse(null))
         val observations = configuration.relocations.stream().map { relocation ->
             RelocationState(
                 relocation,
                 inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath),
-                relocation.sourceArchiveRoot.map { root ->
+                relocation.sourceArchiveRoot?.let { root ->
                     val source = normalize(relocation.sourcePath)
                     val path = root.resolve(source.root.relativize(source)).normalize()
                     RelocationState.ArchiveDestination(path, inspector.inspect(path))
@@ -248,7 +248,7 @@ class ConfigurationEvaluation(
             if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
                 val choices = ArrayList<DecisionChoice>()
                 choices.add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
-                if (state.relocation.sourceArchiveRoot.isPresent) {
+                if (state.relocation.sourceArchiveRoot != null) {
                     choices.add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
                 }
                 choices.add(DecisionChoice.LEAVE_UNCHANGED)
@@ -256,7 +256,7 @@ class ConfigurationEvaluation(
                 return java.util.List.copyOf(choices)
             }
             if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
-                && (plan.conflict.isPresent || state.relocation.whenOnlyTargetExists.isPresent)
+                && (plan.conflict != null || state.relocation.whenOnlyTargetExists != null)
             ) {
                 return java.util.List.of(DecisionChoice.ADOPT_TARGET)
             }

@@ -9,6 +9,6 @@ enum class WhenSourceAndTargetDirectoriesExist {
     LEAVE_UNCHANGED,
     DISCARD;
 
-    /** Returns the stable configuration and JSON representation. */
-    fun value(): String = name.lowercase(Locale.ROOT).replace('_', '-')
+    /** The stable configuration and JSON representation. */
+    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
 }

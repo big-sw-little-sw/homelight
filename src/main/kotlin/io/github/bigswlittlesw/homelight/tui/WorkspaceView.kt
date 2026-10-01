@@ -232,9 +232,9 @@ internal object WorkspaceView {
         lines.add(Line("Paths", Color.CYAN, true))
         lines.add(Line("Source: " + item.relocation.sourcePath))
         lines.add(Line("Target: " + item.relocation.targetPath))
-        item.sourceObservation.symlinkTarget.filter { path -> path != item.relocation.targetPath }
-            .ifPresent { path -> lines.add(Line("Current link destination: $path")) }
-        item.relocation.sourceArchiveRoot.ifPresent { root ->
+        item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
+            ?.let { path -> lines.add(Line("Current link destination: $path")) }
+        item.relocation.sourceArchiveRoot?.let { root ->
             lines.add(
                 Line("Archive: " + root.resolve(item.relocation.sourcePath.root.relativize(item.relocation.sourcePath))),
             )
@@ -280,29 +280,24 @@ internal object WorkspaceView {
     @JvmStatic
     fun policy(relocation: Relocation, item: PlanRelocationItem): String {
         if (item.sourceObservation.state == PathState.ABSENT && item.targetObservation.state == PathState.DIRECTORY)
-            return relocation.whenOnlyTargetExists.map { value ->
-                when (value) {
-                    WhenOnlyTargetExists.PROMPT -> "Ask before adopting the existing target."
-                    WhenOnlyTargetExists.ADOPT_TARGET -> "Adopt the existing target and create a source link."
-                }
-            }.orElse("Ask before adopting the existing target.")
+            return when (relocation.whenOnlyTargetExists) {
+                WhenOnlyTargetExists.PROMPT, null -> "Ask before adopting the existing target."
+                WhenOnlyTargetExists.ADOPT_TARGET -> "Adopt the existing target and create a source link."
+            }
         if (item.sourceObservation.state != PathState.DIRECTORY || item.targetObservation.state != PathState.DIRECTORY)
             return "No conflict policy needed for this observed case."
-        val bothPolicy = relocation.whenSourceAndTargetDirectoriesExist
-            .orElse(WhenSourceAndTargetDirectoriesExist.PROMPT)
+        val bothPolicy = relocation.whenSourceAndTargetDirectoriesExist ?: WhenSourceAndTargetDirectoriesExist.PROMPT
         val both = when (bothPolicy) {
             WhenSourceAndTargetDirectoriesExist.PROMPT -> "Ask"
             WhenSourceAndTargetDirectoriesExist.ADOPT -> "Adopt target"
             WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "Leave unmanaged"
             WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
         }
-        val adopting = relocation.whenAdoptingTarget.map { value ->
-            when (value) {
-                WhenAdoptingTarget.PROMPT -> "ask about source"
-                WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
-                WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
-            }
-        }.orElse("ask about source")
+        val adopting = when (relocation.whenAdoptingTarget) {
+            WhenAdoptingTarget.PROMPT, null -> "ask about source"
+            WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
+            WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
+        }
         return both + (if (bothPolicy == WhenSourceAndTargetDirectoriesExist.ADOPT) "; $adopting" else "") + "."
     }
 

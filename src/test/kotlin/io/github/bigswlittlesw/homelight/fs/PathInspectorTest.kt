@@ -45,7 +45,7 @@ class PathInspectorTest {
     fun treatsAnInaccessibleSymlinkDestinationAsInaccessible() {
         val root = Files.createTempDirectory("homelight")
         val expected = root.resolve("local")
-        val observation = PathObservation(PathState.SYMLINK, java.util.Optional.of(expected),
+        val observation = PathObservation(PathState.SYMLINK, expected,
                 SymlinkTargetAvailability.INACCESSIBLE)
 
         assertEquals(RelocationSourceState.INACCESSIBLE, observation.sourceStateForTarget(expected))

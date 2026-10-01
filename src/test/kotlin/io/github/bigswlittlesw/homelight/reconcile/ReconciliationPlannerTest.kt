@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Optional
 
 class ReconciliationPlannerTest {
     @Test
@@ -49,7 +48,7 @@ class ReconciliationPlannerTest {
                 null, null, null))
 
         assertEquals(RelocationOutcome.UNCHANGED, plan.relocations.first().outcome)
-        assertEquals("leave-unchanged", plan.actions().first().type())
+        assertEquals("leave-unchanged", plan.actions().first().type)
     }
 
     @Test
@@ -127,7 +126,7 @@ class ReconciliationPlannerTest {
         val plan = plan(Relocation(source, target))
 
         assertEquals(RelocationOutcome.CONVERGED, plan.relocations.first().outcome)
-        assertEquals("no-op", plan.actions().first().type())
+        assertEquals("no-op", plan.actions().first().type)
     }
 
     @Test
@@ -150,9 +149,9 @@ class ReconciliationPlannerTest {
         val relocation = Relocation(root.resolve("home/cache"), root.resolve("local/cache"))
         val inaccessible = RelocationState(relocation,
                 io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.INACCESSIBLE, Optional.empty(), false),
+                        io.github.bigswlittlesw.homelight.fs.PathState.INACCESSIBLE),
                 io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.ABSENT, Optional.empty(), false))
+                        io.github.bigswlittlesw.homelight.fs.PathState.ABSENT))
         val inaccessiblePlan = ReconciliationPlanner().plan(listOf(inaccessible))
 
         val parent = Relocation(root.resolve("home/parent"), root.resolve("local/parent"))
@@ -167,8 +166,7 @@ class ReconciliationPlannerTest {
     companion object {
         private fun relocation(source: Path, target: Path, directories: WhenSourceAndTargetDirectoriesExist?,
                 onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
-            return Relocation(source, target, Optional.ofNullable(directories), Optional.ofNullable(onlyTarget),
-                    Optional.ofNullable(adoption), Optional.ofNullable(archiveRoot))
+            return Relocation(source, target, directories, onlyTarget, adoption, archiveRoot)
         }
 
         private fun sourceRelativeToRoot(source: Path): Path {
@@ -182,7 +180,7 @@ class ReconciliationPlannerTest {
 
         private fun state(relocation: Relocation): RelocationState {
             val inspector = PathInspector()
-            val archive = relocation.sourceArchiveRoot.map { root ->
+            val archive = relocation.sourceArchiveRoot?.let { root ->
                 val source = relocation.sourcePath.toAbsolutePath()
                 val path = root.resolve(source.root.relativize(source))
                 RelocationState.ArchiveDestination(path, inspector.inspect(path))

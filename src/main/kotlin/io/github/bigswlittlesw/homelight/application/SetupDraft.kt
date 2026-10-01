@@ -2,8 +2,9 @@ package io.github.bigswlittlesw.homelight.application
 
 import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
-import io.github.bigswlittlesw.homelight.config.ConfigurationValidator
-import io.github.bigswlittlesw.homelight.config.DiscoverySetting
+import io.github.bigswlittlesw.homelight.config.normalizeSharedList
+import io.github.bigswlittlesw.homelight.config.parseSharedList
+import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
@@ -23,7 +24,7 @@ import java.util.Optional
 class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>, configured: List<Relocation>) {
     private var sourceRoot: Path = absolute(sourceRoot)
     private var targetRoot: Path = absolute(targetRoot)
-    private var sharedList: Optional<Path> = sharedList.map(DiscoverySetting::normalize)
+    private var sharedList: Optional<Path> = sharedList.map(::normalizeSharedList)
     private val configured: List<Relocation> = java.util.List.copyOf(configured)
     private val rows = ArrayList<RowOccurrence>()
     private var discovery: Optional<CandidateDiscovery.Result> = Optional.empty()
@@ -48,7 +49,7 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
     }
 
     fun sharedList(value: String) {
-        sharedList = DiscoverySetting.parse(value)
+        sharedList = Optional.ofNullable(parseSharedList(value))
         invalidateDiscovery()
     }
 
@@ -133,8 +134,8 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
     private fun validate(proposed: List<Row>): ConfigurationDraft {
         val relocations = ArrayList(configured)
         proposed.forEach { row -> relocations.add(row.resolve(sourceRoot, targetRoot)) }
-        val draft = ConfigurationDraft(targetRoot, relocations, sharedList)
-        ConfigurationValidator.validate(draft)
+        val draft = ConfigurationDraft.of(targetRoot, relocations, sharedList.orElse(null))
+        validateConfiguration(draft)
         return draft
     }
 
@@ -249,7 +250,7 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Optional<Path>,
             }
             return Relocation(
                 relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative),
-                both, onlyTarget, adopting, archiveRoot.map(Path::normalize),
+                both.orElse(null), onlyTarget.orElse(null), adopting.orElse(null), archiveRoot.map(Path::normalize).orElse(null),
             )
         }
     }

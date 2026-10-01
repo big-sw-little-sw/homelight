@@ -7,6 +7,6 @@ enum class WhenOnlyTargetExists {
     PROMPT,
     ADOPT_TARGET;
 
-    /** Returns the stable configuration and JSON representation. */
-    fun value(): String = name.lowercase(Locale.ROOT).replace('_', '-')
+    /** The stable configuration and JSON representation. */
+    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
 }

@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
@@ -60,7 +61,7 @@ class ConfigurationEvaluationTest {
         assertEquals(loaded.savedConfiguration, selected.savedConfiguration)
         assertSame(loaded.observations.first(), selected.observations.first())
         assertEquals(WhenSourceAndTargetDirectoriesExist.PROMPT,
-                selected.savedConfiguration.relocations.first().whenSourceAndTargetDirectoriesExist.orElseThrow())
+                selected.savedConfiguration.relocations.first().whenSourceAndTargetDirectoriesExist)
 
         // Compare with the established loader + pure planner path using saved YAML policies.
         val properties = when (choice) {
@@ -110,7 +111,7 @@ class ConfigurationEvaluationTest {
         val session = HomeLightSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
-        val archive = observation.archiveDestination.orElseThrow()
+        val archive = checkNotNull(observation.archiveDestination)
         assertEquals(root.resolve("archive").resolve(root.root.relativize(root.resolve("source"))), archive.path)
         assertEquals(PathState.ABSENT, archive.observation.state)
 
@@ -145,7 +146,7 @@ class ConfigurationEvaluationTest {
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         val selected = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertEquals(1, selected.draft.size)
-        assertTrue(selected.plan.relocations.first().relocation.whenAdoptingTarget.isEmpty())
+        assertNull(selected.plan.relocations.first().relocation.whenAdoptingTarget)
         assertTrue(session.requestApply())
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
@@ -189,7 +190,7 @@ class ConfigurationEvaluationTest {
         assertEquals(selected.draft, next.draft)
         assertEquals(root.resolve("second"), next.plan.relocations.first().relocation.sourcePath)
         assertEquals(WhenSourceAndTargetDirectoriesExist.DISCARD,
-                next.plan.relocations.first().relocation.whenSourceAndTargetDirectoriesExist.orElseThrow())
+                next.plan.relocations.first().relocation.whenSourceAndTargetDirectoriesExist)
         write(second)
         val removed = evaluator.replan(next)
         assertEquals(listOf(ConfigurationEvaluation.DiscardedChoice(root.resolve("first"),

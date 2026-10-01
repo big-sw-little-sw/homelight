@@ -6,14 +6,13 @@ package io.github.bigswlittlesw.homelight.config
  * Structural location identifies the enclosing record or collection using zero-based
  * indices; it is empty for source-wide failures or failures before schema association.
  */
-@JvmRecord
 data class CandidateDiagnostic(
     val source: CandidateSource, val kind: Kind, val recordIndex: Int,
     val line: Int, val column: Int, val location: String, val key: String, val message: String,
 ) {
     init {
-        if (recordIndex < 0 || line < 0 || column < 0 || message.isJavaBlank()) {
-            throw IllegalArgumentException("Invalid diagnostic location or message")
+        require(recordIndex >= 0 && line >= 0 && column >= 0 && !message.isJavaBlank()) {
+            "Invalid diagnostic location or message"
         }
     }
 

@@ -21,8 +21,6 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
-import java.util.Optional
-import java.util.regex.Pattern
 
 /**
  * Strict, atomic parsing of already-read UTF-8 contents for either source kind.
@@ -50,35 +48,35 @@ class CandidateParser {
             val top = YamlMapping.of("", document, TOP_KEYS)
             val apps = top.list("apps")
             val directories = top.list("directories")
-            if (apps.isEmpty && directories.isEmpty) {
+            if (apps == null && directories == null) {
                 throw invalid(
                     source, Kind.SCHEMA, document?.startMark, 0, "", "",
                     "At least one of apps or directories is required",
                 )
             }
             val definitions = ArrayList<CandidateDefinition>()
-            val groups: List<Node> = apps.map<List<Node>> { it.value }.orElse(listOf())
+            val groups: List<Node> = apps?.value.orEmpty()
             if (groups.size > MAX_APPS) {
-                throw invalid(source, Kind.LIMIT, apps.get().startMark, 0, "", "apps", "Too many app groups")
+                throw invalid(source, Kind.LIMIT, apps?.startMark, 0, "", "apps", "Too many app groups")
             }
             for (i in groups.indices) {
                 val fields = YamlMapping.of("apps[$i]", groups[i], APP_KEYS)
                 val name = fields.requiredString("name")
                 if (name != name.javaStrip()) {
                     throw invalid(
-                        source, Kind.SCHEMA, fields.values["name"]!!.startMark, 0, fields.path,
+                        source, Kind.SCHEMA, fields.values.getValue("name").startMark, 0, fields.path,
                         "name", "App label must not have leading or trailing whitespace",
                     )
                 }
                 appendDirectories(
-                    fields.requiredList("directories"), root, source, Optional.of(name),
+                    fields.requiredList("directories"), root, source, name,
                     fields.qualify("directories"), definitions,
                 )
             }
-            if (directories.isPresent) {
-                appendDirectories(directories.get(), root, source, Optional.empty(), "directories", definitions)
+            if (directories != null) {
+                appendDirectories(directories, root, source, null, "directories", definitions)
             }
-            return CandidateCatalog.Snapshot(source, root, definitions, listOf())
+            return CandidateCatalog.Snapshot.of(source, root, definitions, listOf())
         } catch (e: CharacterCodingException) {
             return failure(source, root, Kind.ENCODING, "Input is not valid UTF-8")
         } catch (e: YamlMapping.Violation) {
@@ -89,7 +87,7 @@ class CandidateParser {
             return rejected(
                 root, invalid(
                     source, Kind.SYNTAX, e.problemMark, 0, "", "",
-                    if (e.problem == null) "Invalid YAML" else e.problem,
+                    e.problem ?: "Invalid YAML",
                 ),
             )
         } catch (e: YAMLException) {
@@ -116,11 +114,11 @@ class CandidateParser {
             Tag.STR.value, Tag.MAP.value, Tag.SEQ.value, Tag.NULL.value,
             Tag.BOOL.value, Tag.INT.value, Tag.FLOAT.value, Tag.TIMESTAMP.value,
         )
-        private val EXPANSION: Pattern = Pattern.compile("\\$(?:\\{|[A-Za-z_])")
+        private val EXPANSION = Regex("\\$(?:\\{|[A-Za-z_])")
 
         private fun appendDirectories(
             sequence: SequenceNode, root: Path, source: CandidateSource,
-            app: Optional<String>, location: String, definitions: MutableList<CandidateDefinition>,
+            app: String?, location: String, definitions: MutableList<CandidateDefinition>,
         ) {
             if (sequence.value.size > MAX_RECORDS - definitions.size) {
                 throw invalid(
@@ -132,17 +130,18 @@ class CandidateParser {
                 val node = sequence.value[i]
                 val index = definitions.size + 1
                 try {
-                    val fields = YamlMapping.of(location + "[" + i + "]", node, RECORD_KEYS)
+                    val fields = YamlMapping.of("$location[$i]", node, RECORD_KEYS)
                     val path = fields.requiredString("path")
                     val resolved = try {
                         resolve(root, path)
                     } catch (e: IllegalArgumentException) {
+                        // Both resolve's own failures and Path.of's InvalidPathException carry a message.
                         throw invalid(
-                            source, Kind.UNSAFE_PATH, fields.values["path"]!!.startMark, index,
+                            source, Kind.UNSAFE_PATH, fields.values.getValue("path").startMark, index,
                             fields.path, "path", e.message!!,
                         )
                     }
-                    val advice = fields.choice("advice", CandidateDefinition.Advice.values()) { choice ->
+                    val advice = fields.choice("advice", CandidateDefinition.Advice.entries) { choice ->
                         if (choice == CandidateDefinition.Advice.CONSIDER) "consider" else "usually-unnecessary"
                     }
                     val mark = node.startMark
@@ -159,7 +158,7 @@ class CandidateParser {
         }
 
         internal fun normalizedRoot(root: Path): Path {
-            if (!root.isAbsolute) throw IllegalArgumentException("Source root must be absolute")
+            require(root.isAbsolute) { "Source root must be absolute" }
             return root.normalize()
         }
 
@@ -168,7 +167,7 @@ class CandidateParser {
                 || path.matches(Regex("^[A-Za-z][A-Za-z0-9+.-]*:.*"))
                 || path.indexOf('*') >= 0 || path.indexOf('?') >= 0 || path.indexOf('[') >= 0 || path.indexOf(']') >= 0
                 || path.codePoints().anyMatch { Character.isISOControl(it) }
-                || EXPANSION.matcher(path).find()
+                || EXPANSION.containsMatchIn(path)
             ) {
                 throw IllegalArgumentException("Path must be a literal portable relative path")
             }
@@ -227,7 +226,7 @@ class CandidateParser {
         }
 
         private fun rejected(root: Path, e: Invalid): CandidateCatalog.Snapshot =
-            CandidateCatalog.Snapshot(e.diagnostic.source, root, listOf(), listOf(e.diagnostic))
+            CandidateCatalog.Snapshot.of(e.diagnostic.source, root, listOf(), listOf(e.diagnostic))
 
         /** `mark` is null when there is no position. */
         private fun invalid(
@@ -242,6 +241,6 @@ class CandidateParser {
 
         /** The reader's message already names the value; the diagnostic adds the record index and location. */
         private fun schema(source: CandidateSource, violation: YamlMapping.Violation, index: Int): Invalid =
-            invalid(source, Kind.SCHEMA, violation.mark, index, violation.path, violation.key, violation.message!!)
+            invalid(source, Kind.SCHEMA, violation.mark, index, violation.path, violation.key, violation.message)
     }
 }

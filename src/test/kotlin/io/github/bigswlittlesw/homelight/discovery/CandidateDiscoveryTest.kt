@@ -446,7 +446,7 @@ class CandidateDiscoveryTest {
             await { lanes.bundled.availablePermits() == 1 }
         }
         CandidateDiscovery(Lanes(), System::nanoTime,
-                { p -> bytes("directories: [{path: team}]") }, { root -> CandidateCatalog.Snapshot(
+                { p -> bytes("directories: [{path: team}]") }, { root -> CandidateCatalog.Snapshot.of(
                 CandidateCatalog.BUNDLED, root, listOf(), listOf(CandidateDiagnostic(
                 CandidateCatalog.BUNDLED, CandidateDiagnostic.Kind.RESOURCE, 0, 0, 0, "", "",
                 "Controlled packaging failure"))) },
