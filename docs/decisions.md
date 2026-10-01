@@ -82,6 +82,8 @@ HomeLight does not persist an ownership registry in the initial implementation. 
 
 ## 2026-09-30: Stay on Java; ship Linux native binaries
 
+_The Java part is superseded by “Move to Kotlin and kotlinx.serialization” (2026-10-01). The native Linux targets stand._
+
 HomeLight stays on Java 25 and ships GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+). macOS is a development platform, not a release target. A spike showed identical CLI and TUI behavior to the JVM across Oracle Linux 7 through Fedora 44, with 2–15 ms startup. See `research/native-image-spike.md`.
 
 Rejected: Kotlin (same JVM and native-image constraints, little gain over Java 25). Rust was a viable alternative: smaller binaries, simpler cross-compilation, no native-image metadata, a mature TUI library. None of those blocked Java, and a port would cost about 13k lines including tests.
@@ -113,6 +115,42 @@ Rejected for now: built-in HTTP or Git sources. They add network failure modes (
 Candidate lists keep the protections that matter for shared, untrusted input: size, nesting depth, string length, record count and alias limits, and rejection of unknown and duplicate keys. Exact YAML tag checks, the single-document rule and format-specific error wording are no longer requirements. Scalars read as text, and null, empty or blank values count as absent.
 
 This lets configuration and candidate lists share one reader, and allows a standard binding library (Jackson, roadmap step 4b) to replace hand-written parsing.
+
+## 2026-10-01: Move to Kotlin and kotlinx.serialization
+
+HomeLight moves from Java 25 to Kotlin and uses kotlinx.serialization instead of Jackson. This supersedes the Java direction in “Stay on Java” and the Jackson adoption planned as roadmap step 4b. Native Linux binaries remain the release targets.
+
+Why:
+
+- Readability: less ceremony for the same code.
+- Null safety in the type system instead of `Optional` and conventions.
+- Immutable data classes with `copy`, and sealed types with exhaustive `when`.
+- kotlinx.serialization generates serializers at compile time: no reflection metadata, and no JDK XML stack in the native image. The Jackson trial (PR #39, closed) grew the binary by 54% because Jackson pulls in the XML stack, and binding YAML still needed a hand-written pre-pass.
+
+How: a mechanical conversion first (build, then main code by package group, then tests), with a mixed Java/Kotlin build during the migration and the Java tests guarding behavior until they are converted. An idiomatic pass follows. JSON output stays byte-identical. Work runs on the `kotlin-migration` branch; the epic is #40.
+
+The earlier rejection of Kotlin weighed only the shared JVM and native-image constraints. It did not weigh null safety, data classes or compile-time serialization.
+
+## 2026-10-01: Build with Gradle Kotlin DSL
+
+The build moves from Maven to Gradle with Kotlin DSL (`build.gradle.kts`). Native images are built with the official GraalVM `org.graalvm.buildtools.native` plugin. Kotlin's compiler plugins (kotlinx.serialization) are first-class in Gradle, and the build script uses the same language as the code.
+
+## 2026-10-01: No dependency on GraalVM internals
+
+HomeLight never depends on GraalVM internals: no `@Substitute`, `@TargetClass` or other svm APIs. Native-image support uses only supported mechanisms: reachability metadata, build arguments and the build plugin. Internals change between GraalVM releases and would tie upgrades to them.
+
+## 2026-10-01: Use JSON for configuration and candidate lists
+
+Configuration and candidate lists move from YAML to JSON, parsed with kotlinx.serialization (roadmap migration phase K6b, #49). Nothing has been released, so existing YAML files are not migrated.
+
+Why:
+
+- Precise parser errors and duplicate-key detection.
+- No aliases or tags to guard against in shared, untrusted lists.
+- First-party kotlinx.serialization support: no third-party YAML library and no hand-written reader.
+- One format for input and output; `--json` responses are already JSON.
+
+Trade-off: hand editing loses YAML's comfort. Allowing comments and trailing commas offsets part of that, and the TUI writes the configuration anyway. Curated candidate lists remain hand-edited.
 
 ## How to add decisions
 
