@@ -1,10 +1,10 @@
 # Workspace Conventions
 
-Scope: this repository is a Gradle (Kotlin DSL) workspace using Java 25. These are the repository's coding conventions.
+Scope: this repository is a Kotlin and Gradle (Kotlin DSL) workspace targeting JVM 25 and GraalVM native Linux binaries. These are the repository's coding conventions.
 
 ## Documentation comments
 
-Use JEP 467 Markdown documentation comments (`///`) for new API documentation. Prefer backticks for inline code, `[Type#member]` for references, blank `///` lines between paragraphs, and `-` for lists.
+Use KDoc (`/** */`) with Markdown for API documentation. Prefer backticks for inline code, `[Type.member]` for references, blank lines between paragraphs, and `-` for lists.
 
 Do not add documentation comments that merely restate names, types, or obvious behavior. Document public contracts, invariants, constraints, and non-obvious decisions.
 
@@ -12,19 +12,31 @@ Do not add documentation comments that merely restate names, types, or obvious b
 
 These are judgment calls, not mechanical find-and-replace rules. Apply the principle, not merely its most literal form.
 
-1. **Records and sealed interfaces are the default for pure data types.** Omit an explicit `permits` clause when all permitted subtypes are declared in the same compilation unit; let the compiler infer them.
+1. **`data class` with `val` properties is the default for pure data types.** Use a sealed interface or sealed class for a closed hierarchy.
 
-2. **A static factory belongs on the type it constructs only when it is a genuine smart constructor.** It builds one instance of type X purely from data that is already X's own information. It does not belong there when it orchestrates multiple sources or transforms a collection into a differently shaped collection. Test before moving a method: would it create divergent change or feature envy? If yes, keep it elsewhere.
+2. **A factory belongs on the type it constructs only when it is a genuine smart constructor.** It builds one instance of type X purely from data that is already X's own information, as a companion `of`/`from` or a top-level function next to X. It does not belong there when it orchestrates multiple sources or transforms a collection into a differently shaped collection. Test before moving a function: would it create divergent change or feature envy? If yes, keep it elsewhere.
 
-3. **Record invariants belong in a compact constructor.** Exception: a deliberately partial, optional-per-field intermediate representation should not enforce invariants that only make sense after final resolution.
+3. **Invariants belong in an `init` block,** or in a private constructor behind a factory when construction must normalize or can fail. Exception: a deliberately partial, nullable-per-field intermediate representation should not enforce invariants that only make sense after final resolution.
 
-4. **Use `var` when the initializer makes the type unambiguous.** Do not use it when the return type is unclear, when an interface-versus-implementation distinction matters, when it changes a numeric type, or for a trivial counter or index.
+4. **Use nullable types, not `Optional`.** Prefer `?.`, `?:`, `let` and early returns, but do not chain them into puzzles. Do not use `!!` without a comment saying why the value cannot be null.
 
-5. **When interpreting one input through several independent alternative shapes,** prefer small, named `Optional<T>` recognizers composed with `Optional::or`. Retain direct guards when checks are sequential, interdependent, or clearer that way.
+5. **Prefer immutability.** Use `val` by default. Expose read-only `List`/`Map`/`Set` in APIs and never a mutable collection that callers could change. Derive values with `copy`.
 
-6. **For meaningful dispatch over a closed type hierarchy,** prefer sealed types and an exhaustive pattern-matching `switch`. A single local type check need not become a switch. Treat nullability separately and explicitly.
+6. **When interpreting one input through several independent alternative shapes,** prefer small, named recognizers that return `T?`, combined with `?:`. Retain direct guards when checks are sequential, interdependent, or clearer that way.
 
-7. **Avoid unnecessary classes and files.** Keep related, non-public types together at the same top level in the file of their primary public type when that makes the layout clearer. Use nesting only when the type is conceptually owned by its enclosing type. Do not accumulate unrelated types in one file merely to reduce file count.
+7. **For meaningful dispatch over a closed type hierarchy,** use a sealed type and an exhaustive `when` with no `else` branch, so a new subtype is a compile error. A single local type check need not become a `when`. Treat nullability separately and explicitly.
+
+8. **Use default and named arguments instead of overloads.** Write an extension function only when it reads as a domain operation on its receiver, not to scatter a type's behavior across files. Prefer top-level functions to an `object` that only holds utilities.
+
+9. **Keep visibility narrow.** Default to `private` or `internal`. Do not mark a class or member `open` unless something subclasses it. Do not use `@JvmStatic`, `@JvmField`, `@JvmName`, `@JvmRecord` or hand-written Java-style accessors unless a Java or JVM consumer needs them: `main`, picocli fields (`@field:`), or a Native Image constraint. Say which in a comment.
+
+10. **Use Kotlin's string functions.** Where exact whitespace semantics matter for validation, use the documented Java-semantics helpers in `JavaStrings.kt` rather than adding new ones.
+
+11. **Make concurrency ownership explicit.** Each thread, executor, lock, and piece of shared mutable state has one clear owner that starts and stops it. Coroutines are not adopted yet (issue #10 decides); keep the existing threads and locks.
+
+12. **Avoid unnecessary classes and files.** Kotlin allows several top-level declarations per file: keep related, non-public types and functions in the file of their primary public type when that makes the layout clearer. Nest a type only when its enclosing type conceptually owns it. Do not accumulate unrelated declarations in one file merely to reduce file count.
+
+13. **Keep Native Image builds reflection-free.** Never add `kotlin-reflect`. Prefer compile-time serialization (kotlinx.serialization) or streaming parsers over reflection-based mapping.
 
 ## Verification
 
