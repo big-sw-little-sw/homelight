@@ -1,10 +1,13 @@
 package io.github.bigswlittlesw.homelight.cli
 
-import com.fasterxml.jackson.core.JsonFactory
-import com.fasterxml.jackson.core.JsonToken
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.ReviewedExecution
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -266,17 +269,16 @@ class ReviewedJsonApplyTest {
             }
         }
 
+        /** Returns every string value of [field], at any depth, in document order. */
         fun values(json: String, field: String): List<String> {
-            val values = ArrayList<String>()
-            JsonFactory().createParser(json).use { parser ->
-                while (parser.nextToken() != null) {
-                    if (parser.currentToken() == JsonToken.FIELD_NAME && parser.currentName() == field) {
-                        parser.nextToken()
-                        values.add(parser.text)
-                    }
+            fun collect(element: JsonElement): List<String> = when (element) {
+                is JsonObject -> element.flatMap { (name, value) ->
+                    if (name == field && value is JsonPrimitive) listOf(value.content) else collect(value)
                 }
+                is JsonArray -> element.flatMap(::collect)
+                is JsonPrimitive -> listOf()
             }
-            return values
+            return collect(Json.parseToJsonElement(json))
         }
     }
 }
