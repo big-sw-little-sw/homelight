@@ -269,7 +269,7 @@ tui           full-screen TamboUI presentation
 cli           Picocli routing, JSON contracts, and exit codes
 ```
 
-These may initially be packages in one Maven module. Separate modules only when that boundary provides practical value.
+These may initially be packages in one Gradle module. Separate modules only when that boundary provides practical value.
 
 The reconciliation engine is independent of terminal presentation and mutation. Filesystem mutation happens only during explicit application of a plan. Filesystem operations must be testable against temporary directory trees.
 

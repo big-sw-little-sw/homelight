@@ -54,7 +54,7 @@ Status: done (PR #33).
 
 ### 2. JVM CI
 
-- GitHub Actions workflow: `mvn verify` on Temurin 25 for every PR and push to `main`.
+- GitHub Actions workflow: `mvn verify` (`./gradlew build` since K1) on Temurin 25 for every PR and push to `main`.
 - Branch protection on `main` requiring that check.
 - CI must resolve the TamboUI snapshot from `central.sonatype.com`.
 
