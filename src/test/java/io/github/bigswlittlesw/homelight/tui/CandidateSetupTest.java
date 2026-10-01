@@ -378,10 +378,13 @@ class CandidateSetupTest {
     private static void await(SetupDiscoveryFixture workers, HomeLightApp app) {
         long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
         while (System.nanoTime() < until) {
-            render(app);
             var result = workers.workers.getLast().snapshot();
             if (result.sources().stream().noneMatch(s -> s.status() == CandidateDiscovery.SourceStatus.PENDING)
-                    && result.candidates().stream().noneMatch(c -> c.observation().kind() == CandidateObservation.Kind.PENDING)) return;
+                    && result.candidates().stream().noneMatch(c -> c.observation().kind() == CandidateObservation.Kind.PENDING)) {
+                // The app accepts snapshots only when rendering, and the next key acts on what it last rendered.
+                render(app);
+                return;
+            }
             LockSupport.parkNanos(1_000_000);
         }
         fail("Discovery did not settle");
