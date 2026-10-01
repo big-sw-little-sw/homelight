@@ -23,8 +23,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
-      - run: mvn -B -ntp verify
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew build
 
   # Linux native binaries. Scripts and the distro matrix are in ci/native/; they also run locally.
   native-build:
@@ -39,16 +39,19 @@ jobs:
           - { arch: arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v7
-      # GraalVM, Maven and the musl toolchain; build.sh pins their versions and checksums.
+      # GraalVM and the musl toolchain; build.sh pins their versions and checksums.
       - uses: actions/cache@v6
         with:
           path: ~/.cache/homelight-ci/dl
           key: native-dl-${{ matrix.arch }}-${{ hashFiles('ci/native/build.sh') }}
+      # Gradle user home of the build container: wrapper distribution and dependencies.
       - uses: actions/cache@v6
         with:
-          path: ~/.cache/homelight-ci/m2
-          key: native-m2-${{ matrix.arch }}-${{ hashFiles('pom.xml') }}
-          restore-keys: native-m2-${{ matrix.arch }}-
+          path: |
+            ~/.cache/homelight-ci/gradle/wrapper/dists
+            ~/.cache/homelight-ci/gradle/caches/modules-2
+          key: native-gradle-${{ matrix.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', '*.gradle.kts') }}
+          restore-keys: native-gradle-${{ matrix.arch }}-
       - run: ci/native/build.sh ${{ matrix.arch }} dist
       - uses: actions/upload-artifact@v7
         with:

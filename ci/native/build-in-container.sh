@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs inside the Oracle Linux builder container started by build.sh; not meant to be run directly.
-# Mounts: /src repository (ro), /dl downloads (ro), /m2 Maven repository, /out output.
+# Mounts: /src repository (ro), /dl downloads (ro), /gradle Gradle user home, /out output.
+# The Gradle wrapper downloads its distribution into /gradle and verifies its checksum.
 set -euo pipefail
 
 case $ARCH in
@@ -17,22 +18,21 @@ case $ARCH in
     export NATIVE_IMAGE_OPTIONS="--static-nolibc -march=compatibility" ;;
 esac
 
-mkdir -p /opt/graalvm /opt/maven /work
+mkdir -p /opt/graalvm /work
 tar -xzf "/dl/$GRAALVM" -C /opt/graalvm --strip-components=1
-tar -xzf "/dl/$MAVEN" -C /opt/maven --strip-components=1
-export JAVA_HOME=/opt/graalvm PATH=/opt/graalvm/bin:/opt/maven/bin:$PATH
+export JAVA_HOME=/opt/graalvm PATH=/opt/graalvm/bin:$PATH GRADLE_USER_HOME=/gradle
 
-# Build from a copy so the read-only source mount and the host's target/ stay untouched.
-tar -C /src --exclude=./target --exclude=./.git --exclude=./.idea -cf - . | tar -C /work -xf -
+# Build from a copy so the read-only source mount and the host's build/ stay untouched.
+tar -C /src --exclude=./build --exclude=./.gradle --exclude=./.git --exclude=./.idea -cf - . | tar -C /work -xf -
 cd /work
-mvn() { command mvn -B -ntp -Dmaven.repo.local=/m2 "$@"; }
+gradle() { ./gradlew --no-daemon --console=plain "$@"; }
 
 start=$(date +%s)
-mvn -Pnative -DskipTests package
+gradle nativeCompile installDist
 echo "native build: $(( $(date +%s) - start ))s, NATIVE_IMAGE_OPTIONS=$NATIVE_IMAGE_OPTIONS"
 
 # Fail the build when the binary needs more of the C library than the release target allows.
-binary=target/homelight
+binary=build/native/nativeCompile/homelight
 case $ARCH in
   x86_64)
     if readelf -d "$binary" | grep -q NEEDED; then
@@ -49,9 +49,7 @@ case $ARCH in
 esac
 
 # The JVM transcript every native test run is compared against.
-mvn -q dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
-bash ci/native/compare.sh /out/jvm-reference.txt \
-  java -cp "target/classes:$(cat target/classpath.txt)" io.github.bigswlittlesw.homelight.cli.HomeLightCommand
+bash ci/native/compare.sh /out/jvm-reference.txt build/install/homelight/bin/homelight
 
 cp "$binary" /out/homelight
-chown -R "$HOST_UID:$HOST_GID" /out /m2
+chown -R "$HOST_UID:$HOST_GID" /out /gradle

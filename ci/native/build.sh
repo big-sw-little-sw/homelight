@@ -7,18 +7,18 @@
 # arm64:  --static-nolibc binary (glibc 2.17+), built on Oracle Linux 8 with gcc-toolset-12.
 #         OL7's gcc 4.8 libgcc lacks the aarch64 outline atomics GraalVM's static libraries need.
 #
-# Writes <out-dir>/homelight (default target/native-<arch>) and <out-dir>/jvm-reference.txt,
+# Writes <out-dir>/homelight (default build/native-<arch>) and <out-dir>/jvm-reference.txt,
 # the CLI comparison transcript from the same build run on the JVM (see compare.sh).
-# Downloads and the Maven repository are kept in $HOMELIGHT_CI_CACHE (default ~/.cache/homelight-ci).
+# Downloads and the Gradle user home (wrapper distribution, dependencies) are kept in
+# $HOMELIGHT_CI_CACHE (default ~/.cache/homelight-ci).
 set -euo pipefail
 
 arch=${1:?usage: build.sh <x86_64|arm64> [out-dir]}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
-out=${2:-$repo/target/native-$arch}
+out=${2:-$repo/build/native-$arch}
 cache=${HOMELIGHT_CI_CACHE:-$HOME/.cache/homelight-ci}
 
 graalvm_version=25.0.3
-maven_version=3.9.16
 musl_toolchain=musl-toolchain-1.2.5-oracle-00001-linux-amd64
 
 case $arch in
@@ -40,21 +40,19 @@ fetch() { # <url> <sha256>: downloads into $cache/dl once, verifying the checksu
   [ "$sum" = "$2" ] || { rm -f "$file"; echo "checksum mismatch: $1" >&2; exit 1; }
 }
 
-mkdir -p "$cache/dl" "$cache/m2" "$out"
+mkdir -p "$cache/dl" "$cache/gradle" "$out"
 out=$(cd "$out" && pwd)  # docker treats a relative -v source as a volume name
 fetch "https://download.oracle.com/graalvm/25/archive/graalvm-jdk-${graalvm_version}_linux-${graalvm_arch}_bin.tar.gz" "$graalvm_sha"
-fetch "https://archive.apache.org/dist/maven/maven-3/${maven_version}/binaries/apache-maven-${maven_version}-bin.tar.gz" \
-  80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb
 if [ "$arch" = x86_64 ]; then
   fetch "https://gds.oracle.com/download/bfs/archive/${musl_toolchain}.tar.gz" \
     77a60e1d31303f214e1c9d8e5843abcce2743a0c6f6b436e251f69a3161801ad
 fi
 
 docker run --rm --platform "$platform" \
-  -v "$repo:/src:ro" -v "$cache/dl:/dl:ro" -v "$cache/m2:/m2" -v "$out:/out" \
+  -v "$repo:/src:ro" -v "$cache/dl:/dl:ro" -v "$cache/gradle:/gradle" -v "$out:/out" \
   -e ARCH="$arch" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   -e GRAALVM="graalvm-jdk-${graalvm_version}_linux-${graalvm_arch}_bin.tar.gz" \
-  -e MAVEN="apache-maven-${maven_version}-bin.tar.gz" -e MUSL="${musl_toolchain}.tar.gz" \
+  -e MUSL="${musl_toolchain}.tar.gz" \
   "$image" bash /src/ci/native/build-in-container.sh
 
 ls -l "$out/homelight"
