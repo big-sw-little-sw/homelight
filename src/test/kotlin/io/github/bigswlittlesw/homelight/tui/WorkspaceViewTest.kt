@@ -1,0 +1,177 @@
+package io.github.bigswlittlesw.homelight.tui
+
+import dev.tamboui.buffer.Buffer
+import dev.tamboui.layout.Rect
+import dev.tamboui.terminal.Frame
+import dev.tamboui.toolkit.element.Element
+import dev.tamboui.toolkit.element.RenderContext
+import dev.tamboui.tui.event.KeyCode
+import dev.tamboui.tui.event.KeyEvent
+import io.github.bigswlittlesw.homelight.application.ApplyModel
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.homelight.application.PlanModel
+import io.github.bigswlittlesw.homelight.config.Relocation
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.Executor
+
+class WorkspaceViewTest {
+    @TempDir lateinit var temporary: Path
+
+    @Test
+    fun partitionsAllSixRelocationsAndKeepsIndependentRisksAfterExecution() {
+        val session = HomeLightSession(fixture(temporary))
+        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val summary = WorkspaceView.summary(model.items)
+        assertEquals("6 relocations · ⚡ 3 actionable · ⚠ 1 conflict · ✖ 0 blocked\n✔ 1 in sync · ─ 1 unchanged", summary.first())
+        assertTrue(summary.last().contains("1 with warnings"), summary.toString())
+        assertEquals(5, WorkspaceView.visibleItems(model, false).size)
+        assertEquals(6, WorkspaceView.visibleItems(model, true).size)
+        val app = HomeLightApp(session)
+        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        session.confirmApply(Executor(Runnable::run)).join()
+        val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
+        assertTrue(result.succeeded())
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        val refreshed = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        assertTrue(WorkspaceView.summary(refreshed.items).first().contains("5 in sync · ─ 1 unchanged"))
+        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        assertSame(result, session.applyModel())
+        app.handleKeyEvent(KeyEvent.ofChar('r'))
+        assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
+        assertFalse(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan.hasChanges())
+    }
+
+    @Test
+    fun everyChoiceAndConsequenceStaysAccessibleAcrossResizeAndCancel() {
+        val session = HomeLightSession(fixture(temporary))
+        val app = HomeLightApp(session)
+        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val source = model.items.first().relocation.sourcePath
+        val choices = model.items.first().availableResolutions
+        assertEquals(4, choices.size)
+        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        for (choice in 0 until choices.size) {
+            for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
+                val screen = render(app.render(), size[0], size[1])
+                assertTrue(screen.contains("Details"), screen)
+                assertTrue(screen.contains("❯ (○)"), screen)
+                assertTrue(screen.contains("Review unavailable"), screen)
+                assertTrue(screen.contains("q: Quit"), screen)
+                assertTrue(screen.contains("1 unchanged"), screen)
+                val details = rightPane(screen, size[0])
+                assertTrue(details.contains(choices[choice].label()), details)
+                assertTrue(details.replace(" ", "").contains(choices[choice].description().replace(" ", "")), screen)
+            }
+            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofChar('j'))
+        }
+        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        val loaded = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
+        val draft = loaded.draft
+        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
+        app.handleKeyEvent(KeyEvent.ofChar('n'))
+        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        assertEquals(3, app.detailSelectedIndex())
+        val visible = WorkspaceView.visibleItems(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()), app.showInSync())
+        assertEquals(source, visible[app.selectedIndex()].relocation.sourcePath)
+        assertEquals(draft, assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).draft)
+        assertFalse(Files.isSymbolicLink(source))
+    }
+
+    @Test
+    fun completePathsPoliciesAndDiagnosticsCanBeScrolledWithoutChangingChoice() {
+        val session = HomeLightSession(fixture(temporary))
+        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
+            val viewport = DetailViewport()
+            val all = StringBuilder()
+            repeat(160) {
+                all.append(rightPane(render(WorkspaceView.render(session, 0, false, PaneFocus.DETAIL, 0, viewport), size[0], size[1]), size[0]))
+                viewport.scroll(1)
+            }
+            val item = model.items.first()
+            assertTrue(all.toString().contains(item.relocation.sourcePath.toString()), all.toString())
+            assertTrue(all.toString().contains(item.relocation.targetPath.toString()))
+            assertTrue(all.toString().contains("Saved policy:"))
+            assertTrue(all.toString().replace(" ", "").contains("Draft(notsaved):None;usingsavedpolicy"))
+            assertTrue(all.toString().contains("Expected outcome:"))
+            assertTrue(all.toString().contains("archive-destination-distinguishing-suffix"))
+        }
+    }
+
+    @Test
+    fun adoptionPolicyDetailsFollowTheSavedEnum() {
+        val session = HomeLightSession(fixture(temporary))
+        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.stream()
+            .filter { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }.findFirst().orElseThrow()
+        val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
+            java.util.Optional.of(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT),
+            java.util.Optional.empty(), java.util.Optional.of(io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget.DISCARD_SOURCE),
+            java.util.Optional.empty(), java.util.Optional.empty()), item)
+        assertEquals("Adopt target; discard source.", policy)
+    }
+
+    companion object {
+        fun render(element: Element, width: Int, height: Int): String {
+            val marker = Class.forName("dev.tamboui.tui.RenderThread").getDeclaredMethod("markAsRenderThread")
+            val clear = Class.forName("dev.tamboui.tui.RenderThread").getDeclaredMethod("clearRenderThread")
+            marker.isAccessible = true
+            clear.isAccessible = true
+            marker.invoke(null)
+            try {
+                val buffer = Buffer.empty(Rect.of(width, height))
+                element.render(Frame.forTesting(buffer), Rect.of(width, height), RenderContext.empty())
+                val text = StringBuilder()
+                for (y in 0 until height) {
+                    for (x in 0 until width) text.append(buffer.get(x, y).symbol())
+                    text.append('\n')
+                }
+                return text.toString()
+            } finally { clear.invoke(null) }
+        }
+
+        fun rightPane(screen: String, width: Int): String {
+            val text = StringBuilder()
+            // Kotlin's split keeps the trailing empty row that Java's drops; it has no border, so it is skipped.
+            for (row in screen.split("\n")) {
+                var start = row.indexOf('│', width * 45 / 100 - 1)
+                if (start < 0) continue
+                // Adjacent panel borders; preserve character-wrapped text without introducing spaces.
+                if (start + 1 < row.length && row[start + 1] == '│') start++
+                val end = row.lastIndexOf('│')
+                // Java's stripTrailing: Kotlin hides it, and Kotlin's trimEnd also strips no-break spaces.
+                if (end > start) text.append(row.substring(start + 1, end).replace("█", "").replace("│", "").trimEnd { Character.isWhitespace(it) })
+            }
+            return text.toString()
+        }
+
+        fun fixture(directory: Path): Path {
+            val root = directory.toRealPath()
+            val body = StringBuilder("homelight:\n  target-root: " + root.resolve("local") + "\n  relocations:\n")
+            for (name in listOf("conflict", "migrate", "adopt", "discard", "synced", "unchanged")) {
+                val source = root.resolve("home/$name")
+                val target = root.resolve("local/$name")
+                Files.createDirectories(source.parent)
+                Files.createDirectories(target.parent)
+                if (name != "synced") { Files.createDirectories(source); Files.writeString(source.resolve("payload"), "source") }
+                if (name != "migrate") { Files.createDirectories(target); Files.writeString(target.resolve("payload"), "target") }
+                if (name == "synced") Files.createSymbolicLink(source, target)
+                body.append("    - source-path: ").append(source).append("\n      target-path: ").append(target).append('\n')
+                if (name == "adopt") body.append("      when-source-and-target-directories-exist: adopt\n      when-adopting-target: discard-source\n")
+                if (name == "discard") body.append("      when-source-and-target-directories-exist: discard\n")
+                if (name == "unchanged") body.append("      when-source-and-target-directories-exist: leave-unchanged\n")
+                if (name == "conflict") body.append("      source-archive-root: ").append(root.resolve("archive-destination-distinguishing-suffix")).append('\n')
+            }
+            return Files.writeString(root.resolve("config.yaml"), body)
+        }
+    }
+}
