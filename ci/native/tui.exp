@@ -1,0 +1,113 @@
+#!/usr/bin/expect -f
+# Drives the homelight TUI on a pty: render, keys, resizes, quit, terminal restore.
+#
+#   expect ci/native/tui.exp <logfile> <command...>
+#
+# TERM comes from the environment. The command runs in /bin/sh on a 120x40 pty, then the pty is
+# resized to 80x24, 120x30 and 140x50; each size must trigger a redraw. All terminal output goes to
+# <logfile>, with "@@RESIZE <rows>x<cols>@@" and "@@QUIT@@" markers for render.py.
+#
+# Prints one line of key=value results. Exit status: 0 all checks passed, 1 a check failed,
+# 3 the command exited without rendering (the expected outcome for TERM=dumb).
+set logfile [lindex $argv 0]
+set cmd [join [lrange $argv 1 end] " "]
+set lf [open $logfile w]
+fconfigure $lf -translation binary
+log_user 0
+set stty_init "rows 40 cols 120"
+set env(PS1) "PROMPT> "
+set res [dict create]
+set failed 0
+
+proc report {status} {
+  global res lf
+  close $lf
+  set out ""
+  dict for {k v} $res { append out "$k=$v " }
+  puts [string trim $out]
+  exit $status
+}
+
+# Reads output for secs seconds into the log; returns the byte count.
+proc pump {secs} {
+  global lf
+  set deadline [expr {[clock milliseconds] + int($secs * 1000)}]
+  set n 0
+  while {[clock milliseconds] < $deadline} {
+    set timeout 0.1
+    expect {
+      -re {.+} { puts -nonewline $lf $expect_out(0,string); incr n [string length $expect_out(0,string)] }
+      eof { return $n }
+      timeout { }
+    }
+  }
+  return $n
+}
+
+proc stty_state {} {
+  send "stty -g; echo STTY-END\r"
+  expect -re {\n([^\r\n]*)\r\nSTTY-END}
+  return $expect_out(1,string)
+}
+
+proc check {name ok value} {
+  global res failed
+  dict set res $name $value
+  if {!$ok} { set failed 1; dict set res $name "${value}(FAIL)" }
+}
+
+spawn -noecho /bin/sh
+set slave $spawn_out(slave,name)
+set timeout 10
+expect "PROMPT> "
+set before [stty_state]
+expect "PROMPT> "
+
+set start [clock milliseconds]
+send "$cmd; echo EXITCODE=\$?\r"
+set timeout 20
+expect {
+  -re {HOMELIGHT|Workspace|Relocat} {
+    dict set res render "[expr {[clock milliseconds] - $start}]ms"
+    puts -nonewline $lf $expect_out(buffer)
+  }
+  -re {EXITCODE=([0-9]+)} {
+    dict set res render no
+    dict set res exit $expect_out(1,string)
+    puts -nonewline $lf $expect_out(buffer)
+    report 3
+  }
+  timeout { check render 0 timeout; report 1 }
+}
+pump 1
+
+send "j"; set k1 [pump 0.5]
+send "k"; set k2 [pump 0.5]
+check keys [expr {$k1 > 0 && $k2 > 0}] "$k1+$k2"
+
+foreach size {{24 80} {30 120} {50 140}} {
+  lassign $size rows cols
+  puts -nonewline $lf "\n@@RESIZE ${rows}x${cols}@@\n"
+  exec stty rows $rows columns $cols < $slave
+  set n [pump 1.5]
+  check "resize_${rows}x${cols}" [expr {$n > 0}] $n
+}
+
+puts -nonewline $lf "\n@@QUIT@@\n"
+set sent [clock milliseconds]
+send "q"
+set timeout 8
+expect {
+  -re {EXITCODE=([0-9]+)} {
+    puts -nonewline $lf $expect_out(buffer)
+    check exit [expr {$expect_out(1,string) == 0}] $expect_out(1,string)
+    dict set res quit "[expr {[clock milliseconds] - $sent}]ms"
+  }
+  timeout { check exit 0 hang; send "\003"; expect -re {EXITCODE=([0-9]+)} }
+}
+expect "PROMPT> "
+set after [stty_state]
+check stty [expr {$before eq $after}] [expr {$before eq $after ? "same" : "changed"}]
+send "exit\r"
+expect eof
+report $failed
