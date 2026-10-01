@@ -28,9 +28,11 @@ internal fun <T> decodeJson(deserializer: DeserializationStrategy<T>, text: Stri
     val value = try {
         INPUT.decodeFromString(deserializer, text)
     } catch (e: JsonDecodingException) {
-        // The hint, when present, names kotlinx builder options, so it is dropped.
+        // The hint, when present, names kotlinx builder options, so it is dropped. The message quotes the
+        // offending character, which can be a control character such as a newline.
         val path = e.path?.removePrefix("$")?.removePrefix(".").orEmpty()
-        throw failure(text, e.offset, path, e.shortMessage + if (path.isEmpty()) "" else " at $path")
+        val message = e.shortMessage.map { if (it.isISOControl()) "\\u%04x".format(it.code) else "$it" }.joinToString("")
+        throw failure(text, e.offset, path, message + if (path.isEmpty()) "" else " at $path")
     }
     duplicateKey(text)?.let { (offset, key) -> throw failure(text, offset, "", "Duplicate key '$key'") }
     return value

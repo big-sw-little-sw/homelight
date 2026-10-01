@@ -124,6 +124,9 @@ class ConfigurationLoaderTest {
             failure("{\"homelight\": [\n"))
         assertEquals("Line 1, column 43: Expected EOF after parsing, but had { instead",
             failure("""{"homelight": {"target-root": "/local"}} {}"""))
+        // A control character in the message is escaped.
+        assertEquals("Line 1, column 40: Expected quotation mark '\"', but had '\\u000a' instead at homelight.target-root",
+            failure("{\"homelight\": {\"target-root\": \"unclosed\nmore"))
         assertEquals("Line 1, column 2: Expected quotation mark '\"', but had 'h' instead",
             failure("""{homelight: {"target-root": "/local"}}"""))
         assertEquals("Line 1, column 1: Expected start of the object '{', but had 'EOF' instead", failure(""))

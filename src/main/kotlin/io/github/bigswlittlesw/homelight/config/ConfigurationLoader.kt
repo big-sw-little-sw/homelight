@@ -33,7 +33,8 @@ class ConfigurationLoader {
         val file = try {
             decodeJson(ConfigurationFile.serializer(), text)
         } catch (exception: JsonInputException) {
-            throw ConfigurationException("Line ${exception.line}, column ${exception.column}: " + exception.message, exception)
+            // The message is complete; the cause would only repeat it.
+            throw ConfigurationException("Line ${exception.line}, column ${exception.column}: " + exception.message)
         }
         return configuration(file.homelight ?: throw missing("homelight"), override)
     }
