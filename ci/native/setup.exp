@@ -4,8 +4,8 @@
 #   expect ci/native/setup.exp <logfile> <source-root> <target-root> <command...>
 #
 # <source-root> must contain a .m2 directory; the command must point at a missing config file
-# (`homelight -c <new.yaml> init`). Enters both roots, opens the candidate browser and expects the
-# bundled Maven candidate, which proves candidates.yaml is in the binary. Then discards the draft
+# (`homelight -c <new.json> init`). Enters both roots, opens the candidate browser and expects the
+# bundled Maven candidate, which proves candidates.json is in the binary. Then discards the draft
 # and quits. Prints one line of key=value results; exit status 0 when every check passed.
 # Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
 encoding system iso8859-1

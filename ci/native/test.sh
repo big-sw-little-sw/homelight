@@ -34,9 +34,9 @@ version=$("$binary" --version 2>&1) && pass "--version: $version" || fail "--ver
 fx=$results/smoke
 mkdir -p "$fx/home/a" "$fx/local"
 echo x > "$fx/home/a/f"
-printf 'homelight:\n  target-root: %s/local\n  relocations:\n    - source-path: %s/home/a\n      target-path: %s/local/a\n' \
-  "$fx" "$fx" "$fx" > "$fx/config.yaml"
-if "$binary" -c "$fx/config.yaml" plan --json > "$results/smoke-plan.json" 2>&1 && grep -q '"relocations"' "$results/smoke-plan.json"; then
+printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
+  "$fx" "$fx" "$fx" > "$fx/config.json"
+if "$binary" -c "$fx/config.json" plan --json > "$results/smoke-plan.json" 2>&1 && grep -q '"relocations"' "$results/smoke-plan.json"; then
   pass "plan --json"
 else
   fail "plan --json: $(head -c 500 "$results/smoke-plan.json")"
@@ -58,11 +58,11 @@ fi
 fx=$results/tui
 mkdir -p "$fx/home/a" "$fx/home/b" "$fx/local/b"
 echo a > "$fx/home/a/f"; echo b > "$fx/home/b/f"; echo t > "$fx/local/b/t"
-printf 'homelight:\n  target-root: %s/local\n  relocations:\n    - source-path: %s/home/a\n      target-path: %s/local/a\n    - source-path: %s/home/b\n      target-path: %s/local/b\n' \
-  "$fx" "$fx" "$fx" "$fx" "$fx" > "$fx/config.yaml"
+printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}, {"source-path": "%s/home/b", "target-path": "%s/local/b"}]}}\n' \
+  "$fx" "$fx" "$fx" "$fx" "$fx" > "$fx/config.json"
 for term in ${TUI_TERMS:-xterm-256color screen-256color tmux-256color linux vt100}; do
   log=$results/tui-$term.log
-  line=$(TERM=$term expect "$here/tui.exp" "$log" "$binary" -c "$fx/config.yaml" status)
+  line=$(TERM=$term expect "$here/tui.exp" "$log" "$binary" -c "$fx/config.json" status)
   status=$?
   if [ $status -eq 0 ] && ! grep -q 'Failed to load native library' "$log"; then
     pass "TUI TERM=$term: $line"
@@ -70,7 +70,7 @@ for term in ${TUI_TERMS:-xterm-256color screen-256color tmux-256color linux vt10
     fail "TUI TERM=$term: $line"
   fi
 done
-line=$(TERM=dumb expect "$here/tui.exp" "$results/tui-dumb.log" "$binary" -c "$fx/config.yaml" status)
+line=$(TERM=dumb expect "$here/tui.exp" "$results/tui-dumb.log" "$binary" -c "$fx/config.json" status)
 if [ $? -eq 3 ] && [[ $line == *exit=2* ]] && grep -q 'does not support a dumb terminal' "$results/tui-dumb.log"; then
   pass "TUI TERM=dumb refused: $line"
 else
@@ -79,8 +79,8 @@ fi
 fx=$results/setup
 mkdir -p "$fx/home/.m2" "$fx/local"
 line=$(TERM=xterm-256color expect "$here/setup.exp" "$results/setup.log" "$fx/home" "$fx/local" \
-  "$binary" -c "$fx/new.yaml" init)
-if [ $? -eq 0 ] && [ ! -e "$fx/new.yaml" ]; then
+  "$binary" -c "$fx/new.json" init)
+if [ $? -eq 0 ] && [ ! -e "$fx/new.json" ]; then
   pass "TUI setup discovers bundled candidates: $line"
 else
   fail "TUI setup: $line"
