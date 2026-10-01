@@ -9,6 +9,8 @@ version = "1.0-SNAPSHOT"
 
 val mainClassName = "io.github.bigswlittlesw.homelight.cli.HomeLightCommand"
 
+val picocliCodegen = configurations.create("picocliCodegen")
+
 repositories {
     mavenCentral()
     // TamboUI snapshots.
@@ -29,20 +31,35 @@ dependencies {
     implementation(libs.picocli)
     implementation(libs.snakeyaml)
     implementation(libs.jackson.core)
-    // Generates the picocli native-image configuration under META-INF/native-image/picocli-generated.
-    annotationProcessor(libs.picocli.codegen)
+    picocliCodegen(libs.picocli.codegen)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+// Only the tests are Java.
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
-tasks.compileJava {
-    options.compilerArgs.add("-Aproject=${project.group}/${project.name}")
+// Native Image needs reflection metadata for the picocli command classes. picocli's annotation processor
+// cannot see Kotlin sources, and kapt cannot stub `@JvmRecord` classes, so picocli-codegen generates the
+// metadata from the compiled classes on every build, at the path the processor used.
+val generatePicocliMetadata = tasks.register<JavaExec>("generatePicocliMetadata") {
+    description = "Generates the picocli reflection metadata for Native Image."
+    val outputDir = layout.buildDirectory.dir("generated/picocli-metadata")
+    val outputFile = outputDir.get()
+        .file("META-INF/native-image/picocli-generated/${project.group}/${project.name}/reflect-config.json").asFile
+    classpath(picocliCodegen, sourceSets.main.map { it.output.classesDirs }, configurations.runtimeClasspath)
+    mainClass = "picocli.codegen.aot.graalvm.ReflectionConfigGenerator"
+    args("--output", outputFile.path, mainClassName)
+    outputs.dir(outputDir)
+    doFirst { outputFile.parentFile.mkdirs() }
+}
+
+sourceSets.main {
+    resources.srcDir(generatePicocliMetadata)
 }
 
 tasks.processResources {
