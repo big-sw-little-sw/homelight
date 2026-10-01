@@ -5,8 +5,8 @@ import picocli.CommandLine.IVersionProvider
 import java.io.IOException
 import java.util.Properties
 
-// picocli creates the provider reflectively through its public no-arg constructor.
-class HomeLightVersionProvider : IVersionProvider {
+// picocli creates the provider reflectively through its no-arg constructor, which is public on the JVM.
+internal class HomeLightVersionProvider : IVersionProvider {
     override fun getVersion(): Array<String> = arrayOf("homelight " + resolveVersion())
 }
 

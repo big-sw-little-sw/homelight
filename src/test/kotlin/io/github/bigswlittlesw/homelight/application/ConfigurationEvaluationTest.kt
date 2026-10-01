@@ -122,7 +122,7 @@ class ConfigurationEvaluationTest {
         assertSame(original.savedPlan, selected.savedPlan)
         assertSame(observation.source, plan.sourceObservation)
         assertEquals(RelocationSourceState.DIRECTORY, plan.sourceState)
-        assertTrue(selected.plan.actions().stream().anyMatch(ReconciliationAction.ArchiveDirectory::class.java::isInstance))
+        assertTrue(selected.plan.actions().any { it is ReconciliationAction.ArchiveDirectory })
         assertFalse(selected.plan.hasBlockedActions())
         assertEquals("{\"malformed\": [", Files.readString(config))
         assertTrue(Files.isSymbolicLink(root.resolve("source")))
@@ -272,7 +272,7 @@ class ConfigurationEvaluationTest {
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         session.confirmApply(tasks::add)
         val before = session.evaluation()
         assertThrows(IllegalStateException::class.java) { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }

@@ -51,7 +51,7 @@ class CandidateDiscoveryTest {
         CandidateDiscovery().use { discovery ->
             discovery.refresh(temporary, shared)
             val result = awaitResult(discovery, ::finished)
-            assertTrue(result.sources.stream().allMatch { s -> s.status == SourceStatus.CURRENT })
+            assertTrue(result.sources.all { s -> s.status == SourceStatus.CURRENT })
             val child = row(result, temporary.resolve(".local/share/uv/tools"))
             assertEquals(listOf(temporary.resolve(".local/share/uv")), child.ancestors)
             assertEquals(Size.NOT_ESTIMATED, child.observation.size)
@@ -92,7 +92,7 @@ class CandidateDiscoveryTest {
             discovery.refresh(temporary, null)
             val cleared = awaitResult(discovery, ::finished)
             assertEquals(1, cleared.sources.size)
-            assertFalse(cleared.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("team-cache") })
+            assertFalse(cleared.candidates.any { c -> c.catalog.sourcePath.endsWith("team-cache") })
         }
     }
 
@@ -118,7 +118,7 @@ class CandidateDiscoveryTest {
             discovery.refresh(temporary, temporary.resolve("other-location"))
             val changed = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.FAILED, shared(changed).status)
-            assertFalse(changed.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("team-cache") })
+            assertFalse(changed.candidates.any { c -> c.catalog.sourcePath.endsWith("team-cache") })
         }
     }
 
@@ -222,7 +222,7 @@ class CandidateDiscoveryTest {
                     await { lanes.shared.availablePermits() == 1 }
                     val result = discovery.snapshot()
                     assertTrue(result.generation > first)
-                    assertFalse(result.candidates.stream().anyMatch { c -> c.catalog.sourcePath.endsWith("obsolete") })
+                    assertFalse(result.candidates.any { c -> c.catalog.sourcePath.endsWith("obsolete") })
                     if (cancel) {
                         assertNull(result.request)
                         assertTrue(result.sources.isEmpty())
@@ -253,7 +253,7 @@ class CandidateDiscoveryTest {
             fail.set(1)
             discovery.refresh(temporary, null)
             val result = awaitResult(discovery) { r -> !r.candidates.isEmpty() && r.candidates.first()
-                    .observation.diagnostics.stream().anyMatch { d -> d.reason == Reason.ACCESS_DENIED } }
+                    .observation.diagnostics.any { d -> d.reason == Reason.ACCESS_DENIED } }
             val retained = result.candidates.first().observation
             assertTrue(retained.stale)
             assertEquals(Kind.DIRECTORY, retained.kind)
@@ -287,8 +287,8 @@ class CandidateDiscoveryTest {
             assertTrue(entered.await(3, TimeUnit.SECONDS))
             clock.set(CandidateDiscovery.METADATA_NANOS)
             val timed = discovery.snapshot()
-            assertEquals(1L, timed.candidates.stream().filter { c -> c.observation.kind == Kind.UNKNOWN }.count())
-            assertEquals(5L, timed.candidates.stream().filter { c -> c.observation.kind == Kind.PENDING }.count())
+            assertEquals(1, timed.candidates.count { c -> c.observation.kind == Kind.UNKNOWN })
+            assertEquals(5, timed.candidates.count { c -> c.observation.kind == Kind.PENDING })
             for (i in 0 until 20) {
                 discovery.refresh(temporary, null)
                 assertEquals(Reason.CAPACITY, checkNotNull(discovery.snapshot().rootFailure).reason)
@@ -325,7 +325,7 @@ class CandidateDiscoveryTest {
             assertTrue(last.await(3, TimeUnit.SECONDS), "Work depended on snapshot polling")
             val result = awaitResult(discovery, ::finished)
             assertEquals(8, result.candidates.size)
-            assertTrue(result.candidates.stream().allMatch { c -> c.observation.kind == Kind.DIRECTORY })
+            assertTrue(result.candidates.all { c -> c.observation.kind == Kind.DIRECTORY })
         }
     }
 
@@ -377,7 +377,7 @@ class CandidateDiscoveryTest {
                 clock.set(CandidateDiscovery.METADATA_NANOS)
                 val result = discovery.snapshot()
                 assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
-                assertTrue(result.candidates.stream().allMatch { c -> c.observation.size.bytes == null })
+                assertTrue(result.candidates.all { c -> c.observation.size.bytes == null })
                 assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             }
         } finally {
@@ -398,6 +398,7 @@ class CandidateDiscoveryTest {
 
     class ExitProbe {
         companion object {
+            // JVM entry point for the subprocess this test launches.
             @JvmStatic fun main(args: Array<String>) {
                 val gate = Gate()
                 val metadataGate = Gate()
@@ -485,7 +486,7 @@ class CandidateDiscoveryTest {
                 assertEquals(Kind.DIRECTORY, observation.kind)
                 assertTrue(observation.stale)
                 assertEquals(original, observation.generation)
-                assertTrue(observation.diagnostics.stream().anyMatch { d -> d.reason == Reason.DEADLINE })
+                assertTrue(observation.diagnostics.any { d -> d.reason == Reason.DEADLINE })
                 assertNull(observation.size.bytes)
             }
         } finally { gate.release.countDown() }
@@ -521,7 +522,7 @@ class CandidateDiscoveryTest {
                 discovery.refresh(temporary, location)
                 val refreshed = awaitResult(discovery, ::finished)
                 assertEquals(SourceStatus.CURRENT, shared(refreshed).status)
-                assertTrue(refreshed.candidates.stream().noneMatch { c -> c.catalog.sourcePath.endsWith("team") })
+                assertTrue(refreshed.candidates.none { c -> c.catalog.sourcePath.endsWith("team") })
             }
         } finally { gate.release.countDown() }
     }
@@ -535,18 +536,17 @@ class CandidateDiscoveryTest {
         }
         private fun bytes(value: String): ByteArray = value.toByteArray(StandardCharsets.UTF_8)
         private fun shared(result: Result): SourceOutcome {
-            return result.sources.stream().filter { s -> s.source.kind == CandidateSource.Kind.SHARED }
-                    .findFirst().orElseThrow()
+            return result.sources.first { s -> s.source.kind == CandidateSource.Kind.SHARED }
         }
         private fun row(result: Result, path: Path): Candidate {
-            return result.candidates.stream().filter { c -> c.catalog.sourcePath.equals(path) }.findFirst().orElseThrow()
+            return result.candidates.first { c -> c.catalog.sourcePath.equals(path) }
         }
         private fun assertProblem(result: Result, kind: SourceProblem.Kind) {
             assertEquals(kind, shared(result).problems.first().kind, result.toString())
         }
         private fun finished(result: Result): Boolean {
-            return !result.sources.isEmpty() && result.sources.stream().noneMatch { s -> s.status == SourceStatus.PENDING }
-                    && result.candidates.stream().noneMatch { c -> c.observation.kind == Kind.PENDING }
+            return !result.sources.isEmpty() && result.sources.none { s -> s.status == SourceStatus.PENDING }
+                    && result.candidates.none { c -> c.observation.kind == Kind.PENDING }
         }
         private fun awaitResult(discovery: CandidateDiscovery, condition: Predicate<Result>): Result {
             val result = AtomicReference<Result>()

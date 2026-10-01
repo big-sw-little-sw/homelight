@@ -57,7 +57,7 @@ class HomeLightExitTest {
             val root = Files.createDirectory(temporary.resolve("case-$selectExit"))
             val app = HomeLightApp(HomeLightSession(configuration(root)))
             app.switchScreen(Screen.APPLY)
-            val tasks = ArrayList<Runnable>()
+            val tasks = mutableListOf<Runnable>()
             app.session.confirmApply(Executor { tasks.add(it) })
             app.handleKeyEvent(KeyEvent.ofChar('q'))
             if (selectExit) key(app, KeyCode.DOWN)
@@ -85,7 +85,7 @@ class HomeLightExitTest {
     fun dialogDefaultsToKeepRunningAndEscapeCancelsEvenAfterSelectingExit() {
         val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         app.session.confirmApply(Executor { tasks.add(it) })
         val ctrlC = KeyEvent.ofChar('c', KeyModifiers.CTRL)
         assertTrue(ctrlC.isQuit)
@@ -187,7 +187,7 @@ class HomeLightExitTest {
     fun deferredExitIncludesFailureAndExceptionalCompletionWithRetainedEvidence() {
         val app = HomeLightApp(HomeLightSession(configuration(temporary)))
         app.switchScreen(Screen.APPLY)
-        val tasks = ArrayList<Runnable>()
+        val tasks = mutableListOf<Runnable>()
         val completion = app.session.confirmApply(Executor { tasks.add(it) })
         app.handleKeyEvent(KeyEvent.ofChar('q'))
         key(app, KeyCode.DOWN)

@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.application
 
-import io.github.bigswlittlesw.homelight.config.Relocation
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
@@ -46,11 +45,6 @@ open class HomeLightSession(
         val replanned = evaluator.replan(evaluation)
         discardedChoices = replanned.discardedChoices
         replaceEvaluation(replanned.evaluation)
-    }
-
-    @Synchronized
-    fun resolveDecision(relocation: Relocation, choice: DecisionChoice) {
-        choose(relocation.sourcePath, choice)
     }
 
     @Synchronized

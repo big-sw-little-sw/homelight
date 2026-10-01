@@ -111,8 +111,8 @@ class WorkspaceViewTest {
     @Test
     fun adoptionPolicyDetailsFollowTheSavedEnum() {
         val session = HomeLightSession(fixture(temporary))
-        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.stream()
-            .filter { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }.findFirst().orElseThrow()
+        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+            .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
             io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT,
             null, io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget.DISCARD_SOURCE), item)

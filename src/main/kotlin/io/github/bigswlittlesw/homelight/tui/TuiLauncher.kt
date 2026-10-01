@@ -21,7 +21,7 @@ internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb termin
  * Launches the interactive TUI with error handling and terminal validation, and returns the exit code:
  * 0 after a normal exit, 1 when the TUI fails, 2 when the terminal cannot run it.
  */
-fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
+internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
     terminalRefusal(System.console() != null, System.getenv("TERM"))?.let { refusal ->
         errorOutput.println(refusal)
         return 2
@@ -39,7 +39,7 @@ fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWr
 }
 
 /** Opens manual setup only for a missing configuration; it never edits an existing file. */
-fun launchInit(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
+internal fun launchInit(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
     val evaluation = ConfigurationEvaluation().load(configPath)
     if (evaluation is ConfigurationEvaluation.Loaded || evaluation is ConfigurationEvaluation.Invalid) {
         errorOutput.println("Configuration already exists or is unreadable; init only creates a missing configuration.")
@@ -92,7 +92,7 @@ private fun isDumb(terminalType: String?): Boolean =
 private fun systemBackend(): Backend {
     // The JNI provider extracts a library into java.io.tmpdir, which fails on a noexec /tmp, and
     // build-time -D values do not reach a native image's runtime. An explicit -D still wins.
-    if ("runtime" == System.getProperty("org.graalvm.nativeimage.imagecode")
+    if (System.getProperty("org.graalvm.nativeimage.imagecode") == "runtime"
         && System.getProperty("org.jline.terminal.provider") == null
     ) {
         System.setProperty("org.jline.terminal.provider", "exec")

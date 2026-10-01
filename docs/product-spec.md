@@ -6,7 +6,7 @@ HomeLight keeps a space-constrained or shared `$HOME` directory lightweight by r
 
 The primary use case is Linux systems where `$HOME` is mounted over NFS or is quota-constrained, while each machine has larger local storage.
 
-HomeLight is a Java terminal application. Its primary human interface is a full-screen TUI, with prompt-free JSON commands for automation. A desktop GUI is deferred.
+HomeLight is a Kotlin terminal application. Its primary human interface is a full-screen TUI, with prompt-free JSON commands for automation. A desktop GUI is deferred.
 
 ## Scope
 
@@ -269,7 +269,7 @@ These may initially be packages in one Gradle module. Separate modules only when
 
 The reconciliation engine is independent of terminal presentation and mutation. Filesystem mutation happens only during explicit application of a plan. Filesystem operations must be testable against temporary directory trees.
 
-Avoid framework infrastructure, dependency injection, runtime scanning, and premature plugin systems. Keep the core friendly to GraalVM Native Image by preferring explicit construction, standard Java APIs, and isolated serialization or integration adapters.
+Avoid framework infrastructure, dependency injection, runtime scanning, and premature plugin systems. Keep the core friendly to GraalVM Native Image by preferring explicit construction, standard JDK APIs, and isolated serialization or integration adapters.
 
 ## Deferred scope
 

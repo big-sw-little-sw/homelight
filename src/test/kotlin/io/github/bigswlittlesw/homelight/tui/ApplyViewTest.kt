@@ -137,11 +137,11 @@ class ApplyViewTest {
 
         val archive = ReconciliationAction.ArchiveDirectory(relocation.sourcePath, Path.of("/archive/local/cache"))
         val archiveLines = ApplyView.details(ApplyModel.Step(relocationPlan, archive, ApplyModel.StepStatus.PENDING, "Not started"))
-        assertTrue(archiveLines.stream().map(DetailViewport.Line::text).anyMatch("Target: /local/cache"::equals), archiveLines.toString())
+        assertTrue(archiveLines.map(DetailViewport.Line::text).any { it == "Target: /local/cache" }, archiveLines.toString())
 
         val link = ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath)
         val linkLines = ApplyView.details(ApplyModel.Step(relocationPlan, link, ApplyModel.StepStatus.PENDING, "Not started"))
-        assertFalse(linkLines.stream().map(DetailViewport.Line::text).anyMatch("Target: /local/cache"::equals), linkLines.toString())
+        assertFalse(linkLines.map(DetailViewport.Line::text).any { it == "Target: /local/cache" }, linkLines.toString())
     }
 
     private companion object {

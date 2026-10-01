@@ -109,7 +109,7 @@ class StagedPermissionTest {
         assertEmpty(target.parent.resolve(".homelight-staging"))
 
         val repeated = plan(source, target)
-        assertTrue(repeated.actions().stream().allMatch(ReconciliationAction.NoOp::class.java::isInstance))
+        assertTrue(repeated.actions().all { it is ReconciliationAction.NoOp })
         assertTrue(executor.execute(repeated).succeeded())
         assertEquals(defaults, Files.getPosixFilePermissions(target))
         assertMode(target.resolve("entry"), "rw-------")

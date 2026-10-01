@@ -377,8 +377,8 @@ class CandidateSetupTest {
             val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(4)
             while (System.nanoTime() < until) {
                 val result = workers.workers.last().snapshot()
-                if (result.sources.stream().noneMatch { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
-                    && result.candidates.stream().noneMatch { c -> c.observation.kind == CandidateObservation.Kind.PENDING }) {
+                if (result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
+                    && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }) {
                     // The app accepts snapshots only when rendering, and the next key acts on what it last rendered.
                     render(app)
                     return
@@ -396,7 +396,7 @@ class CandidateSetupTest {
             fail<Unit>("Could not focus " + relative + "\n" + render(app))
         }
         fun all(app: HomeLightApp): String {
-            val screens = java.util.LinkedHashSet<String>()
+            val screens = linkedSetOf<String>()
             screens.add(render(app))
             repeat(80) { key(app, ']'); screens.add(render(app)) }
             repeat(80) { key(app, '[') }

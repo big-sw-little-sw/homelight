@@ -1,6 +1,6 @@
 # HomeLight
 
-HomeLight is a Java terminal application for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
+HomeLight is a Kotlin terminal application for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
 
 It is intended for space-constrained or shared home directories, including Linux systems using NFS-mounted home directories.
 
@@ -29,7 +29,7 @@ See the project requirements in [`docs/product-spec.md`](docs/product-spec.md), 
 
 ## Development
 
-The project uses Java 25 and Gradle (Kotlin DSL) through the Gradle wrapper.
+The project uses Kotlin on a Java 25 toolchain and Gradle (Kotlin DSL) through the Gradle wrapper.
 
 ```text
 ./gradlew build

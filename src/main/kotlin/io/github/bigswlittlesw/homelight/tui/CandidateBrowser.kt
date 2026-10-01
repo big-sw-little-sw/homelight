@@ -25,7 +25,7 @@ internal class CandidateBrowser {
     }
 
     private val viewport = DetailViewport()
-    private val collapsed = HashSet<String?>()
+    private val collapsed = mutableSetOf<String?>()
     private var focus: Item? = null
     private var details = false
     private var diagnostics = false
@@ -33,7 +33,7 @@ internal class CandidateBrowser {
     private var message = ""
 
     fun render(draft: SetupDraft): Element {
-        val lines = ArrayList<Line>()
+        val lines = mutableListOf<Line>()
         var anchor = -1
         val title: String
         val navigation: String
@@ -95,7 +95,7 @@ internal class CandidateBrowser {
                         val marker = when {
                             entry.configured != null -> "[=]"
                             entry.draft != null -> "[x]"
-                            canAdd(entry, draft) -> "[ ]"
+                            draft.canAdd(entry) -> "[ ]"
                             else -> " − "
                         }
                         label = "  " + marker + " " + path + " ".repeat(maxOf(1, 32 - CharWidth.of(path))) + listNotes(entry, draft)
@@ -145,7 +145,8 @@ internal class CandidateBrowser {
                 val row = draft.rows.indexOfFirst { it === entry.draft }
                 if (row >= 0) return row
             }
-            if ((key.isCharIgnoreCase('a') || key.isChar(' ')) && entry != null && canAdd(entry, draft)) {
+            if ((key.isCharIgnoreCase('a') || key.isChar(' ')) && entry != null && draft.canAdd(entry)) {
+                // focusedEntry matches entries by source path, so the path is set.
                 try { draft.add(checkNotNull(entry.sourcePath)); message = "" }
                 catch (error: IllegalArgumentException) { message = "Not added. " + error.message + ". Prior choices are unchanged." }
                 if (details) viewport.reset() else viewport.keepChoiceVisible()
@@ -190,6 +191,7 @@ internal class CandidateBrowser {
         entriesByPath.values
             .filter { entry -> reveal || !hidden(entry, draft) }
             .groupBy { entry -> definitions(entry).firstNotNullOfOrNull { it.app } }
+            // entriesByPath keeps only entries with a source path.
             .flatMap { (app, entries) ->
                 listOf(Item.Group(app, entries.size)) +
                     entries.filter { app !in collapsed || member(it) }.map { Item.Directory(checkNotNull(it.sourcePath)) }
@@ -211,7 +213,7 @@ internal class CandidateBrowser {
 internal fun literal(text: String): String = buildString {
     text.codePoints().forEach { point ->
         if (Character.isISOControl(point) || Character.getType(point) == Character.FORMAT.toInt()) {
-            append(String.format("\\u%04x", point))
+            append("\\u%04x".format(point))
         } else appendCodePoint(point)
     }
 }
@@ -236,10 +238,10 @@ internal fun attribution(lines: MutableList<Line>, entry: SetupDraft.Entry, draf
 }
 
 private fun entriesByPath(draft: SetupDraft): Map<Path, SetupDraft.Entry> {
-    val entries = LinkedHashMap<Path, SetupDraft.Entry>()
+    val entries = linkedMapOf<Path, SetupDraft.Entry>()
     draft.entries().forEach { e -> e.sourcePath?.let { path -> entries.putIfAbsent(path, e) } }
     // Membership changes must not reorder the list while marking adjacent rows.
-    val ordered = LinkedHashMap<Path, SetupDraft.Entry>()
+    val ordered = linkedMapOf<Path, SetupDraft.Entry>()
     draft.discovery?.candidates?.forEach { c ->
         val path = c.catalog.sourcePath
         entries[path]?.let { ordered[path] = it }
@@ -278,24 +280,23 @@ private fun compact(path: String): String {
     return if (value.length <= 30) value else value.substring(0, 14) + "…" + value.substring(value.length - 15)
 }
 
-private fun canAdd(entry: SetupDraft.Entry, draft: SetupDraft): Boolean = draft.canAdd(entry)
 
 private fun action(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
     entry.configured != null -> ""
     entry.draft != null -> "e: Edit draft row · "
-    canAdd(entry, draft) -> "a: Add to draft · "
+    draft.canAdd(entry) -> "a: Add to draft · "
     else -> ""
 }
 
 private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
     entry.configured != null -> ""
     entry.draft != null -> "e: Edit · "
-    canAdd(entry, draft) -> "Space/a: Add · "
+    draft.canAdd(entry) -> "Space/a: Add · "
     else -> ""
 }
 
 private fun listNotes(entry: SetupDraft.Entry, draft: SetupDraft): String {
-    val notes = ArrayList<String>()
+    val notes = mutableListOf<String>()
     if (entry.configured != null) notes.add("Configured")
     val ordinary = entry.discovery?.takeIf { c ->
         c.observation.kind == CandidateObservation.Kind.DIRECTORY || c.observation.kind == CandidateObservation.Kind.MISSING
@@ -344,6 +345,7 @@ private fun kind(kind: CandidateObservation.Kind): String = when (kind) {
 
 private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
     lines.add(Line(membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), Color.CYAN, true))
+    // The browser finds entries by source path (focusedEntry, entriesByPath), so the path is set.
     lines.add(Line("Source: " + literal(checkNotNull(entry.sourcePath).toString())))
     entry.configured?.let { r ->
         lines.add(Line("Saved target: " + literal(r.targetPath.toString())))
@@ -395,7 +397,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
             when {
                 entry.configured != null -> "Inspection only. Saved target and policies remain authoritative."
                 entry.draft != null -> "Target and policies remain editable in Row details."
-                canAdd(entry, draft) -> "Adding uses a matching target path and Default (prompt) policies."
+                draft.canAdd(entry) -> "Adding uses a matching target path and Default (prompt) policies."
                 else -> "Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."
             },
         ),

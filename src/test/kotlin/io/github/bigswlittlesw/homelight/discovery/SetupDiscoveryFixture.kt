@@ -19,7 +19,7 @@ class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
     val entered = CountDownLatch(1)
     val release = CountDownLatch(1)
     val reads = AtomicInteger()
-    val workers: MutableList<CandidateDiscovery> = ArrayList()
+    val workers = mutableListOf<CandidateDiscovery>()
     @Volatile var block = false
     var releaseFile: Path? = null
     var realTime = false

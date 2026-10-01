@@ -292,7 +292,7 @@ headings, no numeric line counters, and no duplicated/contradictory help.
 Repeat conflict → choose → review → cancel → confirm → results → revisit/replan,
 including preflight rejection and partial failure. Preserve in-sync hiding/c,
 draft/source context, explicit y, action following/manual inspection, Escape and
-safe deferred exit. Run focused render/key tests, the Java 25 full suite and real
+safe deferred exit. Run focused render/key tests, the full test suite and real
 PTY checks with the documented platform limitations.
 
 Passing tests do not constitute UX acceptance. The user accepted the polished

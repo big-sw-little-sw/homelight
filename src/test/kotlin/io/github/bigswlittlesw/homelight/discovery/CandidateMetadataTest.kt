@@ -159,7 +159,7 @@ class CandidateMetadataTest {
             assertEquals(Ownership.NOT_EVALUATED, result.ownership)
         }
         private fun assertReason(result: CandidateObservation, reason: Reason) {
-            assertTrue(result.diagnostics.stream().anyMatch { d -> d.reason == reason }, result.toString())
+            assertTrue(result.diagnostics.any { d -> d.reason == reason }, result.toString())
         }
     }
 }

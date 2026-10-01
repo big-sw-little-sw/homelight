@@ -4,6 +4,9 @@ Agreed 2026-09-30. This file owns the step sequence and status. GitHub issues ow
 ticket scope. Decisions are recorded in `docs/decisions.md`; the evidence for the
 Java and distribution decisions is in `research/native-image-spike.md`.
 
+Notes under `docs/research/` predate the Kotlin migration (step 4c); their Java,
+Maven and YAML references are historical.
+
 Resume any step from this file alone: read the step, its done-when, and the status
 line, then continue. Update the status line when a step's state changes.
 
@@ -139,37 +142,43 @@ recorded reason in `docs/decisions.md` for not adopting it.
 
 Status: superseded (PR #39 closed).
 
-### 4c. Migrate to Kotlin and kotlinx.serialization (current)
+### 4c. Migrate to Kotlin and kotlinx.serialization
 
 Epic: #40. Each phase is a PR into the `kotlin-migration` branch (created from
 `main` at `3ca5481`); the orchestrator merges those after the 7 CI checks pass. The
 user merges `kotlin-migration` into `main`. Mechanical phases (K1–K5) do not change
 behavior; the Java tests guard behavior until K5.
 
-- K0: tickets and docs.
+- K0: tickets and docs. Done (PR #50).
 - K1 (#41): Maven to Gradle Kotlin DSL, Java sources unchanged; CI and `ci/native`
-  scripts updated.
-  Native CI jobs run only on pushes, PRs into `main` and PRs labeled `native`.
-- K2 (#42): add Kotlin; convert `domain`, `fs`, `config` main code.
-- K3 (#43): convert `reconcile`, `discovery`, `application` main code.
-- K4 (#44): convert `cli`, `tui` main code.
-- K5 (#45): convert tests to Kotlin.
-- K6 (#46): idiomatic Kotlin pass; JSON output via kotlinx.serialization,
-  byte-identical.
+  scripts updated. Native CI jobs run only on pushes, PRs into `main` and PRs
+  labeled `native`. Done (PR #51).
+- K2 (#42): add Kotlin; convert `domain`, `fs`, `config` main code. Done (PR #52).
+- K3 (#43): convert `reconcile`, `discovery`, `application` main code. Done (PR #53).
+- K4 (#44): convert `cli`, `tui` main code; picocli metadata generated from the
+  compiled classes. Done (PR #54).
+- K5 (#45): convert tests to Kotlin. Done (PRs #55, #56).
+- K6 (#46): Kotlin conventions in `AGENTS.md` (PR #57); idiomatic Kotlin pass
+  (PRs #58, #59, #60); JSON output via kotlinx.serialization, byte-identical except
+  lower-case control-character escapes (PR #61). Done.
 - K6b (#49): configuration and candidate lists from YAML to JSON; snakeyaml removed.
-- K7 (#47): Kotlin conventions in `AGENTS.md`/`CLAUDE.md`, final review, PR to `main`.
+  Done (PR #62).
+- K7 (#47): final review and cleanup (PR #67); `kotlin-migration` → `main` PR open.
 
 Done when: the user merges `kotlin-migration` into `main` with all 7 checks green
 and both native binaries working.
 
-Status: K0 in progress. Steps 5–9 follow the migration.
+Status: done except the final merge, which the user performs. Steps 5–9 work on the
+Kotlin codebase: conventions in `AGENTS.md`, build with `./gradlew build`,
+configuration in `~/.homelight.json`.
 
 ### 5. Cloud setup (user performs account steps)
 
 - Install the Claude GitHub App on the repo.
-- Create a cloud environment: setup script installs a JDK and runs the Gradle
-  wrapper (after step 4c); network
-  allowlist includes `central.sonatype.com`.
+- Create a cloud environment: setup script installs a JDK 25 and runs
+  `./gradlew build` (the wrapper downloads Gradle and Kotlin); network allowlist
+  includes `services.gradle.org`, `plugins.gradle.org`, Maven Central and
+  `central.sonatype.com`.
 - Create labels: `in-progress`, `needs-human`, `ready-for-review` (the canonical
   triage labels already exist, see `docs/agents/triage-labels.md`).
 
@@ -180,7 +189,7 @@ Status: not started.
 ### 6. Pilot worker: #25
 
 - Start one cloud session on #25: directory permission preservation per the decision.
-  Follows the migration (step 4c); implemented in Kotlin.
+  Follows the migration (step 4c); implemented in Kotlin under `AGENTS.md`.
 - CI verifies on Linux; the user reviews and merges.
 
 Done when: #25 is merged and closed; any friction in the worker path is fixed.

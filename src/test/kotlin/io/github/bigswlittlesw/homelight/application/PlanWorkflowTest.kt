@@ -63,8 +63,8 @@ class PlanWorkflowTest {
 
         assertEquals(PlanBadge.MIGRATE, item.badge())
         assertEquals(RelocationOutcome.CONVERGED, item.plan.outcome)
-        assertTrue(item.plan.actions.stream().anyMatch(ReconciliationAction.MigrateDirectoryForPublication::class.java::isInstance))
-        assertTrue(item.plan.actions.stream().anyMatch(ReconciliationAction.ReplaceDirectoryWithSymlink::class.java::isInstance))
+        assertTrue(item.plan.actions.any { it is ReconciliationAction.MigrateDirectoryForPublication })
+        assertTrue(item.plan.actions.any { it is ReconciliationAction.ReplaceDirectoryWithSymlink })
         assertTrue(item.hasDestructiveActions())
         assertFalse(item.hasConflict())
 
@@ -110,7 +110,7 @@ class PlanWorkflowTest {
         assertTrue(session.hasConflicts())
         assertFalse(session.isPlanReady())
 
-        session.resolveDecision(item.relocation, DecisionChoice.ADOPT_TARGET)
+        session.choose(item.relocation.sourcePath, DecisionChoice.ADOPT_TARGET)
 
         assertFalse(session.hasConflicts())
         assertTrue(session.isPlanReady())
@@ -120,7 +120,7 @@ class PlanWorkflowTest {
 
         assertEquals(PlanBadge.LINK, resolvedItem.badge())
         assertEquals(RelocationOutcome.CONVERGED, resolvedItem.plan.outcome)
-        assertTrue(resolvedItem.plan.actions.stream().anyMatch(ReconciliationAction.CreateSymlink::class.java::isInstance))
+        assertTrue(resolvedItem.plan.actions.any { it is ReconciliationAction.CreateSymlink })
 
         // Filesystem still untouched
         assertFalse(Files.exists(source))
@@ -161,13 +161,13 @@ class PlanWorkflowTest {
         assertTrue(resolutions.contains(DecisionChoice.DISCARD_BOTH))
 
         // Resolve with ADOPT_AND_ARCHIVE_SOURCE
-        session.resolveDecision(item.relocation, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
+        session.choose(item.relocation.sourcePath, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertTrue(session.isPlanReady())
 
         val planModel = session.planModel() as PlanModel.Configured
         val resolvedItem = planModel.items.first()
         assertEquals(PlanBadge.BACKUP, resolvedItem.badge())
-        assertTrue(resolvedItem.plan.actions.stream().anyMatch(ReconciliationAction.ArchiveDirectory::class.java::isInstance))
+        assertTrue(resolvedItem.plan.actions.any { it is ReconciliationAction.ArchiveDirectory })
     }
 
     @Test
@@ -191,7 +191,7 @@ class PlanWorkflowTest {
         val session = HomeLightSession(config)
         val item = (session.planModel() as PlanModel.Configured).items.first()
 
-        session.resolveDecision(item.relocation, DecisionChoice.DISCARD_BOTH)
+        session.choose(item.relocation.sourcePath, DecisionChoice.DISCARD_BOTH)
         val planModel = session.planModel() as PlanModel.Configured
         val resolvedItem = planModel.items.first()
 

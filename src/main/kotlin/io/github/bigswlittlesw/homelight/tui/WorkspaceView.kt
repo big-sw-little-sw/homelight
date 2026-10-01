@@ -85,7 +85,7 @@ internal object WorkspaceView {
         master.selected(selected)
         val hidden = configured.items.size - items.size
         if (hidden > 0) master.add(Toolkit.text("$hidden in sync hidden").gray())
-        val lines = ArrayList<Line>()
+        val lines = mutableListOf<Line>()
         var anchor = 0
         if (item == null) lines.add(Line("No configured relocations."))
         else anchor = details(session, item, choice, focus, lines, retained)
