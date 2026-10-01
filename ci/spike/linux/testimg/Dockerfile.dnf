@@ -1,3 +1,0 @@
-ARG BASE
-FROM ${BASE}
-RUN dnf install -y expect procps-ng time binutils file ncurses-term findutils diffutils && (dnf install -y hyperfine || true) && dnf clean all

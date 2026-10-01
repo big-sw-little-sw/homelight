@@ -7,13 +7,15 @@ Outcome: it works on macOS and Linux (x86_64, arm64). HomeLight stays on Java.
 See [roadmap](../roadmap.md) for the resulting plan and `docs/decisions.md` for
 the recorded decisions.
 
-Reproduction material is in `ci/spike/` (see its README). The spike's code
-changes are in `ci/spike/patch/`; none are merged.
+The spike's one-off scripts were replaced by CI in roadmap step 4: the `native`
+Maven profile in `pom.xml`, metadata in `src/main/resources/META-INF/native-image/`,
+and the build and test scripts in `ci/native/`. The original spike material
+(`ci/spike/`) is in git history before step 4.
 
 ## Toolchain
 
 - Oracle GraalVM 25.0.3 (GFTC licence). Community Edition was not tested.
-- `native-maven-plugin` 1.1.8, `native` Maven profile (`ci/spike/patch/tracked.diff`).
+- `native-maven-plugin` 1.1.8, `native` Maven profile (now in `pom.xml`).
 - Build args: `--no-fallback`, `-H:+ReportExceptionStackTraces`,
   `--enable-native-access=ALL-UNNAMED` (silences JLine's JNI `System::load` warning).
 - Linux adds `--static-nolibc -march=compatibility` (glibc) or
