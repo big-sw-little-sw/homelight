@@ -10,9 +10,9 @@ import java.util.concurrent.Callable
 /** Opens manual creation for a missing configuration; it never edits an existing file. */
 @Command(name = "init", description = ["Create a new configuration through the interactive setup."])
 internal class InitCommand : Callable<Int> {
-    @field:ParentCommand private var parent: HomeLightCommand? = null
+    @field:ParentCommand private lateinit var parent: HomeLightCommand
     @field:Spec private lateinit var spec: CommandSpec
 
     override fun call(): Int =
-        TuiLauncher.launchInit(parent!!.config(), parent!!.debugStepDelayMillis(), spec.commandLine().err)
+        TuiLauncher.launchInit(parent.config, parent.debugStepDelayMillis, spec.commandLine().err)
 }

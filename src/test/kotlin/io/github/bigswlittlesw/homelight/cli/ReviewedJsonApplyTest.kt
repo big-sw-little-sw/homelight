@@ -171,7 +171,7 @@ class ReviewedJsonApplyTest {
         completion.obtrudeException(AssertionError("exceptional completion"))
         val output = StringWriter()
 
-        assertEquals(1, ApplyCommand.renderCompletion(execution, PrintWriter(output, true)))
+        assertEquals(1, renderCompletion(execution, PrintWriter(output, true)))
         assertEquals(listOf("false"), values(output.toString(), "succeeded"))
         assertTrue(output.toString().contains("\"diagnostics\":[\"retained worker diagnostic\"]"))
         val statuses = values(output.toString(), "status")
@@ -191,7 +191,7 @@ class ReviewedJsonApplyTest {
         completion.obtrudeException(AssertionError("exceptional completion after mutation"))
         val output = StringWriter()
 
-        assertEquals(1, ApplyCommand.renderCompletion(execution, PrintWriter(output, true)))
+        assertEquals(1, renderCompletion(execution, PrintWriter(output, true)))
         assertEquals(listOf("false"), values(output.toString(), "succeeded"))
         assertTrue(values(output.toString(), "status").containsAll(listOf("completed", "failed", "pending")))
         assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
@@ -209,7 +209,7 @@ class ReviewedJsonApplyTest {
         val output = StringWriter()
 
         val thrown = assertThrows(CompletionException::class.java) {
-            ApplyCommand.renderCompletion(execution, PrintWriter(output, true))
+            renderCompletion(execution, PrintWriter(output, true))
         }
         assertSame(cause, thrown.cause)
         assertEquals("", output.toString())
