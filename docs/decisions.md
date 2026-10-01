@@ -102,6 +102,12 @@ A Claude Code routine acts as coordinator; worker agents run as cloud sessions, 
 
 Rejected: running agents in GitHub Actions. Long agent sessions would consume private-repo Actions minutes and require a Claude credential stored as a repository secret.
 
+## 2026-09-30: Relax candidate-list strictness
+
+Candidate lists keep the protections that matter for shared, untrusted input: size, nesting depth, string length, record count and alias limits, and rejection of unknown and duplicate keys. Exact YAML tag checks, the single-document rule and format-specific error wording are no longer requirements. Scalars read as text, and null, empty or blank values count as absent.
+
+This lets configuration and candidate lists share one reader, and allows a standard binding library (Jackson, roadmap step 4b) to replace hand-written parsing.
+
 ## How to add decisions
 
 Use this format:
