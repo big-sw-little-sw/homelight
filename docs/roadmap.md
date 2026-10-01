@@ -163,7 +163,7 @@ behavior; the Java tests guard behavior until K5.
   lower-case control-character escapes (PR #61). Done.
 - K6b (#49): configuration and candidate lists from YAML to JSON; snakeyaml removed.
   Done (PR #62).
-- K7 (#47): final review and cleanup (PR K7_PR); `kotlin-migration` → `main` PR open.
+- K7 (#47): final review and cleanup (PR #67); `kotlin-migration` → `main` PR open.
 
 Done when: the user merges `kotlin-migration` into `main` with all 7 checks green
 and both native binaries working.
