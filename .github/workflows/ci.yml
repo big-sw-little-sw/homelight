@@ -55,11 +55,13 @@ jobs:
           name: homelight-linux-${{ matrix.arch }}
           path: dist/homelight
           if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@v7
         with:
           name: jvm-reference-${{ matrix.arch }}
           path: dist/jvm-reference.txt
           if-no-files-found: error
+          retention-days: 3
 
   native-test:
     name: Native test (${{ matrix.arch }})
@@ -110,6 +112,7 @@ jobs:
             results/screens.txt
             results/*.log
             results/native-transcript.txt
+          retention-days: 3
 
   native-distros:
     name: Native distros (${{ matrix.arch }})
