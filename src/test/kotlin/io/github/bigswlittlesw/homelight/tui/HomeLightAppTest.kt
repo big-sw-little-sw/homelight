@@ -260,8 +260,8 @@ class HomeLightAppTest {
         // Repeated frames with two running steps keep following the first, rather than alternating.
         app.render()
         assertEquals(0, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         app.render()
         assertEquals(2, app.selectedIndex())
 
