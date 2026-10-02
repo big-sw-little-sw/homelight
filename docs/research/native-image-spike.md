@@ -36,6 +36,47 @@ Metadata: `src/main/resources/META-INF/native-image/.../reachability-metadata.js
 log4j, JFR noise). Metadata gaps show up only on paths the tracing run did not
 exercise, so CI must smoke-test error paths natively.
 
+### Metadata audit (#71, 2026-10-01)
+
+The file now holds only three resource globs: `candidates.json`,
+`version.properties` and TamboUI's `dev/tamboui/tui/bindings/*.properties`.
+TamboUI ships no metadata, and Native Image needs explicit resource entries. CI
+covers each glob: setup discovery, `--version`, and every TUI run.
+
+All reflection entries and the `BackendProvider` service file were removed:
+
+- `sun.misc.Signal`, `SignalHandler` and the proxy: the plugin's reachability
+  metadata repository provides them, and the native-image analysis also infers
+  them from JLine's constant arguments. A build with the repository disabled
+  still caught SIGWINCH. CI covers this path through the resize checks.
+- `System.console`: picocli's TTY check looks it up with constant arguments,
+  which the analysis registers. CI covers it through the `--help` steps of the
+  CLI comparison. A failed lookup would add ANSI codes to the output.
+- JNI `Boolean.getBoolean`: tracing-agent noise. Only libnet's `JNI_OnLoad`
+  calls it, and HomeLight does no networking. JLine's native library does not
+  call it.
+- `JLineBackendProvider` and its service file: `TuiLauncher` constructs
+  `JLineBackend` directly, so TamboUI's `BackendFactory` never loads providers.
+
+Method: an audit build with `-H:ThrowMissingRegistrationErrors=` and
+`-R:MissingRegistrationReportingMode=Warn` ran the full native suite, the noexec
+`/tmp` case and a TUI run with the JNI provider forced. The only warnings came
+from picocli's strict-mode field queries, which the default mode does not need.
+The arm64 binary shrank from 28,458,920 to 28,393,384 bytes.
+
+The metadata repository version comes from the plugin version, which is
+pinned: plugin 1.1.8 resolves repository 1.0.9 from Maven Central. JLine
+3.25.1 is not a tested version in that repository, so the plugin applies the
+entry marked `latest`, which is 3.21.0. No separate pin is configured.
+
+The plugin's agent mode (`-Pagent test`) was not adopted. It produced 52 KB of
+metadata, mostly JUnit and test-only reflection. It also cannot exercise the
+TUI on a real terminal.
+
+With `-Dorg.jline.terminal.provider=jni`, the native TUI works but leaves
+`stty -g` changed after exit. The same happens with the old metadata, so it is
+not a metadata gap. Native builds use the exec provider by default.
+
 ## JLine terminal providers
 
 - Default JNI provider extracts `libjlinenative` into `java.io.tmpdir` on every launch.
