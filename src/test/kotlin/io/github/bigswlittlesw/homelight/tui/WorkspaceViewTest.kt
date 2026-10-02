@@ -32,8 +32,11 @@ class WorkspaceViewTest {
         val session = HomeLightSession(fixture(temporary))
         val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
         val summary = WorkspaceView.summary(model.items)
-        assertEquals("6 relocations · ⚡ 3 actionable · ⚠ 1 conflict · ✖ 0 blocked\n✔ 1 in sync · ─ 1 unchanged", summary.first())
-        assertTrue(summary.last().contains("1 with warnings"), summary.toString())
+        assertEquals(
+            listOf(listOf("6 relocations", "⚡ 3 actionable", "⚠ 1 conflict", "✖ 0 blocked"), listOf("✔ 1 in sync", "─ 1 unchanged")),
+            summary.counts.map { row -> row.map { it.text } },
+        )
+        assertTrue(summary.risks.contains("1 with warnings"), summary.toString())
         assertEquals(5, WorkspaceView.visibleItems(model, false).size)
         assertEquals(6, WorkspaceView.visibleItems(model, true).size)
         val app = HomeLightApp(session)
@@ -45,7 +48,7 @@ class WorkspaceViewTest {
         assertTrue(result.succeeded())
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
         val refreshed = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
-        assertTrue(WorkspaceView.summary(refreshed.items).first().contains("5 in sync · ─ 1 unchanged"))
+        assertEquals(listOf("✔ 5 in sync", "─ 1 unchanged"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
         app.handleKeyEvent(KeyEvent.ofChar('2'))
         assertSame(result, session.applyModel())
         app.handleKeyEvent(KeyEvent.ofChar('r'))
