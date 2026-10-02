@@ -1,6 +1,6 @@
 # HomeLight
 
-HomeLight is a Java terminal application for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
+HomeLight is a Kotlin terminal application for relocating selected, bulky `$HOME` directories to machine-local storage while safely maintaining symlinks and declarative links.
 
 It is intended for space-constrained or shared home directories, including Linux systems using NFS-mounted home directories.
 
@@ -29,32 +29,54 @@ See the project requirements in [`docs/product-spec.md`](docs/product-spec.md), 
 
 ## Development
 
-The project uses Java 25 and Maven.
+The project uses Kotlin on a Java 25 toolchain and Gradle (Kotlin DSL) through the Gradle wrapper.
 
 ```text
-mvn test
+./gradlew build
 ```
 
-Run the CLI directly through Maven with `exec:java`:
+Run the JSON commands directly through Gradle:
 
 ```text
-mvn -q compile exec:java
-mvn -q compile exec:java -Dexec.args="status --config /path/to/.homelight.yaml --json"
-mvn -q compile exec:java -Dexec.args="plan --config /path/to/.homelight.yaml --json"
-mvn -q compile exec:java -Dexec.args="apply --config /path/to/.homelight.yaml --json --yes"
+./gradlew -q run --args="status --config /path/to/.homelight.json --json"
+./gradlew -q run --args="plan --config /path/to/.homelight.json --json"
+./gradlew -q run --args="apply --config /path/to/.homelight.json --json --yes"
 ```
 
-The repository launcher hides that Maven detail:
+`gradlew run` does not give the application the terminal, so the TUI needs the repository
+launcher. It installs the application with `installDist` and runs it:
 
 ```text
 ./homelight
 ./homelight status --json
 ./homelight plan
-./homelight plan --config /path/to/.homelight.yaml --json
-./homelight apply --config /path/to/.homelight.yaml --json --yes
+./homelight plan --config /path/to/.homelight.json --json
+./homelight apply --config /path/to/.homelight.json --json --yes
 ```
 
-The default configuration path is `~/.homelight.yaml`.
+The default configuration path is `~/.homelight.json`. `homelight init` writes it;
+hand-written files may use `//` and `/* */` comments and trailing commas:
+
+```json
+{
+  "homelight": {
+    "target-root": "/local/home/${USER}",
+    "discovery": {"shared-list": "/net/team/homelight/candidates.json"},
+    "relocations": [
+      // Target defaults to target-root plus the path under $HOME.
+      {"source-path": "~/.m2"},
+      {
+        "source-path": "~/.cache/uv",
+        "target-path": "/local/home/${USER}/uv",
+        "when-source-and-target-directories-exist": "discard"
+      }
+    ]
+  }
+}
+```
+
+Unknown and duplicate keys are rejected. Errors name the key path; malformed JSON,
+unknown or duplicate keys and wrong value types also give the line and column.
 
 `homelight apply` opens Plan for review. Press `a` or Enter to inspect the
 confirmation checklist, then `y` to apply that exact plan. `n` or Esc cancels

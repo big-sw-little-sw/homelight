@@ -1,0 +1,108 @@
+package io.github.bigswlittlesw.homelight.tui
+
+import dev.tamboui.backend.jline3.JLineBackend
+import dev.tamboui.terminal.Backend
+import dev.tamboui.toolkit.app.ToolkitRunner
+import dev.tamboui.toolkit.element.Element
+import dev.tamboui.tui.error.RenderErrorHandler
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import org.jline.terminal.Terminal
+import java.io.IOException
+import java.io.PrintWriter
+import java.nio.file.Path
+import java.util.function.Supplier
+
+internal const val NOT_INTERACTIVE = "HomeLight TUI requires an interactive terminal. Use --json for automation."
+internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb terminal. " +
+    "Set TERM to a terminal type such as xterm-256color, or use --json for automation."
+
+/**
+ * Launches the interactive TUI with error handling and terminal validation, and returns the exit code:
+ * 0 after a normal exit, 1 when the TUI fails, 2 when the terminal cannot run it.
+ */
+internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
+    terminalRefusal(System.console() != null, System.getenv("TERM"))?.let { refusal ->
+        errorOutput.println(refusal)
+        return 2
+    }
+    try {
+        HomeLightApp(HomeLightSession(configPath, debugStepDelayMillis), startSetup = startSetup).run()
+        return 0
+    } catch (_: DumbTerminalException) {
+        errorOutput.println(DUMB_TERMINAL)
+        return 2
+    } catch (exception: Exception) {
+        errorOutput.println("Failed to run HomeLight TUI: " + (exception.message ?: exception.toString()))
+        return 1
+    }
+}
+
+/** Opens manual setup only for a missing configuration; it never edits an existing file. */
+internal fun launchInit(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
+    val evaluation = ConfigurationEvaluation().load(configPath)
+    if (evaluation is ConfigurationEvaluation.Loaded || evaluation is ConfigurationEvaluation.Invalid) {
+        errorOutput.println("Configuration already exists or is unreadable; init only creates a missing configuration.")
+        return 1
+    }
+    return launchTui(configPath, debugStepDelayMillis, errorOutput, startSetup = true)
+}
+
+/** Returns why the TUI must not start, judged before any terminal is opened. */
+internal fun terminalRefusal(interactive: Boolean, term: String?): String? = when {
+    !interactive -> NOT_INTERACTIVE
+    isDumb(term) -> DUMB_TERMINAL
+    else -> null
+}
+
+internal fun runTui(app: HomeLightApp) {
+    val configured = app.configure()
+    // Propagate render failures through the same waiting/cleanup boundary. The toolkit's
+    // default error screen intercepts Escape before application navigation can handle it.
+    val builder = configured.toBuilder().errorHandler(RenderErrorHandler { error, _ ->
+        throw IllegalStateException("Unable to render HomeLight", error.cause())
+    })
+    if (configured.backend() == null) {
+        builder.backend(systemBackend())
+    }
+    ToolkitRunner.create(builder.build()).use { runner ->
+        try {
+            runner.run(Supplier<Element> {
+                val view = app.render()
+                if (app.exitRequested()) {
+                    runner.quit()
+                }
+                view
+            })
+        } finally {
+            app.closeSetup()
+            app.session.awaitExecution()
+        }
+    }
+}
+
+// TERM may be unset.
+private fun isDumb(terminalType: String?): Boolean =
+    Terminal.TYPE_DUMB == terminalType || Terminal.TYPE_DUMB_COLOR == terminalType
+
+/**
+ * Opens the system terminal, refusing the dumb terminal JLine falls back to when no provider works;
+ * it cannot render the TUI and would leave it waiting for input it never draws.
+ */
+private fun systemBackend(): Backend {
+    // The JNI provider extracts a library into java.io.tmpdir, which fails on a noexec /tmp, and
+    // build-time -D values do not reach a native image's runtime. An explicit -D still wins.
+    if (System.getProperty("org.graalvm.nativeimage.imagecode") == "runtime"
+        && System.getProperty("org.jline.terminal.provider") == null
+    ) {
+        System.setProperty("org.jline.terminal.provider", "exec")
+    }
+    val backend = JLineBackend()
+    if (isDumb(backend.jlineTerminal().type)) {
+        backend.close()
+        throw DumbTerminalException()
+    }
+    return backend
+}
+
+private class DumbTerminalException : IOException()

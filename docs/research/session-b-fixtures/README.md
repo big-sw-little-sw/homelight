@@ -4,6 +4,11 @@ These are inert inputs for [session B](../session-b-candidate-list-spec.md), not
 production definitions. Advice is illustrative. Future tests should copy inputs
 into temporary storage; never inspect or mutate real home/NFS directories.
 
+The fixtures were converted from YAML to JSON on 2026-10-01 (#49) with the same
+content. The root-level flat files keep the superseded directory-level `app` key
+as history and do not parse under the current schema. YAML-specific cases below
+(anchors, aliases, custom tags, two documents) no longer apply.
+
 Accepted #7b scope revision, 2026-09-23: discovery observes path metadata only.
 All candidate sizes are `not estimated`, with no byte value. B04/B05/B15 remain
 active; B06's measurement fixtures below are retained for a future separately
@@ -28,13 +33,13 @@ is pending; candidate-browser UI and B06 sizing remain outside this evidence.
 
 ## Catalog inputs and expected merge
 
-The adopted nested schema fixtures are [nested/bundled.yaml](nested/bundled.yaml),
-[nested/shared.yaml](nested/shared.yaml) and
-[nested/shared-refreshed.yaml](nested/shared-refreshed.yaml). The names and counts
+The adopted nested schema fixtures are [nested/bundled.json](nested/bundled.json),
+[nested/shared.json](nested/shared.json) and
+[nested/shared-refreshed.json](nested/shared-refreshed.json). The names and counts
 below refer to these adopted fixtures. They preserve all original occurrences,
 app associations and advice. Root-level flat versions are retained as historical
 evidence only, not an alternative accepted schema. The migrated B01–B03 tests
-consume the nested versions. `malformed.yaml` and `unsafe.yaml` remain applicable
+consume the nested versions. `malformed.json` and `unsafe.json` remain applicable
 unchanged. Current results are in the
 [migration evidence](../session-b-nested-migration-evidence.md).
 
@@ -45,18 +50,18 @@ must fail. Duplicate paths under different apps and also ungrouped must retain
 every occurrence, including omitted advice. Count records across all groups for
 limits; verify deterministic app-first flattened indices and structural locations.
 
-- `bundled.yaml`: six unique paths, three app labels plus ungrouped `datasets`.
-- `shared.yaml`: seven entries, of which `.m2` and normalized `.cache/uv` match
+- `bundled.json`: six unique paths, three app labels plus ungrouped `datasets`.
+- `shared.json`: seven entries, of which `.m2` and normalized `.cache/uv` match
   bundled entries. Combined view: eleven unique candidates, all initially
   unselected. `.m2` retains Maven/Build tools and opposing advice/reasons;
   `.cache/uv` retains uv/Python tools and both absent/consider advice occurrences.
-- `shared-refreshed.yaml`: replace shared snapshot at the same location. The
+- `shared-refreshed.json`: replace shared snapshot at the same location. The
   combined catalog has seven unique paths. Selected `team-cache` survives as a
   draft without current attribution; new `new-cache` is unselected. `.m2` keeps
   bundled advice; its former shared occurrence remains last-known provenance in
   any selected draft, not a current source assertion.
-- `malformed.yaml`: syntax error, reject the entire shared snapshot.
-- `unsafe.yaml`: structurally valid YAML with a safe record followed by traversal;
+- `malformed.json`: syntax error, reject the entire shared snapshot.
+- `unsafe.json`: structurally valid JSON with a safe record followed by traversal;
   reject the whole source, including `team-cache`. Bundled results still available.
 
 Run each valid catalog under symbolic fixture roots HOME_ROOT and OTHER_ROOT,
@@ -124,12 +129,12 @@ a large real dataset.
 | Shared path absent | Missing-source diagnostic; bundled candidates/manual save usable |
 | Shared open throws access denied | Unreadable-source diagnostic; no configuration mutation |
 | Shared location names a directory/FIFO | Reject non-regular input within response deadline |
-| `malformed.yaml` | Parse error with location; stale prior snapshot labelled if available |
-| `unsafe.yaml` | Source rejected, not partial acceptance |
+| `malformed.json` | Parse error with location; stale prior snapshot labelled if available |
+| `unsafe.json` | Source rejected, not partial acceptance |
 | Reader blocks beyond five seconds | Timed-out source; no event-loop block; no unlimited retry tasks |
 | Blocked reader completes after discard/root edit | Late generation ignored, discarded state not resurrected |
 | Reader fails after partial bytes | Reject new snapshot; do not parse a prefix |
-| Shared linked regular YAML | Read bounded contents; retain requested location provenance |
+| Shared linked regular JSON | Read bounded contents; retain requested location provenance |
 | Empty file / two documents / duplicate key | Schema or syntax error, not empty catalog |
 | `directories: []` | Successful empty snapshot; selections survive |
 | Input over byte/record/depth/string limit | Typed limit diagnostic |
@@ -161,7 +166,7 @@ retains both fields and gains both catalog attributions. Seed manual `datasets`
 with a custom target: Add must offer Edit rather than duplicate it. Seed an
 out-of-root configured entry and ensure it stays visible without rebasing.
 
-Select `team-cache`, edit its target and policy, then load `shared-refreshed.yaml`.
+Select `team-cache`, edit its target and policy, then load `shared-refreshed.json`.
 The row survives, its edits survive, `new-cache` remains unselected. Compare saved
 configuration bytes and reviewed-plan object/value identity before/after refresh.
 On shared failure retain stale source evidence. Clear/change the location and

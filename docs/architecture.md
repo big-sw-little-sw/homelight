@@ -2,11 +2,11 @@
 
 ## Architectural direction
 
-HomeLight should be a small Java library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
+HomeLight should be a small Kotlin library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
 
 The design should support future integrations without placing presentation, serialization, Git, or HTTP concerns in the reconciliation engine.
 
-Initially, use one Maven module with clear package boundaries. Split into Maven modules only when independent compilation, packaging, or dependency isolation becomes useful.
+Initially, use one Gradle module with clear package boundaries. Split into Gradle subprojects only when independent compilation, packaging, or dependency isolation becomes useful.
 
 ## Boundaries
 
@@ -44,10 +44,10 @@ application -> config, reconcile, fs
 reconcile -> domain
 fs -> domain
 config -> domain
-domain -> Java standard library only where practical
+domain -> Kotlin and JDK standard libraries only where practical
 ```
 
-The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete YAML implementation. JSON commands must not initialize or depend on a live terminal session.
+The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete configuration format. JSON commands must not initialize or depend on a live terminal session.
 
 ## Application workflow
 
@@ -59,7 +59,7 @@ Conflict resolution uses typed domain or application choices. Presentation code 
 
 ## Domain model
 
-Use records for pure data and sealed interfaces for genuinely closed concepts. The model should represent these separately:
+Use data classes for pure data and sealed types for genuinely closed concepts. The model should represent these separately:
 
 - desired configuration
 - resolved paths
@@ -88,15 +88,15 @@ Destructive actions must be marked explicitly. Symlink handling must avoid accid
 
 Use interfaces at real external boundaries, for example:
 
-```java
+```kotlin
 interface FileSystem {
-    ActualPathState inspect(Path path);
-    void execute(Action action);
+    fun inspect(path: Path): ActualPathState
+    fun execute(action: Action)
 }
 
 interface ConfigStore {
-    Configuration load(Path path);
-    void write(Path path, Configuration configuration);
+    fun load(path: Path): Configuration
+    fun write(path: Path, configuration: Configuration)
 }
 ```
 
@@ -111,12 +111,12 @@ GraalVM Native Image is a future packaging goal, not a reason to introduce a fra
 Prefer:
 
 - explicit object construction
-- standard Java APIs, especially `java.nio.file`
+- standard JDK APIs, especially `java.nio.file`
 - limited reflection
 - no runtime classpath scanning
 - no dependency injection container
 - no dynamic plugin loading in the initial design
-- isolated serializers and integration clients
+- compile-time serializers (kotlinx.serialization) and isolated integration clients
 - native-image verification early in the build lifecycle
 
 Third-party libraries are acceptable when they are isolated behind an adapter and their native-image behavior is verified. Configuration serialization should remain behind `ConfigStore` so its implementation can be changed without affecting the domain or CLI.

@@ -73,7 +73,7 @@ The selected relocation should answer these questions without repeated metadata:
    `Current: Source and target are directories.` Keep meaningful link, inaccessible
    and missing-path exceptions explicit.
 2. What saved policy applies to this observed case? Show the relevant branch in
-   plain language, not all YAML keys or policy branches.
+   plain language, not all configuration keys or policy branches.
 3. What draft choice is selected? Label it unsaved; show saved policy separately.
 4. What is the expected outcome and consequence? State destructive effects
    explicitly, for example: `Keep target contents; delete the source directory
@@ -292,7 +292,7 @@ headings, no numeric line counters, and no duplicated/contradictory help.
 Repeat conflict → choose → review → cancel → confirm → results → revisit/replan,
 including preflight rejection and partial failure. Preserve in-sync hiding/c,
 draft/source context, explicit y, action following/manual inspection, Escape and
-safe deferred exit. Run focused render/key tests, the Java 25 full suite and real
+safe deferred exit. Run focused render/key tests, the full test suite and real
 PTY checks with the documented platform limitations.
 
 Passing tests do not constitute UX acceptance. The user accepted the polished

@@ -5,12 +5,12 @@ fixture_root="$(mktemp -d "${TMPDIR:-/tmp}/homelight-smoke.XXXXXX")"
 fixture_root="$(cd "$fixture_root" && pwd -P)"
 home_root="$fixture_root/home"
 target_root="$fixture_root/local"
-config_path="$fixture_root/config.yaml"
+config_path="$fixture_root/config.json"
 first_run_root="$fixture_root/first-run"
-first_run_config="$first_run_root/new/config.yaml"
+first_run_config="$first_run_root/new/config.json"
 first_run_source="$first_run_root/home/manual-cache"
 first_run_target="$first_run_root/local/manual-cache"
-candidate_list="$first_run_root/shared.yaml"
+candidate_list="$first_run_root/shared.json"
 
 mkdir -p "$home_root/stage-cache/nested" \
   "$home_root/adopt-cache" "$target_root/adopt-cache" \
@@ -36,48 +36,58 @@ printf 'manual setup entry\n' > "$first_run_source/entry"
 mkdir -p "$first_run_root/home/.m2" "$first_run_root/home/.cache/uv" \
   "$first_run_root/home/.local/share/uv/tools" "$first_run_root/home/team-cache" \
   "$first_run_root/home/quiet-cache"
-printf '%s\n' \
-  'apps:' \
-  '  - name: Team build tools' \
-  '    directories:' \
-  '      - path: .m2' \
-  '        advice: usually-unnecessary' \
-  '        reason: Fixture advice conflicts with the bundled recommendation.' \
-  '      - path: .cache/uv' \
-  '        reason: Omitted advice remains distinct from the bundled recommendation.' \
-  'directories:' \
-  '  - path: team-cache' \
-  '    advice: consider' \
-  '    reason: Select this fixture directory, edit its target, then refresh.' \
-  '  - path: quiet-cache' \
-  '    advice: usually-unnecessary' \
-  '    reason: Reveal this directory explicitly; advice does not establish safety.' \
-  > "$candidate_list"
-printf '%s\n' 'directories:' '  - path: new-cache' > "$first_run_root/shared-refreshed.yaml"
+cat > "$candidate_list" <<'EOF'
+{
+  "apps": [
+    {
+      "name": "Team build tools",
+      "directories": [
+        {"path": ".m2", "advice": "usually-unnecessary", "reason": "Fixture advice conflicts with the bundled recommendation."},
+        {"path": ".cache/uv", "reason": "Omitted advice remains distinct from the bundled recommendation."}
+      ]
+    }
+  ],
+  "directories": [
+    {"path": "team-cache", "advice": "consider", "reason": "Select this fixture directory, edit its target, then refresh."},
+    {"path": "quiet-cache", "advice": "usually-unnecessary", "reason": "Reveal this directory explicitly; advice does not establish safety."}
+  ]
+}
+EOF
+printf '%s\n' '{"directories": [{"path": "new-cache"}]}' > "$first_run_root/shared-refreshed.json"
 
-printf '%s\n' \
-  'homelight:' \
-  "  target-root: $target_root" \
-  "  staging-root: $target_root/.homelight-staging" \
-  '  relocations:' \
-  "    - source-path: $home_root/converged-cache" \
-  "      target-path: $target_root/converged-cache" \
-  "    - source-path: $home_root/stage-cache" \
-  "      target-path: $target_root/stage-cache" \
-  "    - source-path: $home_root/adopt-cache" \
-  "      target-path: $target_root/adopt-cache" \
-  '      when-source-and-target-directories-exist: adopt' \
-  '      when-adopting-target: discard-source' \
-  "    - source-path: $home_root/leave-unchanged-cache" \
-  "      target-path: $target_root/leave-unchanged-cache" \
-  '      when-source-and-target-directories-exist: leave-unchanged' \
-  "    - source-path: $home_root/discard-cache" \
-  "      target-path: $target_root/discard-cache" \
-  '      when-source-and-target-directories-exist: discard' \
-  "    - source-path: $home_root/conflict-cache" \
-  "      target-path: $target_root/conflict-cache" \
-  '      when-source-and-target-directories-exist: prompt' \
-  > "$config_path"
+cat > "$config_path" <<EOF
+{
+  "homelight": {
+    "target-root": "$target_root",
+    "staging-root": "$target_root/.homelight-staging",
+    "relocations": [
+      {"source-path": "$home_root/converged-cache", "target-path": "$target_root/converged-cache"},
+      {"source-path": "$home_root/stage-cache", "target-path": "$target_root/stage-cache"},
+      {
+        "source-path": "$home_root/adopt-cache",
+        "target-path": "$target_root/adopt-cache",
+        "when-source-and-target-directories-exist": "adopt",
+        "when-adopting-target": "discard-source"
+      },
+      {
+        "source-path": "$home_root/leave-unchanged-cache",
+        "target-path": "$target_root/leave-unchanged-cache",
+        "when-source-and-target-directories-exist": "leave-unchanged"
+      },
+      {
+        "source-path": "$home_root/discard-cache",
+        "target-path": "$target_root/discard-cache",
+        "when-source-and-target-directories-exist": "discard"
+      },
+      {
+        "source-path": "$home_root/conflict-cache",
+        "target-path": "$target_root/conflict-cache",
+        "when-source-and-target-directories-exist": "prompt"
+      }
+    ]
+  }
+}
+EOF
 
 printf 'Smoke fixture: %s\n' "$fixture_root"
 printf 'Configuration: %s\n\n' "$config_path"
@@ -94,14 +104,14 @@ printf '  Space or a adds the focused [ ] directory directly in the list; [x] me
 printf '  e edits an existing draft row. Enter still inspects; app headings never add children.\n'
 printf '  u reveals/hides usually-unnecessary directories. In-draft rows remain visible.\n'
 printf '  Add team-cache, edit its target, then replace the temporary list and press r in the browser:\n'
-printf '    cp %q %q\n' "$first_run_root/shared-refreshed.yaml" "$candidate_list"
+printf '    cp %q %q\n' "$first_run_root/shared-refreshed.json" "$candidate_list"
 printf '  The selected row and edits remain, with historical attribution. i shows full source diagnostics.\n'
 printf '  Esc steps back to the table. e edits locations; q confirms discard. v validates; s saves.\n'
 printf '  Save creates only %s and opens the workspace. Press 2 to review, Esc to cancel;\n' "$first_run_config"
 printf '  no relocation is applied until lowercase y confirms a reviewed plan.\n'
 printf '  For this candidate walkthrough, exit with q from Workspace without applying.\n'
-printf '  To verify cancellation instead, run ./homelight status --config %q, press i, then Esc;\n' "$first_run_root/cancel.yaml"
-printf '  test ! -e %q\n\n' "$first_run_root/cancel.yaml"
+printf '  To verify cancellation instead, run ./homelight status --config %q, press i, then Esc;\n' "$first_run_root/cancel.json"
+printf '  test ! -e %q\n\n' "$first_run_root/cancel.json"
 printf 'Top-level command (opens Status):\n'
 printf '  ./homelight --config %q\n' "$config_path"
 printf '\nIndividual TUI commands (apply opens Plan for review):\n'
@@ -128,7 +138,7 @@ printf '  ./homelight status --config %q --json\n' "$config_path"
 printf '  ./homelight plan --config %q --json\n' "$config_path"
 printf '  ./homelight apply --config %q --json --yes\n' "$config_path"
 printf '  The fresh fixture deliberately has an unresolved conflict; JSON apply refuses it.\n'
-printf '  --yes does not resolve decisions. TUI choices are session-local, not saved to YAML.\n'
+printf '  --yes does not resolve decisions. TUI choices are session-local, not saved to the configuration.\n'
 printf '\nAfter apply, verify converged staged publication:\n'
 printf '  test -d %q && test -f %q && test -L %q && test "$(readlink %q)" = %q\n' \
   "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache" \
