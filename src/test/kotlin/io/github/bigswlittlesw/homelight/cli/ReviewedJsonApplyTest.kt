@@ -82,9 +82,10 @@ class ReviewedJsonApplyTest {
     @Test
     fun partialFailureKeepsCompletedFailedAndPendingEvidence() {
         val root = directory.toRealPath()
-        Files.createDirectories(root.resolve("home/second"))
+        // The targets' parent, `local/data`, is missing, so every relocation claims it and they run in plan order.
+        Files.createDirectories(root.resolve("home/data/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "data/first", "data/second", "data/third")
         val result = execute(config, Executor { task ->
             write(staging, "not a directory")
             task.run()
@@ -95,11 +96,11 @@ class ReviewedJsonApplyTest {
         assertTrue(values(result.output, "status").containsAll(listOf("completed", "failed", "pending")))
         assertEquals(listOf("converged", "unresolved", "unresolved"), values(result.output, "outcome"))
         assertFalse(result.output.contains("diagnostics"))
-        assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
-        assertTrue(Files.isDirectory(root.resolve("home/second")))
-        assertFalse(Files.isSymbolicLink(root.resolve("home/second")))
-        assertTrue(Files.notExists(root.resolve("home/third")))
-        assertTrue(Files.notExists(root.resolve("local/third")))
+        assertTrue(Files.isSymbolicLink(root.resolve("home/data/first")))
+        assertTrue(Files.isDirectory(root.resolve("home/data/second")))
+        assertFalse(Files.isSymbolicLink(root.resolve("home/data/second")))
+        assertTrue(Files.notExists(root.resolve("home/data/third")))
+        assertTrue(Files.notExists(root.resolve("local/data/third")))
         assertEquals("", result.error)
     }
 
@@ -187,9 +188,10 @@ class ReviewedJsonApplyTest {
     @Test
     fun exceptionalCompletionPreservesEvidenceAfterPartialMutation() {
         val root = directory.toRealPath()
-        Files.createDirectories(root.resolve("home/second"))
+        // The targets' parent, `local/data`, is missing, so every relocation claims it and they run in plan order.
+        Files.createDirectories(root.resolve("home/data/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "data/first", "data/second", "data/third")
         val execution = ReviewedExecution(ConfigurationEvaluation().loadRequired(config).plan)
         Files.writeString(staging, "not a directory")
         val completion = execution.start(Runnable::run)
@@ -199,8 +201,8 @@ class ReviewedJsonApplyTest {
         assertEquals(1, renderCompletion(execution, PrintWriter(output, true)))
         assertEquals(listOf("false"), values(output.toString(), "succeeded"))
         assertTrue(values(output.toString(), "status").containsAll(listOf("completed", "failed", "pending")))
-        assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
-        assertTrue(Files.notExists(root.resolve("home/third")))
+        assertTrue(Files.isSymbolicLink(root.resolve("home/data/first")))
+        assertTrue(Files.notExists(root.resolve("home/data/third")))
     }
 
     @Test

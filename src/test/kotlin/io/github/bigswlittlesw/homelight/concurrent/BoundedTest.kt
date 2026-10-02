@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.concurrent
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -70,6 +71,32 @@ class BoundedTest {
         }
         assertEquals(5, done.get())
         assertEquals(listOf("item 1"), failures.map { it.message })
+    }
+
+    @Test fun interruptedCallerStillWaitsForEveryItemAndKeepsItsInterrupt() {
+        val started = CountDownLatch(2)
+        val release = CountDownLatch(1)
+        val finished = AtomicInteger()
+        val finishedAtReturn = AtomicInteger(-1)
+        val interruptedAtReturn = AtomicBoolean()
+        val caller = Thread.ofPlatform().start {
+            forEachBounded(listOf(0, 1), 2, { false }) {
+                started.countDown()
+                assertTrue(release.await(5, TimeUnit.SECONDS))
+                finished.incrementAndGet()
+            }
+            finishedAtReturn.set(finished.get())
+            interruptedAtReturn.set(Thread.currentThread().isInterrupted)
+        }
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+        caller.interrupt()
+        Thread.sleep(100)
+        assertTrue(caller.isAlive, "returned before its items finished")
+        release.countDown()
+        caller.join(5_000)
+        assertFalse(caller.isAlive)
+        assertEquals(2, finishedAtReturn.get())
+        assertTrue(interruptedAtReturn.get())
     }
 
     @Test fun emptyBatchReturnsAndNonPositiveBoundIsRejected() {

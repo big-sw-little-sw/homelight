@@ -35,12 +35,14 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
      * Schedules at most once, returning the same completion on every subsequent call.
      * The terminal snapshot is published before completion settles, including scheduling rejection.
      */
-    @Synchronized
     fun start(worker: Executor): CompletableFuture<Void?> {
-        completion?.let { return it }
-        val completion = CompletableFuture<Void?>()
-        this.completion = completion
-        snapshot = ApplyModel.Running.of(plan, pendingSteps(plan))
+        val completion = synchronized(this) {
+            this.completion?.let { return it }
+            snapshot = ApplyModel.Running.of(plan, pendingSteps(plan))
+            CompletableFuture<Void?>().also { this.completion = it }
+        }
+        // Scheduled outside the monitor: a direct executor (the CLI's) runs the plan on this thread, and relocation
+        // threads publish progress through the monitor, so holding it here would deadlock a concurrent plan.
         try {
             worker.execute {
                 try {

@@ -32,7 +32,8 @@ internal const val RELOCATION_CONCURRENCY = 2
  *   handler; callers that need outcomes record them inside [work].
  *
  * The caller's thread blocks until the last item returns, so a caller that must stay responsive runs this on a
- * thread of its own.
+ * thread of its own. The wait ignores interrupts: an interrupted caller still waits for every item, so no worker
+ * outlives this call, and this call then re-sets the caller's interrupt flag. Interrupts never reach the workers.
  */
 internal fun <T> forEachBounded(items: List<T>, n: Int, cancelled: () -> Boolean, work: (T) -> Unit) {
     require(n > 0) { "Concurrency must be positive" }
@@ -51,5 +52,16 @@ internal fun <T> forEachBounded(items: List<T>, n: Int, cancelled: () -> Boolean
             }
         }
     }
-    threads.forEach(Thread::join)
+    var interrupted = false
+    for (thread in threads) {
+        while (true) {
+            try {
+                thread.join()
+                break
+            } catch (_: InterruptedException) {
+                interrupted = true
+            }
+        }
+    }
+    if (interrupted) Thread.currentThread().interrupt()
 }
