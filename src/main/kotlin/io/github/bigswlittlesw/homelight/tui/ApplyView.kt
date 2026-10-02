@@ -146,7 +146,7 @@ internal object ApplyView {
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))
         val relocation = step.relocation.relocation
         if (action.path != relocation.sourcePath) add(DetailViewport.Line("Source: " + relocation.sourcePath))
-        if (action.path != relocation.targetPath && destinationPath(action) != relocation.targetPath) {
+        if (action.path != relocation.targetPath && action.destination != relocation.targetPath) {
             add(DetailViewport.Line("Target: " + relocation.targetPath))
         }
     }
@@ -163,26 +163,18 @@ internal object ApplyView {
         is ReconciliationAction.Blocked -> "Blocked path: "
     } + action.path
 
-    fun destination(action: ReconciliationAction): String = when (action) {
-        is ReconciliationAction.ArchiveDirectory -> "Archive: " + action.target
-        is ReconciliationAction.MigrateDirectoryForPublication -> "Publish to: " + action.target
-        is ReconciliationAction.CreateSymlink -> "Link to: " + action.target
-        is ReconciliationAction.ReplaceDirectoryWithSymlink -> "Link to: " + action.target
-        is ReconciliationAction.ReplaceSymlink -> "Link to: " + action.target
-        is ReconciliationAction.EnsureDirectory, is ReconciliationAction.CreateDirectory,
-        is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
-        is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> ""
-    }
-
-    private fun destinationPath(action: ReconciliationAction): Path? = when (action) {
-        is ReconciliationAction.ArchiveDirectory -> action.target
-        is ReconciliationAction.MigrateDirectoryForPublication -> action.target
-        is ReconciliationAction.CreateSymlink -> action.target
-        is ReconciliationAction.ReplaceDirectoryWithSymlink -> action.target
-        is ReconciliationAction.ReplaceSymlink -> action.target
-        is ReconciliationAction.EnsureDirectory, is ReconciliationAction.CreateDirectory,
-        is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
-        is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> null
+    fun destination(action: ReconciliationAction): String {
+        val destination = action.destination ?: return ""
+        return when (action) {
+            is ReconciliationAction.ArchiveDirectory -> "Archive: "
+            is ReconciliationAction.MigrateDirectoryForPublication -> "Publish to: "
+            is ReconciliationAction.CreateSymlink, is ReconciliationAction.ReplaceDirectoryWithSymlink,
+            is ReconciliationAction.ReplaceSymlink -> "Link to: "
+            // Unreachable: these actions have no destination.
+            is ReconciliationAction.EnsureDirectory, is ReconciliationAction.CreateDirectory,
+            is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
+            is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> ""
+        } + destination
     }
 
     private fun actionLabel(action: ReconciliationAction): String = when (action) {
