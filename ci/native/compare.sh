@@ -69,7 +69,8 @@ step() {
   "${cmd[@]}" "$@" > "$root/stdout" 2> "$root/stderr" < /dev/null
   echo "exit=$?" >> "$out"
   echo "--- stdout" >> "$out"; cat "$root/stdout" >> "$out"
-  # Stack frames differ between the JVM and native builds and are not part of the CLI contract.
+  # Configuration errors print one line. Stack frames from an unexpected failure differ between the
+  # JVM and native builds, so they are dropped and only the exception line is compared.
   echo "--- stderr" >> "$out"; grep -v -E $'^\t(at |\\.\\.\\. [0-9]+ more)' "$root/stderr" | head -c 2000 >> "$out"
 }
 
@@ -80,6 +81,7 @@ step plan-help plan --help
 step apply-help apply --help
 step init-help init --help
 step bogus-option --bogus
+step bad-delay --debug-step-delay-ms 60001 status --json
 step missing-config -c "$R/nope.json" status --json
 step malformed -c "$R/malformed.json" plan --json
 step unknown-key -c "$R/unknown-key.json" plan --json

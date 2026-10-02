@@ -1,15 +1,21 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import picocli.CommandLine.Command
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
+import java.util.concurrent.Callable
 
 class HomeLightCommandTest {
 
@@ -27,11 +33,67 @@ class HomeLightCommandTest {
             val root: HomeLightCommand = command.getCommand()
             assertEquals(3000L, root.debugStepDelayMillis)
         }
-        for (delay in listOf("-1", "60001")) {
-            val result = execute("--debug-step-delay-ms", delay)
-            assertEquals(2, result.exitCode)
-            assertTrue(result.errorOutput.contains("must be between 0 and 60000"), result.errorOutput)
+    }
+
+    @Test
+    fun rejectsAnOutOfRangeVisualDelayAsAUsageError() {
+        for (arguments in listOf(
+            arrayOf("--debug-step-delay-ms", "-1"),
+            arrayOf("--debug-step-delay-ms", "60001"),
+            arrayOf("status", "--json", "--debug-step-delay-ms", "60001"),
+            arrayOf("plan", "--debug-step-delay-ms", "-1"),
+        )) {
+            val result = execute(*arguments)
+            assertEquals(2, result.exitCode, result.errorOutput)
+            assertEquals("--debug-step-delay-ms must be between 0 and 60000", result.errorOutput.lines().first())
+            assertFalse(result.errorOutput.contains("Could not invoke"), result.errorOutput)
+            assertEquals("", result.output)
         }
+    }
+
+    @Test
+    fun printsAConfigurationErrorAsOneLineWithoutJsonOutput(@TempDir root: Path) {
+        val local = root.resolve("local")
+        val source = root.resolve("home/cache")
+        val configs = mapOf(
+            "missing.json" to null,
+            "malformed.json" to "{\"homelight\": {\"target-root\": \"unclosed\n",
+            "unknown-key.json" to """{"homelight": {"target-root": "$local", "relocations": [
+                {"source-path": "$source", "target-path": "$local/cache", "existing": "move"}]}}""",
+            "bad-enum.json" to """{"homelight": {"target-root": "$local", "relocations": [
+                {"source-path": "$source", "target-path": "$local/cache", "when-only-target-exists": "sometimes"}]}}""",
+        )
+        for ((name, content) in configs) {
+            val config = root.resolve(name)
+            content?.let { Files.writeString(config, it) }
+            val expected = assertThrows<ConfigurationException> { ConfigurationEvaluation().loadRequired(config) }.message
+            for (command in listOf(arrayOf("status", "--json"), arrayOf("plan", "--json"), arrayOf("apply", "--json", "--yes"))) {
+                val result = execute("-c", config.toString(), *command)
+
+                val context = "$name ${command.joinToString(" ")}: ${result.errorOutput}"
+                assertEquals(1, result.exitCode, context)
+                assertEquals("$expected\n", result.errorOutput.replace(System.lineSeparator(), "\n"), context)
+                assertEquals("", result.output, context)
+            }
+        }
+    }
+
+    @Test
+    fun keepsTheStackTraceForAnUnexpectedException() {
+        val commandLine = HomeLightCommand.createCommandLine().addSubcommand("fail", FailingCommand())
+        val output = StringWriter()
+        val errorOutput = StringWriter()
+        commandLine.setOut(PrintWriter(output, true))
+        commandLine.setErr(PrintWriter(errorOutput, true))
+
+        assertEquals(1, commandLine.execute("fail"))
+        assertTrue(errorOutput.toString().contains("java.lang.IllegalStateException: unexpected"), errorOutput.toString())
+        assertTrue(errorOutput.toString().contains("\tat "), errorOutput.toString())
+    }
+
+    @Command(name = "fail")
+    private class FailingCommand : Callable<Int> {
+        override fun call(): Int = throw IllegalStateException("unexpected")
     }
 
     @Test
