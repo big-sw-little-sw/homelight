@@ -26,23 +26,6 @@ data class CandidateObservation(
         CAPACITY, ALIAS_UNCERTAINTY, NOT_DIRECTORY, MISSING,
     }
 
-    enum class Ownership { NOT_EVALUATED }
-
-    enum class LinkTargetStatus { NOT_A_LINK, UNKNOWN }
-
-    val ownership: Ownership get() = Ownership.NOT_EVALUATED
-
-    val size: Size get() = Size.NOT_ESTIMATED
-
-    val linkTargetStatus: LinkTargetStatus
-        get() = if (kind == Kind.LINK) LinkTargetStatus.UNKNOWN else LinkTargetStatus.NOT_A_LINK
-
-    enum class Size {
-        NOT_ESTIMATED;
-
-        val bytes: Long? get() = null
-    }
-
     /** Paths and details are unescaped data; a presentation must escape controls. */
     data class Diagnostic(val path: Path, val reason: Reason, val detail: String)
 

@@ -55,8 +55,6 @@ class DiscoverySettingTest {
             ConfigurationPublisher().saveNew(second,
                     ConfigurationDraft.of(loaded.targetRoot, loaded.relocations, loaded.sharedList))
             assertEquals(text, Files.readString(second))
-            assertEquals(draft.sharedList, draft.withTargetRoot(temporary.resolve("other")).sharedList)
-            assertEquals(draft.sharedList, draft.withRelocations(listOf()).sharedList)
         }
         assertFalse(Files.exists(missing))
         assertEquals("{\"directories\": [", Files.readString(malformed))

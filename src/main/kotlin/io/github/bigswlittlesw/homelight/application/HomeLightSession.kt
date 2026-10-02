@@ -22,7 +22,7 @@ open class HomeLightSession(
     // `refreshObservationsAfterExecution`, which takes the monitor.
     private var evaluation: ConfigurationEvaluation.Evaluation = evaluator.load(configPath)
     private var discardedChoices: List<ConfigurationEvaluation.DiscardedChoice> = listOf()
-    private var planModel: PlanModel = PlanWorkflow.from(evaluation)
+    private var planModel: PlanModel = planModel(evaluation)
     private var reviewedExecution: ReviewedExecution? = null
     private var execution: CompletableFuture<Void?> = CompletableFuture.completedFuture(null)
 
@@ -115,7 +115,7 @@ open class HomeLightSession(
 
     @Synchronized
     private fun refreshObservationsAfterExecution() {
-        planModel = PlanWorkflow.from(evaluator.load(configPath))
+        planModel = planModel(evaluator.load(configPath))
     }
 
     /** Terminal shutdown waits for an active mutation sequence rather than interrupting it mid-action. */
@@ -126,6 +126,6 @@ open class HomeLightSession(
 
     private fun replaceEvaluation(next: ConfigurationEvaluation.Evaluation) {
         evaluation = next
-        planModel = PlanWorkflow.from(next)
+        planModel = planModel(next)
     }
 }

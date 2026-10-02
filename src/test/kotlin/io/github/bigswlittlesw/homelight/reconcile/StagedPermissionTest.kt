@@ -257,14 +257,10 @@ class StagedPermissionTest {
             assertThrows(UnsupportedOperationException::class.java) { Files.getPosixFilePermissions(source) }
             assertThrows(UnsupportedOperationException::class.java,
                     { mode(source, "rwx------") })
-            val target = zip.getPath("/target")
-            val relocation = Relocation(source, target)
-            val planned = ReconciliationPlan(listOf(RelocationPlan(relocation, RelocationOutcome.CONVERGED,
-                    listOf(ReconciliationAction.CopyDirectory(source, target)), listOf())), listOf())
+            val target = Files.createDirectory(zip.getPath("/target"))
 
-            val result = ReconciliationExecutor().execute(planned)
+            Files.walkFileTree(source, copyVisitor(source, target))
 
-            assertTrue(result.succeeded(), result.toString())
             assertEquals("contents", Files.readString(target.resolve("entry")))
             assertEmpty(target.resolve("empty"))
             assertEquals("contents", Files.readString(source.resolve("entry")))

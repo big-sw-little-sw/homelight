@@ -37,3 +37,25 @@ sealed interface PlanModel {
 
 private val BY_URGENCY_AND_PATH: Comparator<PlanRelocationItem> =
     compareBy({ it.badge().priority }, { it.relocation.sourcePath.toString() })
+
+internal fun planModel(evaluation: ConfigurationEvaluation.Evaluation): PlanModel = when (evaluation) {
+    is ConfigurationEvaluation.Unconfigured -> PlanModel.Unconfigured(evaluation.configPath)
+    is ConfigurationEvaluation.Missing -> PlanModel.Invalid(evaluation.configPath, evaluation.message)
+    is ConfigurationEvaluation.Invalid -> PlanModel.Invalid(evaluation.configPath, evaluation.message)
+    is ConfigurationEvaluation.Loaded -> {
+        val plan = evaluation.plan
+        val items = evaluation.observations.mapIndexed { i, state ->
+            val relocationPlan = plan.relocations[i]
+            val relocation = relocationPlan.relocation
+            PlanRelocationItem(
+                relocation, state.source, state.target, relocationPlan,
+                state.source.sourceStateForTarget(relocation.targetPath),
+                evaluation.choicesFor(relocation.sourcePath),
+            )
+        }
+        PlanModel.Configured.of(
+            evaluation.configPath, evaluation.savedConfiguration.targetRoot,
+            plan, items, PlanSummary.from(items),
+        )
+    }
+}

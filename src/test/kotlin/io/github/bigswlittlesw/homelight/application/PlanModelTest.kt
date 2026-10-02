@@ -12,22 +12,21 @@ import java.nio.file.Path
 
 // Java text blocks end with the newline before the closing delimiter, and `trimIndent` drops it,
 // so each block appends "\n" to keep the text byte-identical.
-class PlanWorkflowTest {
+class PlanModelTest {
 
     @Test
     fun returnsUnconfiguredWhenDefaultConfigMissing() {
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(Path.of(System.getProperty("user.home"), ".homelight.json"))
+        val defaultPath = Path.of(System.getProperty("user.home"), ".homelight.json")
+        val model = planModel(ConfigurationEvaluation().load(defaultPath))
 
-        if (!Files.exists(Path.of(System.getProperty("user.home"), ".homelight.json"))) {
+        if (!Files.exists(defaultPath)) {
             assertInstanceOf(PlanModel.Unconfigured::class.java, model)
         }
     }
 
     @Test
     fun returnsInvalidWhenConfigFileDoesNotExist() {
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(Path.of("/nonexistent/path/homelight.json"))
+        val model = planModel(ConfigurationEvaluation().load(Path.of("/nonexistent/path/homelight.json")))
 
         assertInstanceOf(PlanModel.Invalid::class.java, model)
         assertTrue((model as PlanModel.Invalid).message.contains("does not exist"))
@@ -52,8 +51,7 @@ class PlanWorkflowTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -93,8 +91,7 @@ class PlanWorkflowTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -220,8 +217,7 @@ class PlanWorkflowTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured

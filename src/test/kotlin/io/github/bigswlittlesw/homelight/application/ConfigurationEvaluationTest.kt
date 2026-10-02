@@ -240,7 +240,7 @@ class ConfigurationEvaluationTest {
         val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, result.evaluation)
         assertTrue(next.draft.isEmpty())
         assertEquals(RelocationSourceState.CORRECT_SYMLINK,
-                assertInstanceOf(PlanModel.Configured::class.java, PlanWorkflow.from(next)).items.first().sourceState)
+                assertInstanceOf(PlanModel.Configured::class.java, planModel(next)).items.first().sourceState)
     }
 
     @Test
@@ -259,7 +259,7 @@ class ConfigurationEvaluationTest {
                 session.discardedChoices().first().reason)
         Files.delete(config)
         assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
-        assertInstanceOf(PlanModel.Invalid::class.java, PlanWorkflow.from(evaluator.load(config)))
+        assertInstanceOf(PlanModel.Invalid::class.java, planModel(evaluator.load(config)))
         assertThrows(ConfigurationLoader.ConfigurationException::class.java) { evaluator.loadRequired(config) }
         Files.createDirectory(config)
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
