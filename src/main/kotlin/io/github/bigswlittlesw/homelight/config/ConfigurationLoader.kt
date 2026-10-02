@@ -110,8 +110,6 @@ class ConfigurationLoader {
 
     private fun missing(path: String) = ConfigurationException("Missing required key $path")
 
-    class ConfigurationException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
-
     companion object {
         val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".homelight.json")
     }

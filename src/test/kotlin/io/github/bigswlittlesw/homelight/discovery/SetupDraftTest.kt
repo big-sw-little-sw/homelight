@@ -5,6 +5,7 @@ import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.CandidateCatalog
 import io.github.bigswlittlesw.homelight.config.CandidateParser
 import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
+import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
 import io.github.bigswlittlesw.homelight.config.Relocation
@@ -214,7 +215,7 @@ class SetupDraftTest {
                 assertTrue(draft.accept(worker.snapshot()))
                 draft.append(SetupDraft.Row("manual", "manual"))
                 val blocked = Files.writeString(temporary.resolve("blocked"), "occupied")
-                assertThrows(ConfigurationPublisher.ConfigurationException::class.java) {
+                assertThrows(ConfigurationException::class.java) {
                     ConfigurationPublisher().saveNew(blocked.resolve("config.json"), draft.validate()) }
                 draft.edit(0, SetupDraft.Row("manual", "edited"))
                 val config = temporary.resolve("saved.json")
