@@ -21,7 +21,7 @@ import kotlin.system.exitProcess
     description = ["Relocates selected bulky home directories to machine-local storage."],
 )
 class HomeLightCommand : Callable<Int> {
-    @field:Option(
+    @Option(
         names = ["--config", "-c"], description = ["Path to configuration file."],
         scope = CommandLine.ScopeType.INHERIT,
     )
@@ -41,7 +41,7 @@ class HomeLightCommand : Callable<Int> {
             field = milliseconds
         }
 
-    @field:Spec
+    @Spec
     private lateinit var spec: CommandSpec
 
     override fun call(): Int = launchTui(config, debugStepDelayMillis, spec.commandLine().err)

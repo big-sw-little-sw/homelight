@@ -16,22 +16,22 @@ import java.util.concurrent.Callable
 
 @Command(name = "plan", description = ["Show the filesystem actions required to converge configured relocations."])
 internal class PlanCommand : Callable<Int> {
-    @field:ParentCommand
+    @ParentCommand
     private lateinit var parent: HomeLightCommand
 
-    @field:Option(names = ["--json"], description = ["Emit JSON."])
+    @Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false
 
-    @field:Option(names = ["--no-color"], description = ["Disable terminal color."])
+    @Option(names = ["--no-color"], description = ["Disable terminal color."])
     private var noColor = false
 
-    @field:Option(names = ["--source-path"], description = ["Override the source path for the first relocation."])
+    @Option(names = ["--source-path"], description = ["Override the source path for the first relocation."])
     private var sourcePath: Path? = null
 
-    @field:Option(names = ["--target-path"], description = ["Override the target path for the first relocation."])
+    @Option(names = ["--target-path"], description = ["Override the target path for the first relocation."])
     private var targetPath: Path? = null
 
-    @field:Spec
+    @Spec
     private lateinit var spec: CommandSpec
 
     override fun call(): Int {
