@@ -30,15 +30,14 @@ internal object ApplyView {
                 },
             ).cyan().bold(),
         )
-        val plan = when (model) {
+        val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text("Review a resolved plan before applying.").yellow(),
                 Toolkit.text("1: Workspace  ·  q: Quit").gray(),
             )
-            is ApplyModel.Confirmation -> model.plan
-            is ApplyModel.Running -> model.plan
-            is ApplyModel.Result -> model.plan
+            is ApplyModel.Reviewed -> model
         }
+        val plan = reviewed.plan
         val steps = steps(model)
         val selected = if (steps.isEmpty()) 0 else selectedIndex.coerceIn(0, steps.size - 1)
         val checklist = ListElement<Any>().title("Reviewed actions")
@@ -69,7 +68,7 @@ internal object ApplyView {
         else details(steps[selected]).toMutableList()
         if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, Color.RED, false) }
         val destructive = plan.actions().count { it.destructive }
-        val headline = when (model) {
+        val headline = when (reviewed) {
             is ApplyModel.Confirmation -> when {
                 !plan.hasChanges() -> "No changes to apply."
                 destructive > 0 -> "Confirm reviewed plan: $destructive destructive action(s). Content may be permanently removed."
@@ -77,16 +76,15 @@ internal object ApplyView {
             }
             is ApplyModel.Running -> "Applying reviewed plan. Wait for execution to finish."
             is ApplyModel.Result -> when {
-                model.stale && model.execution == null && model.steps.all { it.status == ApplyModel.StepStatus.PENDING } ->
+                reviewed.stale && reviewed.execution == null && reviewed.steps.all { it.status == ApplyModel.StepStatus.PENDING } ->
                     "Plan stale: preflight rejected before any mutation. Inspect details."
-                model.stale -> "Plan stale during execution. Inspect failed and not-run actions."
-                model.succeeded() -> "Application complete. Observations refreshed. Results retained."
-                model.execution == null -> "Worker stopped unexpectedly. Mutation extent may be uncertain; inspect evidence."
+                reviewed.stale -> "Plan stale during execution. Inspect failed and not-run actions."
+                reviewed.succeeded() -> "Application complete. Observations refreshed. Results retained."
+                reviewed.execution == null -> "Worker stopped unexpectedly. Mutation extent may be uncertain; inspect evidence."
                 else -> "Application stopped. Inspect failed and not-run actions, then re-plan."
             }
-            is ApplyModel.Idle -> error("Idle returned above")
         }
-        val footer = when (model) {
+        val footer = when (reviewed) {
             is ApplyModel.Confirmation -> when {
                 !plan.hasChanges() -> "1/Enter/n/Esc: Workspace · q: Quit"
                 destructive > 0 -> "y: Confirm destructive plan · n/Esc/1: Cancel review · q: Quit"
@@ -94,7 +92,6 @@ internal object ApplyView {
             }
             is ApplyModel.Running -> "q: Quit options"
             is ApplyModel.Result -> "1/Enter: Workspace · r: Re-plan · q: Quit"
-            is ApplyModel.Idle -> error("Idle returned above")
         }
         val content = buildList {
             add(header)
