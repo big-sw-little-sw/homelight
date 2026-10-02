@@ -123,7 +123,7 @@ class WorkspaceViewTest {
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
             WhenSourceAndTargetDirectoriesExist.ADOPT,
-            null, WhenAdoptingTarget.DiscardSource), item)
+            null, WhenAdoptingTarget.DISCARD_SOURCE), item)
         assertEquals("Adopt target; discard source.", policy)
     }
 
@@ -143,18 +143,12 @@ class WorkspaceViewTest {
         ],
     )
     fun bothDirectoriesPolicyUsesTheConfigurationWords(
-        both: WhenSourceAndTargetDirectoriesExist?, adopting: WhenAdoptingTarget.Kind?, expected: String,
+        both: WhenSourceAndTargetDirectoriesExist?, adopting: WhenAdoptingTarget?, expected: String,
     ) {
         val session = HomeLightSession(fixture(temporary))
         val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
-        val policy = when (adopting) {
-            null -> null
-            WhenAdoptingTarget.Kind.PROMPT -> WhenAdoptingTarget.Prompt()
-            WhenAdoptingTarget.Kind.DISCARD_SOURCE -> WhenAdoptingTarget.DiscardSource
-            WhenAdoptingTarget.Kind.ARCHIVE_SOURCE -> WhenAdoptingTarget.ArchiveSource(temporary.resolve("archive"))
-        }
-        val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, null, policy)
+        val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, null, adopting)
         assertEquals(expected, WorkspaceView.policy(relocation, item))
     }
 
@@ -237,11 +231,11 @@ class WorkspaceViewTest {
                 if (name != "migrate") { Files.createDirectories(target); Files.writeString(target.resolve("payload"), "target") }
                 if (name == "synced") Files.createSymbolicLink(source, target)
                 body.append("  {\"source-path\": \"").append(source).append("\", \"target-path\": \"").append(target).append('"')
-                if (name == "adopt") body.append(", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": {\"policy\": \"discard-source\"}")
+                if (name == "adopt") body.append(", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"")
                 if (name == "discard") body.append(", \"when-source-and-target-directories-exist\": \"discard\"")
                 if (name == "unchanged") body.append(", \"when-source-and-target-directories-exist\": \"leave-unchanged\"")
-                if (name == "conflict") body.append(", \"when-adopting-target\": {\"policy\": \"prompt\", \"archive-root\": \"")
-                    .append(root.resolve("archive-destination-distinguishing-suffix")).append("\"}")
+                if (name == "conflict") body.append(", \"archive-root\": \"")
+                    .append(root.resolve("archive-destination-distinguishing-suffix")).append('"')
                 body.append("},\n") // The parser accepts the trailing comma after the last relocation.
             }
             return Files.writeString(root.resolve("config.json"), body.append("]}}\n"))

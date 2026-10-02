@@ -1,9 +1,7 @@
 package io.github.bigswlittlesw.homelight.config
 
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonClassDiscriminator
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -13,7 +11,7 @@ import java.nio.file.Path
  *
  * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
  * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
- * missing target derives from `$HOME`; staging-root must be under target-root. Environment variables and
+ * missing target derives from `$HOME`; a missing archive root is [defaultArchiveRoot]; staging-root must be under target-root. Environment variables and
  * system properties never override values.
  */
 class ConfigurationLoader {
@@ -70,16 +68,11 @@ class ConfigurationLoader {
         val targetPath = override?.let { expand(it.targetPath.toString()) }
             ?: fields.targetPath?.let { resolve(it, "$key.target-path") }
             ?: deriveTarget(targetRoot, sourcePath)
-        val archiveRootKey = "$key.when-adopting-target.archive-root"
-        val whenAdoptingTarget = when (val policy = fields.whenAdoptingTarget) {
-            null -> null
-            is AdoptingFile.Prompt -> WhenAdoptingTarget.Prompt(policy.archiveRoot?.let { resolve(it, archiveRootKey) })
-            AdoptingFile.DiscardSource -> WhenAdoptingTarget.DiscardSource
-            is AdoptingFile.ArchiveSource -> WhenAdoptingTarget.ArchiveSource(resolve(policy.archiveRoot, archiveRootKey))
-        }
         return Relocation(
             sourcePath, targetPath, fields.whenSourceAndTargetDirectoriesExist, fields.whenOnlyTargetExists,
-            whenAdoptingTarget, stagingRoot,
+            fields.whenAdoptingTarget,
+            fields.archiveRoot?.let { resolve(it, "$key.archive-root") } ?: defaultArchiveRoot(sourcePath),
+            stagingRoot,
         )
     }
 
@@ -143,28 +136,7 @@ internal data class RelocationFile(
     @SerialName("when-source-and-target-directories-exist")
     val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist? = null,
     @SerialName("when-only-target-exists") val whenOnlyTargetExists: WhenOnlyTargetExists? = null,
-    @SerialName("when-adopting-target") val whenAdoptingTarget: AdoptingFile? = null,
+    @SerialName("when-adopting-target") val whenAdoptingTarget: WhenAdoptingTarget? = null,
+    /** Absent means [defaultArchiveRoot]. */
+    @SerialName("archive-root") val archiveRoot: String? = null,
 )
-
-/**
- * [WhenAdoptingTarget] as written: an object whose `policy` names the case, e.g.
- * `{"policy": "archive-source", "archive-root": "~/archive"}`. `@JsonClassDiscriminator` is experimental in
- * kotlinx 1.11.
- */
-@OptIn(ExperimentalSerializationApi::class)
-@Serializable
-@SerialName("when-adopting-target")
-@JsonClassDiscriminator("policy")
-internal sealed interface AdoptingFile {
-    @Serializable
-    @SerialName("prompt")
-    data class Prompt(@SerialName("archive-root") val archiveRoot: String? = null) : AdoptingFile
-
-    @Serializable
-    @SerialName("discard-source")
-    data object DiscardSource : AdoptingFile
-
-    @Serializable
-    @SerialName("archive-source")
-    data class ArchiveSource(@SerialName("archive-root") val archiveRoot: String) : AdoptingFile
-}

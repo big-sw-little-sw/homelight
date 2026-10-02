@@ -53,14 +53,10 @@ internal fun configurationFile(draft: ConfigurationDraft): ConfigurationFile = C
             RelocationFile(
                 relocation.sourcePath.toString(), relocation.targetPath.toString(),
                 relocation.whenSourceAndTargetDirectoriesExist, relocation.whenOnlyTargetExists,
-                relocation.whenAdoptingTarget?.let(::adoptingFile),
+                relocation.whenAdoptingTarget,
+                // The default root is left out, so it keeps following the source.
+                relocation.archiveRoot.takeIf { it != defaultArchiveRoot(relocation.sourcePath) }?.toString(),
             )
         },
     ),
 )
-
-private fun adoptingFile(policy: WhenAdoptingTarget): AdoptingFile = when (policy) {
-    is WhenAdoptingTarget.Prompt -> AdoptingFile.Prompt(policy.archiveRoot?.toString())
-    WhenAdoptingTarget.DiscardSource -> AdoptingFile.DiscardSource
-    is WhenAdoptingTarget.ArchiveSource -> AdoptingFile.ArchiveSource(policy.archiveRoot.toString())
-}

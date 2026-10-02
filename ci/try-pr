@@ -51,7 +51,8 @@ cat > ~/.homelight.json <<EOF
         "source-path": "~/.cache/tool-b",
         "target-path": "/scratch/local/tool-b",
         "when-source-and-target-directories-exist": "adopt",
-        "when-adopting-target": {"policy": "archive-source", "archive-root": "/scratch/archive"}
+        "when-adopting-target": "archive-source",
+        "archive-root": "/scratch/archive"
       },
       {"source-path": "~/.cache/tool-c", "target-path": "/scratch/local/tool-c"}
     ]

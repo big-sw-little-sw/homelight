@@ -67,7 +67,7 @@ cat > "$config_path" <<EOF
         "source-path": "$home_root/adopt-cache",
         "target-path": "$target_root/adopt-cache",
         "when-source-and-target-directories-exist": "adopt",
-        "when-adopting-target": {"policy": "discard-source"}
+        "when-adopting-target": "discard-source"
       },
       {
         "source-path": "$home_root/leave-unchanged-cache",

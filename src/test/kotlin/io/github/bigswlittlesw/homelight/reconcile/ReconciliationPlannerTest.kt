@@ -5,6 +5,7 @@ import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
 import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathObservation
@@ -72,14 +73,29 @@ class ReconciliationPlannerTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
         val relocation = relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                null, WhenAdoptingTarget.ArchiveSource(archiveRoot))
+                null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)
 
         val archive = plan(relocation).actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().first()
         assertEquals(archiveRoot.resolve(sourceRelativeToRoot(source)), archive.target)
 
         Files.createDirectories(archive.target)
         assertTrue(plan(relocation).hasBlockedActions())
+    }
 
+    @Test
+    fun archiveSourceDefaultsBesideTheSourceAndRejectsAnOverlappingRoot(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        fun archive(archiveRoot: Path) = plan(relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
+                null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)).relocations.single()
+
+        val default = archive(defaultArchiveRoot(source))
+        assertEquals(root.resolve("home/.homelight-archive").resolve(sourceRelativeToRoot(source)),
+                default.actions.filterIsInstance<ReconciliationAction.ArchiveDirectory>().single().target)
+        for (overlapping in listOf(target.resolve("archive"), source.resolve("archive"))) {
+            assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive path overlaps a relocation path")),
+                    archive(overlapping).actions, overlapping.toString())
+        }
     }
 
     @Test
@@ -182,8 +198,9 @@ class ReconciliationPlannerTest {
 
     companion object {
         private fun relocation(source: Path, target: Path, directories: WhenSourceAndTargetDirectoriesExist?,
-                onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?): Relocation {
-            return Relocation(source, target, directories, onlyTarget, adoption)
+                onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?,
+                archiveRoot: Path = defaultArchiveRoot(source)): Relocation {
+            return Relocation(source, target, directories, onlyTarget, adoption, archiveRoot)
         }
 
         private fun sourceRelativeToRoot(source: Path): Path {
@@ -197,11 +214,9 @@ class ReconciliationPlannerTest {
 
         private fun state(relocation: Relocation): RelocationState {
             val inspector = PathInspector()
-            val archive = relocation.whenAdoptingTarget?.archiveRoot?.let { root ->
-                val source = relocation.sourcePath.toAbsolutePath()
-                val path = root.resolve(source.root.relativize(source))
-                RelocationState.ArchiveDestination(path, inspector.inspect(path))
-            }
+            val source = relocation.sourcePath.toAbsolutePath()
+            val path = relocation.archiveRoot.resolve(source.root.relativize(source))
+            val archive = RelocationState.ArchiveDestination(path, inspector.inspect(path))
             return RelocationState(relocation, inspector.inspect(relocation.sourcePath),
                     inspector.inspect(relocation.targetPath), archive)
         }

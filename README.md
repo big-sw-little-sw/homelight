@@ -73,16 +73,18 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
       {
         "source-path": "~/.gradle",
         "when-source-and-target-directories-exist": "adopt",
-        "when-adopting-target": {"policy": "archive-source", "archive-root": "~/archive"}
+        "when-adopting-target": "archive-source",
+        "archive-root": "~/archive"
       }
     ]
   }
 }
 ```
 
-`when-adopting-target` is an object whose `policy` is `prompt`, `discard-source` or
-`archive-source`. `archive-source` requires `archive-root`; with `prompt`, an
-`archive-root` makes archiving one of the answers offered at review.
+`when-adopting-target` is `prompt`, `discard-source` or `archive-source`. Archiving
+moves the source under `archive-root`, which defaults to `.homelight-archive` beside
+the source. The root must be on the source's filesystem, because archiving is a rename.
+Review always offers archiving when the policy prompts.
 
 Unknown keys, missing required keys, wrong value types and unknown policy values are
 rejected. Errors name the key path, and give the line and column where the JSON

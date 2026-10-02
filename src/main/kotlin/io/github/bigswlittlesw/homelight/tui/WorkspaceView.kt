@@ -234,11 +234,8 @@ internal object WorkspaceView {
         lines.add(Line("Target: " + item.relocation.targetPath))
         item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
             ?.let { path -> lines.add(Line("Current link destination: $path")) }
-        item.relocation.whenAdoptingTarget?.archiveRoot?.let { root ->
-            lines.add(
-                Line("Archive: " + root.resolve(item.relocation.sourcePath.root.relativize(item.relocation.sourcePath))),
-            )
-        }
+        val source = item.relocation.sourcePath
+        lines.add(Line("Archive: " + item.relocation.archiveRoot.resolve(source.root.relativize(source))))
         return anchor
     }
 
@@ -290,10 +287,10 @@ internal object WorkspaceView {
         val both = relocation.whenSourceAndTargetDirectoriesExist
         if (both != WhenSourceAndTargetDirectoriesExist.ADOPT) return bothLabel(both) + "."
         // A clause after the label, so lowercase, but in the adopting labels' words.
-        val adopting = when (relocation.whenAdoptingTarget?.kind) {
-            WhenAdoptingTarget.Kind.PROMPT -> "prompt for source"
-            WhenAdoptingTarget.Kind.DISCARD_SOURCE -> "discard source"
-            WhenAdoptingTarget.Kind.ARCHIVE_SOURCE -> "archive source"
+        val adopting = when (relocation.whenAdoptingTarget) {
+            WhenAdoptingTarget.PROMPT -> "prompt for source"
+            WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
+            WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
             null -> "default (prompt) for source"
         }
         return bothLabel(both) + "; " + adopting + "."

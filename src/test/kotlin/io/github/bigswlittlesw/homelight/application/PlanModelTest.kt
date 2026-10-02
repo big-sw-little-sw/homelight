@@ -138,7 +138,7 @@ class PlanModelTest {
                   "homelight": {
                     "target-root": "%s",
                     "relocations": [
-                      {"source-path": "%s", "target-path": "%s", "when-adopting-target": {"policy": "prompt", "archive-root": "%s"}}
+                      {"source-path": "%s", "target-path": "%s", "archive-root": "%s"}
                     ]
                   }
                 }

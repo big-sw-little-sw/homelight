@@ -32,7 +32,7 @@ class PolicyLabelsTest {
         nullValues = ["(none)"],
         value = ["(none), Default (prompt)", "PROMPT, Prompt", "DISCARD_SOURCE, Discard source", "ARCHIVE_SOURCE, Archive source"],
     )
-    fun adopting(value: WhenAdoptingTarget.Kind?, label: String) {
+    fun adopting(value: WhenAdoptingTarget?, label: String) {
         assertEquals(label, adoptingLabel(value))
     }
 }

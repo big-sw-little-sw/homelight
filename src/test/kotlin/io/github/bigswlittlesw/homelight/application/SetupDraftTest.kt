@@ -169,23 +169,19 @@ class SetupDraftTest {
         assertThrows<IllegalArgumentException> { cycle.validate() }
     }
 
-    @Test fun adoptingPolicyAndArchiveRootResolveTogether() {
+    @Test fun archiveRootDefaultsBesideTheSourceForEveryPolicy() {
         val root = Files.createDirectory(temporary.resolve("home"))
         val archive = temporary.resolve("archive")
-        fun resolved(adopting: WhenAdoptingTarget.Kind?, archiveRoot: Path?): WhenAdoptingTarget? {
+        fun resolved(adopting: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
             val draft = draft(root, listOf())
-            draft.append(SetupDraft.Row("a", "a", adopting = adopting, archiveRoot = archiveRoot))
-            return draft.validate().relocations.single().whenAdoptingTarget
+            draft.append(SetupDraft.Row("a/b", "a/b", adopting = adopting, archiveRoot = archiveRoot))
+            return draft.validate().relocations.single()
         }
-        assertNull(resolved(null, null))
-        assertEquals(WhenAdoptingTarget.Prompt(archive), resolved(null, archive))
-        assertEquals(WhenAdoptingTarget.Prompt(), resolved(WhenAdoptingTarget.Kind.PROMPT, null))
-        assertEquals(WhenAdoptingTarget.DiscardSource, resolved(WhenAdoptingTarget.Kind.DISCARD_SOURCE, null))
-        assertEquals(WhenAdoptingTarget.ArchiveSource(archive), resolved(WhenAdoptingTarget.Kind.ARCHIVE_SOURCE, archive))
-        assertEquals("Archive source requires an archive root",
-            assertThrows<IllegalArgumentException> { resolved(WhenAdoptingTarget.Kind.ARCHIVE_SOURCE, null) }.message)
-        assertEquals("Discard source does not use an archive root",
-            assertThrows<IllegalArgumentException> { resolved(WhenAdoptingTarget.Kind.DISCARD_SOURCE, archive) }.message)
+        for (adopting in WhenAdoptingTarget.entries + null) {
+            assertEquals(root.resolve("a/.homelight-archive"), resolved(adopting, null).archiveRoot, adopting.toString())
+            assertEquals(archive, resolved(adopting, archive).archiveRoot, adopting.toString())
+            assertEquals(adopting, resolved(adopting, null).whenAdoptingTarget)
+        }
     }
 
     @Test fun rootAndLocationEditsRejectOldResultsEvenAfterReturningToTheOldRoot() {

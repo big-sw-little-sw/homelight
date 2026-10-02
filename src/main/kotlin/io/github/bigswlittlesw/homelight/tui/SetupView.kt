@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import io.github.bigswlittlesw.homelight.config.parseSharedList
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
@@ -114,7 +115,8 @@ internal class SetupView(
         lines.add(Line("Edit relocation " + (row + 1), Color.CYAN, true))
         listOf(
             "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both directories" to bothLabel(value.both),
-            "Only target" to onlyTargetLabel(value.onlyTarget), "Adopt target" to adoptingLabel(value.adopting), "Archive root" to archiveText,
+            "Only target" to onlyTargetLabel(value.onlyTarget), "Adopt target" to adoptingLabel(value.adopting),
+            "Archive root" to archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
             if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), Color.YELLOW, true))
@@ -133,16 +135,16 @@ internal class SetupView(
         Mode.ROW -> when (field) {
             0 -> "Source is relative; matching target follows until edited."
             1 -> "Target is relative to the target root."
-            5 -> "Archive root is optional; use an absolute path."
+            5 -> "Archive root is optional; use an absolute path on the source's filesystem."
             2 -> if (discardPolicyFocused()) "Save writes configuration only; Apply requires review."
             else "Both exist: " + bothConsequence(draft.rows[row].both)
             3 -> "When only target exists: " +
                 if ((draft.rows[row].onlyTarget ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
                     "prompt before acting." else "link the source to that target."
-            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.Kind.PROMPT) {
-                WhenAdoptingTarget.Kind.PROMPT -> "prompt for what to do with source contents."
-                WhenAdoptingTarget.Kind.DISCARD_SOURCE -> "delete source contents."
-                WhenAdoptingTarget.Kind.ARCHIVE_SOURCE -> "move source contents to the archive root."
+            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.PROMPT) {
+                WhenAdoptingTarget.PROMPT -> "prompt for what to do with source contents."
+                WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
+                WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
             }
         }
         Mode.CANDIDATES -> ""
@@ -292,7 +294,7 @@ internal class SetupView(
             when (field) {
                 2 -> value.copy(both = next(value.both, WhenSourceAndTargetDirectoriesExist.entries))
                 3 -> value.copy(onlyTarget = next(value.onlyTarget, WhenOnlyTargetExists.entries))
-                4 -> value.copy(adopting = next(value.adopting, WhenAdoptingTarget.Kind.entries))
+                4 -> value.copy(adopting = next(value.adopting, WhenAdoptingTarget.entries))
                 else -> value
             },
         )
@@ -341,6 +343,11 @@ internal class SetupView(
 
 // Every IllegalArgumentException that the draft, parseSharedList and Path.of throw carries a message.
 private fun shown(error: IllegalArgumentException): String = error.message!!
+
+/** Placeholder text for an empty archive root field. */
+private fun defaultArchive(root: String, relative: String): String =
+    try { "(default: " + defaultArchiveRoot(Path.of(root).resolve(relative)) + ")" }
+    catch (error: IllegalArgumentException) { "(default: beside the source)" }
 
 private fun resolved(root: String, relative: String): String =
     try { Path.of(root).resolve(relative).normalize().toString() }

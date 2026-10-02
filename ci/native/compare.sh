@@ -33,7 +33,8 @@ cat > "$R/config.json" <<EOF
         "source-path": "$R/home/cache-b",
         "target-path": "$R/local/cache-b",
         "when-source-and-target-directories-exist": "adopt",
-        "when-adopting-target": {"policy": "archive-source", "archive-root": "$R/archive"}
+        "when-adopting-target": "archive-source",
+        "archive-root": "$R/archive"
       },
       {"source-path": "$R/home/cache-c", "target-path": "$R/local/cache-c"}
     ]

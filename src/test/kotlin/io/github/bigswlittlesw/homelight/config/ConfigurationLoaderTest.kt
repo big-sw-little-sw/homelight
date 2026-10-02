@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.config
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -20,54 +21,33 @@ class ConfigurationLoaderTest {
                 "source-path": "/home/cache",
                 "target-path": "/local/cache",
                 "when-source-and-target-directories-exist": "adopt",
-                "when-adopting-target": {"policy": "archive-source", "archive-root": "/archive"}
+                "when-adopting-target": "archive-source",
+                "archive-root": "/archive"
               }]
             }}
             """).relocations.first()
         assertEquals(WhenSourceAndTargetDirectoriesExist.ADOPT, relocation.whenSourceAndTargetDirectoriesExist)
-        assertEquals(WhenAdoptingTarget.ArchiveSource(Path.of("/archive")), relocation.whenAdoptingTarget)
+        assertEquals(WhenAdoptingTarget.ARCHIVE_SOURCE, relocation.whenAdoptingTarget)
+        assertEquals(Path.of("/archive"), relocation.archiveRoot)
     }
 
-    @Test fun loadsEveryAdoptingPolicy() {
+    @Test fun archiveRootDefaultsBesideTheSource() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
-        val policies = mapOf(
-            """{"policy": "prompt"}""" to WhenAdoptingTarget.Prompt(),
-            """{"policy": "prompt", "archive-root": "~/archive"}""" to WhenAdoptingTarget.Prompt(home.resolve("archive")),
-            """{"policy": "discard-source"}""" to WhenAdoptingTarget.DiscardSource,
-            // The discriminator need not come first.
-            """{"archive-root": "/archive", "policy": "archive-source"}""" to WhenAdoptingTarget.ArchiveSource(Path.of("/archive")),
-        )
-        for ((json, expected) in policies) {
-            assertEquals(expected, load("""
-                {"homelight": {"target-root": "/local", "relocations": [
-                  {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": $json}]}}
-                """).relocations.first().whenAdoptingTarget, json)
-        }
+        val relocations = load("""
+            {"homelight": {"target-root": "/local", "relocations": [
+              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive-source"},
+              {"source-path": "/home/b", "target-path": "/local/b", "archive-root": "~/archive"}]}}
+            """).relocations
+        assertEquals(Path.of("/home/.homelight-archive"), relocations[0].archiveRoot)
+        assertEquals(home.resolve("archive"), relocations[1].archiveRoot)
     }
 
-    @Test fun rejectsArchiveWithoutRoot() {
-        assertEquals("Field 'archive-root' is required for type with serial name 'archive-source', but it was missing"
+    @Test fun rejectsAPolicyObject() {
+        assertEquals("Line 2, column 89: Expected beginning of the string, but got {"
             + " at homelight.relocations[0].when-adopting-target", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
-              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": {"policy": "archive-source"}}
-            ]}}
+              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": {"policy": "archive-source"}}]}}
             """))
-    }
-
-    @Test fun rejectsAMissingUnknownOrMistypedPolicy() {
-        fun policy(json: String) = failure("""
-            {"homelight": {"target-root": "/local", "relocations": [
-              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": $json}]}}
-            """)
-        assertEquals("Line 2, column 89: Serializer for subclass 'archive' is not found"
-            + " at homelight.relocations[0].when-adopting-target", policy("""{"policy": "archive"}"""))
-        // kotlinx decodes a policy whose discriminator is missing or not a string from a tree, without position or path.
-        assertEquals("Class discriminator was missing.", policy("""{"archive-root": "/archive"}"""))
-        assertEquals("Serializer for subclass '5' is not found.", policy("""{"policy": 5}"""))
-        assertEquals("Expected object, but had literal as the serialized body of when-adopting-target"
-            + " at homelight.relocations[0].when-adopting-target", policy("\"discard-source\""))
-        assertEquals("Line 2, column 119: Encountered an unknown key 'archive-root'"
-            + " at homelight.relocations[0].when-adopting-target", policy("""{"policy": "discard-source", "archive-root": "/a"}"""))
     }
 
     @Test fun rejectsStagingOutsideTargetRoot() {
@@ -97,9 +77,8 @@ class ConfigurationLoaderTest {
         assertEquals("homelight.relocations[0].target-path must not be blank", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "target-path": ""}]}}
             """))
-        assertEquals("homelight.relocations[0].when-adopting-target.archive-root must not be blank", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache",
-              "when-adopting-target": {"policy": "archive-source", "archive-root": ""}}]}}
+        assertEquals("homelight.relocations[0].archive-root must not be blank", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "archive-root": ""}]}}
             """))
         assertEquals("homelight.ignored-source-paths[1] must not be blank",
             failure("""{"homelight": {"target-root": "/local", "ignored-source-paths": ["~/a", " "]}}"""))
@@ -189,28 +168,31 @@ class ConfigurationLoaderTest {
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-source-and-target-directories-exist": "move"}]}}
             """))
+        assertEquals("when-adopting-target does not contain element with name 'archive'"
+            + " at homelight.relocations[0].when-adopting-target", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{
+              "source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive"}]}}
+            """))
         val relocation = load("""
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache",
               "target-path": "/local/cache",
               "when-source-and-target-directories-exist": "leave-unchanged",
               "when-only-target-exists": "adopt-target",
-              "when-adopting-target": {"policy": "discard-source"}}]}}
+              "when-adopting-target": "discard-source"}]}}
             """).relocations.first()
         assertEquals(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, relocation.whenSourceAndTargetDirectoriesExist)
         assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, relocation.whenOnlyTargetExists)
-        assertEquals(WhenAdoptingTarget.DiscardSource, relocation.whenAdoptingTarget)
+        assertEquals(WhenAdoptingTarget.DISCARD_SOURCE, relocation.whenAdoptingTarget)
     }
 
     @Test fun errorMessagesNameNoKotlinTypes() {
         val inputs = listOf(
             "{}", """{"homelight": {}}""", """{"homelight": {"target-root": "/l", "relocations": [{}]}}""",
             """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-only-target-exists": "x"}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": "x"}]}}""",
             """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": {}}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": {"policy": "x"}}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": []}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s",
-              "when-adopting-target": {"policy": "archive-source"}}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "archive-root": 5}]}}""",
         )
         for (input in inputs) {
             val message = failure(input).orEmpty()
@@ -279,33 +261,30 @@ class ConfigurationLoaderTest {
               "ignored-source-paths": ["~/ignored"],
               "relocations": [
                 {"source-path": "~/a", "when-source-and-target-directories-exist": "prompt", "when-only-target-exists": "prompt",
-                 "when-adopting-target": {"policy": "prompt"}},
+                 "when-adopting-target": "prompt"},
                 {"source-path": "~/b", "when-source-and-target-directories-exist": "adopt", "when-only-target-exists": "adopt-target",
-                 "when-adopting-target": {"policy": "prompt", "archive-root": "~/archive"}},
+                 "when-adopting-target": "discard-source"},
                 {"source-path": "~/c", "target-path": "/t/c", "when-source-and-target-directories-exist": "leave-unchanged",
-                 "when-adopting-target": {"policy": "discard-source"}},
-                {"source-path": "~/d", "when-source-and-target-directories-exist": "discard",
-                 "when-adopting-target": {"policy": "archive-source", "archive-root": "~/archive"}},
-                {"source-path": "~/e"}
+                 "when-adopting-target": "archive-source", "archive-root": "~/archive"},
+                {"source-path": "~/d", "when-source-and-target-directories-exist": "discard"}
               ]}}
             """.trimIndent()
         val decoded = decodeJson(ConfigurationFile.serializer(), text)
         val encoded = encodeConfiguration(decoded)
         assertEquals(decoded, decodeJson(ConfigurationFile.serializer(), encoded))
-        // Every enum value and policy case is present, and written back in the user's form.
         val relocations = decoded.homelight.relocations
         assertEquals(WhenSourceAndTargetDirectoriesExist.entries, relocations.mapNotNull { it.whenSourceAndTargetDirectoriesExist })
         assertEquals(WhenOnlyTargetExists.entries, relocations.mapNotNull { it.whenOnlyTargetExists })
-        assertEquals(
-            listOf(AdoptingFile.Prompt(), AdoptingFile.Prompt("~/archive"), AdoptingFile.DiscardSource, AdoptingFile.ArchiveSource("~/archive")),
-            relocations.mapNotNull { it.whenAdoptingTarget },
-        )
-        assertEquals(true, encoded.contains("\"target-root\": \"~/local/\${USER}\""), encoded)
+        assertEquals(WhenAdoptingTarget.entries, relocations.mapNotNull { it.whenAdoptingTarget })
+        assertEquals(listOf(null, null, "~/archive", null), relocations.map { it.archiveRoot })
+        // Paths are written back in the user's form.
+        assertTrue(encoded.contains("\"target-root\": \"~/local/\${USER}\""), encoded)
+        assertTrue(encoded.contains("\"archive-root\": \"~/archive\""), encoded)
     }
 
     @Test fun writesOnlyTheSettingsThatAreSet() {
         val file = ConfigurationFile(HomeLightFile("/local", relocations = listOf(
-            RelocationFile("/home/cache", whenAdoptingTarget = AdoptingFile.ArchiveSource("/archive")),
+            RelocationFile("/home/cache", whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE),
         )))
         assertEquals("""
             {
@@ -314,10 +293,7 @@ class ConfigurationLoaderTest {
                     "relocations": [
                         {
                             "source-path": "/home/cache",
-                            "when-adopting-target": {
-                                "policy": "archive-source",
-                                "archive-root": "/archive"
-                            }
+                            "when-adopting-target": "archive-source"
                         }
                     ]
                 }
@@ -326,14 +302,19 @@ class ConfigurationLoaderTest {
             """.trimIndent(), encodeConfiguration(file))
     }
 
-    @Test fun loadsWhatThePublisherWrites() {
-        for (policy in listOf(WhenAdoptingTarget.Prompt(), WhenAdoptingTarget.Prompt(temporary.resolve("archive")),
-            WhenAdoptingTarget.DiscardSource, WhenAdoptingTarget.ArchiveSource(temporary.resolve("archive")), null)) {
-            val relocation = Relocation(temporary.resolve("home/it's \"quoted\""), temporary.resolve("local/it's"),
-                WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy)
-            val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
-            val loaded = ConfigurationLoader().load(write(encodeConfiguration(configurationFile(draft))))
-            assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+    @Test fun loadsWhatThePublisherWritesAndOmitsTheDefaultArchiveRoot() {
+        val source = temporary.resolve("home/it's \"quoted\"")
+        for (policy in WhenAdoptingTarget.entries + null) {
+            for (archiveRoot in listOf(defaultArchiveRoot(source), temporary.resolve("archive"))) {
+                val relocation = Relocation(source, temporary.resolve("local/it's"),
+                    WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy, archiveRoot)
+                val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
+                val file = configurationFile(draft)
+                val written = file.homelight.relocations.single().archiveRoot
+                assertEquals(archiveRoot.takeIf { it != defaultArchiveRoot(source) }?.toString(), written)
+                val loaded = ConfigurationLoader().load(write(encodeConfiguration(file)))
+                assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+            }
         }
     }
 

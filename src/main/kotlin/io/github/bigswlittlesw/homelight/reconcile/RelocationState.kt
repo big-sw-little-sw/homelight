@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 /**
  * Filesystem observations used to plan one relocation without touching disk.
- * `archiveDestination` is null when the relocation has no source archive root.
+ * `archiveDestination` is null when it was not observed; archive-source is then blocked.
  */
 data class RelocationState(
     val relocation: Relocation,

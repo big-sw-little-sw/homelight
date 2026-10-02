@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import io.github.bigswlittlesw.homelight.config.normalizeSharedList
 import io.github.bigswlittlesw.homelight.config.parseSharedList
@@ -189,24 +190,15 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         val sourceRelative: String, val targetRelative: String,
         val both: WhenSourceAndTargetDirectoriesExist? = null,
         val onlyTarget: WhenOnlyTargetExists? = null,
-        val adopting: WhenAdoptingTarget.Kind? = null, val archiveRoot: Path? = null,
+        val adopting: WhenAdoptingTarget? = null, val archiveRoot: Path? = null,
     ) {
+        /** A null `archiveRoot` is [defaultArchiveRoot]. */
         internal fun resolve(sourceRoot: Path, targetRoot: Path): Relocation {
             require(archiveRoot == null || archiveRoot.isAbsolute) { "Archive root must be an absolute path" }
-            val root = archiveRoot?.normalize()
-            // An archive root alone keeps the default prompt and makes archiving one of its answers.
-            val policy = when (adopting) {
-                null -> root?.let { WhenAdoptingTarget.Prompt(it) }
-                WhenAdoptingTarget.Kind.PROMPT -> WhenAdoptingTarget.Prompt(root)
-                WhenAdoptingTarget.Kind.DISCARD_SOURCE -> {
-                    require(root == null) { "Discard source does not use an archive root" }
-                    WhenAdoptingTarget.DiscardSource
-                }
-                WhenAdoptingTarget.Kind.ARCHIVE_SOURCE ->
-                    WhenAdoptingTarget.ArchiveSource(requireNotNull(root) { "Archive source requires an archive root" })
-            }
+            val source = relative(sourceRoot, sourceRelative)
             return Relocation(
-                relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative), both, onlyTarget, policy,
+                source, relative(targetRoot, targetRelative), both, onlyTarget, adopting,
+                archiveRoot?.normalize() ?: defaultArchiveRoot(source),
             )
         }
     }

@@ -40,11 +40,8 @@ enum class DecisionChoice(val label: String, val description: String) {
             DISCARD_BOTH -> WhenSourceAndTargetDirectoriesExist.DISCARD
         }
         val adopting = when (this) {
-            ADOPT_AND_DISCARD_SOURCE -> WhenAdoptingTarget.DiscardSource
-            // Evaluation offers this choice only when the saved policy has an archive root.
-            ADOPT_AND_ARCHIVE_SOURCE -> WhenAdoptingTarget.ArchiveSource(
-                requireNotNull(saved.whenAdoptingTarget?.archiveRoot) { "Archiving requires an archive root" },
-            )
+            ADOPT_AND_DISCARD_SOURCE -> WhenAdoptingTarget.DISCARD_SOURCE
+            ADOPT_AND_ARCHIVE_SOURCE -> WhenAdoptingTarget.ARCHIVE_SOURCE
             ADOPT_TARGET, LEAVE_UNCHANGED, DISCARD_BOTH -> saved.whenAdoptingTarget
         }
         return saved.copy(
