@@ -43,12 +43,12 @@ class ReconciliationPlanner {
                     ),
                 )
                 PathState.DIRECTORY -> onlyTargetExists(state)
-                else -> unsupportedTarget(state)
+                PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
             RelocationSourceState.DIRECTORY -> when (state.target.state) {
                 PathState.ABSENT -> migrateSourceForPublication(state)
                 PathState.DIRECTORY -> bothDirectoriesExist(state)
-                else -> unsupportedTarget(state)
+                PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
             RelocationSourceState.FILE -> blocked(state, "source is a file; relocations require directories")
             RelocationSourceState.WRONG_SYMLINK -> conflict(
@@ -58,7 +58,7 @@ class ReconciliationPlanner {
             RelocationSourceState.BROKEN_SYMLINK -> when (state.target.state) {
                 PathState.DIRECTORY -> outcome(state, listOf(replacementLink(state)))
                 PathState.ABSENT -> blocked(state, "broken source link has no target directory")
-                else -> unsupportedTarget(state)
+                PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
             RelocationSourceState.INACCESSIBLE -> blocked(state, "source cannot be inspected")
             RelocationSourceState.OTHER -> blocked(state, "source has an unsupported filesystem state")

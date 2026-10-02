@@ -91,11 +91,11 @@ class ConfigurationLoader {
     }
 
     private fun resolve(value: String): Path {
-        var expanded = value.replace("\${USER}", System.getenv().getOrDefault("USER", ""))
-        if (expanded == "~") {
-            expanded = System.getProperty("user.home")
-        } else if (expanded.startsWith("~/")) {
-            expanded = System.getProperty("user.home") + expanded.substring(1)
+        val substituted = value.replace("\${USER}", System.getenv("USER").orEmpty())
+        val expanded = when {
+            substituted == "~" -> System.getProperty("user.home")
+            substituted.startsWith("~/") -> System.getProperty("user.home") + substituted.substring(1)
+            else -> substituted
         }
         return Path.of(expanded).toAbsolutePath().normalize()
     }

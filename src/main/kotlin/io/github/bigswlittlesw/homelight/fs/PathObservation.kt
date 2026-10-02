@@ -38,7 +38,7 @@ data class PathObservation(
                     RelocationSourceState.WRONG_SYMLINK
             SymlinkTargetAvailability.ABSENT -> RelocationSourceState.BROKEN_SYMLINK
             SymlinkTargetAvailability.INACCESSIBLE -> RelocationSourceState.INACCESSIBLE
-            SymlinkTargetAvailability.NOT_A_SYMLINK -> throw IllegalStateException("Invalid symlink observation")
+            SymlinkTargetAvailability.NOT_A_SYMLINK -> error("Invalid symlink observation")
         }
     }
 }
