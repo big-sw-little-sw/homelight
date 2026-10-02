@@ -8,6 +8,9 @@ import io.github.bigswlittlesw.homelight.application.PlanModel
 import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
@@ -295,6 +298,38 @@ class CandidateSetupTest {
         browser.key(KeyEvent.ofChar('a'), draft); browser.key(KeyEvent.ofChar('e'), draft)
         assertTrue(draft.rows.isEmpty())
         assertEquals("hello\\u001b[2J\\u000aworld", literal("hello\u001b[2J\nworld"))
+    }
+
+    @Test fun savedPoliciesUseTheirLabelsAndNoRawKeys() {
+        val root = fixture()
+        val rawKeys = (WhenSourceAndTargetDirectoriesExist.entries.map { it.value } + WhenOnlyTargetExists.entries.map { it.value } +
+            WhenAdoptingTarget.entries.map { it.value }).toSet()
+        // Together these rows hold every value of each policy, and its omission.
+        val rows = listOf(
+            Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
+                "both directories: Prompt; only target: Prompt; adopt target: Prompt",
+            Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenAdoptingTarget.DISCARD_SOURCE) to
+                "both directories: Adopt target; only target: Adopt target; adopt target: Discard source",
+            Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, null, WhenAdoptingTarget.ARCHIVE_SOURCE) to
+                "both directories: Leave unchanged; only target: Default (prompt); adopt target: Archive source",
+            Triple(WhenSourceAndTargetDirectoriesExist.DISCARD, null, null) to
+                "both directories: Discard both; only target: Default (prompt); adopt target: Default (prompt)",
+            Triple(null, null, null) to
+                "both directories: Default (prompt); only target: Default (prompt); adopt target: Default (prompt)",
+        )
+        for ((policies, expected) in rows) {
+            val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"), policies.first, policies.second, policies.third)
+            val draft = SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf(relocation))
+            val browser = CandidateBrowser()
+            WorkspaceViewTest.render(browser.render(draft), 80, 24)
+            browser.key(KeyEvent.ofChar('j'), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER), draft)
+            val text = WorkspaceViewTest.render(browser.render(draft), 200, 30)
+            val line = text.lines().first { it.contains("Saved policies: ") }
+                .substringAfter("Saved policies: ").substringBefore('│').trimEnd()
+            assertEquals(expected, line, text)
+            val shown = line.split("; ").map { part -> part.substringAfter(": ") }
+            assertTrue(shown.none { label -> label in rawKeys }, line)
+        }
     }
 
     @Test fun arrivingResultsDoNotStealPathFocusOrEraseActiveRowText() {

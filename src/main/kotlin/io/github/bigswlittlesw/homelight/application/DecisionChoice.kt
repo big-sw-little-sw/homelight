@@ -23,8 +23,8 @@ enum class DecisionChoice(val label: String, val description: String) {
     ),
 
     LEAVE_UNCHANGED(
-        "Leave source and target unmanaged",
-        "Leave existing source and target directories in place without managing them.",
+        "Leave source and target unchanged",
+        "Leave existing source and target directories in place, unchanged.",
     ),
 
     DISCARD_BOTH(
