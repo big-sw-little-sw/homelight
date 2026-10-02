@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.concurrent
 
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -20,34 +21,51 @@ internal const val SIZING_CONCURRENCY = 2
  */
 internal const val RELOCATION_CONCURRENCY = 2
 
+/** What happened to one item of [mapBounded]. */
+internal sealed interface Outcome<out U> {
+    data class Completed<U>(val value: U) : Outcome<U>
+
+    data class Failed(val error: Exception) : Outcome<Nothing>
+
+    /** Cancelled before any thread claimed the item, so its work never ran. */
+    data object NotStarted : Outcome<Nothing>
+}
+
 /**
- * Runs [work] for each of [items] on at most [n] virtual threads, and returns once every thread has finished.
+ * Runs [work] for each of [items] on at most [n] virtual threads, and returns one [Outcome] per item, in input
+ * order, once every thread has finished.
  *
  * This is a sliding window: each thread takes the next unclaimed item, so a slow item delays only its own thread.
  * Items start in list order; they may finish in any order.
  *
- * - [cancelled] is checked before each item. Once it returns `true` no further item starts, but running items are
- *   not interrupted, and this call still waits for them.
- * - An exception from one item does not stop the others. It goes to the worker thread's uncaught exception
- *   handler; callers that need outcomes record them inside [work].
+ * - [cancelled] is checked before each item is claimed. Once it returns `true` no further item starts, but running
+ *   items are not interrupted, and this call still waits for them. A claimed item always runs, so only unclaimed
+ *   items are [Outcome.NotStarted].
+ * - An [Exception] from one item becomes its [Outcome.Failed] and does not stop the others. An [Error] stops its
+ *   thread and is rethrown here once every thread has finished.
  *
  * The caller's thread blocks until the last item returns, so a caller that must stay responsive runs this on a
  * thread of its own. The wait ignores interrupts: an interrupted caller still waits for every item, so no worker
  * outlives this call, and this call then re-sets the caller's interrupt flag. Interrupts never reach the workers.
  */
-internal fun <T> forEachBounded(items: List<T>, n: Int, cancelled: () -> Boolean, work: (T) -> Unit) {
+internal fun <T, U> mapBounded(items: List<T>, n: Int, cancelled: () -> Boolean, work: (T) -> U): List<Outcome<U>> {
     require(n > 0) { "Concurrency must be positive" }
     val next = AtomicInteger()
+    // Each slot has one writer, the thread that claimed its index; the joins below publish the slots to this thread.
+    val outcomes = arrayOfNulls<Outcome<U>>(items.size)
+    val errors = ConcurrentLinkedQueue<Error>()
     val threads = List(minOf(n, items.size)) {
         Thread.ofVirtual().start {
             while (!cancelled()) {
                 val index = next.getAndIncrement()
                 if (index >= items.size) break
-                try {
-                    work(items[index])
+                outcomes[index] = try {
+                    Outcome.Completed(work(items[index]))
                 } catch (e: Exception) {
-                    val thread = Thread.currentThread()
-                    thread.uncaughtExceptionHandler.uncaughtException(thread, e)
+                    Outcome.Failed(e)
+                } catch (e: Error) {
+                    errors.add(e)
+                    break
                 }
             }
         }
@@ -64,4 +82,6 @@ internal fun <T> forEachBounded(items: List<T>, n: Int, cancelled: () -> Boolean
         }
     }
     if (interrupted) Thread.currentThread().interrupt()
+    errors.poll()?.let { first -> throw first.apply { errors.forEach(::addSuppressed) } }
+    return outcomes.map { it ?: Outcome.NotStarted }
 }
