@@ -10,8 +10,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import picocli.CommandLine
+import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -211,7 +213,7 @@ class ReviewedJsonApplyTest {
         completion.completeExceptionally(cause)
         val output = StringWriter()
 
-        val thrown = assertThrows(CompletionException::class.java) {
+        val thrown = assertThrows<CompletionException> {
             renderCompletion(execution, PrintWriter(output, true))
         }
         assertSame(cause, thrown.cause)
@@ -265,7 +267,7 @@ class ReviewedJsonApplyTest {
         fun write(path: Path, content: String) {
             try {
                 Files.writeString(path, content)
-            } catch (exception: java.io.IOException) {
+            } catch (exception: IOException) {
                 throw AssertionError(exception)
             }
         }

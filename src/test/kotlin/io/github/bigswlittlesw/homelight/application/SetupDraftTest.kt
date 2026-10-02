@@ -1,7 +1,5 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.homelight.application
 
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.CandidateCatalog
 import io.github.bigswlittlesw.homelight.config.CandidateParser
 import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
@@ -11,23 +9,27 @@ import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.homelight.discovery.CandidateMetadata
+import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
+import io.github.bigswlittlesw.homelight.pollUntil
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.LockSupport
 
 class SetupDraftTest {
     @TempDir lateinit var temporary: Path
@@ -52,8 +54,8 @@ class SetupDraftTest {
             assertEquals(12, draft.entries().size) // 11 catalog identities plus the outside row
             assertEquals(listOf(configured, outside, Relocation(root.resolve("datasets"),
                     temporary.resolve("target/my-data"))), draft.validate().relocations)
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".m2")) }
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("datasets")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve(".m2")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve("datasets")) }
             assertEquals(listOf(manual), draft.rows)
         }
     }
@@ -84,7 +86,7 @@ class SetupDraftTest {
             refresh(draft, worker)
             assertTrue(checkNotNull(entry(draft, root.resolve("team-cache")).discovery).observation.stale)
             assertEquals(savedRows, draft.rows)
-            Files.copy(fixture("shared-refreshed"), shared(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            Files.copy(fixture("shared-refreshed"), shared(), StandardCopyOption.REPLACE_EXISTING)
             Files.delete(root.resolve(".cache/uv"))
             refresh(draft, worker)
             assertSame(edited, draft.rows.first())
@@ -100,8 +102,8 @@ class SetupDraftTest {
             assertArrayEquals(bytes, Files.readAllBytes(config))
             assertSame(plan, session.planModel())
             assertEquals(review, session.applyModel())
-            assertSame((plan as io.github.bigswlittlesw.homelight.application.PlanModel.Configured).plan,
-                    (session.applyModel() as io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation).plan)
+            assertSame((plan as PlanModel.Configured).plan,
+                    (session.applyModel() as ApplyModel.Confirmation).plan)
         }
     }
 
@@ -114,7 +116,7 @@ class SetupDraftTest {
             refresh(draft, worker)
             Files.writeString(shared(), "{\"directories\": [")
             refresh(draft, worker)
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("team-cache")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve("team-cache")) }
             draft.add(root.resolve(".cache/uv"))
             assertEquals(listOf(SetupDraft.Row(".cache/uv", ".cache/uv")), draft.rows)
         }
@@ -130,12 +132,12 @@ class SetupDraftTest {
             draft.add(root.resolve(".local/share/uv"))
             val chosen = draft.rows
             assertEquals(listOf(SetupDraft.Row(".local/share/uv", ".local/share/uv")), chosen)
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv/tools")) }
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve(".local/share/uv/tools")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve(".local/share/uv")) }
             assertEquals(chosen, draft.rows)
             draft.remove(0)
             draft.add(root.resolve(".local/share/uv/tools"))
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve(".local/share/uv")) }
             assertEquals(1, draft.rows.size)
         }
     }
@@ -150,8 +152,8 @@ class SetupDraftTest {
             draft.append(first)
             draft.append(second)
             assertEquals(2, draft.entries().size)
-            assertThrows(IllegalArgumentException::class.java, draft::validate)
-            assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
+            assertThrows<IllegalArgumentException> { draft.validate() }
+            assertThrows<IllegalArgumentException> { ConfigurationPublisher().saveNew(
                     temporary.resolve("invalid.json"), draft.validate()) }
             assertEquals(listOf(first, second), draft.rows)
             assertFalse(Files.exists(temporary.resolve("invalid.json")))
@@ -160,10 +162,10 @@ class SetupDraftTest {
         val configured = Relocation(root.resolve("a"), temporary.resolve("target/b"))
         val cross = SetupDraft(root, root, null, listOf(configured))
         cross.append(SetupDraft.Row("c", "a"))
-        assertThrows(IllegalArgumentException::class.java, cross::validate)
+        assertThrows<IllegalArgumentException> { cross.validate() }
         val cycle = SetupDraft(temporary.resolve("target"), root, null, listOf(configured))
         cycle.append(SetupDraft.Row("b", "a"))
-        assertThrows(IllegalArgumentException::class.java, cycle::validate)
+        assertThrows<IllegalArgumentException> { cycle.validate() }
     }
 
     @Test fun rootAndLocationEditsRejectOldResultsEvenAfterReturningToTheOldRoot() {
@@ -215,7 +217,7 @@ class SetupDraftTest {
                 assertTrue(draft.accept(worker.snapshot()))
                 draft.append(SetupDraft.Row("manual", "manual"))
                 val blocked = Files.writeString(temporary.resolve("blocked"), "occupied")
-                assertThrows(ConfigurationException::class.java) {
+                assertThrows<ConfigurationException> {
                     ConfigurationPublisher().saveNew(blocked.resolve("config.json"), draft.validate()) }
                 draft.edit(0, SetupDraft.Row("manual", "edited"))
                 val config = temporary.resolve("saved.json")
@@ -245,7 +247,7 @@ class SetupDraftTest {
             worker().use { worker ->
                 refresh(draft, worker)
                 val before = draft.rows
-                assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve("team-cache")) }
+                assertThrows<IllegalArgumentException> { draft.add(root.resolve("team-cache")) }
                 assertEquals(before, draft.rows)
             }
         }
@@ -297,7 +299,7 @@ class SetupDraftTest {
             assertEquals(CandidateObservation.Kind.MISSING, candidate.observation.kind)
             for (kind in CandidateObservation.Kind.values()) for (current in listOf(true, false)) {
                 val observation = CandidateObservation(path, kind, null,
-                        result.generation - (if (current) 0 else 1), java.time.Instant.now(), !current, listOf())
+                        result.generation - (if (current) 0 else 1), Instant.now(), !current, listOf())
                 assertTrue(draft.accept(CandidateDiscovery.Result(result.generation, result.request, result.sources,
                         listOf(CandidateDiscovery.Candidate(candidate.catalog, observation, candidate.ancestors)), result.rootFailure)))
                 val eligible = current && (kind == CandidateObservation.Kind.DIRECTORY || kind == CandidateObservation.Kind.MISSING)
@@ -305,10 +307,10 @@ class SetupDraftTest {
                 if (eligible) {
                     draft.add(path)
                     assertFalse(draft.canAdd(entry(draft, path)))
-                    assertThrows(IllegalArgumentException::class.java) { draft.add(path) }
+                    assertThrows<IllegalArgumentException> { draft.add(path) }
                     assertEquals(listOf(SetupDraft.Row("absent-cache", "absent-cache")), draft.rows)
                     draft.remove(0)
-                } else assertThrows(IllegalArgumentException::class.java) { draft.add(path) }
+                } else assertThrows<IllegalArgumentException> { draft.add(path) }
                 assertTrue(draft.rows.isEmpty())
             }
             assertTrue(draft.accept(result))
@@ -325,7 +327,7 @@ class SetupDraftTest {
         worker().use { worker ->
             refresh(draft, worker)
             draft.add(root.resolve(".local/share/uv"))
-            assertThrows(IllegalArgumentException::class.java) { draft.add(root.resolve(".local/share/uv/tools")) }
+            assertThrows<IllegalArgumentException> { draft.add(root.resolve(".local/share/uv/tools")) }
             assertEquals(listOf(SetupDraft.Row(".local/share/uv", ".local/share/uv")), draft.rows)
             assertFalse(Files.exists(root.resolve(".local")))
             assertFalse(Files.exists(temporary.resolve("target")))
@@ -336,7 +338,7 @@ class SetupDraftTest {
         val root = Files.createDirectory(temporary.resolve("home"))
         for (sameObject in listOf(false, true)) for (index in 0 until 2) {
             for (remove in listOf(false, true)) {
-                Files.copy(fixture("shared"), shared(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                Files.copy(fixture("shared"), shared(), StandardCopyOption.REPLACE_EXISTING)
                 val draft = draft(root, listOf())
                 val row = SetupDraft.Row("team-cache", "team-cache")
                 draft.append(row)
@@ -349,9 +351,9 @@ class SetupDraftTest {
                     refresh(draft, worker)
                     assertNull(draft.entries().get(0).discovery)
                     assertNull(draft.entries().get(1).discovery)
-                    assertThrows(IllegalArgumentException::class.java, draft::validate)
+                    assertThrows<IllegalArgumentException> { draft.validate() }
                     val config = temporary.resolve("duplicates.json")
-                    assertThrows(IllegalArgumentException::class.java) {
+                    assertThrows<IllegalArgumentException> {
                         ConfigurationPublisher().saveNew(config, draft.validate()) }
                     assertFalse(Files.exists(config))
                     val before = draft.entries()
@@ -372,7 +374,7 @@ class SetupDraftTest {
     @Test fun appendingAnEqualRowAfterCandidateRemovalDoesNotInheritHistory() {
         val root = Files.createDirectory(temporary.resolve("home"))
         for (sameObject in listOf(false, true)) for (index in 0 until 2) {
-            Files.copy(fixture("shared"), shared(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            Files.copy(fixture("shared"), shared(), StandardCopyOption.REPLACE_EXISTING)
             val draft = draft(root, listOf())
             val row = SetupDraft.Row("team-cache", "team-cache")
             worker().use { worker ->
@@ -385,7 +387,7 @@ class SetupDraftTest {
                 draft.append(if (sameObject) row else SetupDraft.Row("team-cache", "team-cache"))
                 assertEquals(history, draft.entries().get(0).lastKnownDefinitions)
                 assertTrue(draft.entries().get(1).lastKnownDefinitions.isEmpty())
-                assertThrows(IllegalArgumentException::class.java, draft::validate)
+                assertThrows<IllegalArgumentException> { draft.validate() }
                 draft.edit(index, SetupDraft.Row("edited", "edited"))
                 refresh(draft, worker)
                 assertEquals(history, draft.entries().get(0).lastKnownDefinitions)
@@ -416,7 +418,7 @@ class SetupDraftTest {
                 assertNull(draft.entries().get(1).discovery)
                 draft.edit(index, draft.rows.get(1 - index))
                 assertSame(draft.rows.get(0), draft.rows.get(1))
-                assertThrows(IllegalArgumentException::class.java, draft::validate)
+                assertThrows<IllegalArgumentException> { draft.validate() }
                 refresh(draft, worker)
                 assertEquals(first, draft.entries().get(0).lastKnownDefinitions)
                 assertEquals(second, draft.entries().get(1).lastKnownDefinitions)
@@ -443,23 +445,21 @@ class SetupDraftTest {
 
         private fun refresh(draft: SetupDraft, worker: CandidateDiscovery): CandidateDiscovery.Result {
             draft.refresh(worker)
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4)
-            while (true) {
-                val result = worker.snapshot()
-                val currentSources = result.sources
-                        .filter { source -> source.status == CandidateDiscovery.SourceStatus.CURRENT }
-                        .map(CandidateDiscovery.SourceOutcome::source)
-                if (result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
-                        && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
-                        && result.candidates.filter { c -> c.catalog.definitions
-                                .any { definition -> currentSources.contains(definition.source) } }
-                                .all { c -> c.observation.generation == result.generation }) {
-                    assertTrue(draft.accept(result))
-                    return result
-                }
-                if (System.nanoTime() > deadline) fail<Unit>("Discovery fixture did not finish")
-                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1))
-            }
+            lateinit var result: CandidateDiscovery.Result
+            pollUntil("Discovery fixture did not finish") { result = worker.snapshot(); settled(result) }
+            assertTrue(draft.accept(result))
+            return result
+        }
+
+        private fun settled(result: CandidateDiscovery.Result): Boolean {
+            val currentSources = result.sources
+                    .filter { source -> source.status == CandidateDiscovery.SourceStatus.CURRENT }
+                    .map(CandidateDiscovery.SourceOutcome::source)
+            return result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
+                    && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
+                    && result.candidates.filter { c -> c.catalog.definitions
+                            .any { definition -> currentSources.contains(definition.source) } }
+                            .all { c -> c.observation.generation == result.generation }
         }
     }
 }

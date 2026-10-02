@@ -2,8 +2,8 @@ package io.github.bigswlittlesw.homelight.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -213,14 +213,14 @@ class ConfigurationLoaderTest {
     @Test fun reportsAMissingFile() {
         val missing = temporary.resolve("absent.json")
         assertEquals("Configuration file does not exist: $missing",
-            assertThrows(ConfigurationException::class.java) { ConfigurationLoader().load(missing) }.message)
+            assertThrows<ConfigurationException> { ConfigurationLoader().load(missing) }.message)
     }
 
     private fun load(json: String): HomeLightConfiguration = ConfigurationLoader().load(write(json))
 
     private fun failure(json: String): String? {
         val file = write(json)
-        return assertThrows(ConfigurationException::class.java) { ConfigurationLoader().load(file) }
+        return assertThrows<ConfigurationException> { ConfigurationLoader().load(file) }
             .message
     }
 

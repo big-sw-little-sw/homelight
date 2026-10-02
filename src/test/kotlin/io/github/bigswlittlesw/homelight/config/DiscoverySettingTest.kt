@@ -1,12 +1,13 @@
 package io.github.bigswlittlesw.homelight.config
 
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -24,7 +25,7 @@ class DiscoverySettingTest {
         assertEquals(Path.of(System.getProperty("user.home"), "shared.json").normalize(),
                 parseSharedList("~/folder/../shared.json"))
         for (invalid in listOf("relative.json", "../relative.json", "https://example.com/list", "\$HOME/list", "\${HOME}/list", "/tmp/\$LIST", "/tmp/list\n")) {
-            assertThrows(IllegalArgumentException::class.java, { parseSharedList(invalid) }, invalid)
+            assertThrows<IllegalArgumentException>(invalid) { parseSharedList(invalid) }
         }
     }
 
@@ -43,8 +44,8 @@ class DiscoverySettingTest {
             val loaded = ConfigurationLoader().load(path)
             assertEquals(location, loaded.sharedList)
             assertEquals(draft.relocations, loaded.relocations)
-            val evaluation = assertInstanceOf(io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Loaded::class.java,
-                    io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().load(path))
+            val evaluation = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java,
+                    ConfigurationEvaluation().load(path))
             assertEquals(loaded.sharedList, evaluation.savedConfiguration.sharedList)
             val text = Files.readString(path)
             for (forbidden in listOf("\"apps\"", "\"directories\"", "\"advice\"", "\"reason\"", "\"provenance\"",
@@ -70,7 +71,7 @@ class DiscoverySettingTest {
         assertFalse(text.contains("\"discovery\""))
         Files.writeString(path, text.replace("\"relocations\":", "\"discovery\": {\"shared-list\": \"   \"}, \"relocations\":"))
         assertNull(ConfigurationLoader().load(path).sharedList)
-        assertThrows(IllegalArgumentException::class.java) { ConfigurationPublisher().saveNew(
+        assertThrows<IllegalArgumentException> { ConfigurationPublisher().saveNew(
                 temporary.resolve("setting-only.json"), ConfigurationDraft.of(draft.targetRoot, listOf(), path)) }
         assertFalse(Files.exists(temporary.resolve("setting-only.json")))
     }

@@ -14,6 +14,7 @@ import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesEx
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.homelight.pollUntil
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -21,9 +22,11 @@ import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.LockSupport
+import java.util.regex.Pattern
 
 class CandidateSetupTest {
     @TempDir lateinit var temporary: Path
@@ -81,7 +84,7 @@ class CandidateSetupTest {
             key(app, 'e'); down(app); clear(app); type(app, "custom-target")
             down(app); key(app, ' '); key(app, ' ') // Adopt target, no inferred source disposition.
             escape(app); key(app, 'b')
-            Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(app, 'r'); await(workers, app)
             // Refresh while inspecting does not leave details or erase the row.
             val history = all(app)
@@ -183,7 +186,7 @@ class CandidateSetupTest {
             val row = ConfigurationLoader().load(root.resolve("config.json")).relocations.first()
             assertEquals(root.resolve("home/absent-cache"), row.sourcePath)
             assertEquals(root.resolve("local/future-cache"), row.targetPath)
-            assertEquals(io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
+            assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
             assertFalse(Files.exists(row.sourcePath))
             assertFalse(Files.exists(root.resolve("local")))
             assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
@@ -285,7 +288,7 @@ class CandidateSetupTest {
         val emptyText = WorkspaceViewTest.render(empty.render(SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf())), 80, 24)
         assertFalse(emptyText.contains("Enter:") || emptyText.contains("a: Add"), emptyText)
         val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"),
-            io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.DISCARD)
+            WhenSourceAndTargetDirectoriesExist.DISCARD)
         val draft = SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf(relocation))
         val browser = CandidateBrowser()
         WorkspaceViewTest.render(browser.render(draft), 80, 24)
@@ -387,7 +390,7 @@ class CandidateSetupTest {
             val row = configuration.relocations.first()
             assertEquals(root.resolve("other-home/manual"), row.sourcePath)
             assertEquals(root.resolve("other-target/chosen-target"), row.targetPath)
-            assertEquals(io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT, row.whenSourceAndTargetDirectoriesExist)
+            assertEquals(WhenSourceAndTargetDirectoriesExist.ADOPT, row.whenSourceAndTargetDirectoriesExist)
             assertNull(configuration.sharedList)
         }
     }
@@ -409,23 +412,19 @@ class CandidateSetupTest {
             down(app); type(app, shared.toString()); enter(app)
         }
         fun await(workers: SetupDiscoveryFixture, app: HomeLightApp) {
-            val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(4)
-            while (System.nanoTime() < until) {
+            pollUntil("Discovery did not settle") {
                 val result = workers.workers.last().snapshot()
-                if (result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
-                    && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }) {
-                    // The app accepts snapshots only when rendering, and the next key acts on what it last rendered.
-                    render(app)
-                    return
-                }
-                LockSupport.parkNanos(1_000_000)
+                result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
+                    && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
             }
-            fail<Unit>("Discovery did not settle")
+            // Render exactly once after discovery settles: the app accepts snapshots only when rendering, and the
+            // next key acts on what it last rendered.
+            render(app)
         }
         fun choose(app: HomeLightApp, relative: String) {
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.HOME))
             repeat(100) {
-                if (render(app).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + java.util.regex.Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
+                if (render(app).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
                 key(app, 'j')
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(app))

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 
 class HomeLightSessionTest {
@@ -27,7 +28,7 @@ class HomeLightSessionTest {
         assertTrue(session.requestApply())
         Files.createDirectories(root.resolve("local/cache"))
         val completion = session.confirmApply { task ->
-            throw java.util.concurrent.RejectedExecutionException("worker unavailable")
+            throw RejectedExecutionException("worker unavailable")
         }
         completion.join()
         session.awaitExecution()

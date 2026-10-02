@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -34,7 +35,7 @@ class DefaultConfigurationClassificationTest {
             assertEquals(0, process.exitValue()) {
                 try {
                     Files.readString(output)
-                } catch (exception: java.io.IOException) {
+                } catch (exception: IOException) {
                     exception.toString()
                 }
             }

@@ -9,10 +9,12 @@ import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletionException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -45,7 +47,7 @@ class TuiLauncherTest {
             val app = HomeLightApp(session, config(backend))
             app.handleKeyEvent(KeyEvent.ofChar('q'))
             if (exceptional) {
-                assertThrows(CompletionException::class.java, app::run)
+                assertThrows<CompletionException> { app.run() }
             } else {
                 app.run()
             }
@@ -104,7 +106,7 @@ class TuiLauncherTest {
     }
 
     private class LifecycleBackend : AbstractBackend() {
-        val lifecycle: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+        val lifecycle: MutableList<String> = CopyOnWriteArrayList()
 
         override fun flush() { }
         override fun clear() { }

@@ -3,15 +3,19 @@ package io.github.bigswlittlesw.homelight.cli
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 
 class ApplyCommandTest {
+    // Config files stay outside each test's relocation root.
+    @TempDir lateinit var configDirectory: Path
+
     @Test
-    fun appliesAnAbsentSourceAndTarget() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun appliesAnAbsentSourceAndTarget(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
 
@@ -22,8 +26,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun stagesPublishesAndLinksAnExistingSourceDirectory() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun stagesPublishesAndLinksAnExistingSourceDirectory(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         Files.writeString(source.resolve("entry"), "source")
@@ -36,8 +40,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun usesAConfiguredTargetLocalStagingRoot() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun usesAConfiguredTargetLocalStagingRoot(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         val stagingRoot = root.resolve("local/staging")
@@ -55,8 +59,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun cleansAProvenStaleStagingOperationBeforePublishing() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun cleansAProvenStaleStagingOperationBeforePublishing(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         val stagingRoot = Files.createDirectories(root.resolve("local/staging"))
@@ -74,8 +78,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun retainsAStagingOperationWithAnUnexpectedEntry() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun retainsAStagingOperationWithAnUnexpectedEntry(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         val stagingRoot = Files.createDirectories(root.resolve("local/staging"))
@@ -92,8 +96,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun usesAStagingRootElsewhereOnTheTargetFilesystem() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun usesAStagingRootElsewhereOnTheTargetFilesystem(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         Files.writeString(source.resolve("entry"), "source")
@@ -109,8 +113,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun appliesConfiguredTargetAdoptionWithSourceDiscard() {
-        val root = Files.createTempDirectory("homelight")
+    fun appliesConfiguredTargetAdoptionWithSourceDiscard(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("entry"), "target")
@@ -126,8 +129,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun archivesTheSourceWhenAdoptingAConfiguredTarget() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun archivesTheSourceWhenAdoptingAConfiguredTarget(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("source-entry"), "source")
         val target = Files.createDirectories(root.resolve("local/cache"))
@@ -146,8 +149,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun leavesConfiguredDirectoriesUnchanged() {
-        val root = Files.createTempDirectory("homelight")
+    fun leavesConfiguredDirectoriesUnchanged(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
@@ -159,8 +161,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun appliesConfiguredDiscardToBothDirectories() {
-        val root = Files.createTempDirectory("homelight")
+    fun appliesConfiguredDiscardToBothDirectories(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(source.resolve("source"), "source")
@@ -175,11 +176,10 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun jsonAndNonInteractiveApplyRequireYes() {
-        val root = Files.createTempDirectory("homelight")
+    fun jsonAndNonInteractiveApplyRequireYes(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         assertEquals(2, execute("apply", "--config", config.toString()).exitCode)
@@ -189,8 +189,7 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun convergedRelocationIsANoOpOnTheSecondApply() {
-        val root = Files.createTempDirectory("homelight")
+    fun convergedRelocationIsANoOpOnTheSecondApply(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
         val json = configuration(root, source, target)
@@ -203,8 +202,8 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun jsonReportsConvergedResultsForPublicationAndItsNoOpRepeat() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun jsonReportsConvergedResultsForPublicationAndItsNoOpRepeat(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         Files.writeString(source.resolve("entry"), "source")
@@ -220,11 +219,11 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun appliesWithTopLevelConfigOption() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun appliesWithTopLevelConfigOption(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("--config", config.toString(), "apply", "--json", "--yes")
@@ -234,11 +233,11 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun appliesWithTopLevelShortConfigOption() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun appliesWithTopLevelShortConfigOption(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("-c", config.toString(), "apply", "--json", "--yes")
@@ -248,11 +247,11 @@ class ApplyCommandTest {
     }
 
     @Test
-    fun appliesWithSubcommandShortConfigOption() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun appliesWithSubcommandShortConfigOption(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("apply", "-c", config.toString(), "--json", "--yes")
@@ -261,27 +260,27 @@ class ApplyCommandTest {
         assertTrue(Files.isSymbolicLink(source))
     }
 
+    private fun apply(json: String): Result {
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        Files.writeString(config, json)
+        val output = StringWriter()
+        val command = HomeLightCommand.createCommandLine()
+        command.setOut(PrintWriter(output, true))
+        return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
+    }
+
+    private fun applyJson(json: String): Result {
+        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        Files.writeString(config, json)
+        val output = StringWriter()
+        val command = HomeLightCommand.createCommandLine()
+        command.setOut(PrintWriter(output, true))
+        return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
+    }
+
     private data class Result(val exitCode: Int, val output: String)
 
     private companion object {
-        fun apply(json: String): Result {
-            val config = Files.createTempFile("homelight", ".json")
-            Files.writeString(config, json)
-            val output = StringWriter()
-            val command = HomeLightCommand.createCommandLine()
-            command.setOut(PrintWriter(output, true))
-            return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
-        }
-
-        fun applyJson(json: String): Result {
-            val config = Files.createTempFile("homelight", ".json")
-            Files.writeString(config, json)
-            val output = StringWriter()
-            val command = HomeLightCommand.createCommandLine()
-            command.setOut(PrintWriter(output, true))
-            return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
-        }
-
         fun execute(vararg arguments: String): Result {
             val output = StringWriter()
             val command = HomeLightCommand.createCommandLine()

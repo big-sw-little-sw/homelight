@@ -1,8 +1,10 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -110,8 +112,7 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun statusReportsJsonFilesystemState() {
-        val root = Files.createTempDirectory("homelight")
+    fun statusReportsJsonFilesystemState(@TempDir root: Path) {
         val sourcePath = root.resolve("home")
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
@@ -127,8 +128,7 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun statusReportsJsonFilesystemStateWithShortConfigOption() {
-        val root = Files.createTempDirectory("homelight")
+    fun statusReportsJsonFilesystemStateWithShortConfigOption(@TempDir root: Path) {
         val sourcePath = root.resolve("home")
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
@@ -144,8 +144,7 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun statusReportsJsonFilesystemStateWithTopLevelConfigOption() {
-        val root = Files.createTempDirectory("homelight")
+    fun statusReportsJsonFilesystemStateWithTopLevelConfigOption(@TempDir root: Path) {
         val sourcePath = root.resolve("home")
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
@@ -161,8 +160,7 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun statusReportsJsonFilesystemStateWithTopLevelShortConfigOption() {
-        val root = Files.createTempDirectory("homelight")
+    fun statusReportsJsonFilesystemStateWithTopLevelShortConfigOption(@TempDir root: Path) {
         val sourcePath = root.resolve("home")
         val targetPath = root.resolve("local")
         Files.createDirectories(targetPath)
@@ -181,7 +179,7 @@ class HomeLightCommandTest {
     fun statusJsonEscapesPathControlCharacters() {
         val output = StringWriter()
         val snapshot = StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
-            io.github.bigswlittlesw.homelight.domain.RelocationSourceState.ABSENT)
+            RelocationSourceState.ABSENT)
 
         renderStatusJson(listOf(snapshot), PrintWriter(output, true))
 
@@ -192,7 +190,7 @@ class HomeLightCommandTest {
     fun statusJsonValuesDoNotDependOnTheDefaultLocale() {
         val output = StringWriter()
         val snapshot = StatusSnapshot(Path.of("/source"), Path.of("/target"),
-            io.github.bigswlittlesw.homelight.domain.RelocationSourceState.INACCESSIBLE)
+            RelocationSourceState.INACCESSIBLE)
         val previous = Locale.getDefault()
         // Turkish lower-cases I to a dotless ı.
         Locale.setDefault(Locale.forLanguageTag("tr"))

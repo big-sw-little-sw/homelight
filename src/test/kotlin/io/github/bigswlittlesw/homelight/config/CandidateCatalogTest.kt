@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
@@ -41,7 +41,7 @@ class CandidateCatalogTest {
             }
         }
         assertEquals(HOME, parse(EMPTY, Path.of("/home/./alex")).root)
-        assertThrows(IllegalArgumentException::class.java) { parse(EMPTY, Path.of("relative")) }
+        assertThrows<IllegalArgumentException> { parse(EMPTY, Path.of("relative")) }
     }
 
     @Test fun rejectsEveryUnsafePathAtomicallyWithLocation() {
@@ -337,7 +337,7 @@ class CandidateCatalogTest {
         assertEquals(invalid.diagnostics, merged.diagnostics)
         val badBundled = parser.parse(CandidateCatalog.BUNDLED, HOME, ByteArray(0))
         assertEquals(7, CandidateCatalog.merge(listOf(badBundled, fixture(SHARED, "shared.json"))).candidates.size)
-        assertThrows(IllegalArgumentException::class.java) {
+        assertThrows<IllegalArgumentException> {
             CandidateCatalog.merge(listOf(valid, parse(EMPTY, OTHER))) }
     }
 
@@ -347,7 +347,7 @@ class CandidateCatalogTest {
         val copied = CandidateCatalog.Snapshot.of(SHARED, HOME, definitions, listOf())
         definitions.clear()
         assertEquals(1, copied.definitions.size)
-        assertThrows(IllegalArgumentException::class.java) { CandidateCatalog.Snapshot.of(SHARED, HOME,
+        assertThrows<IllegalArgumentException> { CandidateCatalog.Snapshot.of(SHARED, HOME,
                 parsed.definitions, parse("").diagnostics) }
     }
 
