@@ -19,6 +19,9 @@ import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
 import java.util.Locale
 import java.util.UUID
 
@@ -132,6 +135,8 @@ class ReconciliationExecutor {
         val targetParent: Path = action.target.parent
             ?: throw IllegalStateException("target has no parent directory: " + action.target)
         val stagingRoot = action.stagingRoot ?: targetParent.resolve(".homelight-staging")
+        requirePosixPermissions(action.path)
+        requirePosixPermissions(targetParent)
         if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
             throw IllegalStateException("staging root is not on the target filesystem: $stagingRoot")
         }
@@ -144,21 +149,24 @@ class ReconciliationExecutor {
         val marker = operation.resolve("target")
         val lockPath = operation.resolve("lock")
         Files.writeString(marker, MARKER_HEADER + action.target.toAbsolutePath().normalize() + "\n", StandardCharsets.UTF_8)
+        val copy = operation.resolve("copy")
         var lockSupported = true
         try {
             FileChannel.open(lockPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
                 acquireLock(channel).use { lock ->
                     lockSupported = lock != null
-                    val copy = operation.resolve("copy")
-                    Files.createDirectory(copy)
                     Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
                     verifyCopy(action.path, copy)
                     requireState(action.path, PathState.DIRECTORY)
                     requireState(action.target, PathState.ABSENT)
-                    Files.move(copy, action.target, StandardCopyOption.ATOMIC_MOVE)
+                    publish(copy, action.target)
                 }
             }
         } finally {
+            // A failed copy may hold directories without owner write; deleting their entries needs it.
+            if (Files.isDirectory(copy, LinkOption.NOFOLLOW_LINKS)) {
+                restoreOwnerAccess(copy)
+            }
             deleteTree(operation)
         }
         return if (lockSupported) "completed" else "completed; staging locks unsupported, stale cleanup skipped"
@@ -229,14 +237,30 @@ class ReconciliationExecutor {
         }
     }
 
+    /**
+     * Copies a tree, giving each copied directory the nine permission bits of its source.
+     *
+     * Directories start owner-only, so the copy is never more open to group or others than the
+     * source, and stay owner-writable until their entries are copied. Each gets its final mode
+     * after its contents, which lets a read-only source directory (`0500`) still receive children.
+     * `destination` must not exist yet.
+     */
     private class CopyVisitor(private val source: Path, private val destination: Path) : SimpleFileVisitor<Path>() {
         override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.createDirectories(copiedPath(source, destination, directory))
+            Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
             return FileVisitResult.CONTINUE
         }
 
         override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
             Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
+            return FileVisitResult.CONTINUE
+        }
+
+        override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
+            if (exception != null) {
+                throw exception
+            }
+            Files.setPosixFilePermissions(copiedPath(source, destination, directory), directoryPermissions(directory))
             return FileVisitResult.CONTINUE
         }
     }
@@ -296,6 +320,55 @@ private class StateDriftException(message: String) : IllegalStateException(messa
 
 private const val OPERATION_PREFIX = "operation-"
 private const val MARKER_HEADER = "homelight-staging-v1\n"
+
+private val OWNER_ACCESS = setOf(
+    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
+)
+private val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(OWNER_ACCESS)
+
+/**
+ * Refuses publication where directory permission bits cannot be read or set, rather than letting
+ * the copy fall back to provider defaults (decision 2026-09-30). A provider that accepts but ignores
+ * the bits is caught later by [verifyCopy].
+ */
+private fun requirePosixPermissions(path: Path) {
+    if (!fileStoreOfExistingAncestor(path).supportsFileAttributeView(PosixFileAttributeView::class.java)) {
+        throw IllegalStateException("cannot preserve directory permissions: no POSIX permission support at $path")
+    }
+}
+
+private fun directoryPermissions(directory: Path): Set<PosixFilePermission> =
+    Files.getPosixFilePermissions(directory, LinkOption.NOFOLLOW_LINKS)
+
+/**
+ * Moves the staged copy to [target] in one step. rename(2) needs write permission on a directory
+ * that changes parent, so a root without owner write gets it for the move only.
+ */
+private fun publish(copy: Path, target: Path) {
+    val permissions = directoryPermissions(copy)
+    if (PosixFilePermission.OWNER_WRITE in permissions) {
+        Files.move(copy, target, StandardCopyOption.ATOMIC_MOVE)
+        return
+    }
+    Files.setPosixFilePermissions(copy, permissions + PosixFilePermission.OWNER_WRITE)
+    Files.move(copy, target, StandardCopyOption.ATOMIC_MOVE)
+    try {
+        Files.setPosixFilePermissions(target, permissions)
+    } catch (exception: IOException) {
+        throw IOException("published $target but could not restore its permissions: ${exception.message}", exception)
+    }
+}
+
+/** Gives the owner full access to every directory under [root] so a staged copy can be deleted. */
+private fun restoreOwnerAccess(root: Path) {
+    val permissions = directoryPermissions(root)
+    if (!permissions.containsAll(OWNER_ACCESS)) {
+        Files.setPosixFilePermissions(root, permissions + OWNER_ACCESS)
+    }
+    Files.list(root).use { entries -> entries.toList() }
+        .filter { entry -> Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS) }
+        .forEach(::restoreOwnerAccess)
+}
 
 private fun ensureRealDirectories(path: Path) {
     val absolute = path.toAbsolutePath().normalize()
@@ -484,6 +557,9 @@ private fun verifyCopy(source: Path, copy: Path) {
             val copiedDirectory = copiedPath(source, copy, directory)
             if (!Files.isDirectory(copiedDirectory, LinkOption.NOFOLLOW_LINKS)) {
                 throw IOException("copied directory is missing: $copiedDirectory")
+            }
+            if (directoryPermissions(directory) != directoryPermissions(copiedDirectory)) {
+                throw IOException("copied directory permissions differ: $copiedDirectory")
             }
             return FileVisitResult.CONTINUE
         }
