@@ -1,12 +1,12 @@
 package io.github.bigswlittlesw.homelight.config
 
-import java.util.Locale
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** The decision required when the source is absent and the target is a real directory. */
+@Serializable
+@SerialName("when-only-target-exists")
 enum class WhenOnlyTargetExists {
-    PROMPT,
-    ADOPT_TARGET;
-
-    /** The stable configuration and JSON representation. */
-    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
+    @SerialName("prompt") PROMPT,
+    @SerialName("adopt-target") ADOPT_TARGET,
 }

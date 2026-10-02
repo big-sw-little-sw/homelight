@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.homelight.config
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.nio.file.Path
 
 /**
@@ -24,5 +26,10 @@ data class CandidateDefinition(
         }
     }
 
-    enum class Advice { CONSIDER, USUALLY_UNNECESSARY }
+    @Serializable
+    @SerialName("advice")
+    enum class Advice {
+        @SerialName("consider") CONSIDER,
+        @SerialName("usually-unnecessary") USUALLY_UNNECESSARY,
+    }
 }

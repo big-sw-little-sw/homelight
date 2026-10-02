@@ -69,14 +69,27 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
         "source-path": "~/.cache/uv",
         "target-path": "/local/home/${USER}/uv",
         "when-source-and-target-directories-exist": "discard"
+      },
+      {
+        "source-path": "~/.gradle",
+        "when-source-and-target-directories-exist": "adopt",
+        "when-adopting-target": "archive-source",
+        "archive-root": "~/archive"
       }
     ]
   }
 }
 ```
 
-Unknown and duplicate keys are rejected. Errors name the key path; malformed JSON,
-unknown or duplicate keys and wrong value types also give the line and column.
+`when-adopting-target` is `prompt`, `discard-source` or `archive-source`. Archiving
+moves the source under `archive-root`, which defaults to `.homelight-archive` beside
+the source. The root must be on the source's filesystem, because archiving is a rename.
+Review always offers archiving when the policy prompts.
+
+Unknown keys, missing required keys, wrong value types and unknown policy values are
+rejected. Errors name the key path, and give the line and column where the JSON
+reader knows them. A repeated key keeps its last value. Saving from the setup screen
+writes a new file without comments.
 
 `homelight apply` opens Plan for review. Press `a` or Enter to inspect the
 confirmation checklist, then `y` to apply that exact plan. `n` or Esc cancels

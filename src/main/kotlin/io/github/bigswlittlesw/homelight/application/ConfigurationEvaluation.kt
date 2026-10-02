@@ -84,9 +84,8 @@ class ConfigurationEvaluation(
             RelocationState(
                 relocation,
                 inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath),
-                relocation.sourceArchiveRoot?.let { root ->
-                    val source = normalize(relocation.sourcePath)
-                    val path = root.resolve(source.root.relativize(source)).normalize()
+                normalize(relocation.sourcePath).let { source ->
+                    val path = relocation.archiveRoot.resolve(source.root.relativize(source)).normalize()
                     RelocationState.ArchiveDestination(path, inspector.inspect(path))
                 },
             )
@@ -162,9 +161,7 @@ private fun availableChoices(state: RelocationState, plan: RelocationPlan): List
     if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
         return buildList {
             add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
-            if (state.relocation.sourceArchiveRoot != null) {
-                add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
-            }
+            add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
             add(DecisionChoice.LEAVE_UNCHANGED)
             add(DecisionChoice.DISCARD_BOTH)
         }

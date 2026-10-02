@@ -14,8 +14,7 @@ internal data class RelocationProblem(val source: Path, val message: String)
 /**
  * The first problem that makes `relocations` unsafe together, or null.
  *
- * Each relocation is checked alone first: its source and target must not overlap, and archive-source needs an
- * archive root. Then each pair is checked in order: no shared target, and no overlap among any of their paths.
+ * Each relocation is checked alone first: its source and target must not overlap. Then each pair is checked in order: no shared target, and no overlap among any of their paths.
  * A pair is reported against its earlier relocation. A shared target is also an overlap; it only gets a clearer
  * message.
  */
@@ -24,9 +23,6 @@ internal fun relocationProblem(relocations: List<Relocation>): RelocationProblem
         val source = normalized(relocation.sourcePath)
         if (intersects(source, relocation.targetPath)) {
             return RelocationProblem(relocation.sourcePath, "source and target paths overlap: $source")
-        }
-        if (lacksArchiveRoot(relocation.whenAdoptingTarget, relocation.sourceArchiveRoot)) {
-            return RelocationProblem(relocation.sourcePath, "archive-source requires source-archive-root")
         }
     }
     for ((index, left) in relocations.withIndex()) {

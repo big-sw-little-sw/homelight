@@ -234,11 +234,8 @@ internal object WorkspaceView {
         lines.add(Line("Target: " + item.relocation.targetPath))
         item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
             ?.let { path -> lines.add(Line("Current link destination: $path")) }
-        item.relocation.sourceArchiveRoot?.let { root ->
-            lines.add(
-                Line("Archive: " + root.resolve(item.relocation.sourcePath.root.relativize(item.relocation.sourcePath))),
-            )
-        }
+        val source = item.relocation.sourcePath
+        lines.add(Line("Archive: " + item.relocation.archiveRoot.resolve(source.root.relativize(source))))
         return anchor
     }
 

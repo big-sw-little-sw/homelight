@@ -114,8 +114,7 @@ private fun adoptTarget(state: RelocationState): RelocationPlan =
 
 private fun archiveSource(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
-    // relocationProblem has already blocked archive-source without an archive root.
-    val archivePath = relocation.sourceArchiveRoot!!.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
+    val archivePath = relocation.archiveRoot.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
     if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
         return blocked(state, "source archive path overlaps a relocation path")
     }

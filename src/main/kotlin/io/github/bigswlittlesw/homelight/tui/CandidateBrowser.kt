@@ -355,7 +355,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
                     "; adopt target: " + adoptingLabel(r.whenAdoptingTarget),
             ),
         )
-        r.sourceArchiveRoot?.let { p -> lines.add(Line("Saved archive root: " + literal(p.toString()))) }
+        lines.add(Line("Saved archive root: " + literal(r.archiveRoot.toString())))
     }
     entry.draft?.let { r ->
         lines.add(Line("Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString())))

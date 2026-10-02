@@ -1,13 +1,15 @@
 package io.github.bigswlittlesw.homelight.config
 
-import java.util.Locale
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** The disposition required for a source directory when its target is adopted. */
+@Serializable
+@SerialName("when-adopting-target")
 enum class WhenAdoptingTarget {
-    PROMPT,
-    DISCARD_SOURCE,
-    ARCHIVE_SOURCE;
+    @SerialName("prompt") PROMPT,
+    @SerialName("discard-source") DISCARD_SOURCE,
 
-    /** The stable configuration and JSON representation. */
-    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
+    /** Moves the source under [Relocation.archiveRoot]. */
+    @SerialName("archive-source") ARCHIVE_SOURCE,
 }

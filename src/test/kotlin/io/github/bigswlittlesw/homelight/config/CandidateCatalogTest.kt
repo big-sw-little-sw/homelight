@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import kotlinx.serialization.json.Json
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -83,7 +84,7 @@ class CandidateCatalogTest {
 
     @Test fun rejectsStrictSchemaViolationsForEitherSourceKind() {
         val inputs = listOf("", "// empty", "[]", "{}", """{"directories": null}""", """{"directories": {}}""",
-                """{"directories": [], "unknown": true}""", """{"directories": [], "directories": []}""",
+                """{"directories": [], "unknown": true}""", """{"directories": [{"path": "cache", "advice": ""}]}""",
                 """{"directories": []} {"directories": []}""", """{"directories": [null]}""",
                 """{"directories": [{"app": "Maven"}]}""", """{"directories": [{"path": null}]}""",
                 """{"directories": [{"path": "cache", "app": null}]}""",
@@ -92,7 +93,7 @@ class CandidateCatalogTest {
                 """{"directories": [{"path": "cache", "advice": "safe"}]}""",
                 """{"directories": [{"path": "cache", "selected": true}]}""",
                 """{"directories": [{"path": "cache", "policy": "move"}]}""",
-                """{"directories": [{"path": "cache", "path": "other"}]}""",
+                """{"directories": [{"path": "cache", "reason": " "}]}""", """{"directories": [{"reason": "x"}]}""",
                 """{"directories": [{"path": 12}]}""", """{"directories": [{"path": true}]}""",
                 """{"directories": [{"path": ["cache"]}]}""", """{"directories": [{"path": "cache", "reason": {"text": "x"}}]}""",
                 """{'directories': []}""", """{directories: []}""")
@@ -119,11 +120,13 @@ class CandidateCatalogTest {
                 {"directories": [
                   {"path": 12}]}
                 """).diagnostics.single())
-        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SYNTAX, 0, 2, 18, "", "",
-                "Duplicate key 'path'"), parse("""
-                {"directories": [
-                  {"path": "a", "path": "b"}]}
-                """).diagnostics.single())
+        // kotlinx gives missing keys and unknown enum values no offset.
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SYNTAX, 0, 0, 0, "apps[0].directories[0]", "",
+                "Field 'path' is required for type with serial name 'directory', but it was missing at apps[0].directories[0]"),
+                parse("""{"apps": [{"name": "App", "directories": [{"reason": "No path"}]}]}""").diagnostics.single())
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SYNTAX, 0, 0, 0, "directories[0].advice", "",
+                "advice does not contain element with name 'safe' at directories[0].advice"),
+                parse("""{"directories": [{"path": "cache", "advice": "safe"}]}""").diagnostics.single())
         assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SYNTAX, 0, 1, 1, "", "",
                 "Expected start of the object '{', but had 'EOF' instead"), parse("").diagnostics.single())
     }
@@ -143,11 +146,11 @@ class CandidateCatalogTest {
         assertEquals("Maven // not a comment", snapshot.definitions.first().reason)
     }
 
-    @Test fun treatsNullOrBlankOptionalValuesAsAbsent() {
+    @Test fun treatsNullOptionalValuesAsAbsentAndRejectsBlankText() {
         val snapshot = parse("""
                 {"apps": [{"name": "12", "directories": [
                   {"path": "2026-09-23", "reason": "5", "advice": null},
-                  {"path": "true", "reason": "  ", "advice": ""}]}]}
+                  {"path": "true", "reason": null}]}]}
                 """)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
         assertEquals(listOf("2026-09-23", "true"), snapshot.definitions.map(CandidateDefinition::originalPath))
@@ -155,12 +158,51 @@ class CandidateCatalogTest {
         assertEquals(listOf("5", null), snapshot.definitions.map(CandidateDefinition::reason))
         assertNull(snapshot.definitions.first().advice)
         assertNull(snapshot.definitions.last().advice)
-        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 0, 0,
-                "directories[0]", "path", "Missing required key directories[0].path"),
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.UNSAFE_PATH, 1, 0, 0,
+                "directories[0]", "path", "Path must be a literal portable relative path"),
                 parse("""{"directories": [{"path": "  "}]}""").diagnostics.single())
-        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 0, 0, "directories[0]", "advice",
-                "Invalid value 'safe' for directories[0].advice; expected one of consider, usually-unnecessary"),
-                parse("""{"directories": [{"path": "cache", "advice": "safe"}]}""").diagnostics.single())
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 0, 0,
+                "directories[0]", "reason", "Reason must not be blank"),
+                parse("""{"directories": [{"path": "cache", "reason": "  "}]}""").diagnostics.single())
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 0, 0, 0,
+                "apps[0]", "name", "App label must not be blank or have leading or trailing whitespace"),
+                parse("""{"apps": [{"name": "", "directories": []}]}""").diagnostics.single())
+    }
+
+    @Test fun keepsTheLastValueOfARepeatedKey() {
+        val snapshot = parse("""
+                {"directories": [{"path": "first"}],
+                 "directories": [{"path": "cache", "path": "other", "reason": "a", "reason": "b"}],
+                 "apps": [{"name": "App", "name": "Other", "directories": [], "directories": []}]}
+                """)
+        assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
+        assertEquals(listOf("other"), snapshot.definitions.map(CandidateDefinition::originalPath))
+        assertEquals(listOf("b"), snapshot.definitions.map(CandidateDefinition::reason))
+    }
+
+    @Test fun roundTripsEveryAdviceValue() {
+        val text = """
+                {"apps": [{"name": "App", "directories": [
+                  {"path": "a", "advice": "consider", "reason": "Kept"},
+                  {"path": "b", "advice": "usually-unnecessary"}]}],
+                 "directories": [{"path": "c"}]}
+                """
+        val decoded = decodeJson(CandidateListFile.serializer(), text)
+        // The default Json omits defaults, as the configuration output does.
+        val encoded = Json.encodeToString(CandidateListFile.serializer(), decoded)
+        assertEquals(decoded, decodeJson(CandidateListFile.serializer(), encoded))
+        assertEquals(CandidateDefinition.Advice.entries, decoded.apps.orEmpty().flatMap { it.directories }.mapNotNull { it.advice })
+        assertFalse(encoded.contains("null"), encoded)
+    }
+
+    @Test fun errorMessagesNameNoKotlinTypes() {
+        for (input in listOf("{}", """{"apps": [{}]}""", """{"directories": [{}]}""",
+                """{"directories": [{"path": "a", "advice": "x"}]}""", """{"directories": [{"path": "a", "x": 1}]}""")) {
+            val message = parse(input).diagnostics.single().message
+            for (name in listOf("File", "Advice", "Json", "kotlin", "io.github", "\n", "Use '")) {
+                assertFalse(message.contains(name), "$input: $message")
+            }
+        }
     }
 
     @Test fun enforcesByteRecordAndStringLimitsAtTheirBoundaries() {
@@ -244,15 +286,11 @@ class CandidateCatalogTest {
             assertFalse(snapshot.accepted(), group)
             val diagnostic = snapshot.diagnostics.first()
             assertTrue(diagnostic.location.startsWith("apps[1]"), group)
-            assertEquals(diagnostic.kind == CandidateDiagnostic.Kind.SYNTAX, diagnostic.line > 0, group)
-        }
-        for (group in listOf("""{"name": "App", "name": "Other", "directories": []}""",
-                """{"name": "App", "directories": [], "directories": []}""")) {
-            assertKind(CandidateDiagnostic.Kind.SYNTAX, parse("""{"apps": [$group]}"""))
+            // Only the decoder knows positions, and not for every error.
+            if (diagnostic.kind != CandidateDiagnostic.Kind.SYNTAX) assertEquals(0, diagnostic.line, group)
         }
         assertKind(CandidateDiagnostic.Kind.SCHEMA, parse("""{"apps": null}"""))
         assertKind(CandidateDiagnostic.Kind.SYNTAX, parse("""{"apps": {}}"""))
-        assertKind(CandidateDiagnostic.Kind.SYNTAX, parse("""{"apps": [], "apps": []}"""))
         // Rejected by the reader: located by path and position.
         for (directory in listOf("""{"path": "cache", "app": "Legacy"}""", """{"path": "cache", "unknown": "value"}""")) {
             val diagnostic = parse("""{"apps": [{"name": "App", "directories": [{"path": "safe"}, $directory]}]}""")
@@ -261,13 +299,16 @@ class CandidateCatalogTest {
             assertTrue(diagnostic.line > 0 && diagnostic.column > 0)
         }
         // Rejected after decoding: located by record index, path and key.
-        for (directory in listOf("""{"path": "../escape"}""", """{"reason": "Missing"}""")) {
-            val diagnostic = parse("""{"apps": [{"name": "App", "directories": [{"path": "safe"}, $directory]}]}""")
-                    .diagnostics.single()
-            assertEquals("apps[0].directories[1]", diagnostic.location)
-            assertEquals(2, diagnostic.recordIndex)
-            assertEquals("path", diagnostic.key)
-        }
+        val escape = parse("""{"apps": [{"name": "App", "directories": [{"path": "safe"}, {"path": "../escape"}]}]}""")
+                .diagnostics.single()
+        assertEquals("apps[0].directories[1]", escape.location)
+        assertEquals(2, escape.recordIndex)
+        assertEquals("path", escape.key)
+        // A missing key is rejected by the decoder, by path alone.
+        val missing = parse("""{"apps": [{"name": "App", "directories": [{"path": "safe"}, {"reason": "Missing"}]}]}""")
+                .diagnostics.single()
+        assertEquals(CandidateDiagnostic.Kind.SYNTAX, missing.kind)
+        assertEquals("apps[0].directories[1]", missing.location)
     }
 
     @Test fun boundsGroupsAndAggregateRecords() {

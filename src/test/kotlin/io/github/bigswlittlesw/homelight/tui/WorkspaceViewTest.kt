@@ -234,7 +234,8 @@ class WorkspaceViewTest {
                 if (name == "adopt") body.append(", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"")
                 if (name == "discard") body.append(", \"when-source-and-target-directories-exist\": \"discard\"")
                 if (name == "unchanged") body.append(", \"when-source-and-target-directories-exist\": \"leave-unchanged\"")
-                if (name == "conflict") body.append(", \"source-archive-root\": \"").append(root.resolve("archive-destination-distinguishing-suffix")).append('"')
+                if (name == "conflict") body.append(", \"archive-root\": \"")
+                    .append(root.resolve("archive-destination-distinguishing-suffix")).append('"')
                 body.append("},\n") // The parser accepts the trailing comma after the last relocation.
             }
             return Files.writeString(root.resolve("config.json"), body.append("]}}\n"))

@@ -168,7 +168,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('s'))
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
-        assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot)
+        assertEquals(temporary.resolve("archive"), relocation.archiveRoot)
         assertFalse(Files.exists(temporary.resolve("home/nested/cache")), "saving must not relocate")
     }
 
@@ -635,9 +635,10 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
-        // Move to choice 1: LEAVE_UNCHANGED (Unchanged)
+        // Move past ADOPT_AND_ARCHIVE_SOURCE to choice 2: LEAVE_UNCHANGED (Unchanged)
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(1, app.detailSelectedIndex)
+        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        assertEquals(2, app.detailSelectedIndex)
 
         // Select it (Space)
         app.handleKeyEvent(KeyEvent.ofChar(' '))
@@ -650,7 +651,7 @@ class HomeLightAppTest {
             val currentItem = visible[app.selectedIndex()]
             assertEquals(source1, currentItem.relocation.sourcePath)
             assertEquals(PlanBadge.SKIPPED, currentItem.badge())
-            assertEquals(1, app.detailSelectedIndex)
+            assertEquals(2, app.detailSelectedIndex)
         }
 
         // Return to master list with 'h'
@@ -666,10 +667,11 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('l'))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
-        // Select choice 2: DISCARD_BOTH (index 2)
+        // Select choice 3: DISCARD_BOTH (index 3)
         app.handleKeyEvent(KeyEvent.ofChar('j'))
         app.handleKeyEvent(KeyEvent.ofChar('j'))
-        assertEquals(2, app.detailSelectedIndex)
+        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        assertEquals(3, app.detailSelectedIndex)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
 
         // The second item must stay selected and have DISCARD badge

@@ -1,7 +1,9 @@
 package io.github.bigswlittlesw.homelight.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -20,20 +22,31 @@ class ConfigurationLoaderTest {
                 "target-path": "/local/cache",
                 "when-source-and-target-directories-exist": "adopt",
                 "when-adopting-target": "archive-source",
-                "source-archive-root": "/archive"
+                "archive-root": "/archive"
               }]
             }}
             """).relocations.first()
         assertEquals(WhenSourceAndTargetDirectoriesExist.ADOPT, relocation.whenSourceAndTargetDirectoriesExist)
         assertEquals(WhenAdoptingTarget.ARCHIVE_SOURCE, relocation.whenAdoptingTarget)
-        assertEquals(Path.of("/archive"), relocation.sourceArchiveRoot)
+        assertEquals(Path.of("/archive"), relocation.archiveRoot)
     }
 
-    @Test fun rejectsArchiveWithoutRoot() {
-        assertEquals("source-archive-root is required when when-adopting-target is archive-source", failure("""
+    @Test fun archiveRootDefaultsBesideTheSource() {
+        val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
+        val relocations = load("""
             {"homelight": {"target-root": "/local", "relocations": [
-              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive-source"}
-            ]}}
+              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive-source"},
+              {"source-path": "/home/b", "target-path": "/local/b", "archive-root": "~/archive"}]}}
+            """).relocations
+        assertEquals(Path.of("/home/.homelight-archive"), relocations[0].archiveRoot)
+        assertEquals(home.resolve("archive"), relocations[1].archiveRoot)
+    }
+
+    @Test fun rejectsAPolicyObject() {
+        assertEquals("Line 2, column 89: Expected beginning of the string, but got {"
+            + " at homelight.relocations[0].when-adopting-target", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [
+              {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": {"policy": "archive-source"}}]}}
             """))
     }
 
@@ -43,16 +56,32 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun reportsMissingRequiredKeysByPath() {
-        assertEquals("Missing required key homelight.target-root",
+        assertEquals("Field 'target-root' is required for type with serial name 'homelight', but it was missing at homelight",
             failure("""{"homelight": {"relocations": []}}"""))
-        assertEquals("Missing required key homelight.target-root",
-            failure("""{"homelight": {"target-root": "  "}}"""))
-        assertEquals("Missing required key homelight.target-root",
-            failure("""{"homelight": {"target-root": null}}"""))
-        assertEquals("Missing required key homelight.relocations[0].source-path",
+        assertEquals("Field 'source-path' is required for type with serial name 'relocation', but it was missing"
+            + " at homelight.relocations[0]",
             failure("""{"homelight": {"target-root": "/local", "relocations": [{"target-path": "/local/cache"}]}}"""))
-        assertEquals("Missing required key homelight", failure("{}"))
-        assertEquals("Missing required key homelight", failure("""{"homelight": null}"""))
+        assertEquals("Field 'homelight' is required for type with serial name 'configuration', but it was missing",
+            failure("{}"))
+    }
+
+    @Test fun rejectsNullForARequiredValue() {
+        assertEquals("Line 1, column 31: Expected string literal but 'null' literal was found at homelight.target-root",
+            failure("""{"homelight": {"target-root": null}}"""))
+        assertEquals("Line 1, column 15: Expected start of the object '{', but had 'n' instead at homelight",
+            failure("""{"homelight": null}"""))
+    }
+
+    @Test fun rejectsBlankPaths() {
+        assertEquals("homelight.target-root must not be blank", failure("""{"homelight": {"target-root": "  "}}"""))
+        assertEquals("homelight.relocations[0].target-path must not be blank", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "target-path": ""}]}}
+            """))
+        assertEquals("homelight.relocations[0].archive-root must not be blank", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "archive-root": ""}]}}
+            """))
+        assertEquals("homelight.ignored-source-paths[1] must not be blank",
+            failure("""{"homelight": {"target-root": "/local", "ignored-source-paths": ["~/a", " "]}}"""))
     }
 
     @Test fun reportsValuesOfTheWrongTypeWithPositionAndPath() {
@@ -81,26 +110,22 @@ class ConfigurationLoaderTest {
             """))
         assertEquals("Line 1, column 56: Encountered an unknown key 'shared' at homelight.discovery",
             failure("""{"homelight": {"target-root": "/local", "discovery": {"shared": "/shared.json"}}}"""))
+        // The removed key is unknown too.
+        assertEquals("Line 2, column 66: Encountered an unknown key 'source-archive-root' at homelight.relocations[0]", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [
+              {"source-path": "/home/cache", "target-path": "/local/cache", "source-archive-root": "/archive"}]}}
+            """))
     }
 
-    @Test fun rejectsDuplicateKeysAtEveryLevel() {
-        assertEquals("Line 3, column 4: Duplicate key 'target-root'", failure("""
+    @Test fun keepsTheLastValueOfARepeatedKey() {
+        val configuration = load("""
             {"homelight": {
               "target-root": "/local",
-              "target-root": "/other"}}
-            """))
-        assertEquals("Line 1, column 43: Duplicate key 'homelight'",
-            failure("""{"homelight": {"target-root": "/local"}, "homelight": {"target-root": "/other"}}"""))
-        assertEquals("Line 2, column 31: Duplicate key 'source-path'", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [
-              {"source-path": "/home/a", "source-path": "/home/b", "target-path": "/local/a"}]}}
-            """))
-        // The same key in sibling objects, in a string value or in a comment is not a duplicate.
-        load("""
-            {"homelight": {"target-root": "/local", "relocations": [
-              {"source-path": "/home/a", "target-path": "/local/a"}, // "source-path": "x"
-              {"source-path": "/home/\"source-path\"", "target-path": "/local/b"}]}}
+              "target-root": "/other",
+              "relocations": [{"source-path": "/home/a", "source-path": "/home/b", "target-path": "/other/b"}]}}
             """)
+        assertEquals(Path.of("/other"), configuration.targetRoot)
+        assertEquals(Path.of("/home/b"), configuration.relocations.single().sourcePath)
     }
 
     @Test fun acceptsCommentsAndTrailingCommas() {
@@ -133,10 +158,20 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun acceptsOnlyTheKebabCasePolicyValues() {
-        assertEquals("Invalid value 'ADOPT_TARGET' for homelight.relocations[0].when-only-target-exists;"
-            + " expected one of prompt, adopt-target", failure("""
+        assertEquals("when-only-target-exists does not contain element with name 'ADOPT_TARGET'"
+            + " at homelight.relocations[0].when-only-target-exists", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "ADOPT_TARGET"}]}}
+            """))
+        assertEquals("when-source-and-target-directories-exist does not contain element with name 'move'"
+            + " at homelight.relocations[0].when-source-and-target-directories-exist", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{
+              "source-path": "/home/cache", "target-path": "/local/cache", "when-source-and-target-directories-exist": "move"}]}}
+            """))
+        assertEquals("when-adopting-target does not contain element with name 'archive'"
+            + " at homelight.relocations[0].when-adopting-target", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{
+              "source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive"}]}}
             """))
         val relocation = load("""
             {"homelight": {"target-root": "/local", "relocations": [{
@@ -151,16 +186,32 @@ class ConfigurationLoaderTest {
         assertEquals(WhenAdoptingTarget.DISCARD_SOURCE, relocation.whenAdoptingTarget)
     }
 
-    @Test fun resolvesOptionalSettingsAndTreatsNullEmptyOrBlankValuesAsAbsent() {
+    @Test fun errorMessagesNameNoKotlinTypes() {
+        val inputs = listOf(
+            "{}", """{"homelight": {}}""", """{"homelight": {"target-root": "/l", "relocations": [{}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-only-target-exists": "x"}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": "x"}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": {}}]}}""",
+            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "archive-root": 5}]}}""",
+        )
+        for (input in inputs) {
+            val message = failure(input).orEmpty()
+            for (name in listOf("File", "Adopting", "Json", "kotlin", "io.github", "When", "\n", "Check if", "Use '")) {
+                assertFalse(message.contains(name), "$input: $message")
+            }
+        }
+    }
+
+    @Test fun treatsNullOptionalValuesAsAbsent() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val configuration = load("""
             {"homelight": {
               "target-root": "/local",
               "staging-root": "/local/staging/../.staging",
-              "ignored-source-paths": ["~/ignored", null, " "],
+              "ignored-source-paths": ["~/ignored"],
               "discovery": {"shared-list": "/shared/candidates.json"},
-              "relocations": [{"source-path": "~/cache", "target-path": "", "when-adopting-target": null,
-                               "when-only-target-exists": " "}]
+              "relocations": [{"source-path": "~/cache", "target-path": null, "when-adopting-target": null,
+                               "when-only-target-exists": null}]
             }}
             """)
         val relocation = configuration.relocations.first()
@@ -171,7 +222,7 @@ class ConfigurationLoaderTest {
         assertNull(relocation.whenOnlyTargetExists)
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
         assertEquals(Path.of("/shared/candidates.json"), configuration.sharedList)
-        assertEquals(listOf<Relocation>(), load("""{"homelight": {"target-root": "/local", "relocations": null}}""").relocations)
+        // A blank shared list is the documented "none" of parseSharedList.
         assertNull(load("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": ""}}}""").sharedList)
     }
 
@@ -201,13 +252,70 @@ class ConfigurationLoaderTest {
             ConfigurationLoader().load(empty, override).relocations)
     }
 
-    @Test fun loadsWhatThePublisherWrites() {
-        val relocation = Relocation(temporary.resolve("home/it's \"quoted\""), temporary.resolve("local/it's"),
-            WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT,
-            WhenAdoptingTarget.ARCHIVE_SOURCE, temporary.resolve("archive"))
-        val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
-        val loaded = ConfigurationLoader().load(write(configurationJson(draft)))
-        assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+    @Test fun roundTripsEveryPolicyAndKeepsPathsAsWritten() {
+        val text = """
+            {"homelight": {
+              "target-root": "~/local/${'$'}{USER}",
+              "staging-root": "~/local/.staging",
+              "discovery": {"shared-list": "~/shared.json"},
+              "ignored-source-paths": ["~/ignored"],
+              "relocations": [
+                {"source-path": "~/a", "when-source-and-target-directories-exist": "prompt", "when-only-target-exists": "prompt",
+                 "when-adopting-target": "prompt"},
+                {"source-path": "~/b", "when-source-and-target-directories-exist": "adopt", "when-only-target-exists": "adopt-target",
+                 "when-adopting-target": "discard-source"},
+                {"source-path": "~/c", "target-path": "/t/c", "when-source-and-target-directories-exist": "leave-unchanged",
+                 "when-adopting-target": "archive-source", "archive-root": "~/archive"},
+                {"source-path": "~/d", "when-source-and-target-directories-exist": "discard"}
+              ]}}
+            """.trimIndent()
+        val decoded = decodeJson(ConfigurationFile.serializer(), text)
+        val encoded = encodeConfiguration(decoded)
+        assertEquals(decoded, decodeJson(ConfigurationFile.serializer(), encoded))
+        val relocations = decoded.homelight.relocations
+        assertEquals(WhenSourceAndTargetDirectoriesExist.entries, relocations.mapNotNull { it.whenSourceAndTargetDirectoriesExist })
+        assertEquals(WhenOnlyTargetExists.entries, relocations.mapNotNull { it.whenOnlyTargetExists })
+        assertEquals(WhenAdoptingTarget.entries, relocations.mapNotNull { it.whenAdoptingTarget })
+        assertEquals(listOf(null, null, "~/archive", null), relocations.map { it.archiveRoot })
+        // Paths are written back in the user's form.
+        assertTrue(encoded.contains("\"target-root\": \"~/local/\${USER}\""), encoded)
+        assertTrue(encoded.contains("\"archive-root\": \"~/archive\""), encoded)
+    }
+
+    @Test fun writesOnlyTheSettingsThatAreSet() {
+        val file = ConfigurationFile(HomeLightFile("/local", relocations = listOf(
+            RelocationFile("/home/cache", whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE),
+        )))
+        assertEquals("""
+            {
+                "homelight": {
+                    "target-root": "/local",
+                    "relocations": [
+                        {
+                            "source-path": "/home/cache",
+                            "when-adopting-target": "archive-source"
+                        }
+                    ]
+                }
+            }
+
+            """.trimIndent(), encodeConfiguration(file))
+    }
+
+    @Test fun loadsWhatThePublisherWritesAndOmitsTheDefaultArchiveRoot() {
+        val source = temporary.resolve("home/it's \"quoted\"")
+        for (policy in WhenAdoptingTarget.entries + null) {
+            for (archiveRoot in listOf(defaultArchiveRoot(source), temporary.resolve("archive"))) {
+                val relocation = Relocation(source, temporary.resolve("local/it's"),
+                    WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy, archiveRoot)
+                val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
+                val file = configurationFile(draft)
+                val written = file.homelight.relocations.single().archiveRoot
+                assertEquals(archiveRoot.takeIf { it != defaultArchiveRoot(source) }?.toString(), written)
+                val loaded = ConfigurationLoader().load(write(encodeConfiguration(file)))
+                assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+            }
+        }
     }
 
     @Test fun reportsAMissingFile() {

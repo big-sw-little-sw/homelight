@@ -46,7 +46,7 @@ class ConfigurationEvaluationTest {
         write(entry("source", "target", mapOf(
                 "when-source-and-target-directories-exist" to "prompt",
                 "when-only-target-exists" to "prompt",
-                "source-archive-root" to root.resolve("archive").toString())))
+                "archive-root" to archive())))
         val json = Files.readString(config)
         val loaded = loaded()
         val selected = evaluator.choose(loaded, root.resolve("child/../source"), choice)
@@ -74,7 +74,7 @@ class ConfigurationEvaluationTest {
         val policies = LinkedHashMap<String, String>()
         policies.put("when-source-and-target-directories-exist", "prompt")
         policies.put("when-only-target-exists", "prompt")
-        policies.put("source-archive-root", root.resolve("archive").toString())
+        policies.put("archive-root", archive())
         policies.putAll(properties)
         val saved = root.resolve("saved.json")
         Files.writeString(saved, document(entry("source", "target", policies)))
@@ -95,7 +95,7 @@ class ConfigurationEvaluationTest {
     fun choosingUsesRetainedConfigSourceTargetAndArchiveObservations() {
         Files.createDirectory(root.resolve("source"))
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
+        write(entry("source", "target", mapOf("archive-root" to archive())))
         val session = HomeLightSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
@@ -126,7 +126,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun replacingChoiceStartsFromSavedPolicyAndCancelsReview() {
         bothDirectories("source", "target")
-        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
+        write(entry("source", "target", mapOf("archive-root" to archive())))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertTrue(session.requestApply())
@@ -157,9 +157,10 @@ class ConfigurationEvaluationTest {
 
         bothDirectories("other-source", "other-target")
         write(entry("other-source", "other-target"))
-        val noArchive = loaded()
-        assertThrows<IllegalArgumentException> {
-            evaluator.choose(noArchive, root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE) }
+        // Archiving is always offered; without an archive-root it goes beside the source.
+        val archived = evaluator.choose(loaded(), root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
+        val archive = archived.plan.actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().single()
+        assertTrue(archive.target.startsWith(root.resolve(".homelight-archive")), archive.target.toString())
     }
 
     @Test
@@ -195,7 +196,7 @@ class ConfigurationEvaluationTest {
         for (changed in listOf(
                 entry("source", "other-target"),
                 entry("source", "target", mapOf("when-source-and-target-directories-exist" to "leave-unchanged")),
-                entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))) {
+                entry("source", "target", mapOf("archive-root" to archive())))) {
             write(changed)
             val result = evaluator.replan(selected)
             assertEquals(ConfigurationEvaluation.DiscardReason.DEFINITION_CHANGED, result.discardedChoices.first().reason)
@@ -300,4 +301,6 @@ class ConfigurationEvaluationTest {
         val fields = mapOf("source-path" to root.resolve(source).toString(), "target-path" to root.resolve(target).toString()) + policies
         return fields.entries.joinToString(", ", "  {", "}") { (key, value) -> "\"$key\": \"$value\"" }
     }
+
+    private fun archive(): String = root.resolve("archive").toString()
 }

@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import io.github.bigswlittlesw.homelight.config.normalizeSharedList
 import io.github.bigswlittlesw.homelight.config.parseSharedList
@@ -191,11 +192,13 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         val onlyTarget: WhenOnlyTargetExists? = null,
         val adopting: WhenAdoptingTarget? = null, val archiveRoot: Path? = null,
     ) {
+        /** A null `archiveRoot` is [defaultArchiveRoot]. */
         internal fun resolve(sourceRoot: Path, targetRoot: Path): Relocation {
             require(archiveRoot == null || archiveRoot.isAbsolute) { "Archive root must be an absolute path" }
+            val source = relative(sourceRoot, sourceRelative)
             return Relocation(
-                relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative),
-                both, onlyTarget, adopting, archiveRoot?.normalize(),
+                source, relative(targetRoot, targetRelative), both, onlyTarget, adopting,
+                archiveRoot?.normalize() ?: defaultArchiveRoot(source),
             )
         }
     }

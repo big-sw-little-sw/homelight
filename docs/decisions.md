@@ -168,6 +168,8 @@ Rejected: a custom string encoder to keep upper-case hex. It would add code for 
 
 ## 2026-10-01: Read JSON configuration strictly
 
+_Superseded in part by “Let kotlinx.serialization own the file format” (2026-10-02): repeated keys keep their last value, and kotlinx now reports missing keys and invalid policy values._
+
 Configuration and candidate lists are decoded into `@Serializable` file-shape classes and then converted into domain types (K6b, PR #62).
 
 - Unknown keys and values of the wrong JSON type are rejected; a number or boolean is not read as a string.
@@ -191,6 +193,29 @@ Kotlin's `isBlank` and `trim` treat no-break spaces as whitespace; Java's `Strin
 ## 2026-10-01: Keep threads and locks during the Kotlin migration
 
 The migration kept the existing platform threads, locks and executors. Coroutines are not adopted; #10 decides the concurrency mechanism later.
+
+## 2026-10-02: Let kotlinx.serialization own the file format
+
+One set of `@Serializable` classes defines the configuration and candidate-list formats for both reading and writing (#79). Hand-written value parsing is gone: required fields are non-null, optional ones have defaults, and policies and `advice` are `@Serializable` enums with `@SerialName` constants. kotlinx rejects unknown keys, missing required keys, wrong types and unknown enum or policy names. The loader keeps only domain rules: path expansion and blank paths, target derivation, staging-root under target-root, the path override, and the candidate limits and path validation. A blank string is a value, rejected only where a domain rule says so. Output uses `encodeDefaults = false`, so written files hold only what is set, in declaration order.
+
+All three policies, `when-adopting-target` included, are plain strings:
+
+```json
+"when-adopting-target": "archive-source",
+"archive-root": "~/archive"
+```
+
+`source-archive-root` becomes the optional relocation key `archive-root`. In the domain `Relocation.archiveRoot` is non-null and defaults to `.homelight-archive` beside the source. Archiving is an atomic rename, so the root must be on the source's filesystem, and beside the source it almost always is. With a root always present, archive-source without a root cannot happen, and review can always offer archiving when the policy prompts. The plan still blocks an archive path that overlaps the source or target. Paths stay as written in the file classes and expand only when converted to domain types, so a file read and written back keeps `~/…` and `${USER}`. A relocation using the default root is written without `archive-root`.
+
+Considered: a sealed `when-adopting-target` (`prompt`, `discard-source`, `archive-source` with its root) in the domain and the file, written as an object with a `policy` discriminator. It needed the experimental `@JsonClassDiscriminator`, gave errors without position or path when `policy` was missing, and still needed a root on `prompt` to offer archiving at review. Also considered: a generic domain `Policy<C>` (`Prompt` or `Decided(choice)`) for all three policies; deferred to the simplification pass.
+
+- A repeated key keeps its last value, as kotlinx does. The text scan that rejected duplicates is removed.
+- Error wording is kotlinx's, with the dotted path. Each file class and enum has a `@SerialName`, so messages name `relocation` or `when-adopting-target`, not Kotlin classes. kotlinx gives no offset for missing keys or unknown enum values, so those errors have a path but no line and column.
+- Writing a configuration drops comments. kotlinx can read comments but has no model that keeps them; the TUI is the primary editor (#17).
+
+Nothing has been released, so existing files are not migrated.
+
+Rejected: a hand-written pre-pass or validator to restore the earlier error details (closed PR #39 tried this with Jackson). It would reintroduce the parsing code this decision removes.
 
 ## How to add decisions
 

@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
@@ -166,6 +167,21 @@ class SetupDraftTest {
         val cycle = SetupDraft(temporary.resolve("target"), root, null, listOf(configured))
         cycle.append(SetupDraft.Row("b", "a"))
         assertThrows<IllegalArgumentException> { cycle.validate() }
+    }
+
+    @Test fun archiveRootDefaultsBesideTheSourceForEveryPolicy() {
+        val root = Files.createDirectory(temporary.resolve("home"))
+        val archive = temporary.resolve("archive")
+        fun resolved(adopting: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
+            val draft = draft(root, listOf())
+            draft.append(SetupDraft.Row("a/b", "a/b", adopting = adopting, archiveRoot = archiveRoot))
+            return draft.validate().relocations.single()
+        }
+        for (adopting in WhenAdoptingTarget.entries + null) {
+            assertEquals(root.resolve("a/.homelight-archive"), resolved(adopting, null).archiveRoot, adopting.toString())
+            assertEquals(archive, resolved(adopting, archive).archiveRoot, adopting.toString())
+            assertEquals(adopting, resolved(adopting, null).whenAdoptingTarget)
+        }
     }
 
     @Test fun rootAndLocationEditsRejectOldResultsEvenAfterReturningToTheOldRoot() {

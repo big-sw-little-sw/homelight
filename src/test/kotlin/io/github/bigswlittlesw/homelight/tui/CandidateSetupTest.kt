@@ -305,8 +305,10 @@ class CandidateSetupTest {
 
     @Test fun savedPoliciesUseTheirLabelsAndNoRawKeys() {
         val root = fixture()
-        val rawKeys = (WhenSourceAndTargetDirectoriesExist.entries.map { it.value } + WhenOnlyTargetExists.entries.map { it.value } +
-            WhenAdoptingTarget.entries.map { it.value }).toSet()
+        val rawKeys = setOf(
+            "prompt", "adopt", "leave-unchanged", "discard", "adopt-target", "discard-source", "archive-source",
+            "PROMPT", "ADOPT", "LEAVE_UNCHANGED", "DISCARD", "ADOPT_TARGET", "DISCARD_SOURCE", "ARCHIVE_SOURCE",
+        )
         // Together these rows hold every value of each policy, and its omission.
         val rows = listOf(
             Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
