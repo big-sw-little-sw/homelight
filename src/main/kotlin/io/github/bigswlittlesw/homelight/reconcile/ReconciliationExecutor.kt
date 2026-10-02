@@ -1,6 +1,10 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
+import io.github.bigswlittlesw.homelight.concurrent.RELOCATION_CONCURRENCY
+import io.github.bigswlittlesw.homelight.concurrent.forEachBounded
+import io.github.bigswlittlesw.homelight.config.intersects
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
+import io.github.bigswlittlesw.homelight.config.relocationProblem
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -9,6 +13,7 @@ import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
 import java.nio.channels.OverlappingFileLockException
 import java.nio.charset.StandardCharsets
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileStore
 import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
@@ -25,6 +30,8 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.PathWalkOption
 import kotlin.io.path.deleteRecursively
@@ -38,7 +45,7 @@ import kotlin.io.path.readSymbolicLink
 import kotlin.io.path.walk
 
 /** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
-class ReconciliationExecutor {
+class ReconciliationExecutor(private val concurrency: Int = RELOCATION_CONCURRENCY) {
     private val inspector = PathInspector()
 
     /**
@@ -73,41 +80,76 @@ class ReconciliationExecutor {
         }
     }
 
+    /**
+     * Runs the plan's relocations, with at most [concurrency] independent groups at once (see [independentGroups]).
+     * A group's relocations, and each relocation's actions, run in plan order.
+     *
+     * After any action fails, no new relocation starts, but relocations already running finish their actions. The
+     * result lists relocations in plan order, whatever order they finished in; those never started are pending.
+     * [progress] may be called from several threads at once, but never twice at once for one relocation.
+     */
     fun execute(plan: ReconciliationPlan, progress: ProgressListener = ProgressListener.NONE): ExecutionResult {
         require(!plan.hasBlockedActions() && !plan.hasConflicts()) { "Only fully resolved plans can be executed" }
-        val relocations = ArrayList<RelocationExecution>()
-        var halted = false
-        for (relocation in plan.relocations) {
-            val actions = ArrayList<ActionExecution>()
-            for (action in relocation.actions) {
-                if (halted) {
-                    actions.add(ActionExecution(action, ActionStatus.PENDING, "not run after a previous failure"))
-                    continue
-                }
-                fun fail(exception: Exception) {
-                    val execution = ActionExecution(
-                        action, ActionStatus.FAILED, exception.message ?: exception.toString(),
-                        exception is StateDriftException,
-                    )
-                    actions.add(execution)
-                    progress.finished(relocation, execution)
-                    halted = true
-                }
-                // Only I/O and state failures halt the plan; anything else propagates.
+        // Owned by this call and shared with its group threads. Each slot has one writer; the join in
+        // forEachBounded publishes the slots back to this thread.
+        val halted = AtomicBoolean()
+        val unexpected = AtomicReference<Throwable>()
+        val slots = arrayOfNulls<RelocationExecution>(plan.relocations.size)
+        fun run(group: List<Int>) {
+            for (index in group) {
+                if (halted.get()) break
                 try {
-                    progress.started(relocation, action)
-                    val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
-                    actions.add(execution)
-                    progress.finished(relocation, execution)
-                } catch (exception: IOException) {
-                    fail(exception)
-                } catch (exception: IllegalStateException) {
-                    fail(exception)
+                    slots[index] = execute(plan.relocations[index], progress, halted)
+                } catch (throwable: Throwable) {
+                    // Rethrown below, as the sequential loop would have, once running groups finish.
+                    unexpected.compareAndSet(null, throwable)
+                    halted.set(true)
                 }
             }
-            relocations.add(RelocationExecution(relocation, actions))
         }
-        return ExecutionResult(relocations)
+        val groups = independentGroups(plan.relocations)
+        // A single group runs on the caller's thread, as before concurrency, so the caller's interrupts still reach it.
+        if (groups.size == 1) run(groups.single()) else forEachBounded(groups, concurrency, halted::get, ::run)
+        unexpected.get()?.let { throw it }
+        return ExecutionResult(
+            plan.relocations.mapIndexed { index, relocation ->
+                slots[index] ?: RelocationExecution(relocation, relocation.actions.map(::notRun))
+            },
+        )
+    }
+
+    /** Runs one relocation's actions in order; a failure leaves its remaining actions pending and sets [halted]. */
+    private fun execute(relocation: RelocationPlan, progress: ProgressListener, halted: AtomicBoolean): RelocationExecution {
+        val actions = ArrayList<ActionExecution>()
+        var failed = false
+        for (action in relocation.actions) {
+            if (failed) {
+                actions.add(notRun(action))
+                continue
+            }
+            fun fail(exception: Exception) {
+                val execution = ActionExecution(
+                    action, ActionStatus.FAILED, exception.message ?: exception.toString(),
+                    exception is StateDriftException,
+                )
+                actions.add(execution)
+                halted.set(true)
+                failed = true
+                progress.finished(relocation, execution)
+            }
+            // Only I/O and state failures halt the plan; anything else propagates.
+            try {
+                progress.started(relocation, action)
+                val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
+                actions.add(execution)
+                progress.finished(relocation, execution)
+            } catch (exception: IOException) {
+                fail(exception)
+            } catch (exception: IllegalStateException) {
+                fail(exception)
+            }
+        }
+        return RelocationExecution(relocation, actions)
     }
 
     private fun apply(action: ReconciliationAction): String = when (action) {
@@ -144,7 +186,7 @@ class ReconciliationExecutor {
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = checkNotNull(action.target.parent) { "target has no parent directory: ${action.target}" }
-        val stagingRoot = action.stagingRoot ?: targetParent.resolve(".homelight-staging")
+        val stagingRoot = action.stagingRoot ?: targetParent.resolve(DEFAULT_STAGING_NAME)
         requirePosixPermissions(action.path)
         requirePosixPermissions(targetParent)
         check(fileStoreOfExistingAncestor(stagingRoot) == fileStoreOfExistingAncestor(targetParent)) {
@@ -327,6 +369,41 @@ class ReconciliationExecutor {
 
 private class StateDriftException(message: String) : IllegalStateException(message)
 
+private fun notRun(action: ReconciliationAction) =
+    ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
+
+/**
+ * Splits relocations into groups that can run at the same time, each listing plan indices in order. The groups are
+ * ordered by their first index.
+ *
+ * Two relocations are independent when no path one claims overlaps a path the other claims, by the same
+ * [intersects] rule that [relocationProblem] applies to sources and targets. A relocation claims its source and
+ * target, every action destination (such as an archive path), each migration's staging root, and the parents of all
+ * of these, which covers every directory its actions ensure. Relocations not proven independent share a group, so a
+ * relocation that depends on two groups merges them. Siblings share a parent, so they always run sequentially.
+ */
+internal fun independentGroups(relocations: List<RelocationPlan>): List<List<Int>> {
+    val claims = relocations.map(::claimedPaths)
+    var groups = listOf<List<Int>>()
+    for (index in relocations.indices) {
+        val (dependent, independent) = groups.partition { group ->
+            group.any { other -> claims[other].any { left -> claims[index].any { right -> intersects(left, right) } } }
+        }
+        groups = independent + listOf((dependent.flatten() + index).sorted())
+    }
+    return groups.sortedBy { group -> group.first() }
+}
+
+private fun claimedPaths(relocation: RelocationPlan): List<Path> {
+    val paths = listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
+        relocation.actions.mapNotNull { action -> action.destination } +
+        relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
+            migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME)
+        }
+    return paths + paths.mapNotNull { path -> path.toAbsolutePath().normalize().parent }
+}
+
+private const val DEFAULT_STAGING_NAME = ".homelight-staging"
 private const val OPERATION_PREFIX = "operation-"
 private const val MARKER_HEADER = "homelight-staging-v1\n"
 
@@ -385,8 +462,13 @@ private fun ensureRealDirectories(path: Path) {
     for (name in absolute) {
         current = current.resolve(name)
         if (Files.notExists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current)
-        } else if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            try {
+                Files.createDirectory(current)
+            } catch (_: FileAlreadyExistsException) {
+                // An independent relocation running concurrently may create a shared ancestor first.
+            }
+        }
+        if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
             throw StateDriftException("expected real directory at $current")
         }
     }

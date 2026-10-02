@@ -92,11 +92,10 @@ internal class HomeLightApp(
         val model = session.applyModel()
         when (model) {
             is ApplyModel.Running -> {
-                val running = model.steps.indexOfFirst { step ->
-                    step.status == ApplyModel.StepStatus.RUNNING && step.action !== followedAction
-                }
-                if (running >= 0) {
-                    // Manual inspection lasts until the next action transition.
+                // Independent relocations can run at once; follow the first running step in plan order.
+                val running = model.steps.indexOfFirst { step -> step.status == ApplyModel.StepStatus.RUNNING }
+                if (running >= 0 && model.steps[running].action !== followedAction) {
+                    // Manual inspection lasts until the followed step changes.
                     actionIndex = running
                     actionDetails.reset()
                     followedAction = model.steps[running].action

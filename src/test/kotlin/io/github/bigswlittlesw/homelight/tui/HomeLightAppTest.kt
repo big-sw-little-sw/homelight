@@ -230,6 +230,48 @@ class HomeLightAppTest {
     }
 
     @Test
+    fun followsTheFirstRunningStepWhenRelocationsRunConcurrently() {
+        val first = Relocation(Path.of("/home/first"), Path.of("/local/first"))
+        val second = Relocation(Path.of("/opt/second"), Path.of("/srv/second"))
+        val firstPlan = RelocationPlan(first, RelocationOutcome.CONVERGED,
+            listOf(ReconciliationAction.CreateDirectory(first.targetPath),
+                ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf())
+        val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
+            listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
+        val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
+        val progress = AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
+        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
+            override fun applyModel(): ApplyModel = progress.get()
+        }
+        val app = HomeLightApp(session)
+        app.switchScreen(Screen.APPLY)
+        app.render()
+        fun running(vararg statuses: ApplyModel.StepStatus) {
+            val steps = plan.relocations.flatMap { relocation -> relocation.actions.map { relocation to it } }
+                .zip(statuses) { (relocation, action), status -> ApplyModel.Step(relocation, action, status, status.toString()) }
+            progress.set(ApplyModel.Running.of(plan, steps))
+            app.render()
+        }
+        val (pending, runningStep, completed) =
+            listOf(ApplyModel.StepStatus.PENDING, ApplyModel.StepStatus.RUNNING, ApplyModel.StepStatus.COMPLETED)
+
+        running(runningStep, pending, runningStep)
+        assertEquals(0, app.selectedIndex())
+        // Repeated frames with two running steps keep following the first, rather than alternating.
+        app.render()
+        assertEquals(0, app.selectedIndex())
+        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.render()
+        assertEquals(2, app.selectedIndex())
+
+        running(completed, runningStep, runningStep)
+        assertEquals(1, app.selectedIndex())
+        running(completed, completed, runningStep)
+        assertEquals(2, app.selectedIndex())
+    }
+
+    @Test
     fun reviewsConfirmsAppliesAndReturnsToRefreshedStatus(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
