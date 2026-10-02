@@ -113,8 +113,8 @@ internal class SetupView(
         val value = draft.rows[row]
         lines.add(Line("Edit relocation " + (row + 1), Color.CYAN, true))
         listOf(
-            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both directories" to both(value.both),
-            "Only target" to only(value.onlyTarget), "Adopt target" to adopting(value.adopting), "Archive root" to archiveText,
+            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both directories" to bothLabel(value.both),
+            "Only target" to onlyTargetLabel(value.onlyTarget), "Adopt target" to adoptingLabel(value.adopting), "Archive root" to archiveText,
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
             if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), Color.YELLOW, true))
@@ -138,9 +138,9 @@ internal class SetupView(
             else "Both exist: " + bothConsequence(draft.rows[row].both)
             3 -> "When only target exists: " +
                 if ((draft.rows[row].onlyTarget ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
-                    "ask before acting." else "link the source to that target."
+                    "prompt before acting." else "link the source to that target."
             else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.PROMPT) {
-                WhenAdoptingTarget.PROMPT -> "ask what to do with source contents."
+                WhenAdoptingTarget.PROMPT -> "prompt for what to do with source contents."
                 WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
             }
@@ -371,36 +371,15 @@ private fun cell(value: String, width: Int): String {
 }
 
 private fun policies(row: SetupDraft.Row): String {
-    val values = listOfNotNull(row.both?.let(::both), row.onlyTarget?.let(::only), row.adopting?.let(::adopting))
-    return if (values.isEmpty()) "Default (prompt)" else values.joinToString(", ")
-}
-
-private fun both(value: WhenSourceAndTargetDirectoriesExist?): String = when (value) {
-    WhenSourceAndTargetDirectoriesExist.PROMPT -> "Prompt"
-    WhenSourceAndTargetDirectoriesExist.ADOPT -> "Adopt target"
-    WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "Leave unchanged"
-    WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
-    null -> "Default (prompt)"
-}
-
-private fun only(value: WhenOnlyTargetExists?): String = when (value) {
-    WhenOnlyTargetExists.PROMPT -> "Prompt"
-    WhenOnlyTargetExists.ADOPT_TARGET -> "Adopt target"
-    null -> "Default (prompt)"
-}
-
-private fun adopting(value: WhenAdoptingTarget?): String = when (value) {
-    WhenAdoptingTarget.PROMPT -> "Prompt"
-    WhenAdoptingTarget.DISCARD_SOURCE -> "Discard source"
-    WhenAdoptingTarget.ARCHIVE_SOURCE -> "Archive source"
-    null -> "Default (prompt)"
+    val values = listOfNotNull(row.both?.let(::bothLabel), row.onlyTarget?.let(::onlyTargetLabel), row.adopting?.let(::adoptingLabel))
+    return if (values.isEmpty()) DEFAULT_POLICY_LABEL else values.joinToString(", ")
 }
 
 private fun bothConsequence(value: WhenSourceAndTargetDirectoriesExist?): String =
     when (value ?: WhenSourceAndTargetDirectoriesExist.PROMPT) {
-        WhenSourceAndTargetDirectoriesExist.PROMPT -> "ask before acting."
+        WhenSourceAndTargetDirectoriesExist.PROMPT -> "prompt before acting."
         WhenSourceAndTargetDirectoriesExist.ADOPT -> "use target contents; choose source disposition below."
-        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both paths unmanaged."
+        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both paths unchanged."
         WhenSourceAndTargetDirectoriesExist.DISCARD ->
             "Permanently delete both source and target directory trees. Create an empty target directory and link the source to it."
     }

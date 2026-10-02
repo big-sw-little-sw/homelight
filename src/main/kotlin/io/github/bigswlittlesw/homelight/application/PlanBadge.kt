@@ -11,6 +11,6 @@ enum class PlanBadge(val label: String, val priority: Int) {
     LINK("Link", 3),
     BACKUP("Backup", 3),
     DISCARD("Discard", 3),
-    SKIPPED("Skipped", 4),
+    SKIPPED("Unchanged", 4),
     IN_SYNC("In Sync", 5)
 }
