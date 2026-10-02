@@ -103,14 +103,22 @@ class ReconciliationExecutor internal constructor(
         fun run(group: List<Int>): List<Pair<Int, RelocationExecution>> = buildList {
             for (index in group) {
                 if (halted.get()) break
-                // An unexpected throwable halts too; it is rethrown below, once running groups finish.
-                val execution = runCatching { execute(plan.relocations[index], progress, halted) }
-                add(index to execution.onFailure { halted.set(true) }.getOrThrow())
+                try {
+                    add(index to execute(plan.relocations[index], progress, halted))
+                } catch (throwable: Throwable) {
+                    // An unexpected throwable halts too; it is rethrown below, once running groups finish.
+                    halted.set(true)
+                    throw throwable
+                }
             }
         }
         val groups = independentGroups(plan.relocations)
         // A single group runs on the caller's thread, as before concurrency, so the caller's interrupts still reach it.
-        val outcomes = if (groups.size == 1) listOf(Outcome.Completed(run(groups.single()))) else mapBounded(groups, concurrency, halted::get, ::run)
+        val outcomes = if (groups.size == 1) {
+            listOf(Outcome.Completed(run(groups.single())))
+        } else {
+            mapBounded(groups, concurrency, halted::get, ::run)
+        }
         val executions = outcomes.flatMap { outcome ->
             when (outcome) {
                 is Outcome.Completed -> outcome.value
