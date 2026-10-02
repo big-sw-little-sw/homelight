@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.cli
 
-import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import picocli.CommandLine.IVersionProvider
 import java.io.IOException
 import java.util.Properties
@@ -18,8 +17,8 @@ internal fun resolveVersion(): String {
     } catch (_: IOException) {
         null // fall back when the resource is unreadable
     }
-    if (version != null && !version.isJavaBlank() && !version.startsWith("\${")) return version
+    if (version != null && version.isNotBlank() && !version.startsWith("\${")) return version
     val implementationVersion: String? = HomeLightVersionProvider::class.java.`package`.implementationVersion
-    if (implementationVersion != null && !implementationVersion.isJavaBlank()) return implementationVersion
+    if (implementationVersion != null && implementationVersion.isNotBlank()) return implementationVersion
     return "unknown"
 }

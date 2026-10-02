@@ -86,7 +86,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
                 checkAnchor(anchor)
                 return observation(candidate, kind, target, generation, diagnostics)
             }
-            throw IllegalArgumentException("Empty relative candidate path")
+            error("unreachable: a candidate strictly below the root has at least one name")
         } catch (e: IOException) {
             return failed(candidate, e, generation, diagnostics)
         } catch (e: SecurityException) {

@@ -51,10 +51,7 @@ data class PlanRelocationItem(
         }
         if (sourceState == RelocationSourceState.WRONG_SYMLINK
             || sourceState == RelocationSourceState.BROKEN_SYMLINK
-            || plan.diagnostics.any {
-                it.severity == ReconciliationDiagnostic.Severity.WARNING
-                        || it.severity == ReconciliationDiagnostic.Severity.ERROR
-            }
+            || plan.diagnostics.isNotEmpty()
         ) {
             return PlanBadge.WARNING
         }

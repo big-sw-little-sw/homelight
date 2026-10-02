@@ -46,8 +46,7 @@ open class HomeLightSession(
     @Synchronized
     fun choose(sourcePath: Path, choice: DecisionChoice) {
         check(!isApplying() && applyModel() !is ApplyModel.Result) { "Replan before editing a running or retained result" }
-        val loaded = evaluation as? ConfigurationEvaluation.Loaded
-            ?: throw IllegalStateException("No loaded configuration")
+        val loaded = checkNotNull(evaluation as? ConfigurationEvaluation.Loaded) { "No loaded configuration" }
         val chosen = evaluator.choose(loaded, sourcePath, choice)
         reviewedExecution = null
         replaceEvaluation(chosen)

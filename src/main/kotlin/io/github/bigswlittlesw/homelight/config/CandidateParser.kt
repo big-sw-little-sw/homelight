@@ -130,29 +130,23 @@ class CandidateParser {
         }
 
         internal fun validatePath(path: String) {
-            if (path.isJavaBlank() || path.startsWith("/") || path.startsWith("~") || path.contains("\\")
+            val unsafe = path.isJavaBlank() || path.startsWith("/") || path.startsWith("~") || path.contains("\\")
                 || path.matches(Regex("^[A-Za-z][A-Za-z0-9+.-]*:.*"))
                 || path.indexOf('*') >= 0 || path.indexOf('?') >= 0 || path.indexOf('[') >= 0 || path.indexOf(']') >= 0
-                || path.codePoints().anyMatch { Character.isISOControl(it) }
+                || path.any { it.isISOControl() }
                 || EXPANSION.containsMatchIn(path)
-            ) {
-                throw IllegalArgumentException("Path must be a literal portable relative path")
-            }
-            for (component in path.split("/")) {
-                if (component == "..") throw IllegalArgumentException("Parent path components are forbidden")
-            }
+            require(!unsafe) { "Path must be a literal portable relative path" }
+            require(path.split("/").none { it == ".." }) { "Parent path components are forbidden" }
             val relative = Path.of(path)
-            if (relative.isAbsolute || relative.normalize().toString().isEmpty()) {
-                throw IllegalArgumentException("Path must name a strict descendant of the source root")
+            require(!relative.isAbsolute && relative.normalize().toString().isNotEmpty()) {
+                "Path must name a strict descendant of the source root"
             }
         }
 
         internal fun resolve(root: Path, path: String): Path {
             validatePath(path)
             val resolved = root.resolve(path).normalize()
-            if (resolved == root || !resolved.startsWith(root)) {
-                throw IllegalArgumentException("Path must name a strict descendant of the source root")
-            }
+            require(resolved != root && resolved.startsWith(root)) { "Path must name a strict descendant of the source root" }
             return resolved
         }
 

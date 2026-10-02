@@ -8,7 +8,7 @@ import java.nio.file.Path
 /** Returns null for a blank setting; expands a leading `~/`. */
 fun parseSharedList(value: String): Path? {
     if (value.isJavaBlank()) return null
-    require(value.indexOf('$') < 0 && value.codePoints().noneMatch { Character.isISOControl(it) }) {
+    require(value.indexOf('$') < 0 && value.none { it.isISOControl() }) {
         "Shared list must be a filesystem path without variables or controls"
     }
     val expanded = if (value.startsWith("~/")) System.getProperty("user.home") + value.substring(1) else value
@@ -18,7 +18,7 @@ fun parseSharedList(value: String): Path? {
 fun normalizeSharedList(path: Path): Path {
     require(path.isAbsolute) { "Shared list must be an absolute filesystem path" }
     val text = path.toString()
-    require(text.indexOf('$') < 0 && text.codePoints().noneMatch { Character.isISOControl(it) }) {
+    require(text.indexOf('$') < 0 && text.none { it.isISOControl() }) {
         "Shared list must not contain variables or controls"
     }
     return path.normalize()

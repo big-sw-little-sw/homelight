@@ -103,8 +103,7 @@ class ConfigurationEvaluation(
 
     fun choose(current: Loaded, sourcePath: Path, choice: DecisionChoice): Loaded {
         val source = normalize(sourcePath)
-        val available = current.availableChoices[source]
-            ?: throw IllegalArgumentException("Unknown relocation source: $source")
+        val available = requireNotNull(current.availableChoices[source]) { "Unknown relocation source: $source" }
         require(choice in available) { "Unavailable choice $choice for $source" }
         return withDraft(current, current.draft + (source to choice))
     }

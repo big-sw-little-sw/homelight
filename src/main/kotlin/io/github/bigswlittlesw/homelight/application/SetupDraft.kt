@@ -114,10 +114,9 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
     fun add(source: Path) {
         val identity = source.toAbsolutePath().normalize()
         // `canAdd` admits only entries with a discovered candidate.
-        val candidate = entries().firstOrNull { it.sourcePath == identity }?.takeIf(::canAdd)?.discovery
-            ?: throw IllegalArgumentException(
-                "Add requires an unselected path currently observed as a directory or missing: $identity",
-            )
+        val candidate = requireNotNull(entries().firstOrNull { it.sourcePath == identity }?.takeIf(::canAdd)?.discovery) {
+            "Add requires an unselected path currently observed as a directory or missing: $identity"
+        }
         val relative = sourceRoot.relativize(identity).toString()
         val row = Row(relative, relative)
         validate(rows + row)
