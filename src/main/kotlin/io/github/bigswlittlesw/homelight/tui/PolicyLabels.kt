@@ -23,9 +23,10 @@ internal fun onlyTargetLabel(value: WhenOnlyTargetExists?): String = when (value
     null -> DEFAULT_POLICY_LABEL
 }
 
-internal fun adoptingLabel(value: WhenAdoptingTarget?): String = when (value) {
-    WhenAdoptingTarget.PROMPT -> "Prompt"
-    WhenAdoptingTarget.DISCARD_SOURCE -> "Discard source"
-    WhenAdoptingTarget.ARCHIVE_SOURCE -> "Archive source"
+/** The archive root, when there is one, is shown apart from the label. */
+internal fun adoptingLabel(value: WhenAdoptingTarget.Kind?): String = when (value) {
+    WhenAdoptingTarget.Kind.PROMPT -> "Prompt"
+    WhenAdoptingTarget.Kind.DISCARD_SOURCE -> "Discard source"
+    WhenAdoptingTarget.Kind.ARCHIVE_SOURCE -> "Archive source"
     null -> DEFAULT_POLICY_LABEL
 }

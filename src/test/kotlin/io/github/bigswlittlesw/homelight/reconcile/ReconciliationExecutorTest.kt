@@ -41,7 +41,7 @@ class ReconciliationExecutorTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
         val relocation = Relocation(source, target,
-                WhenSourceAndTargetDirectoriesExist.ADOPT, null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)
+                WhenSourceAndTargetDirectoriesExist.ADOPT, null, WhenAdoptingTarget.ArchiveSource(archiveRoot))
 
         val result = ReconciliationExecutor().execute(plan(relocation))
 
@@ -135,7 +135,7 @@ class ReconciliationExecutorTest {
     companion object {
         private fun plan(relocation: Relocation): ReconciliationPlan {
             val inspector = PathInspector()
-            val archive = relocation.sourceArchiveRoot?.let { root ->
+            val archive = relocation.whenAdoptingTarget?.archiveRoot?.let { root ->
                 val source = relocation.sourcePath.toAbsolutePath()
                 val path = root.resolve(source.root.relativize(source))
                 RelocationState.ArchiveDestination(path, inspector.inspect(path))

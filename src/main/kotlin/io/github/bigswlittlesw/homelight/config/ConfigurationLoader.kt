@@ -1,7 +1,9 @@
 package io.github.bigswlittlesw.homelight.config
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -9,10 +11,10 @@ import java.nio.file.Path
 /**
  * Loads one JSON configuration rooted at `homelight`.
  *
- * Malformed JSON, unknown and duplicate keys and values of the wrong type are rejected with their line and
- * column; see [decodeJson]. Missing required keys and invalid policy values are rejected by dotted path. A
- * null, empty or blank string is absent. Paths expand `~`, `~/` and `${USER}`, then become absolute and
- * normalized. Environment variables and system properties never override values.
+ * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
+ * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
+ * missing target derives from `$HOME`; staging-root must be under target-root. Environment variables and
+ * system properties never override values.
  */
 class ConfigurationLoader {
     /**
@@ -34,63 +36,60 @@ class ConfigurationLoader {
             decodeJson(ConfigurationFile.serializer(), text)
         } catch (exception: JsonInputException) {
             // The message is complete; the cause would only repeat it.
-            throw ConfigurationException("Line ${exception.line}, column ${exception.column}: " + exception.message)
+            val position = if (exception.line > 0) "Line ${exception.line}, column ${exception.column}: " else ""
+            throw ConfigurationException(position + exception.message)
         }
-        return configuration(file.homelight ?: throw missing("homelight"), override)
+        return configuration(file.homelight, override)
     }
 
     private fun configuration(homelight: HomeLightFile, override: PathOverride?): HomeLightConfiguration {
-        val targetRoot = resolve(homelight.targetRoot.present() ?: throw missing("homelight.target-root"))
-        val stagingRoot = homelight.stagingRoot.present()?.let(::resolve)
+        val targetRoot = resolve(homelight.targetRoot, "homelight.target-root")
+        val stagingRoot = homelight.stagingRoot?.let { resolve(it, "homelight.staging-root") }
         if (stagingRoot != null && !stagingRoot.startsWith(targetRoot)) {
             throw ConfigurationException("staging-root must be under target-root")
         }
         // The override replaces the first relocation's paths, or supplies it when none is configured.
-        val relocations = homelight.relocations.orEmpty().mapIndexed { i, fields ->
+        val relocations = homelight.relocations.mapIndexed { i, fields ->
             relocation(fields, "homelight.relocations[$i]", targetRoot, stagingRoot, if (i == 0) override else null)
         }.ifEmpty {
-            listOfNotNull(override?.let { relocation(RelocationFile(), "", targetRoot, stagingRoot, it) })
+            listOfNotNull(override?.let {
+                Relocation(expand(it.sourcePath.toString()), expand(it.targetPath.toString()), stagingRoot = stagingRoot)
+            })
         }
-        val ignoredSourcePaths = homelight.ignoredSourcePaths.orEmpty().mapNotNull { it.present()?.let(::resolve) }
-        val sharedList = homelight.discovery?.sharedList.present()?.let(::parseSharedList)
+        val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
+            resolve(value, "homelight.ignored-source-paths[$i]")
+        }
+        val sharedList = homelight.discovery?.sharedList?.let(::parseSharedList)
         return HomeLightConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
 
     private fun relocation(
-        fields: RelocationFile, path: String, targetRoot: Path, stagingRoot: Path?, override: PathOverride?,
+        fields: RelocationFile, key: String, targetRoot: Path, stagingRoot: Path?, override: PathOverride?,
     ): Relocation {
-        val sourcePath = resolve(
-            override?.sourcePath?.toString() ?: fields.sourcePath.present() ?: throw missing("$path.source-path"),
-        )
-        val targetPath = override?.let { resolve(it.targetPath.toString()) }
-            ?: fields.targetPath.present()?.let(::resolve)
+        val sourcePath = override?.let { expand(it.sourcePath.toString()) } ?: resolve(fields.sourcePath, "$key.source-path")
+        val targetPath = override?.let { expand(it.targetPath.toString()) }
+            ?: fields.targetPath?.let { resolve(it, "$key.target-path") }
             ?: deriveTarget(targetRoot, sourcePath)
-        val whenAdoptingTarget =
-            choice(fields.whenAdoptingTarget, "$path.when-adopting-target", WhenAdoptingTarget.entries) { it.value }
-        val archiveRoot = fields.sourceArchiveRoot.present()?.let(::resolve)
-        if (lacksArchiveRoot(whenAdoptingTarget, archiveRoot)) {
-            throw ConfigurationException("source-archive-root is required when when-adopting-target is archive-source")
+        val archiveRootKey = "$key.when-adopting-target.archive-root"
+        val whenAdoptingTarget = when (val policy = fields.whenAdoptingTarget) {
+            null -> null
+            is AdoptingFile.Prompt -> WhenAdoptingTarget.Prompt(policy.archiveRoot?.let { resolve(it, archiveRootKey) })
+            AdoptingFile.DiscardSource -> WhenAdoptingTarget.DiscardSource
+            is AdoptingFile.ArchiveSource -> WhenAdoptingTarget.ArchiveSource(resolve(policy.archiveRoot, archiveRootKey))
         }
         return Relocation(
-            sourcePath, targetPath,
-            choice(
-                fields.whenSourceAndTargetDirectoriesExist, "$path.when-source-and-target-directories-exist",
-                WhenSourceAndTargetDirectoriesExist.entries,
-            ) { it.value },
-            choice(fields.whenOnlyTargetExists, "$path.when-only-target-exists", WhenOnlyTargetExists.entries) { it.value },
-            whenAdoptingTarget, archiveRoot, stagingRoot,
+            sourcePath, targetPath, fields.whenSourceAndTargetDirectoriesExist, fields.whenOnlyTargetExists,
+            whenAdoptingTarget, stagingRoot,
         )
     }
 
-    /** A policy given by the `name` of one of `choices`. */
-    private fun <E> choice(text: String?, path: String, choices: List<E>, name: (E) -> String): E? {
-        val value = text.present() ?: return null
-        return choices.firstOrNull { name(it) == value } ?: throw ConfigurationException(
-            "Invalid value '$value' for $path; expected one of " + choices.joinToString(", ", transform = name),
-        )
+    /** A path from the file. A blank one is rejected, as it would expand to the working directory. */
+    private fun resolve(value: String, key: String): Path {
+        if (value.isJavaBlank()) throw ConfigurationException("$key must not be blank")
+        return expand(value)
     }
 
-    private fun resolve(value: String): Path {
+    private fun expand(value: String): Path {
         val substituted = value.replace("\${USER}", System.getenv("USER").orEmpty())
         val expanded = when {
             substituted == "~" -> System.getProperty("user.home")
@@ -108,41 +107,64 @@ class ConfigurationLoader {
         return targetRoot.resolve(home.relativize(sourcePath)).normalize()
     }
 
-    private fun missing(path: String) = ConfigurationException("Missing required key $path")
-
     companion object {
         val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".homelight.json")
     }
 }
 
-/** A null, empty or blank value is absent. */
-private fun String?.present(): String? = this?.takeUnless { it.isJavaBlank() }
-
-// File shape of the configuration, shared with ConfigurationPublisher. Every value is optional here so that a
-// missing key and a blank value are reported alike, by ConfigurationLoader. A null value is omitted on output.
+// The configuration file format, shared by ConfigurationLoader and ConfigurationPublisher. Paths stay as
+// written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null or empty, and are
+// omitted on output. Every class has a serial name because kotlinx puts it in its error messages.
 
 @Serializable
-internal data class ConfigurationFile(val homelight: HomeLightFile? = null)
+@SerialName("configuration")
+internal data class ConfigurationFile(val homelight: HomeLightFile)
 
 @Serializable
+@SerialName("homelight")
 internal data class HomeLightFile(
-    @SerialName("target-root") val targetRoot: String? = null,
+    @SerialName("target-root") val targetRoot: String,
     @SerialName("staging-root") val stagingRoot: String? = null,
     val discovery: DiscoveryFile? = null,
-    val relocations: List<RelocationFile>? = null,
-    // Null items are skipped, as blank ones are.
-    @SerialName("ignored-source-paths") val ignoredSourcePaths: List<String?>? = null,
+    val relocations: List<RelocationFile> = listOf(),
+    @SerialName("ignored-source-paths") val ignoredSourcePaths: List<String> = listOf(),
 )
 
+/** A blank `shared-list` means none; see [parseSharedList]. */
 @Serializable
+@SerialName("discovery")
 internal data class DiscoveryFile(@SerialName("shared-list") val sharedList: String? = null)
 
 @Serializable
+@SerialName("relocation")
 internal data class RelocationFile(
-    @SerialName("source-path") val sourcePath: String? = null,
+    @SerialName("source-path") val sourcePath: String,
     @SerialName("target-path") val targetPath: String? = null,
-    @SerialName("when-source-and-target-directories-exist") val whenSourceAndTargetDirectoriesExist: String? = null,
-    @SerialName("when-only-target-exists") val whenOnlyTargetExists: String? = null,
-    @SerialName("when-adopting-target") val whenAdoptingTarget: String? = null,
-    @SerialName("source-archive-root") val sourceArchiveRoot: String? = null,
+    @SerialName("when-source-and-target-directories-exist")
+    val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist? = null,
+    @SerialName("when-only-target-exists") val whenOnlyTargetExists: WhenOnlyTargetExists? = null,
+    @SerialName("when-adopting-target") val whenAdoptingTarget: AdoptingFile? = null,
 )
+
+/**
+ * [WhenAdoptingTarget] as written: an object whose `policy` names the case, e.g.
+ * `{"policy": "archive-source", "archive-root": "~/archive"}`. `@JsonClassDiscriminator` is experimental in
+ * kotlinx 1.11.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+@SerialName("when-adopting-target")
+@JsonClassDiscriminator("policy")
+internal sealed interface AdoptingFile {
+    @Serializable
+    @SerialName("prompt")
+    data class Prompt(@SerialName("archive-root") val archiveRoot: String? = null) : AdoptingFile
+
+    @Serializable
+    @SerialName("discard-source")
+    data object DiscardSource : AdoptingFile
+
+    @Serializable
+    @SerialName("archive-source")
+    data class ArchiveSource(@SerialName("archive-root") val archiveRoot: String) : AdoptingFile
+}

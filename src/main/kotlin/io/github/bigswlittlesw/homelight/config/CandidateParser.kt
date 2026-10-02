@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.config
 
 import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic.Kind
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -48,8 +49,9 @@ class CandidateParser {
     private class Invalid(val diagnostic: CandidateDiagnostic) : RuntimeException(diagnostic.message)
 
     /**
-     * Converts the decoded file into definitions. Its diagnostics have no line or column: kotlinx keeps no
-     * positions once decoded, so they name the record by `location` and `key` instead.
+     * Applies the domain rules to the decoded file: limits, path safety and nonblank text. Its diagnostics
+     * have no line or column: kotlinx keeps no positions once decoded, so they name the record by `location`
+     * and `key` instead.
      */
     private class Reader(val source: CandidateSource, val root: Path) {
         private val definitions = ArrayList<CandidateDefinition>()
@@ -62,12 +64,13 @@ class CandidateParser {
             if (apps.size > MAX_APPS) throw invalid(Kind.LIMIT, 0, "", "apps", "Too many app groups")
             apps.forEachIndexed { i, app ->
                 val location = "apps[$i]"
-                val name = required(text(app.name, 0, location, "name"), 0, location, "name")
-                if (name != name.javaStrip()) {
-                    throw invalid(Kind.SCHEMA, 0, location, "name", "App label must not have leading or trailing whitespace")
+                val name = bounded(app.name, 0, location, "name")
+                if (name.isJavaBlank() || name != name.javaStrip()) {
+                    throw invalid(
+                        Kind.SCHEMA, 0, location, "name", "App label must not be blank or have leading or trailing whitespace",
+                    )
                 }
-                val directories = app.directories ?: throw missing(0, location, "directories")
-                append(directories, name, "$location.directories")
+                append(app.directories, name, "$location.directories")
             }
             file.directories?.let { directories -> append(directories, null, "directories") }
             return definitions
@@ -80,44 +83,30 @@ class CandidateParser {
             directories.forEachIndexed { i, directory ->
                 val index = definitions.size + 1
                 val record = "$location[$i]"
-                val path = required(text(directory.path, index, record, "path"), index, record, "path")
+                val path = bounded(directory.path, index, record, "path")
                 val resolved = try {
                     resolveCandidatePath(root, path)
                 } catch (e: IllegalArgumentException) {
                     // Both resolve's own failures and Path.of's InvalidPathException carry a message.
                     throw invalid(Kind.UNSAFE_PATH, index, record, "path", e.message!!)
                 }
-                val advice = text(directory.advice, index, record, "advice")?.let { value ->
-                    CandidateDefinition.Advice.entries.firstOrNull { advice(it) == value } ?: throw invalid(
-                        Kind.SCHEMA, index, record, "advice",
-                        "Invalid value '$value' for $record.advice; expected one of " +
-                            CandidateDefinition.Advice.entries.joinToString(", ", transform = ::advice),
-                    )
+                val reason = directory.reason?.let { bounded(it, index, record, "reason") }
+                if (reason != null && reason.isJavaBlank()) {
+                    throw invalid(Kind.SCHEMA, index, record, "reason", "Reason must not be blank")
                 }
-                val reason = text(directory.reason, index, record, "reason")
-                definitions.add(CandidateDefinition(resolved, source, index, record, path, app, advice, reason))
+                definitions.add(CandidateDefinition(resolved, source, index, record, path, app, directory.advice, reason))
             }
         }
 
-        /** A bounded string; null, empty or blank is absent. */
-        private fun text(value: String?, index: Int, location: String, key: String): String? {
-            if (value != null && value.codePointCount(0, value.length) > MAX_STRING_CHARACTERS) {
+        private fun bounded(value: String, index: Int, location: String, key: String): String {
+            if (value.codePointCount(0, value.length) > MAX_STRING_CHARACTERS) {
                 throw invalid(Kind.LIMIT, index, location, key, "String exceeds 4096 characters")
             }
-            return value?.takeUnless { it.isJavaBlank() }
+            return value
         }
-
-        private fun required(value: String?, index: Int, location: String, key: String): String =
-            value ?: throw missing(index, location, key)
-
-        private fun missing(index: Int, location: String, key: String): Invalid =
-            invalid(Kind.SCHEMA, index, location, key, "Missing required key $location.$key")
 
         private fun invalid(kind: Kind, index: Int, location: String, key: String, message: String): Invalid =
             Invalid(CandidateDiagnostic(source, kind, index, 0, 0, location, key, message))
-
-        private fun advice(advice: CandidateDefinition.Advice): String =
-            if (advice == CandidateDefinition.Advice.CONSIDER) "consider" else "usually-unnecessary"
     }
 
     companion object {
@@ -156,14 +145,16 @@ internal fun resolveCandidatePath(root: Path, path: String): Path {
     return resolved
 }
 
-// File shape of a candidate list. Every value is optional here so that a missing key and a blank value are
-// reported alike, by the parser.
+// The candidate list format. Every class has a serial name because kotlinx puts it in its error messages.
 
 @Serializable
-private data class CandidateListFile(val apps: List<AppFile>? = null, val directories: List<DirectoryFile>? = null)
+@SerialName("candidate-list")
+internal data class CandidateListFile(val apps: List<AppFile>? = null, val directories: List<DirectoryFile>? = null)
 
 @Serializable
-private data class AppFile(val name: String? = null, val directories: List<DirectoryFile>? = null)
+@SerialName("app")
+internal data class AppFile(val name: String, val directories: List<DirectoryFile>)
 
 @Serializable
-private data class DirectoryFile(val path: String? = null, val advice: String? = null, val reason: String? = null)
+@SerialName("directory")
+internal data class DirectoryFile(val path: String, val advice: CandidateDefinition.Advice? = null, val reason: String? = null)

@@ -230,7 +230,9 @@ errors, not replacement targets. Setup is creation-only.
   of both trees, empty-target creation and the source link, not source migration.
 - Every edit resets validation. Validate and Save remain explicit; both reject
   blank row paths and normalized paths equal to or outside the chosen root.
-  Nonblank archive roots must be absolute. Failures retain the editable draft.
+  Nonblank archive roots must be absolute. Archive source requires an archive
+  root and Discard source takes none; an archive root with the default policy
+  saves as Prompt with archiving offered. Failures retain the editable draft.
 - Escape returns from details to table and from table to locations; at locations
   it cancels setup without writing. Escape never exits the app. The discard
   dialog preserves edits on cancellation; confirmed discard clears all setup

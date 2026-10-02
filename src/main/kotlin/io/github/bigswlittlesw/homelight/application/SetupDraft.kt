@@ -189,13 +189,24 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         val sourceRelative: String, val targetRelative: String,
         val both: WhenSourceAndTargetDirectoriesExist? = null,
         val onlyTarget: WhenOnlyTargetExists? = null,
-        val adopting: WhenAdoptingTarget? = null, val archiveRoot: Path? = null,
+        val adopting: WhenAdoptingTarget.Kind? = null, val archiveRoot: Path? = null,
     ) {
         internal fun resolve(sourceRoot: Path, targetRoot: Path): Relocation {
             require(archiveRoot == null || archiveRoot.isAbsolute) { "Archive root must be an absolute path" }
+            val root = archiveRoot?.normalize()
+            // An archive root alone keeps the default prompt and makes archiving one of its answers.
+            val policy = when (adopting) {
+                null -> root?.let { WhenAdoptingTarget.Prompt(it) }
+                WhenAdoptingTarget.Kind.PROMPT -> WhenAdoptingTarget.Prompt(root)
+                WhenAdoptingTarget.Kind.DISCARD_SOURCE -> {
+                    require(root == null) { "Discard source does not use an archive root" }
+                    WhenAdoptingTarget.DiscardSource
+                }
+                WhenAdoptingTarget.Kind.ARCHIVE_SOURCE ->
+                    WhenAdoptingTarget.ArchiveSource(requireNotNull(root) { "Archive source requires an archive root" })
+            }
             return Relocation(
-                relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative),
-                both, onlyTarget, adopting, archiveRoot?.normalize(),
+                relative(sourceRoot, sourceRelative), relative(targetRoot, targetRelative), both, onlyTarget, policy,
             )
         }
     }

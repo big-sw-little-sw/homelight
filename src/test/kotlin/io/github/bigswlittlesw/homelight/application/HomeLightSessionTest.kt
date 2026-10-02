@@ -175,7 +175,7 @@ class HomeLightSessionTest {
         Files.writeString(source.resolve("entry"), "source")
         Files.createDirectories(root.resolve("local/cache"))
         val config = configuration(root, "", "cache", policies = "\"when-source-and-target-directories-exist\": \"adopt\"," +
-            " \"when-adopting-target\": \"archive-source\", \"source-archive-root\": \"${root.resolve("archive")}\", ")
+            " \"when-adopting-target\": {\"policy\": \"archive-source\", \"archive-root\": \"${root.resolve("archive")}\"}, ")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
         val archive = root.resolve("archive").resolve(source.root.relativize(source))

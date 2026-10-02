@@ -1,14 +1,14 @@
 package io.github.bigswlittlesw.homelight.config
 
-import java.util.Locale
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** The decision required when both relocation paths are real directories. */
+@Serializable
+@SerialName("when-source-and-target-directories-exist")
 enum class WhenSourceAndTargetDirectoriesExist {
-    PROMPT,
-    ADOPT,
-    LEAVE_UNCHANGED,
-    DISCARD;
-
-    /** The stable configuration and JSON representation. */
-    val value: String = name.lowercase(Locale.ROOT).replace('_', '-')
+    @SerialName("prompt") PROMPT,
+    @SerialName("adopt") ADOPT,
+    @SerialName("leave-unchanged") LEAVE_UNCHANGED,
+    @SerialName("discard") DISCARD,
 }

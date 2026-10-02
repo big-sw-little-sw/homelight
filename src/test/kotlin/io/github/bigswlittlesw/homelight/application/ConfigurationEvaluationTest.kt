@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.application
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -9,7 +10,6 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -46,7 +46,7 @@ class ConfigurationEvaluationTest {
         write(entry("source", "target", mapOf(
                 "when-source-and-target-directories-exist" to "prompt",
                 "when-only-target-exists" to "prompt",
-                "source-archive-root" to root.resolve("archive").toString())))
+                "when-adopting-target" to archivePrompt())))
         val json = Files.readString(config)
         val loaded = loaded()
         val selected = evaluator.choose(loaded, root.resolve("child/../source"), choice)
@@ -65,21 +65,23 @@ class ConfigurationEvaluationTest {
         val properties = when (choice) {
             DecisionChoice.ADOPT_TARGET -> mapOf("when-only-target-exists" to "adopt-target")
             DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> mapOf("when-source-and-target-directories-exist" to "adopt",
-                    "when-adopting-target" to "discard-source")
+                    "when-adopting-target" to """{"policy": "discard-source"}""")
             DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE -> mapOf("when-source-and-target-directories-exist" to "adopt",
-                    "when-adopting-target" to "archive-source")
+                    "when-adopting-target" to """{"policy": "archive-source", "archive-root": "${root.resolve("archive")}"}""")
             DecisionChoice.LEAVE_UNCHANGED -> mapOf("when-source-and-target-directories-exist" to "leave-unchanged")
             DecisionChoice.DISCARD_BOTH -> mapOf("when-source-and-target-directories-exist" to "discard")
         }
         val policies = LinkedHashMap<String, String>()
         policies.put("when-source-and-target-directories-exist", "prompt")
         policies.put("when-only-target-exists", "prompt")
-        policies.put("source-archive-root", root.resolve("archive").toString())
+        policies.put("when-adopting-target", archivePrompt())
         policies.putAll(properties)
         val saved = root.resolve("saved.json")
         Files.writeString(saved, document(entry("source", "target", policies)))
         val expected = evaluator.loadRequired(saved)
-        assertEquals(expected.plan, selected.plan)
+        // A saved discard-source has no archive root, so its observations lack the archive destination.
+        assertEquals(expected.plan.relocations, selected.plan.relocations)
+        assertEquals(expected.plan.diagnostics, selected.plan.diagnostics)
         assertEquals(ReconciliationPlanner().plan(selected.plan.expectedStates), selected.plan)
         assertEquals(json, Files.readString(config))
         assertEquals("target", Files.readString(target.resolve("content")))
@@ -95,7 +97,7 @@ class ConfigurationEvaluationTest {
     fun choosingUsesRetainedConfigSourceTargetAndArchiveObservations() {
         Files.createDirectory(root.resolve("source"))
         Files.createDirectory(root.resolve("target"))
-        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
+        write(entry("source", "target", mapOf("when-adopting-target" to archivePrompt())))
         val session = HomeLightSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
@@ -126,7 +128,7 @@ class ConfigurationEvaluationTest {
     @Test
     fun replacingChoiceStartsFromSavedPolicyAndCancelsReview() {
         bothDirectories("source", "target")
-        write(entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))
+        write(entry("source", "target", mapOf("when-adopting-target" to archivePrompt())))
         val session = HomeLightSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertTrue(session.requestApply())
@@ -134,7 +136,7 @@ class ConfigurationEvaluationTest {
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         val selected = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertEquals(1, selected.draft.size)
-        assertNull(selected.plan.relocations.first().relocation.whenAdoptingTarget)
+        assertEquals(WhenAdoptingTarget.Prompt(root.resolve("archive")), selected.plan.relocations.first().relocation.whenAdoptingTarget)
         assertTrue(session.requestApply())
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
@@ -195,7 +197,7 @@ class ConfigurationEvaluationTest {
         for (changed in listOf(
                 entry("source", "other-target"),
                 entry("source", "target", mapOf("when-source-and-target-directories-exist" to "leave-unchanged")),
-                entry("source", "target", mapOf("source-archive-root" to root.resolve("archive").toString())))) {
+                entry("source", "target", mapOf("when-adopting-target" to archivePrompt())))) {
             write(changed)
             val result = evaluator.replan(selected)
             assertEquals(ConfigurationEvaluation.DiscardReason.DEFINITION_CHANGED, result.discardedChoices.first().reason)
@@ -298,6 +300,12 @@ class ConfigurationEvaluationTest {
 
     private fun entry(source: String, target: String, policies: Map<String, String> = mapOf()): String {
         val fields = mapOf("source-path" to root.resolve(source).toString(), "target-path" to root.resolve(target).toString()) + policies
-        return fields.entries.joinToString(", ", "  {", "}") { (key, value) -> "\"$key\": \"$value\"" }
+        // A policy object is passed as JSON; every other value is a string.
+        return fields.entries.joinToString(", ", "  {", "}") { (key, value) ->
+            "\"$key\": " + if (value.startsWith("{")) value else "\"$value\""
+        }
     }
+
+    /** Prompts, with archiving under `root/archive` as one of the answers. */
+    private fun archivePrompt(): String = """{"policy": "prompt", "archive-root": "${root.resolve("archive")}"}"""
 }

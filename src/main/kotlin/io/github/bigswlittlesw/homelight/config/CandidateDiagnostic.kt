@@ -2,12 +2,14 @@ package io.github.bigswlittlesw.homelight.config
 
 /**
  * Line and column are one-based; zero means unavailable. Only [Kind.SYNTAX] diagnostics,
- * raised while decoding, have a position. Key is empty when no schema key applies.
- * Messages are data and require escaping for display. Structural location identifies the
- * enclosing record or collection using zero-based indices; it is empty for source-wide failures.
+ * raised while decoding, can have a position, and missing keys and unknown advice values have
+ * none. Key is empty when no schema key applies. Messages are data and require escaping for
+ * display. Structural location identifies the enclosing record or collection using zero-based
+ * indices; it is empty for source-wide failures.
  *
- * [Kind.SYNTAX] covers everything the JSON reader rejects: malformed JSON, unknown or
- * duplicate keys, and values of the wrong type.
+ * [Kind.SYNTAX] covers everything the JSON reader rejects: malformed JSON, unknown or missing
+ * keys, values of the wrong type and unknown advice values. Its location is the dotted path
+ * kotlinx reports, which can be the offending key itself.
  */
 data class CandidateDiagnostic(
     val source: CandidateSource, val kind: Kind, val recordIndex: Int,

@@ -352,10 +352,10 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
             Line(
                 "Saved policies: both directories: " + bothLabel(r.whenSourceAndTargetDirectoriesExist) +
                     "; only target: " + onlyTargetLabel(r.whenOnlyTargetExists) +
-                    "; adopt target: " + adoptingLabel(r.whenAdoptingTarget),
+                    "; adopt target: " + adoptingLabel(r.whenAdoptingTarget?.kind),
             ),
         )
-        r.sourceArchiveRoot?.let { p -> lines.add(Line("Saved archive root: " + literal(p.toString()))) }
+        r.whenAdoptingTarget?.archiveRoot?.let { p -> lines.add(Line("Saved archive root: " + literal(p.toString()))) }
     }
     entry.draft?.let { r ->
         lines.add(Line("Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString())))

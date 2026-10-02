@@ -48,7 +48,7 @@ class ReconciliationPlannerTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
 
         val plan = plan(relocation(source, target, WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED,
-                null, null, null))
+                null, null))
 
         assertEquals(RelocationOutcome.UNCHANGED, plan.relocations.first().outcome)
         assertEquals("leave-unchanged", plan.actions().first().type)
@@ -60,7 +60,7 @@ class ReconciliationPlannerTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
 
         val unresolved = plan(Relocation(source, target))
-        val adopted = plan(relocation(source, target, null, WhenOnlyTargetExists.ADOPT_TARGET, null, null))
+        val adopted = plan(relocation(source, target, null, WhenOnlyTargetExists.ADOPT_TARGET, null))
 
         assertTrue(unresolved.hasConflicts())
         assertEquals(RelocationOutcome.CONVERGED, adopted.relocations.first().outcome)
@@ -72,7 +72,7 @@ class ReconciliationPlannerTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
         val relocation = relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)
+                null, WhenAdoptingTarget.ArchiveSource(archiveRoot))
 
         val archive = plan(relocation).actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().first()
         assertEquals(archiveRoot.resolve(sourceRelativeToRoot(source)), archive.target)
@@ -182,8 +182,8 @@ class ReconciliationPlannerTest {
 
     companion object {
         private fun relocation(source: Path, target: Path, directories: WhenSourceAndTargetDirectoriesExist?,
-                onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
-            return Relocation(source, target, directories, onlyTarget, adoption, archiveRoot)
+                onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?): Relocation {
+            return Relocation(source, target, directories, onlyTarget, adoption)
         }
 
         private fun sourceRelativeToRoot(source: Path): Path {
@@ -197,7 +197,7 @@ class ReconciliationPlannerTest {
 
         private fun state(relocation: Relocation): RelocationState {
             val inspector = PathInspector()
-            val archive = relocation.sourceArchiveRoot?.let { root ->
+            val archive = relocation.whenAdoptingTarget?.archiveRoot?.let { root ->
                 val source = relocation.sourcePath.toAbsolutePath()
                 val path = root.resolve(source.root.relativize(source))
                 RelocationState.ArchiveDestination(path, inspector.inspect(path))

@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
@@ -166,6 +167,25 @@ class SetupDraftTest {
         val cycle = SetupDraft(temporary.resolve("target"), root, null, listOf(configured))
         cycle.append(SetupDraft.Row("b", "a"))
         assertThrows<IllegalArgumentException> { cycle.validate() }
+    }
+
+    @Test fun adoptingPolicyAndArchiveRootResolveTogether() {
+        val root = Files.createDirectory(temporary.resolve("home"))
+        val archive = temporary.resolve("archive")
+        fun resolved(adopting: WhenAdoptingTarget.Kind?, archiveRoot: Path?): WhenAdoptingTarget? {
+            val draft = draft(root, listOf())
+            draft.append(SetupDraft.Row("a", "a", adopting = adopting, archiveRoot = archiveRoot))
+            return draft.validate().relocations.single().whenAdoptingTarget
+        }
+        assertNull(resolved(null, null))
+        assertEquals(WhenAdoptingTarget.Prompt(archive), resolved(null, archive))
+        assertEquals(WhenAdoptingTarget.Prompt(), resolved(WhenAdoptingTarget.Kind.PROMPT, null))
+        assertEquals(WhenAdoptingTarget.DiscardSource, resolved(WhenAdoptingTarget.Kind.DISCARD_SOURCE, null))
+        assertEquals(WhenAdoptingTarget.ArchiveSource(archive), resolved(WhenAdoptingTarget.Kind.ARCHIVE_SOURCE, archive))
+        assertEquals("Archive source requires an archive root",
+            assertThrows<IllegalArgumentException> { resolved(WhenAdoptingTarget.Kind.ARCHIVE_SOURCE, null) }.message)
+        assertEquals("Discard source does not use an archive root",
+            assertThrows<IllegalArgumentException> { resolved(WhenAdoptingTarget.Kind.DISCARD_SOURCE, archive) }.message)
     }
 
     @Test fun rootAndLocationEditsRejectOldResultsEvenAfterReturningToTheOldRoot() {

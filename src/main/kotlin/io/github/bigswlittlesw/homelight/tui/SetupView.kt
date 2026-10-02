@@ -139,10 +139,10 @@ internal class SetupView(
             3 -> "When only target exists: " +
                 if ((draft.rows[row].onlyTarget ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
                     "prompt before acting." else "link the source to that target."
-            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.PROMPT) {
-                WhenAdoptingTarget.PROMPT -> "prompt for what to do with source contents."
-                WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
-                WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
+            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.Kind.PROMPT) {
+                WhenAdoptingTarget.Kind.PROMPT -> "prompt for what to do with source contents."
+                WhenAdoptingTarget.Kind.DISCARD_SOURCE -> "delete source contents."
+                WhenAdoptingTarget.Kind.ARCHIVE_SOURCE -> "move source contents to the archive root."
             }
         }
         Mode.CANDIDATES -> ""
@@ -292,7 +292,7 @@ internal class SetupView(
             when (field) {
                 2 -> value.copy(both = next(value.both, WhenSourceAndTargetDirectoriesExist.entries))
                 3 -> value.copy(onlyTarget = next(value.onlyTarget, WhenOnlyTargetExists.entries))
-                4 -> value.copy(adopting = next(value.adopting, WhenAdoptingTarget.entries))
+                4 -> value.copy(adopting = next(value.adopting, WhenAdoptingTarget.Kind.entries))
                 else -> value
             },
         )

@@ -77,9 +77,9 @@ data class PlanRelocationItem(
         if (whenBoth != null) {
             return when (whenBoth) {
                 WhenSourceAndTargetDirectoriesExist.ADOPT -> when (relocation.whenAdoptingTarget) {
-                    WhenAdoptingTarget.DISCARD_SOURCE -> DecisionChoice.ADOPT_AND_DISCARD_SOURCE
-                    WhenAdoptingTarget.ARCHIVE_SOURCE -> DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
-                    WhenAdoptingTarget.PROMPT, null -> null
+                    WhenAdoptingTarget.DiscardSource -> DecisionChoice.ADOPT_AND_DISCARD_SOURCE
+                    is WhenAdoptingTarget.ArchiveSource -> DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
+                    is WhenAdoptingTarget.Prompt, null -> null
                 }
                 WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> DecisionChoice.LEAVE_UNCHANGED
                 WhenSourceAndTargetDirectoriesExist.DISCARD -> DecisionChoice.DISCARD_BOTH

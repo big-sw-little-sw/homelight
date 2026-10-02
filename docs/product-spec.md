@@ -184,8 +184,7 @@ The configuration names the decision for the observed state:
 
 - `when-source-and-target-directories-exist`: `prompt`, `adopt`, `leave-unchanged`, or `discard`
 - `when-only-target-exists`: `prompt` or `adopt-target`
-- `when-adopting-target`: `prompt`, `discard-source`, or `archive-source`
-- `source-archive-root`: required for `archive-source`
+- `when-adopting-target`: an object whose `policy` is `prompt`, `discard-source`, or `archive-source`, e.g. `{"policy": "archive-source", "archive-root": "~/archive"}`. `archive-source` requires `archive-root`; with `prompt`, an `archive-root` makes archiving one of the answers offered at review.
 
 An absent target with a source directory is staged, verified, and atomically published as one relocation. `adopt` makes the target authoritative, but a separate source disposition remains mandatory. `leave-unchanged` is intentional success, not convergence or a no-op.
 

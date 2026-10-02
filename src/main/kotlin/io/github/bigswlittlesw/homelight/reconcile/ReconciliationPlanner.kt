@@ -100,22 +100,21 @@ private fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
     }
 
 private fun adoptTarget(state: RelocationState): RelocationPlan =
-    when (state.relocation.whenAdoptingTarget ?: WhenAdoptingTarget.PROMPT) {
-        WhenAdoptingTarget.PROMPT -> unresolved(
+    when (val policy = state.relocation.whenAdoptingTarget ?: WhenAdoptingTarget.Prompt()) {
+        is WhenAdoptingTarget.Prompt -> unresolved(
             state, state.relocation.sourcePath, "adopting the target requires a source disposition",
         )
-        WhenAdoptingTarget.DISCARD_SOURCE -> outcome(
+        WhenAdoptingTarget.DiscardSource -> outcome(
             state, listOf(
                 ReconciliationAction.ReplaceDirectoryWithSymlink(state.relocation.sourcePath, state.relocation.targetPath),
             ),
         )
-        WhenAdoptingTarget.ARCHIVE_SOURCE -> archiveSource(state)
+        is WhenAdoptingTarget.ArchiveSource -> archiveSource(state, policy.archiveRoot)
     }
 
-private fun archiveSource(state: RelocationState): RelocationPlan {
+private fun archiveSource(state: RelocationState, archiveRoot: Path): RelocationPlan {
     val relocation = state.relocation
-    // relocationProblem has already blocked archive-source without an archive root.
-    val archivePath = relocation.sourceArchiveRoot!!.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
+    val archivePath = archiveRoot.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
     if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
         return blocked(state, "source archive path overlaps a relocation path")
     }

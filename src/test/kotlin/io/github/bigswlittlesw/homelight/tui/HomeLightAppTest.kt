@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.application.PlanSummary
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -168,7 +169,8 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('s'))
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
-        assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot)
+        // An archive root without a policy keeps prompting, with archiving as one answer.
+        assertEquals(WhenAdoptingTarget.Prompt(temporary.resolve("archive")), relocation.whenAdoptingTarget)
         assertFalse(Files.exists(temporary.resolve("home/nested/cache")), "saving must not relocate")
     }
 

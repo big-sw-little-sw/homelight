@@ -305,15 +305,17 @@ class CandidateSetupTest {
 
     @Test fun savedPoliciesUseTheirLabelsAndNoRawKeys() {
         val root = fixture()
-        val rawKeys = (WhenSourceAndTargetDirectoriesExist.entries.map { it.value } + WhenOnlyTargetExists.entries.map { it.value } +
-            WhenAdoptingTarget.entries.map { it.value }).toSet()
+        val rawKeys = setOf(
+            "prompt", "adopt", "leave-unchanged", "discard", "adopt-target", "discard-source", "archive-source",
+            "PROMPT", "ADOPT", "LEAVE_UNCHANGED", "DISCARD", "ADOPT_TARGET", "DISCARD_SOURCE", "ARCHIVE_SOURCE",
+        )
         // Together these rows hold every value of each policy, and its omission.
         val rows = listOf(
-            Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
+            Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.Prompt()) to
                 "both directories: Prompt; only target: Prompt; adopt target: Prompt",
-            Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenAdoptingTarget.DISCARD_SOURCE) to
+            Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenAdoptingTarget.DiscardSource) to
                 "both directories: Adopt target; only target: Adopt target; adopt target: Discard source",
-            Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, null, WhenAdoptingTarget.ARCHIVE_SOURCE) to
+            Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, null, WhenAdoptingTarget.ArchiveSource(root.resolve("archive"))) to
                 "both directories: Leave unchanged; only target: Default (prompt); adopt target: Archive source",
             Triple(WhenSourceAndTargetDirectoriesExist.DISCARD, null, null) to
                 "both directories: Discard both; only target: Default (prompt); adopt target: Default (prompt)",
