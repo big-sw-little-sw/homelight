@@ -327,7 +327,8 @@ internal class HomeLightApp(
         clampSelection()
     }
 
-    fun planModel(): PlanModel = session.planModel()
-    fun selectedIndex(): Int = if (activeScreen == Screen.APPLY) actionIndex else selectedIndex
-    fun paneFocus(): PaneFocus = if (activeScreen == Screen.APPLY) actionFocus else paneFocus
+    // Read only by tests.
+    internal fun planModel(): PlanModel = session.planModel()
+    internal fun selectedIndex(): Int = if (activeScreen == Screen.APPLY) actionIndex else selectedIndex
+    internal fun paneFocus(): PaneFocus = if (activeScreen == Screen.APPLY) actionFocus else paneFocus
 }
