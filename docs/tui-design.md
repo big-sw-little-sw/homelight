@@ -186,6 +186,12 @@ above; dialogs and active execution consume them without navigation.
 | No-change review | Inspect unchanged entries | 1/n/Esc/Enter returns to Workspace; y does nothing |
 | Quit dialog | ↑/↓, j/k or Tab chooses; repeated q/Ctrl-C does not confirm | Enter confirms selected option; Esc cancels dialog; default is Keep running |
 
+The letter alternates (h/j/k/l, g/G) come from TamboUI's vim binding set and match
+only without Ctrl or Alt. A focused setup path field takes every printable
+character as text before any binding, except the `[`/`]` scroll keys; Backspace
+and Ctrl-U edit it. Vim's other bindings, `x` and Ctrl-U/Ctrl-D paging, have no
+action outside path fields.
+
 Escape never exits. At top level it does nothing; omit its help there rather than
 printing “never quit.” Normal idle q/toolkit quit exits. During execution or
 unsettled completion, default to **Keep running**, with **Exit when execution

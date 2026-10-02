@@ -35,6 +35,16 @@ class TuiLauncherTest {
     }
 
     @Test
+    fun runnerReadsKeysWithVimBindingsEvenWithACustomConfig() {
+        val session = HomeLightSession(HomeLightExitTest.configuration(temporary))
+        assertSame(KEY_BINDINGS, HomeLightApp(session).configure().bindings())
+        val backend = LifecycleBackend()
+        val custom = HomeLightApp(session, config(backend)).configure()
+        assertSame(KEY_BINDINGS, custom.bindings())
+        assertSame(backend, custom.backend())
+    }
+
+    @Test
     fun closesTerminalExactlyOnceAfterNormalAndExceptionalSettlement() {
         for (exceptional in booleanArrayOf(false, true)) {
             val root = Files.createDirectory(temporary.resolve("case-$exceptional"))
@@ -45,7 +55,7 @@ class TuiLauncherTest {
             if (exceptional) completion.obtrudeException(IllegalStateException("settlement failed"))
             val backend = LifecycleBackend()
             val app = HomeLightApp(session, config(backend))
-            app.handleKeyEvent(KeyEvent.ofChar('q'))
+            app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
             if (exceptional) {
                 assertThrows<CompletionException> { app.run() }
             } else {

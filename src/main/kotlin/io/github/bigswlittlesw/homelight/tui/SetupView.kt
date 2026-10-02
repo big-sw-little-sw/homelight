@@ -158,8 +158,6 @@ internal class SetupView(
         Mode.CANDIDATES -> ""
     }
 
-    // TamboUI deprecates character() for codePoint(), which would type non-BMP input that character() maps to U+FFFD.
-    @Suppress("DEPRECATION")
     fun key(key: KeyEvent) {
         if (closed) return
         discovery?.let { draft.accept(it.snapshot()) }
@@ -177,8 +175,15 @@ internal class SetupView(
             }
             return
         }
+        if (editsText(key)) {
+            if (mode == Mode.LOCATIONS) editLocation(key) else editRow(key)
+            return
+        }
+        // Vim binds Ctrl+U and Ctrl+D to paging, which setup does not have. Letter commands ignore Ctrl,
+        // so without this they would act as u (reveal hidden candidates) and d (remove a row).
+        if (key.isPageUp() || key.isPageDown()) return
         if (mode == Mode.CANDIDATES) {
-            if (key.isCharIgnoreCase('q') || key.isQuit()) discard = true
+            if (key.isQuit()) discard = true
             else if (key.isCharIgnoreCase('r')) refreshDiscovery()
             else {
                 val previousCount = draft.rows.size
@@ -188,16 +193,15 @@ internal class SetupView(
             }
             return
         }
-        if (key.isQuit() && key.character() != 'q') { discard = true; return }
+        if (key.isQuit()) { discard = true; return }
         if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return }
         if (mode == Mode.LOCATIONS) { locationsKey(key); return }
         if (mode == Mode.TABLE) { tableKey(key); return }
         if (key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isDown() || key.isUp()) {
             field = (field + (if (key.isUp()) -1 else 1)).mod(6); viewport.followChoice(); return
         }
-        if (textField()) { editRow(key); return }
-        if (key.isCharIgnoreCase('q')) discard = true
-        else if (key.isCharIgnoreCase('d')) removeRow()
+        if (textField()) return
+        if (key.isCharIgnoreCase('d')) removeRow()
         else if (key.isChar(' ')) cyclePolicy()
     }
 
@@ -209,17 +213,19 @@ internal class SetupView(
             try { applyLocations() }
             catch (error: IllegalArgumentException) { message = shown(error) }
             changeMode(Mode.TABLE)
-        } else {
-            val current = when (field) { 0 -> sourceRoot; 1 -> targetRoot; else -> sharedList }
-            val next = edit(current, key)
-            if (current == next) return
-            when (field) { 0 -> sourceRoot = next; 1 -> targetRoot = next; else -> sharedList = next }
-            locationsChanged = true
-            // Invalidate immediately, including an edit away from and back to a root.
-            discovery?.cancel()
-            draft.roots(draft.sourceRoot, draft.targetRoot)
-            invalidated()
         }
+    }
+
+    private fun editLocation(key: KeyEvent) {
+        val current = when (field) { 0 -> sourceRoot; 1 -> targetRoot; else -> sharedList }
+        val next = edit(current, key)
+        if (current == next) return
+        when (field) { 0 -> sourceRoot = next; 1 -> targetRoot = next; else -> sharedList = next }
+        locationsChanged = true
+        // Invalidate immediately, including an edit away from and back to a root.
+        discovery?.cancel()
+        draft.roots(draft.sourceRoot, draft.targetRoot)
+        invalidated()
     }
 
     private fun tableKey(key: KeyEvent) {
@@ -233,13 +239,12 @@ internal class SetupView(
                 changeMode(Mode.CANDIDATES)
             } catch (error: IllegalArgumentException) { message = shown(error) }
         } else if (key.isCharIgnoreCase('e')) changeMode(Mode.LOCATIONS)
-        else if (key.isCharIgnoreCase('q')) discard = true
         else if (key.isCharIgnoreCase('v')) validate()
         else if (key.isCharIgnoreCase('s')) save()
         else if (key.isCharIgnoreCase('d') && draft.rows.isNotEmpty()) removeRow()
         else if (key.isKey(KeyCode.ENTER) && draft.rows.isNotEmpty()) changeMode(Mode.ROW)
-        else if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j')) {
-            row = (row + (if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1)).coerceIn(0, maxOf(0, draft.rows.size - 1))
+        else if (key.isUp() || key.isDown()) {
+            row = (row + (if (key.isUp()) -1 else 1)).coerceIn(0, maxOf(0, draft.rows.size - 1))
             viewport.followChoice()
         }
     }
@@ -335,6 +340,15 @@ internal class SetupView(
     }
 
     private fun textField(): Boolean = field == 0 || field == 1 || field == 5
+
+    /**
+     * A focused path field takes its editing keys before any binding: with vim bindings, `j`, `k`, `h`, `l`, `g`,
+     * `G` and `x` are also navigation and editing actions. `[` and `]` stay scroll keys on every setup screen.
+     */
+    private fun editsText(key: KeyEvent): Boolean =
+        (mode == Mode.LOCATIONS || mode == Mode.ROW && textField()) &&
+            (clears(key) || key.isKey(KeyCode.BACKSPACE) || typed(key).let { c -> c != null && c != '[' && c != ']' })
+
     private fun invalidated() { message = "Draft not saved. Validation: not run." }
 
     private fun discardPolicyFocused(): Boolean =
@@ -353,13 +367,19 @@ private fun resolved(root: String, relative: String): String =
     try { Path.of(root).resolve(relative).normalize().toString() }
     catch (error: IllegalArgumentException) { "Invalid path: " + error.message }
 
-// See SetupView.key for why character() stays.
-@Suppress("DEPRECATION")
 private fun edit(value: String, key: KeyEvent): String {
-    if (key.isChar('\u0015') || key.hasCtrl() && key.isCharIgnoreCase('u')) return ""
+    if (clears(key)) return ""
     if (key.isKey(KeyCode.BACKSPACE)) return value.dropLast(1)
-    return if (key.character() != '\u0000' && !Character.isISOControl(key.character())) value + key.character() else value
+    return typed(key)?.let { character -> value + character } ?: value
 }
+
+private fun clears(key: KeyEvent): Boolean = key.isChar('\u0015') || key.hasCtrl() && key.isCharIgnoreCase('u')
+
+/** The printable character a key types; `null` for control characters and Ctrl or Alt chords. */
+// TamboUI deprecates character() for codePoint(), which would type non-BMP input that character() maps to U+FFFD.
+@Suppress("DEPRECATION")
+private fun typed(key: KeyEvent): Char? =
+    key.character().takeIf { c -> c != '\u0000' && !Character.isISOControl(c) && !key.hasCtrl() && !key.hasAlt() }
 
 /** Cycles default, then each value in order, then back to default. */
 private fun <T : Enum<T>> next(current: T?, values: List<T>): T? = when {

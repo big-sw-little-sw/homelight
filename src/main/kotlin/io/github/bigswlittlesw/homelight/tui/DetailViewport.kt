@@ -9,6 +9,7 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.element.Size
 import dev.tamboui.toolkit.element.StyledElement
+import dev.tamboui.toolkit.elements.ScrollbarElement
 
 /** Wraps at the actual pane width on every render, including resize and quit dialogs. */
 internal class DetailViewport {
@@ -74,12 +75,9 @@ internal class DetailViewport {
                     .borderColor(if (focused) Color.CYAN else Color.DARK_GRAY).fill()
                     .render(frame, area, context)
                 if (overflow) {
-                    val thumb = maxOf(1, height * height / wrapped.size)
-                    val start = if (maximum == 0) 0 else top * (height - thumb) / maximum
-                    for (row in 0 until height) {
-                        Toolkit.text(if (row >= start && row < start + thumb) "█" else "│").cyan()
-                            .render(frame, Rect(area.x() + area.width() - 2, area.y() + 1 + row, 1, 1), context)
-                    }
+                    ScrollbarElement().state(wrapped.size, height, top).hideMarkers()
+                        .thumbColor(Color.CYAN).trackColor(Color.CYAN)
+                        .render(frame, Rect(area.x() + area.width() - 2, area.y() + 1, 1, height), context)
                 }
             }
         }
@@ -100,20 +98,25 @@ internal fun wrappedText(value: String, color: Color): Element {
     return WrappedText()
 }
 
-/** Wraps at spaces where possible, breaking long words at the cell width. */
+private val GRAPHEME_CLUSTER = Regex("\\X")
+
+/**
+ * Wraps at spaces where possible, breaking long words at the cell width.
+ *
+ * Measures whole grapheme clusters, as the terminal draws them: an emoji with VS16 or a ZWJ sequence is one
+ * glyph two cells wide, and a break never splits it.
+ */
 internal fun wrap(text: String, width: Int): List<String> {
     val result = mutableListOf<String>()
     for (paragraph in text.split("\n")) {
         val line = StringBuilder()
         var cells = 0
-        var offset = 0
-        while (offset < paragraph.length) {
-            val point = paragraph.codePointAt(offset)
-            val character = String(Character.toChars(point))
-            val size = CharWidth.of(character)
+        for (match in GRAPHEME_CLUSTER.findAll(paragraph)) {
+            val cluster = match.value
+            val size = CharWidth.of(cluster)
             if (cells + size > width && line.isNotEmpty()) {
                 val space = line.lastIndexOf(" ")
-                if (space > 0 && point != ' '.code) {
+                if (space > 0 && cluster != " ") {
                     result.add(line.substring(0, space))
                     line.delete(0, space + 1)
                     cells = CharWidth.of(line.toString())
@@ -121,12 +124,11 @@ internal fun wrap(text: String, width: Int): List<String> {
                     result.add(line.toString())
                     line.setLength(0)
                     cells = 0
-                    if (point == ' '.code) { offset += Character.charCount(point); continue }
+                    if (cluster == " ") continue
                 }
             }
-            line.append(character)
+            line.append(cluster)
             cells += size
-            offset += Character.charCount(point)
         }
         result.add(line.toString())
     }

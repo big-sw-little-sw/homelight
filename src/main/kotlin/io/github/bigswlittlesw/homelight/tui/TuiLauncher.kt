@@ -22,7 +22,8 @@ internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb termin
  * 0 after a normal exit, 1 when the TUI fails, 2 when the terminal cannot run it.
  */
 internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
-    terminalRefusal(System.console() != null, System.getenv("TERM"))?.let { refusal ->
+    // Since JDK 22, System.console() may return a console when input or output is redirected.
+    terminalRefusal(System.console()?.isTerminal == true, System.getenv("TERM"))?.let { refusal ->
         errorOutput.println(refusal)
         return 2
     }
