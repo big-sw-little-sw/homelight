@@ -1,7 +1,7 @@
 package io.github.bigswlittlesw.homelight.discovery
 
 import io.github.bigswlittlesw.homelight.concurrent.DISCOVERY_CONCURRENCY
-import io.github.bigswlittlesw.homelight.concurrent.forEachBounded
+import io.github.bigswlittlesw.homelight.concurrent.mapBounded
 import io.github.bigswlittlesw.homelight.config.CandidateCatalog
 import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic
 import io.github.bigswlittlesw.homelight.config.CandidateParser
@@ -165,7 +165,7 @@ class CandidateDiscovery internal constructor(
 
     private fun inspectBatch(generation: Long, paths: List<Path>) {
         val anchor = synchronized(this) { usableAnchor(generation) } ?: return
-        forEachBounded(paths, workers.n, { synchronized(this) { this.generation != generation } }) { path ->
+        mapBounded(paths, workers.n, { synchronized(this) { this.generation != generation } }) { path ->
             attempt(generation, { inspections[path] = it }) { metadata.inspect(anchor, path, generation) }
         }
     }

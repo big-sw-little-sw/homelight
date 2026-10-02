@@ -1,7 +1,8 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
 import io.github.bigswlittlesw.homelight.concurrent.RELOCATION_CONCURRENCY
-import io.github.bigswlittlesw.homelight.concurrent.forEachBounded
+import io.github.bigswlittlesw.homelight.concurrent.Outcome
+import io.github.bigswlittlesw.homelight.concurrent.mapBounded
 import io.github.bigswlittlesw.homelight.config.intersects
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
 import io.github.bigswlittlesw.homelight.config.relocationProblem
@@ -33,7 +34,6 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.PathWalkOption
 import kotlin.io.path.deleteRecursively
@@ -98,30 +98,29 @@ class ReconciliationExecutor internal constructor(
      */
     fun execute(plan: ReconciliationPlan, progress: ProgressListener = ProgressListener.NONE): ExecutionResult {
         require(!plan.hasBlockedActions() && !plan.hasConflicts()) { "Only fully resolved plans can be executed" }
-        // Owned by this call and shared with its group threads. Each slot has one writer; the join in
-        // forEachBounded publishes the slots back to this thread.
+        // Owned by this call and shared with its group threads; mapBounded checks it before starting each group.
         val halted = AtomicBoolean()
-        val unexpected = AtomicReference<Throwable>()
-        val slots = arrayOfNulls<RelocationExecution>(plan.relocations.size)
-        fun run(group: List<Int>) {
+        fun run(group: List<Int>): List<Pair<Int, RelocationExecution>> = buildList {
             for (index in group) {
                 if (halted.get()) break
-                try {
-                    slots[index] = execute(plan.relocations[index], progress, halted)
-                } catch (throwable: Throwable) {
-                    // Rethrown below, as the sequential loop would have, once running groups finish.
-                    unexpected.compareAndSet(null, throwable)
-                    halted.set(true)
-                }
+                // An unexpected throwable halts too; it is rethrown below, once running groups finish.
+                val execution = runCatching { execute(plan.relocations[index], progress, halted) }
+                add(index to execution.onFailure { halted.set(true) }.getOrThrow())
             }
         }
         val groups = independentGroups(plan.relocations)
         // A single group runs on the caller's thread, as before concurrency, so the caller's interrupts still reach it.
-        if (groups.size == 1) run(groups.single()) else forEachBounded(groups, concurrency, halted::get, ::run)
-        unexpected.get()?.let { throw it }
+        val outcomes = if (groups.size == 1) listOf(Outcome.Completed(run(groups.single()))) else mapBounded(groups, concurrency, halted::get, ::run)
+        val executions = outcomes.flatMap { outcome ->
+            when (outcome) {
+                is Outcome.Completed -> outcome.value
+                is Outcome.Failed -> throw outcome.error
+                Outcome.NotStarted -> listOf()
+            }
+        }.toMap()
         return ExecutionResult(
             plan.relocations.mapIndexed { index, relocation ->
-                slots[index] ?: RelocationExecution(relocation, relocation.actions.map(::notRun))
+                executions[index] ?: RelocationExecution(relocation, relocation.actions.map(::notRun))
             },
         )
     }
