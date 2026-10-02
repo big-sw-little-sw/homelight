@@ -40,8 +40,8 @@ object CandidateCatalog {
         require(snapshots.distinctBy { it.root }.size <= 1) { "Cannot merge snapshots from different roots" }
         val candidates = snapshots.flatMap { it.definitions }
             .groupBy { it.sourcePath }
-            .map { (path, definitions) -> Candidate(path, java.util.List.copyOf(definitions)) }
-        return Merged(java.util.List.copyOf(candidates), java.util.List.copyOf(snapshots.flatMap { it.diagnostics }))
+            .map { (path, definitions) -> Candidate(path, definitions) }
+        return Merged(candidates, snapshots.flatMap { it.diagnostics })
     }
 
     /** One source's parse result: either definitions or the diagnostics that rejected it, never both. */
@@ -71,7 +71,7 @@ object CandidateCatalog {
                 diagnostics: List<CandidateDiagnostic>,
             ): Snapshot = Snapshot(
                 source, CandidateParser.normalizedRoot(root),
-                java.util.List.copyOf(definitions), java.util.List.copyOf(diagnostics),
+                definitions.toList(), diagnostics.toList(),
             )
         }
     }

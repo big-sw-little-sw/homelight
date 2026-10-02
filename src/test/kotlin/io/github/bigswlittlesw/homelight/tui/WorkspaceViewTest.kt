@@ -12,9 +12,14 @@ import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanModel
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
@@ -117,6 +122,64 @@ class WorkspaceViewTest {
             io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist.ADOPT,
             null, io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget.DISCARD_SOURCE), item)
         assertEquals("Adopt target; discard source.", policy)
+    }
+
+    /** `(none)` stands for an omitted policy, which must read differently from an explicit `Prompt`. */
+    @ParameterizedTest
+    @CsvSource(
+        nullValues = ["(none)"],
+        value = [
+            "(none), (none), Default (prompt).",
+            "PROMPT, (none), Prompt.",
+            "LEAVE_UNCHANGED, (none), Leave unchanged.",
+            "DISCARD, (none), Discard both.",
+            "ADOPT, (none), Adopt target; default (prompt) for source.",
+            "ADOPT, PROMPT, Adopt target; prompt for source.",
+            "ADOPT, DISCARD_SOURCE, Adopt target; discard source.",
+            "ADOPT, ARCHIVE_SOURCE, Adopt target; archive source.",
+        ],
+    )
+    fun bothDirectoriesPolicyUsesTheConfigurationWords(
+        both: WhenSourceAndTargetDirectoriesExist?, adopting: WhenAdoptingTarget?, expected: String,
+    ) {
+        val session = HomeLightSession(fixture(temporary))
+        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+            .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
+        val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, null, adopting)
+        assertEquals(expected, WorkspaceView.policy(relocation, item))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        nullValues = ["(none)"],
+        value = [
+            "(none), Default (prompt) before adopting the existing target.",
+            "PROMPT, Prompt before adopting the existing target.",
+            "ADOPT_TARGET, Adopt target and create a source link.",
+        ],
+    )
+    fun onlyTargetPolicyUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists?, expected: String) {
+        val root = temporary.toRealPath()
+        val source = root.resolve("home/only")
+        val target = Files.createDirectories(root.resolve("local/only"))
+        Files.createDirectories(source.parent)
+        val config = Files.writeString(root.resolve("config.json"),
+            "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
+        val item = assertInstanceOf(PlanModel.Configured::class.java, HomeLightSession(config).planModel()).items.single()
+        assertEquals(expected, WorkspaceView.policy(Relocation(source, target, null, onlyTarget), item))
+    }
+
+    @Test
+    fun leftUnchangedRelocationReadsUnchangedEverywhere() {
+        val session = HomeLightSession(fixture(temporary))
+        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
+        val screen = render(WorkspaceView.render(session, index, false, PaneFocus.DETAIL, 0, DetailViewport()), 200, 50)
+        assertTrue(screen.contains("[Unchanged] "), screen)
+        assertTrue(screen.contains("Saved policy: Leave unchanged."), screen)
+        assertTrue(screen.contains("Expected outcome: No changes; source and target left unchanged by choice."), screen)
+        assertTrue(screen.contains("(●) Leave source and target unchanged"), screen)
+        assertFalse(screen.contains("unmanaged") || screen.contains("Skipped"), screen)
     }
 
     companion object {

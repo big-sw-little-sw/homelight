@@ -19,7 +19,7 @@ sealed interface ApplyModel {
     @ConsistentCopyVisibility
     data class Running private constructor(val plan: ReconciliationPlan, val steps: List<Step>) : ApplyModel {
         companion object {
-            fun of(plan: ReconciliationPlan, steps: List<Step>): Running = Running(plan, java.util.List.copyOf(steps))
+            fun of(plan: ReconciliationPlan, steps: List<Step>): Running = Running(plan, steps.toList())
         }
     }
 
@@ -35,7 +35,7 @@ sealed interface ApplyModel {
             fun of(
                 plan: ReconciliationPlan, steps: List<Step>, execution: ExecutionResult?,
                 diagnostics: List<String>, stale: Boolean,
-            ): Result = Result(plan, java.util.List.copyOf(steps), execution, java.util.List.copyOf(diagnostics), stale)
+            ): Result = Result(plan, steps.toList(), execution, diagnostics.toList(), stale)
         }
     }
 

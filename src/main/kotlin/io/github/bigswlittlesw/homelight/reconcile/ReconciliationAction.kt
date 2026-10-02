@@ -22,6 +22,17 @@ sealed interface ReconciliationAction {
             is Blocked -> "blocked"
         }
 
+    /** Where this action publishes, archives or links `path` to; null when it acts on `path` alone. */
+    val destination: Path?
+        get() = when (this) {
+            is MigrateDirectoryForPublication -> target
+            is ArchiveDirectory -> target
+            is CreateSymlink -> target
+            is ReplaceDirectoryWithSymlink -> target
+            is ReplaceSymlink -> target
+            is CreateDirectory, is EnsureDirectory, is DeleteDirectory, is NoOp, is LeaveUnchanged, is Blocked -> null
+        }
+
     /** Whether executing this action removes existing content. */
     val destructive: Boolean
         get() = when (this) {

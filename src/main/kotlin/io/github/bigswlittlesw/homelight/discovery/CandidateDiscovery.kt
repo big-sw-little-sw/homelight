@@ -119,11 +119,9 @@ class CandidateDiscovery internal constructor(
                 .takeWhile { it.startsWith(request.root) }
                 .filter { it in identities }
                 .toList()
-            Candidate(candidate, observation, java.util.List.copyOf(ancestors))
+            Candidate(candidate, observation, ancestors)
         }
-        return Result(
-            generation, request, java.util.List.copyOf(sources.values), java.util.List.copyOf(rows), rootFailure,
-        )
+        return Result(generation, request, sources.values.toList(), rows, rootFailure)
     }
 
     @Synchronized

@@ -41,16 +41,16 @@ class ConfigurationEvaluation(
         val plan: ReconciliationPlan,
     ) : Evaluation {
         companion object {
-            /** Keeps unmodifiable JDK copies of the collections, including each list of choices. */
+            /** Copies the collections, including each list of choices. */
             fun of(
                 configPath: Path, savedConfiguration: HomeLightConfiguration,
                 observations: List<RelocationState>, savedPlan: ReconciliationPlan,
                 draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
                 plan: ReconciliationPlan,
             ): Loaded = Loaded(
-                configPath, savedConfiguration, java.util.List.copyOf(observations), savedPlan,
-                java.util.Map.copyOf(draft),
-                java.util.Map.copyOf(availableChoices.mapValues { java.util.List.copyOf(it.value) }),
+                configPath, savedConfiguration, observations.toList(), savedPlan,
+                draft.toMap(),
+                availableChoices.mapValues { it.value.toList() },
                 plan,
             )
         }

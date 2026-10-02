@@ -31,8 +31,6 @@ class ConfigurationPublisher {
         }
     }
 
-    class ConfigurationException(message: String, cause: Throwable) : RuntimeException(message, cause)
-
     companion object {
         /** Pretty-printed for hand editing. Keys keep declaration order, and absent (null) values are omitted. */
         private val OUTPUT = Json { prettyPrint = true }

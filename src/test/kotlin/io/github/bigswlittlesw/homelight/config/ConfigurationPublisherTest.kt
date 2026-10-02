@@ -47,12 +47,12 @@ class ConfigurationPublisherTest {
     @Test fun failedWriteAndExistingMalformedFileKeepTheDraftAndFile(@TempDir root: Path) {
         val draft = draft(root)
         val blockedParent = Files.writeString(root.resolve("not-a-directory"), "occupied")
-        assertThrows(ConfigurationPublisher.ConfigurationException::class.java) {
+        assertThrows(ConfigurationException::class.java) {
             ConfigurationPublisher().saveNew(blockedParent.resolve("config.json"), draft) }
 
         val path = root.resolve("config.json")
         Files.writeString(path, "{\"homelight\": [")
-        assertThrows(ConfigurationPublisher.ConfigurationException::class.java) { ConfigurationPublisher().saveNew(path, draft) }
+        assertThrows(ConfigurationException::class.java) { ConfigurationPublisher().saveNew(path, draft) }
         assertEquals("{\"homelight\": [", Files.readString(path))
         assertThrows(RuntimeException::class.java) { ConfigurationLoader().load(path) }
     }
@@ -82,7 +82,7 @@ class ConfigurationPublisherTest {
     companion object {
         private fun save(publisher: ConfigurationPublisher, path: Path, draft: ConfigurationDraft): Boolean {
             try { publisher.saveNew(path, draft); return true }
-            catch (expected: ConfigurationPublisher.ConfigurationException) { return false }
+            catch (expected: ConfigurationException) { return false }
         }
         private fun draft(root: Path): ConfigurationDraft {
             return ConfigurationDraft.of(root.resolve("local"), listOf(relocation(root.resolve("home/cache"), root.resolve("local/cache"))))
