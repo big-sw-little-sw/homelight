@@ -9,7 +9,6 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.CandidateSource
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
@@ -349,17 +348,11 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     lines.add(Line("Source: " + literal(checkNotNull(entry.sourcePath).toString())))
     entry.configured?.let { r ->
         lines.add(Line("Saved target: " + literal(r.targetPath.toString())))
-        val both = when (val value = r.whenSourceAndTargetDirectoriesExist) {
-            WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
-            WhenSourceAndTargetDirectoriesExist.PROMPT, WhenSourceAndTargetDirectoriesExist.ADOPT,
-            WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> value.value.replace('-', ' ')
-            null -> "Default (prompt)"
-        }
         lines.add(
             Line(
-                "Saved policies: both directories: " + both +
-                    "; only target: " + (r.whenOnlyTargetExists?.value?.replace('-', ' ') ?: "Default (prompt)") +
-                    "; adopt target: " + (r.whenAdoptingTarget?.value?.replace('-', ' ') ?: "Default (prompt)"),
+                "Saved policies: both directories: " + bothLabel(r.whenSourceAndTargetDirectoriesExist) +
+                    "; only target: " + onlyTargetLabel(r.whenOnlyTargetExists) +
+                    "; adopt target: " + adoptingLabel(r.whenAdoptingTarget),
             ),
         )
         r.sourceArchiveRoot?.let { p -> lines.add(Line("Saved archive root: " + literal(p.toString()))) }
@@ -397,7 +390,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
             when {
                 entry.configured != null -> "Inspection only. Saved target and policies remain authoritative."
                 entry.draft != null -> "Target and policies remain editable in Row details."
-                draft.canAdd(entry) -> "Adding uses a matching target path and Default (prompt) policies."
+                draft.canAdd(entry) -> "Adding uses a matching target path and $DEFAULT_POLICY_LABEL policies."
                 else -> "Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."
             },
         ),

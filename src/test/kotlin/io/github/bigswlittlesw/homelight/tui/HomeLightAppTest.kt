@@ -629,7 +629,7 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
-        // Move to choice 1: LEAVE_UNCHANGED (Skipped)
+        // Move to choice 1: LEAVE_UNCHANGED (Unchanged)
         app.handleKeyEvent(KeyEvent.ofChar('j'))
         assertEquals(1, app.detailSelectedIndex)
 

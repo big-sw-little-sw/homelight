@@ -73,7 +73,9 @@ The selected relocation should answer these questions without repeated metadata:
    `Current: Source and target are directories.` Keep meaningful link, inaccessible
    and missing-path exceptions explicit.
 2. What saved policy applies to this observed case? Show the relevant branch in
-   plain language, not all configuration keys or policy branches.
+   plain language, not all configuration keys or policy branches, for example
+   `Prompt before adopting the existing target.` or `Adopt target; prompt for source.`
+   A missing policy reads `Default (prompt)`, never as an explicit `Prompt`.
 3. What draft choice is selected? Label it unsaved; show saved policy separately.
 4. What is the expected outcome and consequence? State destructive effects
    explicitly, for example: `Keep target contents; delete the source directory
@@ -93,6 +95,12 @@ Use word wrapping for prose and character wrapping only for unbreakable paths.
 Do not use internal enums, storage-property keys, or “Overlapping risks” as primary
 explanations. Use Expected outcome, not a claim that planned convergence happened.
 
+Every view labels a policy value the same way, in the configuration's words:
+`Default (prompt)` for a missing policy, then `Prompt`, `Adopt target`,
+`Leave unchanged`, `Discard both`, `Discard source` and `Archive source`. The leave
+decision reads "unchanged" everywhere: the radio label, the expected outcome, the
+`[Unchanged]` badge and Review.
+
 ### Empty and unresolved content
 
 Never render an empty Planned actions heading. Choose the explanation from state,
@@ -100,7 +108,7 @@ not solely from an empty action list:
 
 - Unresolved: `Choose a decision to see planned changes.`
 - In sync: `No changes needed; already in sync.`
-- Intentionally unchanged: `No changes; left unmanaged by choice.`
+- Intentionally unchanged: `No changes; source and target left unchanged by choice.`
 - Blocked: explain the concrete blocker and repair needed.
 - No configured relocations: say so; do not imply that all paths are in sync.
 

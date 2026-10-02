@@ -73,7 +73,7 @@ internal object WorkspaceView {
             .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(Color.CYAN)
             .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         items.forEachIndexed { i, listed ->
-            val label = if (listed.badge() == PlanBadge.SKIPPED) "Unchanged" else listed.badge().label
+            val label = listed.badge().label
             master.add(
                 Toolkit.row(
                     Toolkit.text(if (i == selected) "❯ " else "  ").cyan().length(2),
@@ -242,7 +242,7 @@ internal object WorkspaceView {
         if (item.isBlocked()) return "Blocked; repair the problem described below, then re-plan."
         if (item.hasConflict()) return "Choose a decision to see planned changes."
         if (item.plan.outcome == RelocationOutcome.UNCHANGED)
-            return "No changes; left unmanaged by choice."
+            return "No changes; source and target left unchanged by choice."
         if (item.plan.actions.none { it.mutatesFilesystem }) return "No changes needed; already in sync."
         return when (item.badge()) {
             PlanBadge.DISCARD -> "Delete source and target contents; recreate an empty target and source link."
@@ -277,25 +277,22 @@ internal object WorkspaceView {
 
     fun policy(relocation: Relocation, item: PlanRelocationItem): String {
         if (item.sourceObservation.state == PathState.ABSENT && item.targetObservation.state == PathState.DIRECTORY)
-            return when (relocation.whenOnlyTargetExists) {
-                WhenOnlyTargetExists.PROMPT, null -> "Ask before adopting the existing target."
-                WhenOnlyTargetExists.ADOPT_TARGET -> "Adopt the existing target and create a source link."
+            return when (val only = relocation.whenOnlyTargetExists) {
+                WhenOnlyTargetExists.PROMPT, null -> onlyTargetLabel(only) + " before adopting the existing target."
+                WhenOnlyTargetExists.ADOPT_TARGET -> onlyTargetLabel(only) + " and create a source link."
             }
         if (item.sourceObservation.state != PathState.DIRECTORY || item.targetObservation.state != PathState.DIRECTORY)
             return "No conflict policy needed for this observed case."
-        val bothPolicy = relocation.whenSourceAndTargetDirectoriesExist ?: WhenSourceAndTargetDirectoriesExist.PROMPT
-        val both = when (bothPolicy) {
-            WhenSourceAndTargetDirectoriesExist.PROMPT -> "Ask"
-            WhenSourceAndTargetDirectoriesExist.ADOPT -> "Adopt target"
-            WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "Leave unmanaged"
-            WhenSourceAndTargetDirectoriesExist.DISCARD -> "Discard both"
-        }
+        val both = relocation.whenSourceAndTargetDirectoriesExist
+        if (both != WhenSourceAndTargetDirectoriesExist.ADOPT) return bothLabel(both) + "."
+        // A clause after the label, so lowercase, but in the adopting labels' words.
         val adopting = when (relocation.whenAdoptingTarget) {
-            WhenAdoptingTarget.PROMPT, null -> "ask about source"
+            WhenAdoptingTarget.PROMPT -> "prompt for source"
             WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
             WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
+            null -> "default (prompt) for source"
         }
-        return both + (if (bothPolicy == WhenSourceAndTargetDirectoriesExist.ADOPT) "; $adopting" else "") + "."
+        return bothLabel(both) + "; " + adopting + "."
     }
 
     private fun color(badge: PlanBadge): Color = when (badge) {
