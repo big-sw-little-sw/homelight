@@ -12,11 +12,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.nio.channels.FileChannel
 import java.nio.file.FileSystems
 import java.nio.file.FileVisitor
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermissions
@@ -236,27 +238,121 @@ class StagedPermissionTest {
     }
 
     @Test
-    fun restrictiveStaleCopyIsRetainedAndStopsNewPublication() {
+    fun restrictiveStaleCopyIsRemovedBeforeNewPublication() {
         val root = posixRoot()
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         val target = root.resolve("local/target")
         val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
-        val stale = Files.createDirectory(staging.resolve("operation-00000000-0000-0000-0000-000000000000"))
-        Files.writeString(stale.resolve("target"), "homelight-staging-v1\n" + target + "\n")
-        Files.createFile(stale.resolve("lock"))
-        val copy = Files.createDirectory(stale.resolve("copy"))
-        Files.writeString(copy.resolve("entry"), "stale")
+        // A killed copy leaves finished directories with their final modes. A copy never produces
+        // `0000`, but cleanup must not depend on that.
+        val copy = staleOperation(staging, target).resolve("copy")
+        val readOnly = Files.createDirectory(copy.resolve("read-only"))
+        Files.writeString(readOnly.resolve("entry"), "stale")
+        val unreadable = Files.createDirectory(readOnly.resolve("unreadable"))
+        Files.writeString(unreadable.resolve("entry"), "stale")
+        mode(unreadable, "---------")
+        mode(readOnly, "r-x------")
         mode(copy, "r-x------")
         try {
             assumeFalse(Files.isWritable(copy), "requires directory write denial, not a privileged process")
             val result = ReconciliationExecutor().execute(plan(source, target))
-            assertUnpublishedFailure(result, source, target)
-            assertMode(copy, "r-x------")
-            assertEquals("stale", Files.readString(copy.resolve("entry")))
-            assertEquals("keep", Files.readString(source.resolve("entry")))
+            assertTrue(result.succeeded(), result.toString())
+            assertEquals("keep", Files.readString(target.resolve("entry")))
+            assertEmpty(staging)
         } finally {
-            mode(copy, "rwx------")
+            listOf(copy, readOnly, unreadable).filter(Files::exists).forEach { directory -> mode(directory, "rwx------") }
+        }
+    }
+
+    @Test
+    fun staleCleanupLeavesUnownedAndLockedEntriesUntouched() {
+        val root = posixRoot()
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.writeString(source.resolve("entry"), "keep")
+        val target = root.resolve("local/target")
+        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val foreign = Files.createDirectory(staging.resolve("foreign"))
+        Files.writeString(foreign.resolve("entry"), "keep")
+        val unmarked = staleOperation(staging, target, "11111111-1111-1111-1111-111111111111")
+        Files.delete(unmarked.resolve("target"))
+        val locked = staleOperation(staging, target, "22222222-2222-2222-2222-222222222222")
+        val restrictive = listOf(foreign, unmarked.resolve("copy"), locked.resolve("copy"))
+        restrictive.forEach { directory -> mode(directory, "r-x------") }
+        try {
+            // A lock held in this JVM makes the executor's tryLock fail, as another process's would.
+            FileChannel.open(locked.resolve("lock"), StandardOpenOption.WRITE).use { channel ->
+                channel.lock().use {
+                    val result = ReconciliationExecutor().execute(plan(source, target))
+                    assertTrue(result.succeeded(), result.toString())
+                }
+            }
+            restrictive.forEach { directory ->
+                assertMode(directory, "r-x------")
+                assertTrue(Files.isRegularFile(directory.resolve("entry")), directory.toString())
+            }
+            assertTrue(Files.isRegularFile(unmarked.resolve("lock")))
+            assertTrue(Files.isRegularFile(locked.resolve("target")))
+            assertTrue(Files.isRegularFile(locked.resolve("lock")))
+            Files.list(staging).use { entries -> assertEquals(setOf(foreign, unmarked, locked), entries.toList().toSet()) }
+        } finally {
+            restrictive.forEach { directory -> mode(directory, "rwx------") }
+        }
+    }
+
+    @Test
+    fun partlyFailedStaleCleanupKeepsTheOperationOwnedForALaterRun() {
+        val root = posixRoot()
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.writeString(source.resolve("entry"), "keep")
+        val target = root.resolve("local/target")
+        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val stale = staleOperation(staging, target)
+        val copy = stale.resolve("copy")
+        mode(copy, "r-x------")
+        // The copy's contents can be deleted, but the copy cannot be removed from the operation.
+        mode(stale, "r-x------")
+        try {
+            assumeFalse(Files.isWritable(stale), "requires directory write denial, not a privileged process")
+            val failed = ReconciliationExecutor().execute(plan(source, target))
+            assertUnpublishedFailure(failed, source, target)
+            // The entry that could not be deleted, not deleteRecursively's generic summary.
+            assertEquals(copy.toString(), failed.relocations.first().actions.first().message)
+            assertEmpty(copy)
+            assertTrue(Files.isRegularFile(stale.resolve("target")))
+            assertTrue(Files.isRegularFile(stale.resolve("lock")))
+        } finally {
+            mode(stale, "rwx------")
+        }
+
+        val retried = ReconciliationExecutor().execute(plan(source, target))
+
+        assertTrue(retried.succeeded(), retried.toString())
+        assertEquals("keep", Files.readString(target.resolve("entry")))
+        assertEmpty(staging)
+    }
+
+    @Test
+    fun failedPublicationDeletesAStagedSymlinkWithoutFollowingIt() {
+        val root = posixRoot()
+        val outside = Files.createDirectory(root.resolve("outside"))
+        val kept = Files.writeString(outside.resolve("entry"), "keep")
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.createSymbolicLink(source.resolve("link"), outside)
+        val target = root.resolve("local/target")
+        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val planned = plan(source, target)
+        // The staged copy, link included, is complete; only the final rename into the parent fails.
+        mode(target.parent, "r-x------")
+        try {
+            assumeFalse(Files.isWritable(target.parent), "requires directory write denial, not a privileged process")
+            val result = ReconciliationExecutor().execute(planned)
+            assertUnpublishedFailure(result, source, target)
+            assertEmpty(staging)
+            assertEquals("keep", Files.readString(kept))
+            assertEquals(outside, Files.readSymbolicLink(source.resolve("link")))
+        } finally {
+            mode(target.parent, "rwx------")
         }
     }
 
@@ -282,6 +378,15 @@ class StagedPermissionTest {
             assertMode(source, "rwx------")
             assertEquals("keep", Files.readString(source.resolve("entry")))
         }
+    }
+
+    /** An owned operation marked for [target], with a free lock and a `copy` holding one file. */
+    private fun staleOperation(staging: Path, target: Path, id: String = "00000000-0000-0000-0000-000000000000"): Path {
+        val operation = Files.createDirectory(staging.resolve("operation-$id"))
+        Files.writeString(operation.resolve("target"), "homelight-staging-v1\n$target\n")
+        Files.createFile(operation.resolve("lock"))
+        Files.writeString(Files.createDirectory(operation.resolve("copy")).resolve("entry"), "stale")
+        return operation
     }
 
     private fun posixRoot(): Path {
