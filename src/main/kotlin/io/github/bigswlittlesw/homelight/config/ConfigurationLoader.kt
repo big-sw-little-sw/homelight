@@ -68,7 +68,7 @@ class ConfigurationLoader {
         val whenAdoptingTarget =
             choice(fields.whenAdoptingTarget, "$path.when-adopting-target", WhenAdoptingTarget.entries) { it.value }
         val archiveRoot = fields.sourceArchiveRoot.present()?.let(::resolve)
-        if (whenAdoptingTarget == WhenAdoptingTarget.ARCHIVE_SOURCE && archiveRoot == null) {
+        if (lacksArchiveRoot(whenAdoptingTarget, archiveRoot)) {
             throw ConfigurationException("source-archive-root is required when when-adopting-target is archive-source")
         }
         return Relocation(
