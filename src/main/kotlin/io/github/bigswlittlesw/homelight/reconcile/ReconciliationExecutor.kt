@@ -10,6 +10,7 @@ import java.nio.channels.FileLock
 import java.nio.channels.OverlappingFileLockException
 import java.nio.charset.StandardCharsets
 import java.nio.file.FileStore
+import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
@@ -24,7 +25,17 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.Locale
 import java.util.UUID
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.PathWalkOption
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.fileSize
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.isSymbolicLink
 import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.notExists
+import kotlin.io.path.readSymbolicLink
+import kotlin.io.path.walk
 
 /** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
 class ReconciliationExecutor {
@@ -467,19 +478,7 @@ private fun markedTarget(marker: Path): Path? {
     }
 }
 
-private fun containsSymlink(root: Path): Boolean {
-    var symlink = false
-    Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            if (Files.isSymbolicLink(file)) {
-                symlink = true
-                return FileVisitResult.TERMINATE
-            }
-            return FileVisitResult.CONTINUE
-        }
-    })
-    return symlink
-}
+private fun containsSymlink(root: Path): Boolean = root.walk().any { entry -> entry.isSymbolicLink() }
 
 private fun hasOnlyOperationEntries(operation: Path): Boolean =
     operation.listDirectoryEntries().all { entry ->
@@ -525,69 +524,59 @@ private fun prepareLink(path: Path, target: Path): Path {
     return temporary
 }
 
+/**
+ * Deletes [root] and everything under it without following links; a missing root is a no-op.
+ *
+ * `deleteRecursively` continues past failures and reports them only as suppressed exceptions of a
+ * generic one. The first failure's message is rethrown, so the reported message names the entry.
+ */
 private fun deleteTree(root: Path) {
-    Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.delete(file)
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
-            if (exception != null) {
-                throw exception
-            }
-            Files.delete(directory)
-            return FileVisitResult.CONTINUE
-        }
-    })
+    try {
+        @OptIn(ExperimentalPathApi::class)
+        root.deleteRecursively()
+    } catch (failure: FileSystemException) {
+        val first = failure.suppressed.firstOrNull() ?: throw failure
+        throw IOException(deleteFailureMessage(first), failure)
+    }
 }
 
+/**
+ * With `SecureDirectoryStream`, an entry's exception carries only its name, so `deleteRecursively`
+ * wraps it in one that holds the full path. Rejoin that path with the cause's reason to give the
+ * message the entry's own exception would have had.
+ */
+private fun deleteFailureMessage(failure: Throwable): String? {
+    val cause = failure.cause
+    return if (failure is FileSystemException && cause is FileSystemException) {
+        FileSystemException(failure.file, cause.otherFile, cause.reason).message
+    } else {
+        failure.message
+    }
+}
+
+/** Walks depth-first, directories before their entries, never following links. */
 private fun verifyCopy(source: Path, copy: Path) {
-    Files.walkFileTree(source, object : SimpleFileVisitor<Path>() {
-        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-            val copiedDirectory = copiedPath(source, copy, directory)
-            if (!Files.isDirectory(copiedDirectory, LinkOption.NOFOLLOW_LINKS)) {
-                throw IOException("copied directory is missing: $copiedDirectory")
+    for (entry in source.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
+        val copied = copiedPath(source, copy, entry)
+        if (entry.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
+            if (!copied.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
+                throw IOException("copied directory is missing: $copied")
             }
-            if (directoryPermissions(directory) != directoryPermissions(copiedDirectory)) {
-                throw IOException("copied directory permissions differ: $copiedDirectory")
+            if (directoryPermissions(entry) != directoryPermissions(copied)) {
+                throw IOException("copied directory permissions differ: $copied")
             }
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            val copiedFile = copiedPath(source, copy, file)
-            if (Files.isSymbolicLink(file)) {
-                if (!Files.isSymbolicLink(copiedFile)
-                    || Files.readSymbolicLink(file) != Files.readSymbolicLink(copiedFile)
-                ) {
-                    throw IOException("copied symlink differs: $copiedFile")
-                }
-            } else if (!Files.isRegularFile(copiedFile, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(file) != Files.size(copiedFile)
-            ) {
-                throw IOException("copied file differs: $copiedFile")
+        } else if (entry.isSymbolicLink()) {
+            if (!copied.isSymbolicLink() || entry.readSymbolicLink() != copied.readSymbolicLink()) {
+                throw IOException("copied symlink differs: $copied")
             }
-            return FileVisitResult.CONTINUE
+        } else if (!copied.isRegularFile(LinkOption.NOFOLLOW_LINKS) || entry.fileSize() != copied.fileSize()) {
+            throw IOException("copied file differs: $copied")
         }
-    })
-    Files.walkFileTree(copy, object : SimpleFileVisitor<Path>() {
-        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-            verifySourceEntry(source, copy, directory)
-            return FileVisitResult.CONTINUE
+    }
+    for (copied in copy.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
+        if (copiedPath(copy, source, copied).notExists(LinkOption.NOFOLLOW_LINKS)) {
+            throw IOException("copied directory has an unexpected entry: $copied")
         }
-
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            verifySourceEntry(source, copy, file)
-            return FileVisitResult.CONTINUE
-        }
-    })
-}
-
-private fun verifySourceEntry(source: Path, copy: Path, copiedEntry: Path) {
-    val sourceEntry = copiedPath(copy, source, copiedEntry)
-    if (Files.notExists(sourceEntry, LinkOption.NOFOLLOW_LINKS)) {
-        throw IOException("copied directory has an unexpected entry: $copiedEntry")
     }
 }
 

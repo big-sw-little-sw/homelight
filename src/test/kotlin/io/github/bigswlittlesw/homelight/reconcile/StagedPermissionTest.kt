@@ -252,11 +252,37 @@ class StagedPermissionTest {
             assumeFalse(Files.isWritable(copy), "requires directory write denial, not a privileged process")
             val result = ReconciliationExecutor().execute(plan(source, target))
             assertUnpublishedFailure(result, source, target)
+            // The entry that could not be deleted, not deleteRecursively's generic summary.
+            assertEquals(copy.resolve("entry").toString(), result.relocations.first().actions.first().message)
             assertMode(copy, "r-x------")
             assertEquals("stale", Files.readString(copy.resolve("entry")))
             assertEquals("keep", Files.readString(source.resolve("entry")))
         } finally {
             mode(copy, "rwx------")
+        }
+    }
+
+    @Test
+    fun failedPublicationDeletesAStagedSymlinkWithoutFollowingIt() {
+        val root = posixRoot()
+        val outside = Files.createDirectory(root.resolve("outside"))
+        val kept = Files.writeString(outside.resolve("entry"), "keep")
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.createSymbolicLink(source.resolve("link"), outside)
+        val target = root.resolve("local/target")
+        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val planned = plan(source, target)
+        // The staged copy, link included, is complete; only the final rename into the parent fails.
+        mode(target.parent, "r-x------")
+        try {
+            assumeFalse(Files.isWritable(target.parent), "requires directory write denial, not a privileged process")
+            val result = ReconciliationExecutor().execute(planned)
+            assertUnpublishedFailure(result, source, target)
+            assertEmpty(staging)
+            assertEquals("keep", Files.readString(kept))
+            assertEquals(outside, Files.readSymbolicLink(source.resolve("link")))
+        } finally {
+            mode(target.parent, "rwx------")
         }
     }
 
