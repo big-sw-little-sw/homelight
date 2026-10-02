@@ -166,15 +166,15 @@ class CandidateDiscovery internal constructor(
         while (iterator.hasNext()) {
             val (source, work) = iterator.next()
             val done = work.completion
-            when {
-                expired(work, done, SOURCE_NANOS) -> sourceFailure(
+            if (expired(work, done, SOURCE_NANOS)) {
+                sourceFailure(
                     source, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"),
                 )
-                done == null -> continue
-                done.failure != null -> sourceFailure(source, listOf(), sourceProblem(done.failure))
-                else -> {
-                    // A completion without a failure carries the read's value.
-                    val catalog = done.value!!
+            } else when (done) {
+                null -> continue
+                is Completion.Failure -> sourceFailure(source, listOf(), sourceProblem(done.failure))
+                is Completion.Success -> {
+                    val catalog = done.value
                     if (!catalog.accepted()) {
                         sourceFailure(source, catalog.diagnostics, null)
                     } else {
@@ -200,15 +200,15 @@ class CandidateDiscovery internal constructor(
         val anchorWork = this.anchorWork ?: return
         val done = anchorWork.completion
         // Anchor work exists only for an active request: `refresh` sets both and `cancel` clears both.
-        when {
-            expired(anchorWork, done, METADATA_NANOS) ->
-                rootFailure = Diagnostic(request!!.root, Reason.DEADLINE, "Root inspection timed out")
-            done == null -> return
-            done.failure != null -> {
+        if (expired(anchorWork, done, METADATA_NANOS)) {
+            rootFailure = Diagnostic(request!!.root, Reason.DEADLINE, "Root inspection timed out")
+        } else when (done) {
+            null -> return
+            is Completion.Failure -> {
                 val reason = if (done.failure is AccessDeniedException) Reason.ACCESS_DENIED else Reason.IO_ERROR
                 rootFailure = Diagnostic(request!!.root, reason, done.failure.toString())
             }
-            else -> anchor = done.value
+            is Completion.Success -> anchor = done.value
         }
         this.anchorWork = null
     }
@@ -218,16 +218,16 @@ class CandidateDiscovery internal constructor(
         // Set and cleared together with `inspectionWork`.
         val inspectionPath = this.inspectionPath!!
         val done = inspectionWork.completion
-        when {
-            expired(inspectionWork, done, METADATA_NANOS) -> observations[inspectionPath] = failedObservation(
+        if (expired(inspectionWork, done, METADATA_NANOS)) {
+            observations[inspectionPath] = failedObservation(
                 inspectionPath, Reason.DEADLINE, "Inspection response deadline exceeded",
             )
-            done == null -> return
-            done.failure != null ->
+        } else when (done) {
+            null -> return
+            is Completion.Failure ->
                 observations[inspectionPath] = failedObservation(inspectionPath, Reason.IO_ERROR, done.failure.toString())
-            else -> {
-                // A completion without a failure carries the inspection's value.
-                val value = done.value!!
+            is Completion.Success -> {
+                val value = done.value
                 val prior = observations[inspectionPath]
                 observations[inspectionPath] =
                     if ((value.kind == Kind.INACCESSIBLE || value.kind == Kind.UNKNOWN) && prior != null) {
@@ -276,9 +276,9 @@ class CandidateDiscovery internal constructor(
         try {
             Thread.ofPlatform().daemon().name("homelight-discovery").start {
                 val done: Completion<T> = try {
-                    Completion(action(), null, clock())
+                    Completion.Success(action(), clock())
                 } catch (e: Exception) {
-                    Completion(null, e, clock())
+                    Completion.Failure(e, clock())
                 } catch (e: Error) {
                     lane.release()
                     throw e
@@ -341,7 +341,13 @@ class CandidateDiscovery internal constructor(
         var completion: Completion<T>? = null
     }
 
-    private data class Completion<T>(val value: T?, val failure: Exception?, val finished: Long)
+    private sealed interface Completion<out T> {
+        val finished: Long
+
+        data class Success<T>(val value: T, override val finished: Long) : Completion<T>
+
+        data class Failure(val failure: Exception, override val finished: Long) : Completion<Nothing>
+    }
 
     companion object {
         private const val SOURCE_NANOS = 5_000_000_000L
