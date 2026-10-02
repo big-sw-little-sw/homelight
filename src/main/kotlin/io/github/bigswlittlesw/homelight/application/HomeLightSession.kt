@@ -14,10 +14,6 @@ open class HomeLightSession(
     private val debugStepDelayMillis: Long = 0,
     private val evaluator: ConfigurationEvaluation = ConfigurationEvaluation(),
 ) {
-    init {
-        require(debugStepDelayMillis in 0L..60_000L) { "debug step delay must be between 0 and 60000 milliseconds" }
-    }
-
     // Guarded by this instance's monitor. The apply worker touches them only through
     // `refreshObservationsAfterExecution`, which takes the monitor.
     private var evaluation: ConfigurationEvaluation.Evaluation = evaluator.load(configPath)

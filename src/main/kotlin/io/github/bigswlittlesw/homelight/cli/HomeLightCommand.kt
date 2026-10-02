@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import io.github.bigswlittlesw.homelight.application.DEBUG_STEP_DELAY_MILLIS
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine
@@ -34,7 +35,9 @@ class HomeLightCommand : Callable<Int> {
     )
     var debugStepDelayMillis: Long = 0
         set(milliseconds) {
-            require(milliseconds in 0..60_000) { "--debug-step-delay-ms must be between 0 and 60000" }
+            require(milliseconds in DEBUG_STEP_DELAY_MILLIS) {
+                "--debug-step-delay-ms must be between ${DEBUG_STEP_DELAY_MILLIS.first} and ${DEBUG_STEP_DELAY_MILLIS.last}"
+            }
             field = milliseconds
         }
 
