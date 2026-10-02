@@ -127,11 +127,33 @@ class ReviewedExecutionTest {
         assertFalse(Files.exists(directory.resolve("local")))
     }
 
-    private fun plan(vararg names: String): ReconciliationPlan {
+    @Test
+    fun independentRelocationsPublishConcurrentProgressAndAResultInPlanOrder() {
+        val plan = plan("first", "second", parentPerRelocation = true)
+        val review = ReviewedExecution(plan, 300)
+        val completion = review.start { task -> Thread.ofPlatform().start(task) }
+        var mostRunning = 0
+        while (!completion.isDone) {
+            val running = review.snapshot() as? ApplyModel.Running ?: break
+            mostRunning = maxOf(mostRunning, running.steps.count { step -> step.status == ApplyModel.StepStatus.RUNNING })
+            Thread.sleep(10)
+        }
+        completion.join()
+
+        assertEquals(2, mostRunning)
+        val result = assertInstanceOf(ApplyModel.Result::class.java, review.snapshot())
+        assertTrue(result.succeeded())
+        assertEquals(plan.actions(), result.steps.map { step -> step.action })
+        assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.COMPLETED })
+    }
+
+    /** With [parentPerRelocation], each relocation gets its own parents, so relocations are independent. */
+    private fun plan(vararg names: String, parentPerRelocation: Boolean = false): ReconciliationPlan {
         val root = directory.toRealPath()
         val relocations = names.joinToString(",\n") { name ->
-            "    {\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
-                " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
+            val source = if (parentPerRelocation) root.resolve("home-$name/data") else root.resolve("home").resolve(name)
+            val target = if (parentPerRelocation) root.resolve("local/$name/data") else root.resolve("local").resolve(name)
+            "    {\"source-path\": \"$source\", \"target-path\": \"$target\"}"
         }
         val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n"
         val config = Files.writeString(root.resolve("config.json"), json)

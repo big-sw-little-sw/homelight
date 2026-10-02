@@ -15,7 +15,8 @@ internal val DEBUG_STEP_DELAY_MILLIS: LongRange = 0L..60_000L
  * Capturing performs no I/O; starting never reloads or substitutes the plan.
  */
 class ReviewedExecution(private val plan: ReconciliationPlan, private val debugStepDelayMillis: Long = 0) {
-    // Guarded by this instance's monitor. The worker thread publishes progress through it.
+    // Guarded by this instance's monitor. The worker thread, and the executor's relocation threads when independent
+    // relocations run at once, publish progress through it, so steps change in one serial order.
     private var snapshot: ApplyModel
     private var completion: CompletableFuture<Void?>? = null
 

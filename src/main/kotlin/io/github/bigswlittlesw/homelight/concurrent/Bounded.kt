@@ -15,6 +15,12 @@ internal const val DISCOVERY_CONCURRENCY = 8
 internal const val SIZING_CONCURRENCY = 2
 
 /**
+ * Independent relocations applied at once (issue #10). Each copies a whole tree, so, as with [SIZING_CONCURRENCY],
+ * a low limit keeps the copies from competing for the same disks. Not measured; tune later.
+ */
+internal const val RELOCATION_CONCURRENCY = 2
+
+/**
  * Runs [work] for each of [items] on at most [n] virtual threads, and returns once every thread has finished.
  *
  * This is a sliding window: each thread takes the next unclaimed item, so a slow item delays only its own thread.
