@@ -1,10 +1,14 @@
 package io.github.bigswlittlesw.homelight.discovery
 
+import io.github.bigswlittlesw.homelight.concurrent.DISCOVERY_CONCURRENCY
+import io.github.bigswlittlesw.homelight.concurrent.forEachBounded
 import io.github.bigswlittlesw.homelight.config.CandidateCatalog
 import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic
 import io.github.bigswlittlesw.homelight.config.CandidateParser
 import io.github.bigswlittlesw.homelight.config.CandidateSource
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutcome
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProblem
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceStatus
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Diagnostic
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
@@ -15,113 +19,88 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
-import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Session-scoped discovery. `refresh`, `snapshot`, `cancel` and `close` perform
- * no filesystem I/O and never wait for workers. Candidates are inspected serially
- * in the background; `snapshot` reads evidence and applies response deadlines.
- * Source reads and each root/candidate inspection have a five-second deadline.
- * An expired result is rejected even if no snapshot was requested at the deadline.
+ * Session-scoped discovery. `refresh`, `snapshot`, `cancel` and `close` do no filesystem I/O and never wait for
+ * workers. The bundled list is parsed synchronously from bytes read once per process. The shared list is read on
+ * its own thread. A run thread resolves the root and then inspects candidates, [Workers.n] at a time, in catalog
+ * order; paths that only the shared list names form a second batch once that list is accepted. `snapshot` reads
+ * the recorded state and applies the deadlines.
  *
- * A refresh replaces the request generation. Only an unchanged root AND shared
- * location retain stale evidence. Cancellation/closure discard all session data.
- * Production worker capacity is process-wide, including across closed sessions:
- * one shared read, one bundled load, and one serial metadata inspection. Permits are
- * released only when work actually returns, never on timeout or interruption.
+ * The shared read and each root or candidate inspection have five seconds, measured from the start of its I/O. A
+ * result that arrives later is rejected even if no snapshot was taken at the deadline.
+ *
+ * A refresh replaces the request generation: older work stops before its next item and its results are dropped.
+ * Only an unchanged root and shared location retain stale evidence. Cancellation and closure discard all session
+ * data. Thread bounds are process-wide, including across closed sessions; see [Workers].
  */
 class CandidateDiscovery internal constructor(
-    private val lanes: Lanes,
+    private val workers: Workers,
     private val clock: () -> Long,
     private val sharedReader: (Path) -> ByteArray,
     private val bundledReader: (Path) -> CandidateCatalog.Snapshot,
     private val metadata: CandidateMetadata,
 ) : AutoCloseable {
-    // Guarded by this instance's monitor. Worker threads only publish a completion under it.
+    // Guarded by this instance's monitor. Worker threads take it only to record an attempt.
     private var generation: Long = 0
     private var closed = false
     private var request: Request? = null
+    // Outcomes as of the refresh. The shared entry is resolved against `sharedRead` when read.
     private val sources = LinkedHashMap<CandidateSource, SourceOutcome>()
-    private val sourceWork = LinkedHashMap<CandidateSource, Work<CandidateCatalog.Snapshot>>()
-    private var anchorWork: Work<CandidateMetadata.Anchor>? = null
-    private var anchor: CandidateMetadata.Anchor? = null
-    private var rootFailure: Diagnostic? = null
-    private var inspectionWork: Work<CandidateObservation>? = null
-    private var inspectionPath: Path? = null
-    private val observations = HashMap<Path, CandidateObservation>()
-    private val attempted = HashSet<Path>()
-    private val pending = LinkedHashSet<Path>()
+    private var sharedRead: Attempt<CandidateCatalog.Snapshot>? = null
+    private var anchor: Attempt<CandidateMetadata.Anchor>? = null
+    private val inspections = HashMap<Path, Attempt<CandidateObservation>>()
+    // Paths handed to a batch in this generation, so a path both lists name is inspected once.
+    private val scheduled = HashSet<Path>()
+    // Evidence from earlier generations of the same request, already marked stale.
+    private var retained: Map<Path, CandidateObservation> = mapOf()
 
-    constructor() : this(PROCESS_LANES, System::nanoTime, ::readShared, CandidateCatalog::bundled, CandidateMetadata())
+    constructor() : this(PROCESS_WORKERS, System::nanoTime, ::readShared, CandidateCatalog::bundled, CandidateMetadata())
 
     /** Paths must already be absolute; no home expansion or location persistence. */
     @Synchronized
     fun refresh(root: Path, sharedLocation: Path?): Long {
         check(!closed) { "Discovery is closed" }
         val next = Request.of(root, sharedLocation)
-        val retain = next == request
-        generation++
-        if (!retain) {
-            sources.clear()
-            observations.clear()
-        } else {
-            observations.replaceAll { _, value -> value.retained() }
-        }
+        val kept = if (next == request) currentSources() else listOf()
+        val evidence = if (next == request) currentObservations(kept) else mapOf()
+        cancel()
         request = next
-        sourceWork.clear()
-        inspectionWork = null
-        inspectionPath = null
-        attempted.clear()
-        pending.clear()
-        anchor = null
-        rootFailure = null
-        val currentRoot = next.root
-        startSource(CandidateCatalog.BUNDLED, lanes.bundled) { bundledReader(currentRoot) }
-        next.sharedLocation?.let { location ->
-            val source = CandidateSource(CandidateSource.Kind.SHARED, location.toString())
-            startSource(source, lanes.shared) { CandidateParser().parse(source, currentRoot, sharedReader(location)) }
-        }
-        anchorWork = start(lanes.filesystem) { metadata.anchor(currentRoot) }
-        if (anchorWork == null) {
-            rootFailure = Diagnostic(
-                root, Reason.CAPACITY, "Filesystem capacity occupied; refresh when earlier operations finish",
-            )
-        }
+        retained = evidence
+        val generation = generation
+        val bundled = resolved(pending(CandidateCatalog.BUNDLED, kept), catching { bundledReader(next.root) })
+        sources[bundled.source] = bundled
+        val paths = schedule(bundled)
+        workers.chain { run(generation, next.root, paths) }
+        next.sharedLocation?.let { startShared(generation, next.root, it, kept) }
         return generation
     }
 
     /**
-     * Returned collections are unmodifiable JDK copies and observations are immutable.
+     * Returned collections are read-only copies and observations are immutable.
      * No aggregate byte total is supplied. Ancestors identify overlapping catalog candidates.
      */
     @Synchronized
     fun snapshot(): Result {
         val request = this.request ?: return Result(generation, null, listOf(), listOf(), null)
-        collectSources()
-        collectAnchor()
-        collectInspection()
-        val candidates = CandidateCatalog.merge(sources.values.mapNotNull { it.catalog }).candidates
+        val sources = currentSources()
+        val unsettled = sources.filter { it.status != SourceStatus.CURRENT }.mapTo(HashSet()) { it.source }
+        val rootFailure = rootFailure(request.root)
+        val candidates = CandidateCatalog.merge(sources.mapNotNull { it.catalog }).candidates
         val identities = candidates.mapTo(HashSet()) { it.sourcePath }
-        observations.keys.retainAll(identities)
         val rows = candidates.map { candidate ->
             val path = candidate.sourcePath
-            // Every merged definition comes from a catalog held in `sources`.
-            val sourceStale = candidate.definitions.any { sources.getValue(it.source).status != SourceStatus.CURRENT }
-            val failure = rootFailure
-            var observation = if (failure != null) failedObservation(path, failure.reason, failure.detail)
-            else observations[path] ?: CandidateObservation(
-                path, Kind.PENDING, null, generation, Instant.now(), false,
-                if (path == inspectionPath) listOf()
-                else listOf(Diagnostic(path, Reason.CAPACITY, "Waiting for serial inspection")),
-            )
-            if (sourceStale) observation = observation.retained()
+            var observation = rootFailure?.let { failedObservation(path, it.reason, it.detail) }
+                ?: observe(path) ?: placeholder(path)
+            if (candidate.definitions.any { it.source in unsettled }) observation = observation.retained()
             val ancestors = generateSequence(path.parent) { it.parent }
                 .takeWhile { it.startsWith(request.root) }
                 .filter { it in identities }
                 .toList()
             Candidate(candidate, observation, ancestors)
         }
-        return Result(generation, request, sources.values.toList(), rows, rootFailure)
+        return Result(generation, request, sources, rows, rootFailure)
     }
 
     @Synchronized
@@ -129,15 +108,11 @@ class CandidateDiscovery internal constructor(
         generation++
         request = null
         sources.clear()
-        sourceWork.clear()
-        observations.clear()
-        inspectionWork = null
-        inspectionPath = null
-        attempted.clear()
-        pending.clear()
-        anchorWork = null
+        sharedRead = null
         anchor = null
-        rootFailure = null
+        inspections.clear()
+        scheduled.clear()
+        retained = mapOf()
     }
 
     @Synchronized
@@ -147,157 +122,135 @@ class CandidateDiscovery internal constructor(
         closed = true
     }
 
-    private fun startSource(source: CandidateSource, lane: Semaphore, read: () -> CandidateCatalog.Snapshot) {
-        sources[source] = SourceOutcome(source, sources[source]?.catalog, SourceStatus.PENDING, listOf(), listOf())
-        val work = start(lane, read)
-        if (work == null) {
-            sourceFailure(
-                source, listOf(),
-                SourceProblem(
-                    SourceProblem.Kind.PREVIOUS_PENDING,
-                    "Previous read still pending; manual setup remains available",
-                ),
+    private fun startShared(generation: Long, root: Path, location: Path, kept: List<SourceOutcome>) {
+        val source = CandidateSource(CandidateSource.Kind.SHARED, location.toString())
+        val pending = pending(source, kept)
+        if (!workers.sharedRead.compareAndSet(false, true)) {
+            sources[source] = failed(
+                pending, listOf(),
+                SourceProblem(SourceProblem.Kind.PREVIOUS_PENDING, "Previous read still pending; manual setup remains available"),
             )
-        } else sourceWork[source] = work
-    }
-
-    private fun collectSources() {
-        val iterator = sourceWork.entries.iterator()
-        while (iterator.hasNext()) {
-            val (source, work) = iterator.next()
-            val done = work.completion
-            if (expired(work, done, SOURCE_NANOS)) {
-                sourceFailure(
-                    source, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"),
-                )
-            } else when (done) {
-                null -> continue
-                is Completion.Failure -> sourceFailure(source, listOf(), sourceProblem(done.failure))
-                is Completion.Success -> {
-                    val catalog = done.value
-                    if (!catalog.accepted()) {
-                        sourceFailure(source, catalog.diagnostics, null)
-                    } else {
-                        sources[source] = SourceOutcome(source, catalog, SourceStatus.CURRENT, listOf(), listOf())
-                        catalog.definitions.forEach { if (it.sourcePath !in attempted) pending.add(it.sourcePath) }
-                    }
-                }
+            return
+        }
+        sources[source] = pending
+        val started = clock()
+        sharedRead = Attempt.Running(started)
+        Thread.ofVirtual().name("homelight-shared-list").start {
+            val result = catching { CandidateParser().parse(source, root, sharedReader(location)) }
+            synchronized(this@CandidateDiscovery) {
+                // Freed together with the publish, so an immediate refresh cannot mistake a finished read for a stuck one.
+                workers.sharedRead.set(false)
+                if (this.generation == generation) publishShared(generation, source, Attempt.Done(started, clock(), result))
             }
-            iterator.remove()
         }
     }
 
-    private fun sourceFailure(source: CandidateSource, diagnostics: List<CandidateDiagnostic>, problem: SourceProblem?) {
-        // `startSource` registers a source before its work can fail.
-        val catalog = sources.getValue(source).catalog
-        sources[source] = SourceOutcome(
-            source, catalog, if (catalog != null) SourceStatus.STALE else SourceStatus.FAILED,
-            diagnostics, listOfNotNull(problem),
-        )
+    private fun publishShared(generation: Long, source: CandidateSource, done: Attempt.Done<CandidateCatalog.Snapshot>) {
+        sharedRead = done
+        val paths = schedule(sharedOutcome(sources.getValue(source), done))
+        if (paths.isNotEmpty()) workers.chain { inspectBatch(generation, paths) }
     }
 
-    private fun collectAnchor() {
-        val anchorWork = this.anchorWork ?: return
-        val done = anchorWork.completion
-        // Anchor work exists only for an active request: `refresh` sets both and `cancel` clears both.
-        if (expired(anchorWork, done, METADATA_NANOS)) {
-            rootFailure = Diagnostic(request!!.root, Reason.DEADLINE, "Root inspection timed out")
-        } else when (done) {
-            null -> return
-            is Completion.Failure -> {
-                val reason = if (done.failure is AccessDeniedException) Reason.ACCESS_DENIED else Reason.IO_ERROR
-                rootFailure = Diagnostic(request!!.root, reason, done.failure.toString())
-            }
-            is Completion.Success -> anchor = done.value
+    /** Claims the accepted catalog's paths that no earlier batch of this generation holds. */
+    private fun schedule(outcome: SourceOutcome): List<Path> {
+        if (outcome.status != SourceStatus.CURRENT) return listOf()
+        return outcome.catalog?.definitions.orEmpty().map { it.sourcePath }.filter { scheduled.add(it) }
+    }
+
+    // Both run on a chained run thread, so the previous run has returned and this one owns all `workers.n` slots.
+    private fun run(generation: Long, root: Path, paths: List<Path>) {
+        attempt(generation, { anchor = it }) { metadata.anchor(root) }
+        inspectBatch(generation, paths)
+    }
+
+    private fun inspectBatch(generation: Long, paths: List<Path>) {
+        val anchor = synchronized(this) { usableAnchor(generation) } ?: return
+        forEachBounded(paths, workers.n, { synchronized(this) { this.generation != generation } }) { path ->
+            attempt(generation, { inspections[path] = it }) { metadata.inspect(anchor, path, generation) }
         }
-        this.anchorWork = null
     }
 
-    private fun collectInspection() {
-        val inspectionWork = this.inspectionWork ?: return
-        // Set and cleared together with `inspectionWork`.
-        val inspectionPath = this.inspectionPath!!
-        val done = inspectionWork.completion
-        if (expired(inspectionWork, done, METADATA_NANOS)) {
-            observations[inspectionPath] = failedObservation(
-                inspectionPath, Reason.DEADLINE, "Inspection response deadline exceeded",
-            )
-        } else when (done) {
-            null -> return
-            is Completion.Failure ->
-                observations[inspectionPath] = failedObservation(inspectionPath, Reason.IO_ERROR, done.failure.toString())
-            is Completion.Success -> {
-                val value = done.value
-                val prior = observations[inspectionPath]
-                observations[inspectionPath] =
+    private fun usableAnchor(generation: Long): CandidateMetadata.Anchor? {
+        val done = anchor as? Attempt.Done ?: return null
+        if (this.generation != generation || expired(done, METADATA_NANOS)) return null
+        return done.result.getOrNull()
+    }
+
+    /**
+     * Records `Running`, does [io] outside the monitor, then records `Done`. Both records happen under the monitor
+     * and only while [generation] is current, so obsolete work never publishes.
+     */
+    private inline fun <T> attempt(generation: Long, record: (Attempt<T>) -> Unit, io: () -> T) {
+        val started = synchronized(this) {
+            if (this.generation != generation) return
+            clock().also { record(Attempt.Running(it)) }
+        }
+        val result = catching(io)
+        synchronized(this) { if (this.generation == generation) record(Attempt.Done(started, clock(), result)) }
+    }
+
+    private fun currentSources(): List<SourceOutcome> = sources.values.map {
+        if (it.source.kind == CandidateSource.Kind.SHARED) sharedOutcome(it, sharedRead) else it
+    }
+
+    private fun sharedOutcome(pending: SourceOutcome, attempt: Attempt<CandidateCatalog.Snapshot>?): SourceOutcome {
+        if (attempt == null) return pending
+        if (expired(attempt, SOURCE_NANOS)) {
+            return failed(pending, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"))
+        }
+        return when (attempt) {
+            is Attempt.Running -> pending
+            is Attempt.Done -> resolved(pending, attempt.result)
+        }
+    }
+
+    private fun currentObservations(sources: List<SourceOutcome>): Map<Path, CandidateObservation> =
+        CandidateCatalog.merge(sources.mapNotNull { it.catalog }).candidates
+            .mapNotNull { candidate -> observe(candidate.sourcePath)?.let { candidate.sourcePath to it.retained() } }
+            .toMap()
+
+    /** This generation's evidence for [path], else retained evidence; `null` while there is none. */
+    private fun observe(path: Path): CandidateObservation? {
+        val prior = retained[path]
+        val attempt = inspections[path] ?: return prior
+        if (expired(attempt, METADATA_NANOS)) {
+            return failedObservation(path, Reason.DEADLINE, "Inspection response deadline exceeded")
+        }
+        return when (attempt) {
+            is Attempt.Running -> prior
+            is Attempt.Done -> attempt.result.fold(
+                { value ->
                     if ((value.kind == Kind.INACCESSIBLE || value.kind == Kind.UNKNOWN) && prior != null) {
                         retainedFailure(prior, value.diagnostics)
                     } else value
-            }
+                },
+                { failedObservation(path, Reason.IO_ERROR, it.toString()) },
+            )
         }
-        this.inspectionWork = null
-        this.inspectionPath = null
     }
 
-    // Completion of one background operation starts the next. Reading a snapshot
-    // never drives discovery. Pending paths are bounded by the catalog limits;
-    // they are data, not submitted tasks waiting behind a blocked operation.
-    private fun continueInspection() {
-        collectSources()
-        collectAnchor()
-        collectInspection()
-        val anchor = anchor ?: return
-        if (inspectionWork != null || rootFailure != null) return
-        val path = pending.firstOrNull() ?: return
-        val currentGeneration = generation
-        val work = start(lanes.filesystem) { metadata.inspect(anchor, path, currentGeneration) } ?: return
-        attempted.add(path)
-        pending.remove(path)
-        inspectionPath = path
-        inspectionWork = work
+    private fun placeholder(path: Path): CandidateObservation = CandidateObservation(
+        path, Kind.PENDING, null, generation, Instant.now(), false,
+        if (path in inspections) listOf() else listOf(Diagnostic(path, Reason.CAPACITY, "Waiting for an inspection slot")),
+    )
+
+    private fun rootFailure(root: Path): Diagnostic? {
+        val attempt = anchor ?: return null
+        if (expired(attempt, METADATA_NANOS)) return Diagnostic(root, Reason.DEADLINE, "Root inspection timed out")
+        val failure = (attempt as? Attempt.Done)?.result?.exceptionOrNull() ?: return null
+        val reason = if (failure is AccessDeniedException) Reason.ACCESS_DENIED else Reason.IO_ERROR
+        return Diagnostic(root, reason, failure.toString())
     }
 
     private fun failedObservation(path: Path, reason: Reason, detail: String): CandidateObservation {
-        val previous = observations[path] ?: return CandidateObservation.unknown(path, generation, reason, detail)
+        val previous = retained[path] ?: return CandidateObservation.unknown(path, generation, reason, detail)
         return retainedFailure(previous, listOf(Diagnostic(path, reason, detail)))
     }
 
-    private fun <T> expired(work: Work<T>, completion: Completion<T>?, limit: Long): Boolean =
-        (completion?.finished ?: clock()) - work.started >= limit
-
-    /**
-     * Starts `action` on its own daemon thread if `lane` has a permit. The worker owns the permit
-     * until it publishes its completion; a timed-out worker keeps it until the action returns.
-     */
-    private fun <T> start(lane: Semaphore, action: () -> T): Work<T>? {
-        if (!lane.tryAcquire()) return null
-        val work = Work<T>(clock())
-        val startedGeneration = generation
-        try {
-            Thread.ofPlatform().daemon().name("homelight-discovery").start {
-                val done: Completion<T> = try {
-                    Completion.Success(action(), clock())
-                } catch (e: Exception) {
-                    Completion.Failure(e, clock())
-                } catch (e: Error) {
-                    lane.release()
-                    throw e
-                }
-                synchronized(this@CandidateDiscovery) {
-                    // Publish completion with availability so an immediate refresh
-                    // cannot mistake an already completed read for stuck work.
-                    lane.release()
-                    work.completion = done
-                    if (request != null && generation == startedGeneration) continueInspection()
-                }
-            }
-        } catch (e: Throwable) {
-            // The worker never started, so it cannot release the permit.
-            lane.release()
-            throw e
-        }
-        return work
-    }
+    private fun expired(attempt: Attempt<*>, limit: Long): Boolean = when (attempt) {
+        is Attempt.Running -> clock() - attempt.started
+        is Attempt.Done -> attempt.finished - attempt.started
+    } >= limit
 
     @ConsistentCopyVisibility
     data class Request private constructor(val root: Path, val sharedLocation: Path?) {
@@ -330,23 +283,35 @@ class CandidateDiscovery internal constructor(
         val candidates: List<Candidate>, val rootFailure: Diagnostic?,
     )
 
-    internal class Lanes {
-        val shared = Semaphore(1)
-        val bundled = Semaphore(1)
-        val filesystem = Semaphore(1)
+    /** One piece of background I/O. Times come from the injected clock. */
+    private sealed interface Attempt<out T> {
+        val started: Long
+
+        data class Running(override val started: Long) : Attempt<Nothing>
+
+        data class Done<T>(override val started: Long, val finished: Long, val result: kotlin.Result<T>) : Attempt<T>
     }
+}
 
-    private class Work<T>(val started: Long) {
-        @Volatile
-        var completion: Completion<T>? = null
-    }
+/**
+ * Process-wide bounds on discovery threads, shared by every session so that reopening setup cannot add threads
+ * stuck on a hung mount. A blocked `stat` ignores interrupts, so the bound comes from never starting more work:
+ *
+ * - Runs are chained. Each starts only after the previous run has returned, and a run inspects at most [n] paths
+ *   at a time, so at most [n] inspections are in flight across refreshes and sessions.
+ * - At most one shared-list read is in flight; a refresh during it reports `PREVIOUS_PENDING`.
+ */
+internal class Workers(val n: Int = DISCOVERY_CONCURRENCY) {
+    val sharedRead = AtomicBoolean()
+    private var last: Thread? = null
 
-    private sealed interface Completion<out T> {
-        val finished: Long
-
-        data class Success<T>(val value: T, override val finished: Long) : Completion<T>
-
-        data class Failure(val failure: Exception, override val finished: Long) : Completion<Nothing>
+    @Synchronized
+    fun chain(run: () -> Unit) {
+        val previous = last
+        last = Thread.ofVirtual().name("homelight-discovery").start {
+            previous?.join()
+            run()
+        }
     }
 }
 
@@ -354,20 +319,47 @@ private const val SOURCE_NANOS = 5_000_000_000L
 
 internal const val METADATA_NANOS = 5_000_000_000L
 
-private val PROCESS_LANES = CandidateDiscovery.Lanes()
+private val PROCESS_WORKERS = Workers()
 
 private class NotRegular(path: Path) : IOException("Shared source is not a regular file: $path")
 
 private fun readShared(location: Path): ByteArray {
-    // Following the explicitly selected shared-file location is permitted.
-    // A later FIFO replacement may block open; the lane/deadline still bounds it.
+    // Following the explicitly selected shared-file location is permitted. A later FIFO replacement may
+    // block open; the single in-flight read and the deadline still bound it.
     if (!Files.readAttributes(location, BasicFileAttributes::class.java).isRegularFile) {
         throw NotRegular(location)
     }
     return Files.newInputStream(location).use { it.readNBytes(CandidateParser.MAX_BYTES + 1) }
 }
 
-private fun sourceProblem(failure: Exception): SourceProblem {
+// Only an Exception is an outcome of the work; an Error still propagates.
+private inline fun <T> catching(work: () -> T): Result<T> =
+    try {
+        Result.success(work())
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+private fun pending(source: CandidateSource, kept: List<SourceOutcome>): SourceOutcome =
+    SourceOutcome(source, kept.find { it.source == source }?.catalog, SourceStatus.PENDING, listOf(), listOf())
+
+private fun resolved(pending: SourceOutcome, result: Result<CandidateCatalog.Snapshot>): SourceOutcome =
+    result.fold(
+        { catalog ->
+            if (catalog.accepted()) SourceOutcome(pending.source, catalog, SourceStatus.CURRENT, listOf(), listOf())
+            else failed(pending, catalog.diagnostics, null)
+        },
+        { failed(pending, listOf(), sourceProblem(it)) },
+    )
+
+// A failed read keeps the earlier catalog, if any, as stale evidence.
+private fun failed(pending: SourceOutcome, diagnostics: List<CandidateDiagnostic>, problem: SourceProblem?): SourceOutcome =
+    SourceOutcome(
+        pending.source, pending.catalog, if (pending.catalog != null) SourceStatus.STALE else SourceStatus.FAILED,
+        diagnostics, listOfNotNull(problem),
+    )
+
+private fun sourceProblem(failure: Throwable): SourceProblem {
     val kind = when (failure) {
         is NoSuchFileException -> SourceProblem.Kind.MISSING
         is NotRegular -> SourceProblem.Kind.NOT_REGULAR

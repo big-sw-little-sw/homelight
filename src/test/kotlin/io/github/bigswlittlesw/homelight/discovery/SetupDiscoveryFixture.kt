@@ -13,7 +13,7 @@ import java.util.function.Supplier
 
 /** Test-only access to the accepted worker seams, shared by UI tests and PTYs. */
 class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
-    private val lanes = CandidateDiscovery.Lanes()
+    private val threads = Workers()
     private val clock = AtomicLong()
 
     val entered = CountDownLatch(1)
@@ -26,7 +26,7 @@ class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
 
     override fun get(): CandidateDiscovery {
         val time = if (realTime) System::nanoTime else clock::get
-        val discovery = CandidateDiscovery(lanes, time, { path ->
+        val discovery = CandidateDiscovery(threads, time, { path ->
             reads.incrementAndGet()
             if (block) {
                 entered.countDown()

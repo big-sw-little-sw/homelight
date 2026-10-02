@@ -12,23 +12,33 @@ import java.nio.file.Path
 object CandidateCatalog {
     val BUNDLED = CandidateSource(CandidateSource.Kind.BUNDLED, "/candidates.json")
 
+    /** Parses the bundled list for [root]. The resource is read once per process, so later calls do no I/O. */
     fun bundled(root: Path): Snapshot {
         val parser = CandidateParser()
+        return bundledBytes.fold(
+            { bytes ->
+                if (bytes == null) {
+                    parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE, "Bundled candidate resource is missing")
+                } else parser.parse(BUNDLED, root, bytes)
+            },
+            { e ->
+                parser.failure(
+                    BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
+                    "Cannot read bundled candidate resource: " + e.message,
+                )
+            },
+        )
+    }
+
+    // `null` when the resource is missing. The parser only reads the array, so sharing it is safe.
+    private val bundledBytes: Result<ByteArray?> by lazy {
         try {
-            CandidateCatalog::class.java.getResourceAsStream(BUNDLED.location).use { input ->
-                if (input == null) {
-                    return parser.failure(
-                        BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
-                        "Bundled candidate resource is missing",
-                    )
-                }
-                return parser.parse(BUNDLED, root, input.readNBytes(CandidateParser.MAX_BYTES + 1))
-            }
-        } catch (e: IOException) {
-            return parser.failure(
-                BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
-                "Cannot read bundled candidate resource: " + e.message,
+            Result.success(
+                CandidateCatalog::class.java.getResourceAsStream(BUNDLED.location)
+                    ?.use { it.readNBytes(CandidateParser.MAX_BYTES + 1) },
             )
+        } catch (e: IOException) {
+            Result.failure(e)
         }
     }
 
