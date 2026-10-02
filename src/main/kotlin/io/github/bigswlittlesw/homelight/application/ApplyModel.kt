@@ -14,10 +14,15 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 sealed interface ApplyModel {
     data object Idle : ApplyModel
 
-    data class Confirmation(val plan: ReconciliationPlan) : ApplyModel
+    /** Every state after a plan has been put up for review. */
+    sealed interface Reviewed : ApplyModel {
+        val plan: ReconciliationPlan
+    }
+
+    data class Confirmation(override val plan: ReconciliationPlan) : Reviewed
 
     @ConsistentCopyVisibility
-    data class Running private constructor(val plan: ReconciliationPlan, val steps: List<Step>) : ApplyModel {
+    data class Running private constructor(override val plan: ReconciliationPlan, val steps: List<Step>) : Reviewed {
         companion object {
             fun of(plan: ReconciliationPlan, steps: List<Step>): Running = Running(plan, steps.toList())
         }
@@ -26,9 +31,9 @@ sealed interface ApplyModel {
     /** A result remains retained until explicit re-planning. Preflight failures have no execution. */
     @ConsistentCopyVisibility
     data class Result private constructor(
-        val plan: ReconciliationPlan, val steps: List<Step>, val execution: ExecutionResult?,
+        override val plan: ReconciliationPlan, val steps: List<Step>, val execution: ExecutionResult?,
         val diagnostics: List<String>, val stale: Boolean,
-    ) : ApplyModel {
+    ) : Reviewed {
         fun succeeded(): Boolean = execution?.succeeded() ?: false
 
         companion object {

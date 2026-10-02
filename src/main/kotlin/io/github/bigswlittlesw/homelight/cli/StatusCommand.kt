@@ -12,13 +12,13 @@ import java.util.concurrent.Callable
 
 @Command(name = "status", description = ["Show the state of the configured relocations."])
 internal class StatusCommand : Callable<Int> {
-    @field:ParentCommand
+    @ParentCommand
     private lateinit var parent: HomeLightCommand
 
-    @field:Option(names = ["--json"], description = ["Emit JSON."])
+    @Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false
 
-    @field:Spec
+    @Spec
     private lateinit var spec: CommandLine.Model.CommandSpec
 
     override fun call(): Int {

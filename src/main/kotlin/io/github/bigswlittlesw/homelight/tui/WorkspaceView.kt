@@ -18,7 +18,6 @@ import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.config.javaSplit
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -95,8 +94,8 @@ internal object WorkspaceView {
         val content = buildList {
             add(header)
             add(wrappedText("Config: " + session.configPath, Color.GRAY))
-            add(summaryElement(summary.first()))
-            if (summary.last().isNotEmpty()) add(wrappedText(summary.last(), Color.YELLOW))
+            add(summaryElement(summary.counts))
+            if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, Color.YELLOW))
             if (session.discardedChoices().isNotEmpty()) add(
                 wrappedText(
                     "${session.discardedChoices().size} draft choices discarded after re-plan; inspect current decisions.",
@@ -125,7 +124,7 @@ internal object WorkspaceView {
         return Toolkit.column(*content.toTypedArray()).fill()
     }
 
-    fun summary(items: List<PlanRelocationItem>): List<String> {
+    fun summary(items: List<PlanRelocationItem>): Summary {
         var actionable = 0
         var conflict = 0
         var blocked = 0
@@ -142,26 +141,31 @@ internal object WorkspaceView {
             if (item.hasWarnings()) warnings++
             if (item.hasDestructiveActions()) destructive++
         }
-        return listOf(
-            items.size.toString() + " relocations · ⚡ " + actionable + " actionable · ⚠ " + conflict + " conflict · ✖ " +
-                blocked + " blocked\n✔ " + synced + " in sync · ─ " + unchanged + " unchanged",
+        return Summary(
+            listOf(
+                listOf(
+                    SummaryCell("${items.size} relocations", Color.CYAN),
+                    SummaryCell("⚡ $actionable actionable", Color.CYAN),
+                    SummaryCell("⚠ $conflict conflict", Color.YELLOW),
+                    SummaryCell("✖ $blocked blocked", Color.RED),
+                ),
+                listOf(SummaryCell("✔ $synced in sync", Color.GREEN), SummaryCell("─ $unchanged unchanged", Color.GRAY)),
+            ),
             if (warnings == 0 && destructive == 0) ""
-            else "Of these: " + warnings + " with warnings · " + destructive + " with destructive changes",
+            else "Of these: $warnings with warnings · $destructive with destructive changes",
         )
     }
 
-    private fun summaryElement(summary: String): Element {
-        val rows = summary.javaSplit("\n").map { line ->
-            val cells = line.javaSplit(" · ").mapIndexed { i, part ->
-                val color = when {
-                    part.startsWith("⚠") -> Color.YELLOW
-                    part.startsWith("✖") -> Color.RED
-                    part.startsWith("✔") -> Color.GREEN
-                    part.startsWith("─") -> Color.GRAY
-                    else -> Color.CYAN
-                }
-                val label = (if (i == 0) "" else " · ") + part
-                Toolkit.text(label).fg(color).length(CharWidth.of(label))
+    /** Count rows render as cells joined by ` · `. `risks` is empty when no item has warnings or destructive changes. */
+    data class Summary(val counts: List<List<SummaryCell>>, val risks: String)
+
+    data class SummaryCell(val text: String, val color: Color)
+
+    private fun summaryElement(counts: List<List<SummaryCell>>): Element {
+        val rows = counts.map { row ->
+            val cells = row.mapIndexed { i, cell ->
+                val label = (if (i == 0) "" else " · ") + cell.text
+                Toolkit.text(label).fg(cell.color).length(CharWidth.of(label))
             }
             Toolkit.row(*cells.toTypedArray())
         }

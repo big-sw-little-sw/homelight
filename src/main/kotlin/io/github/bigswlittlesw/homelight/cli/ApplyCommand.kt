@@ -20,16 +20,16 @@ import java.util.concurrent.Executor
 // constructor generates.
 @Command(name = "apply", description = ["Review and apply a fully resolved reconciliation plan."])
 internal class ApplyCommand(private val worker: Executor = Executor { it.run() }) : Callable<Int> {
-    @field:ParentCommand
+    @ParentCommand
     private lateinit var parent: HomeLightCommand
 
-    @field:Option(names = ["--yes"], description = ["Confirm a resolved plan in JSON automation mode."])
+    @Option(names = ["--yes"], description = ["Confirm a resolved plan in JSON automation mode."])
     private var yes = false
 
-    @field:Option(names = ["--json"], description = ["Emit JSON."])
+    @Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false
 
-    @field:Spec
+    @Spec
     private lateinit var spec: CommandLine.Model.CommandSpec
 
     override fun call(): Int {

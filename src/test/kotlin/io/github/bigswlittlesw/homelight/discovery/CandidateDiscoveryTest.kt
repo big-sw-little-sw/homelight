@@ -5,7 +5,6 @@ import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic
 import io.github.bigswlittlesw.homelight.config.CandidateParser
 import io.github.bigswlittlesw.homelight.config.CandidateSource
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Candidate
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Companion.METADATA_NANOS
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Lanes
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Result
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutcome
@@ -275,7 +274,7 @@ class CandidateDiscoveryTest {
             discovery.refresh(temporary, null)
             awaitResult(discovery) { r -> r.candidates.size == 6 && lanes.filesystem.availablePermits() == 0 }
             assertTrue(entered.await(3, TimeUnit.SECONDS))
-            clock.set(CandidateDiscovery.METADATA_NANOS)
+            clock.set(METADATA_NANOS)
             val timed = discovery.snapshot()
             assertEquals(1, timed.candidates.count { c -> c.observation.kind == Kind.UNKNOWN })
             assertEquals(5, timed.candidates.count { c -> c.observation.kind == Kind.PENDING })
@@ -364,7 +363,7 @@ class CandidateDiscoveryTest {
                 discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 awaitResult(discovery) { r -> shared(r).status == SourceStatus.CURRENT }
-                clock.set(CandidateDiscovery.METADATA_NANOS)
+                clock.set(METADATA_NANOS)
                 val result = discovery.snapshot()
                 assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
                 assertTimeout(Duration.ofMillis(500), Executable(discovery::close))

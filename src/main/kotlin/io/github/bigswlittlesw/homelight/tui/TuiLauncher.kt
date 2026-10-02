@@ -90,11 +90,11 @@ private fun isDumb(terminalType: String?): Boolean =
  * it cannot render the TUI and would leave it waiting for input it never draws.
  */
 private fun systemBackend(): Backend {
-    // The JNI provider extracts a library into java.io.tmpdir, which fails on a noexec /tmp, and
-    // build-time -D values do not reach a native image's runtime. An explicit -D still wins.
-    if (System.getProperty("org.graalvm.nativeimage.imagecode") == "runtime"
-        && System.getProperty("org.jline.terminal.provider") == null
-    ) {
+    // A native image always uses JLine's exec provider, even over an explicit -D: the JNI provider extracts a
+    // library into java.io.tmpdir, which costs startup time and fails on a noexec /tmp, and it does not
+    // fully restore terminal settings on exit. Build-time -D values do not reach a native image's runtime.
+    // The JVM keeps JLine's default.
+    if (System.getProperty("org.graalvm.nativeimage.imagecode") == "runtime") {
         System.setProperty("org.jline.terminal.provider", "exec")
     }
     val backend = JLineBackend()

@@ -18,7 +18,7 @@ data class CandidateDefinition(
             sourcePath.isAbsolute && sourcePath == sourcePath.normalize()
                     && recordIndex >= 1 && !location.isJavaBlank(),
         ) { "Definition requires normalized absolute identity and location" }
-        CandidateParser.validatePath(originalPath)
+        validateCandidatePath(originalPath)
         require((app == null || !app.isJavaBlank() && app == app.javaStrip()) && (reason == null || !reason.isJavaBlank())) {
             "Optional text must be nonblank; app must be trimmed"
         }
