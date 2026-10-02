@@ -378,9 +378,13 @@ private fun notRun(action: ReconciliationAction) =
  *
  * Two relocations are independent when no path one claims overlaps a path the other claims, by the same
  * [intersects] rule that [relocationProblem] applies to sources and targets. A relocation claims its source and
- * target, every action destination (such as an archive path), each migration's staging root, and the parents of all
- * of these, which covers every directory its actions ensure. Relocations not proven independent share a group, so a
- * relocation that depends on two groups merges them. Siblings share a parent, so they always run sequentially.
+ * target, every action destination (such as an archive path) and each migration's staging root. It also claims the
+ * parent of each of these that is not yet a real directory, since its actions may create it. Relocations not proven
+ * independent share a group, so a relocation that depends on two groups merges them. Siblings under an existing
+ * parent can therefore run together; siblings whose parent is missing share a group.
+ *
+ * Parents are checked here, when [ReconciliationExecutor.execute] starts, not at plan time: the review snapshot does
+ * not observe parents, and this is the latest state before any action runs.
  */
 internal fun independentGroups(relocations: List<RelocationPlan>): List<List<Int>> {
     val claims = relocations.map(::claimedPaths)
@@ -400,7 +404,13 @@ private fun claimedPaths(relocation: RelocationPlan): List<Path> {
         relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
             migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME)
         }
-    return paths + paths.mapNotNull { path -> path.toAbsolutePath().normalize().parent }
+    // An existing parent is not claimed. On POSIX, creating, renaming, linking or deleting different names in one
+    // directory is safe, and each action's guards check only its own paths. A parent another relocation changes is
+    // inside one of that relocation's paths, so this relocation's path overlaps it anyway. A missing parent stays
+    // claimed. Its missing ancestors may still be created concurrently, which `ensureRealDirectories` and
+    // `Files.createDirectories` tolerate before checking for a real directory.
+    val parents = paths.mapNotNull { path -> path.toAbsolutePath().normalize().parent }
+    return paths + parents.filterNot { parent -> Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) }
 }
 
 private const val DEFAULT_STAGING_NAME = ".homelight-staging"

@@ -216,9 +216,10 @@ class HomeLightSessionTest {
     @Test
     fun partialFailureRetainsCompletedFailedAndPendingActionsAndRetryUsesANewPlan() {
         val root = directory.toRealPath()
-        Files.createDirectories(root.resolve("home/second"))
+        // The targets' parent, `local/data`, is missing, so every relocation claims it and they run in plan order.
+        Files.createDirectories(root.resolve("home/data/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
-        val config = configuration(root, "\"staging-root\": \"$staging\", ", "first", "second", "third")
+        val config = configuration(root, "\"staging-root\": \"$staging\", ", "data/first", "data/second", "data/third")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply(), session.planModel().toString())
         Files.writeString(staging, "not a directory")
@@ -231,8 +232,8 @@ class HomeLightSessionTest {
         assertTrue(failed.relocation.relocation.sourcePath.endsWith("second"))
         assertFalse(failed.message.isJavaBlank())
         assertTrue(result.steps.any { step -> step.status == ApplyModel.StepStatus.PENDING })
-        assertTrue(Files.isSymbolicLink(root.resolve("home/first")))
-        assertFalse(Files.exists(root.resolve("home/third")))
+        assertTrue(Files.isSymbolicLink(root.resolve("home/data/first")))
+        assertFalse(Files.exists(root.resolve("home/data/third")))
         assertFalse(session.requestApply())
 
         Files.delete(staging)

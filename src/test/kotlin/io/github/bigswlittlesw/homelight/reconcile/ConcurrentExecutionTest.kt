@@ -66,8 +66,62 @@ class ConcurrentExecutionTest {
     }
 
     @Test
+    fun runsSiblingsUnderAnExistingParentConcurrently() {
+        // `home` and `store` exist. Each migration has its own staging root, because a shared one is a claimed path.
+        Files.createDirectories(root.resolve("store"))
+        val relocations = listOf("a", "b", "c").map { name ->
+            migration("home/.$name", "store/$name", files = 20, stagingRoot = "store/.staging-$name")
+        }
+        val plan = plan(relocations)
+        assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(plan.relocations))
+        val inFlight = AtomicInteger()
+        val peak = AtomicInteger()
+        val full = CountDownLatch(RELOCATION_CONCURRENCY)
+
+        val result = ReconciliationExecutor().execute(plan, object : ReconciliationExecutor.ProgressListener {
+            override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
+                if (action is ReconciliationAction.MigrateDirectoryForPublication) {
+                    peak.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                    full.countDown()
+                    assertTrue(full.await(5, TimeUnit.SECONDS))
+                }
+            }
+
+            override fun finished(relocation: RelocationPlan, action: ActionExecution) {
+                if (action.action is ReconciliationAction.ReplaceDirectoryWithSymlink) inFlight.decrementAndGet()
+            }
+        })
+
+        assertTrue(result.succeeded())
+        assertEquals(RELOCATION_CONCURRENCY, peak.get())
+        for (relocation in relocations) {
+            assertTrue(Files.isSymbolicLink(relocation.sourcePath))
+            assertEquals(20, Files.list(relocation.targetPath).use { it.count() }.toInt())
+        }
+    }
+
+    @Test
+    fun siblingsWhoseParentIsMissingShareAGroupAndConverge() {
+        // Absent sources and targets: each relocation ensures `links` and `store`, which do not exist yet.
+        val relocations = listOf("a", "b", "c").map { name ->
+            Relocation(root.resolve("links/$name"), root.resolve("store/$name"))
+        }
+        val plan = plan(relocations)
+        assertEquals(listOf(listOf(0, 1, 2)), independentGroups(plan.relocations))
+
+        val result = ReconciliationExecutor().execute(plan)
+
+        assertTrue(result.succeeded())
+        for (relocation in relocations) {
+            assertTrue(Files.isSymbolicLink(relocation.sourcePath))
+            assertTrue(Files.isDirectory(relocation.targetPath))
+        }
+    }
+
+    @Test
     fun runsDependentRelocationsSequentially() {
-        // Siblings share parents, and so the default staging root.
+        // Sibling targets in the existing `local` share the default staging root.
+        Files.createDirectories(root.resolve("local"))
         val relocations = (1..3).map { n -> migration("home/s$n", "local/t$n", files = 5) }
         val plan = plan(relocations)
         assertEquals(listOf(listOf(0, 1, 2)), independentGroups(plan.relocations))
@@ -94,22 +148,31 @@ class ConcurrentExecutionTest {
         fun relocation(source: String, target: String, vararg actions: ReconciliationAction) =
             RelocationPlan(Relocation(root.resolve(source), root.resolve(target)), RelocationOutcome.CONVERGED,
                 actions.toList(), listOf())
+        fun migration(source: String, target: String, staging: String? = null) = relocation(source, target,
+            ReconciliationAction.MigrateDirectoryForPublication(root.resolve(source), root.resolve(target),
+                staging?.let(root::resolve)))
+        // Every parent below exists, so only the relocations' own paths can make them dependent.
+        for (name in listOf("a", "b", "c", "d", "e", "f", "h", "j", "k", "store")) Files.createDirectories(root.resolve(name))
         val first = relocation("a/source", "b/target")
         // A target under another relocation's source; the planner rejects this, but the executor must not rely on it.
         val nested = relocation("c/source", "a/source/inner")
         val second = relocation("d/source", "e/target")
-        val sharedStaging = relocation("f/source", "g/target",
-            ReconciliationAction.MigrateDirectoryForPublication(root.resolve("f/source"), root.resolve("g/target"),
-                root.resolve("e/.staging")))
-        val archiveIntoFirst = relocation("h/source", "i/target",
-            ReconciliationAction.ArchiveDirectory(root.resolve("h/source"), root.resolve("b/archive/h/source")))
+        val sharedStaging = listOf(migration("a/one", "store/one", "e/.staging"), migration("b/two", "f/two", "e/.staging"))
+        val defaultStaging = listOf(migration("a/one", "store/one"), migration("b/two", "store/two"))
+        val archiveIntoFirst = relocation("h/source", "c/target",
+            ReconciliationAction.ArchiveDirectory(root.resolve("h/source"), root.resolve("b/target/archive/h/source")))
         val independent = relocation("j/source", "k/target")
-        // Shares a parent with `first`'s source and with `second`'s source.
-        val bridge = relocation("a/bridge", "d/bridge")
+        val siblings = listOf(relocation("a/one", "store/one"), relocation("a/two", "store/two"))
+        val missingParent = listOf(relocation("a/one", "new/one"), relocation("a/two", "new/two"))
+        // Overlaps `first`'s source and `second`'s source.
+        val bridge = relocation("a/source/bridge", "d/source/bridge")
 
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, nested)))
-        assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(second, sharedStaging)))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(sharedStaging))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging))
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, archiveIntoFirst)))
+        assertEquals(listOf(listOf(0), listOf(1)), independentGroups(siblings))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(missingParent))
         assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(listOf(first, second, independent)))
         // A relocation that depends on two groups merges them, and groups keep plan order.
         assertEquals(listOf(listOf(0, 1, 3), listOf(2)), independentGroups(listOf(first, second, independent, bridge)))
@@ -258,10 +321,10 @@ class ConcurrentExecutionTest {
     }
 
     /** A source directory with [files] files under [root], to migrate to an absent target. */
-    private fun migration(source: String, target: String, files: Int): Relocation {
+    private fun migration(source: String, target: String, files: Int, stagingRoot: String? = null): Relocation {
         val sourcePath = Files.createDirectories(root.resolve(source))
         repeat(files) { n -> Files.writeString(sourcePath.resolve("file-$n"), "content $n") }
-        return Relocation(sourcePath, root.resolve(target))
+        return Relocation(sourcePath, root.resolve(target), stagingRoot = stagingRoot?.let(root::resolve))
     }
 
     private fun plan(relocations: List<Relocation>): ReconciliationPlan {

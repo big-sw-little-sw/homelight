@@ -168,17 +168,30 @@ Status: done (PR #68, merged 2026-10-02). All later work is on the Kotlin codeba
 These are behavior-neutral follow-ups from the K7 review, plus the #25 bug fix. The user has decided every question they raise (see each issue). Order:
 
 1. #63: remove unused and test-only code. Done (PR #69).
-2. #65: one wording for policy labels in the TUI (the configuration words). PR #72.
-3. #64: consolidate duplicated rules and types, and use `toList()` for defensive copies.
-4. #71: audit native-image reachability metadata. Native CI decides; an entry goes only when CI exercises its path.
-5. #25: preserve directory permission bits during staged relocation, per the 2026-09-30 decision. It runs after #64 because both touch the reconcile code, and before #66 because it is a real bug.
-6. #66: Kotlin idiom leftovers, including the `@field:` check (3 small PRs).
+2. #65: one wording for policy labels in the TUI (the configuration words). Done (PR #72).
+3. #64: consolidate duplicated rules and types, and use `toList()` for defensive copies. Done (PR #74).
+4. #71: audit native-image reachability metadata. Native CI decides; an entry goes only when CI exercises its path. Done (PR #76).
+5. #25: preserve directory permission bits during staged relocation, per the 2026-09-30 decision. It runs after #64 because both touch the reconcile code, and before #66 because it is a real bug. Done (PR #75).
+6. #66: Kotlin idiom leftovers, including the `@field:` check. Done (PRs #77, #80, #85).
+
+Follow-ups found during 4d, all done:
+
+- #78: native builds always use the exec terminal provider (PR #80).
+- #79: kotlinx.serialization owns the configuration and candidate-list format (PR #86).
+- #82: executor tree walks and staging delete via `kotlin.io.path` (PR #89).
+- #87: stale staging cleanup removes leftovers with read-only directories (PR #90).
+- #81: configuration errors print as one line (PR #91).
+- #88: TamboUI 0.5.0 release (PR #92).
+- #84: discovery on virtual threads with a bounded sliding window (PR #93).
+- #83: TamboUI key bindings, scrollbar and terminal check (PR #94).
+- #10: independent relocations run concurrently (PR #95).
+- #96: existing parent directories no longer make relocations dependent.
 
 Not scheduled: #70 (Clikt instead of picocli), for the user's own simplification pass.
 
 Done when: all six are merged with all 7 checks green.
 
-Status: in progress.
+Status: done once #96 merges. Steps 5–7 stay deferred. Next: step 8 (TUI design pass) and the user's simplification pass (#70, a generic `Policy<C>`, the size of `CandidateDiscovery`).
 
 ### 5–7. Cloud setup, pilot worker, coordinator routine (deferred)
 
@@ -205,10 +218,9 @@ Status: not started.
 Order:
 
 1. Split umbrella tickets (#7, #8, #15, #17); the user checks each split's scope.
-2. Simplification: K6 and step 4d covered the mechanical part. The user's own simplification pass follows, including #70.
+2. Simplification: K6 and step 4d covered the mechanical part. The user's own simplification pass follows: #70, a generic `Policy<C>`, and the size of `CandidateDiscovery`.
 3. #11 integration verification.
 4. TUI changes from the accepted design.
-5. Remaining features (#5, #6, #19, and what the splits produce). #10 is back in
-   triage to choose a concurrency mechanism under Kotlin.
+5. Remaining features (#5, #6, #19, and what the splits produce). #10 is done (PR #95, refined by #96).
 
 Status: not started.

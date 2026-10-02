@@ -13,7 +13,9 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 class ReviewedExecutionTest {
@@ -145,6 +147,15 @@ class ReviewedExecutionTest {
         assertTrue(result.succeeded())
         assertEquals(plan.actions(), result.steps.map { step -> step.action })
         assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.COMPLETED })
+    }
+
+    @Test
+    fun aDirectExecutorRunsIndependentRelocationsWithoutDeadlock() {
+        val plan = plan("first", "second", parentPerRelocation = true)
+        val review = ReviewedExecution(plan)
+        // The CLI runs the plan on the starting thread. Bounded, so a deadlock fails the test instead of hanging it.
+        CompletableFuture.runAsync { review.start(Runnable::run).join() }.get(10, TimeUnit.SECONDS)
+        assertTrue(assertInstanceOf(ApplyModel.Result::class.java, review.snapshot()).succeeded())
     }
 
     /** With [parentPerRelocation], each relocation gets its own parents, so relocations are independent. */
