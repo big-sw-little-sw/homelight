@@ -5,6 +5,24 @@ Scope: [#25](https://github.com/big-sw-little-sw/homelight/issues/25).
 The coordinator's ticket comment and [#11](https://github.com/big-sw-little-sw/homelight/issues/11)
 were read, including comments. #11 integration work was not started.
 
+## Resolution
+
+Decided 2026-09-30 (see `docs/decisions.md`) and implemented for #25 in
+`ReconciliationExecutor`. The findings below describe the code before that change.
+
+- Copied directories are created owner-only (`0700`) and get their source's nine
+  bits after their contents are copied; `verifyCopy` compares the bits and fails
+  publication on a mismatch.
+- rename(2) needs write permission on a directory that changes parent, so a copy
+  root without owner write (e.g. `0500`) gets it for the atomic move only and its
+  mode is restored right after.
+- A source or target filesystem without the POSIX attribute view is refused before
+  anything is staged, as an ordinary failed migration action.
+- A failed operation restores owner access inside its own copy before deleting it.
+  Stale-operation cleanup is unchanged: a stale copy left by a crash, holding
+  directories without owner write, is still retained and stops new publication
+  until removed by hand.
+
 ## Result and decision required
 
 Confirmed on this host: staged relocation replaces restrictive directory modes

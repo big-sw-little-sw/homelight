@@ -5,7 +5,6 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.FileVisitor
 import java.nio.file.Files
@@ -21,20 +19,21 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.PosixFileAttributeView
-import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 
-// Characterizes #25's current gaps, not a promise to retain provider-default modes.
-// Change the mode expectations when the coordinator establishes the platform policy.
+/**
+ * Staged publication keeps each directory's nine POSIX permission bits and refuses targets that
+ * cannot represent them (decision 2026-09-30). File modes and symlink values keep their existing
+ * provider behavior.
+ */
 class StagedPermissionTest {
     @TempDir
     lateinit var temporary: Path
 
     @ParameterizedTest
-    @ValueSource(strings = ["rwx------", "r-x------"])
-    fun emptySourceRootCurrentlyPublishesWithCreationDefaults(sourceMode: String) {
+    @ValueSource(strings = ["rwx------", "rwxr-x---", "rwxr-xr-x", "r-x------"])
+    fun emptySourceRootPublishesWithItsMode(sourceMode: String) {
         val root = posixRoot()
-        val defaults = defaultDirectoryPermissions(root)
         val source = Files.createDirectory(root.resolve("source"))
         mode(source, sourceMode)
         val target = root.resolve("local/target")
@@ -42,26 +41,28 @@ class StagedPermissionTest {
         val result = ReconciliationExecutor().execute(plan(source, target))
 
         assertTrue(result.succeeded(), result.toString())
-        assertEquals(defaults, Files.getPosixFilePermissions(target))
+        assertMode(target, sourceMode)
         assertTrue(Files.isSymbolicLink(source))
         assertEmpty(target)
         assertEmpty(target.parent.resolve(".homelight-staging"))
     }
 
-    @Test
-    fun publicationUsesDefaultDirectoryModesAndRetainsFileAndLinkBehavior() {
+    @ParameterizedTest
+    @ValueSource(strings = ["rwx------", "rwxr-x---", "rwxr-xr-x"])
+    fun publicationPreservesDirectoryModesAndRetainsFileAndLinkBehavior(rootMode: String) {
         val root = posixRoot()
-        val defaults = defaultDirectoryPermissions(root)
         val source = Files.createDirectory(root.resolve("source"))
         val nested = Files.createDirectory(source.resolve("nested"))
         val empty = Files.createDirectory(nested.resolve("empty"))
+        val shared = Files.createDirectory(source.resolve("shared"))
         val file = Files.writeString(source.resolve("entry"), "private contents")
         val executable = Files.writeString(nested.resolve("executable"), "executable contents")
         val outside = Files.createDirectory(root.resolve("outside"))
         Files.writeString(outside.resolve("keep"), "untouched")
-        mode(source, "rwx------")
+        mode(source, rootMode)
         mode(nested, "rwx--x---")
         mode(empty, "r-x------")
+        mode(shared, "rwxr-xr-x")
         mode(file, "rw-------")
         mode(executable, "rwx------")
         mode(outside, "rwx------")
@@ -76,18 +77,15 @@ class StagedPermissionTest {
             override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
                 if (action.action is ReconciliationAction.MigrateDirectoryForPublication
                         && action.status == ReconciliationExecutor.ActionStatus.COMPLETED) {
-                    try {
-                        published[0] = true
-                        assertTrue(Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS))
-                        assertMode(source, "rwx------")
-                        assertMode(nested, "rwx--x---")
-                        assertMode(empty, "r-x------")
-                        assertEquals(defaults, Files.getPosixFilePermissions(target))
-                        assertEquals(defaults, Files.getPosixFilePermissions(target.resolve("nested")))
-                        assertEquals(defaults, Files.getPosixFilePermissions(target.resolve("nested/empty")))
-                    } catch (exception: IOException) {
-                        throw AssertionError(exception)
-                    }
+                    published[0] = true
+                    assertTrue(Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS))
+                    assertMode(source, rootMode)
+                    assertMode(nested, "rwx--x---")
+                    assertMode(empty, "r-x------")
+                    assertMode(target, rootMode)
+                    assertMode(target.resolve("nested"), "rwx--x---")
+                    assertMode(target.resolve("nested/empty"), "r-x------")
+                    assertMode(target.resolve("shared"), "rwxr-xr-x")
                 }
             }
         })
@@ -111,44 +109,57 @@ class StagedPermissionTest {
         val repeated = plan(source, target)
         assertTrue(repeated.actions().all { it is ReconciliationAction.NoOp })
         assertTrue(executor.execute(repeated).succeeded())
-        assertEquals(defaults, Files.getPosixFilePermissions(target))
+        assertMode(target, rootMode)
+        assertMode(target.resolve("nested"), "rwx--x---")
+        assertMode(target.resolve("nested/empty"), "r-x------")
         assertMode(target.resolve("entry"), "rw-------")
     }
 
     @Test
-    fun stagingCopierUsesDefaultsWhilePopulatingReadOnlyDirectories() {
+    fun copierKeepsDirectoriesOwnerOnlyUntilTheirContentsAreCopied() {
         val root = posixRoot()
-        val defaults = defaultDirectoryPermissions(root)
         val source = Files.createDirectory(root.resolve("source"))
         val nested = Files.createDirectory(source.resolve("nested"))
         val file = Files.writeString(nested.resolve("entry"), "contents")
         mode(nested, "r-x------")
-        mode(source, "r-x------")
+        mode(source, "rwxr-xr-x")
+        val copy = Files.createDirectory(root.resolve("operation")).resolve("copy")
         try {
-            // Reproduce the executor's staging creation calls; observe the actual shared
-            // visitor synchronously, without a production hook or a background watcher.
-            val operation = Files.createDirectory(root.resolve("operation"))
-            val copy = Files.createDirectory(operation.resolve("copy"))
+            // Drive the executor's visitor step by step to observe each intermediate mode.
             val visitor = copyVisitor(source, copy)
             visitor.preVisitDirectory(source, Files.readAttributes(source, BasicFileAttributes::class.java))
+            assertMode(copy, "rwx------")
             visitor.preVisitDirectory(nested, Files.readAttributes(nested, BasicFileAttributes::class.java))
-            assertEquals(defaults, Files.getPosixFilePermissions(operation))
-            assertEquals(defaults, Files.getPosixFilePermissions(copy))
-            assertEquals(defaults, Files.getPosixFilePermissions(copy.resolve("nested")))
+            assertMode(copy.resolve("nested"), "rwx------")
             visitor.visitFile(file, Files.readAttributes(file, BasicFileAttributes::class.java))
             assertEquals("contents", Files.readString(copy.resolve("nested/entry")))
-            assertMode(source, "r-x------")
+            visitor.postVisitDirectory(nested, null)
+            assertMode(copy.resolve("nested"), "r-x------")
+            assertMode(copy, "rwx------")
+            visitor.postVisitDirectory(source, null)
+            assertMode(copy, "rwxr-xr-x")
+            assertMode(source, "rwxr-xr-x")
             assertMode(nested, "r-x------")
         } finally {
-            mode(source, "rwx------")
             mode(nested, "rwx------")
+            if (Files.exists(copy.resolve("nested"))) {
+                mode(copy.resolve("nested"), "rwx------")
+            }
         }
     }
 
     @Test
-    fun unreadableNestedDirectoryFailsBeforePublicationAndCleansOnlyItsOperation() {
+    fun failedCopyRemovesItsRestrictiveDirectoriesAndKeepsUnownedEntries() {
         val root = posixRoot()
         val source = Files.createDirectory(root.resolve("source"))
+        // Several read-only siblings, so some are copied with their final mode before the
+        // unreadable one fails, whatever the directory listing order.
+        val readOnly = listOf("a", "b", "c", "d", "e").map { name ->
+            Files.createDirectory(source.resolve(name)).also { directory ->
+                Files.writeString(directory.resolve("entry"), "keep")
+                mode(directory, "r-x------")
+            }
+        }
         val nested = Files.createDirectory(source.resolve("unreadable"))
         Files.writeString(nested.resolve("entry"), "keep")
         mode(source, "rwx------")
@@ -163,12 +174,14 @@ class StagedPermissionTest {
             assertUnpublishedFailure(result, source, target)
             assertMode(source, "rwx------")
             assertMode(nested, "---------")
+            readOnly.forEach { directory -> assertMode(directory, "r-x------") }
             assertEquals("keep", Files.readString(unrelated))
             Files.list(staging).use { entries ->
                 assertEquals(listOf(unrelated), entries.toList())
             }
         } finally {
             mode(nested, "rwx------")
+            readOnly.forEach { directory -> mode(directory, "rwx------") }
         }
         assertEquals("keep", Files.readString(nested.resolve("entry")))
     }
@@ -195,9 +208,8 @@ class StagedPermissionTest {
     }
 
     @Test
-    fun readOnlyPopulatedSourceReportsRecoveryAfterPublicationWithoutChmod() {
+    fun readOnlyPopulatedSourceIsPublishedReadOnlyAndReportsRecoveryWithoutChmod() {
         val root = posixRoot()
-        val defaults = defaultDirectoryPermissions(root)
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         mode(source, "r-x------")
@@ -212,11 +224,14 @@ class StagedPermissionTest {
             assertEquals("keep", Files.readString(source.resolve("entry")))
             assertEquals("keep", Files.readString(target.resolve("entry")))
             assertMode(source, "r-x------")
-            assertEquals(defaults, Files.getPosixFilePermissions(target))
+            assertMode(target, "r-x------")
             assertEmpty(target.parent.resolve(".homelight-staging"))
             assertTrue(plan(source, target).hasConflicts())
         } finally {
             mode(source, "rwx------")
+            if (Files.isDirectory(target)) {
+                mode(target, "rwx------")
+            }
         }
     }
 
@@ -246,24 +261,26 @@ class StagedPermissionTest {
     }
 
     @Test
-    fun sharedCopierDoesNotRequireUnsupportedPosixOperations() {
-        // ZIP is a local, deterministic unsupported-view probe, not a supported
+    fun targetWithoutPosixPermissionsIsRefusedBeforeAnythingIsStaged() {
+        val root = posixRoot()
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.writeString(source.resolve("entry"), "keep")
+        mode(source, "rwx------")
+        // ZIP is a local, deterministic provider without the POSIX view, not a supported
         // relocation platform or a stand-in for Windows/NFS publication behavior.
         FileSystems.newFileSystem(temporary.resolve("unsupported.zip"), mapOf("create" to "true")).use { zip ->
-            val source = Files.createDirectory(zip.getPath("/source"))
-            Files.createDirectory(source.resolve("empty"))
-            Files.writeString(source.resolve("entry"), "contents")
-            assertNull(Files.getFileAttributeView(source, PosixFileAttributeView::class.java))
-            assertThrows(UnsupportedOperationException::class.java) { Files.getPosixFilePermissions(source) }
-            assertThrows(UnsupportedOperationException::class.java,
-                    { mode(source, "rwx------") })
-            val target = Files.createDirectory(zip.getPath("/target"))
+            val target = zip.getPath("/local/target")
+            assertNull(Files.getFileAttributeView(zip.getPath("/"), PosixFileAttributeView::class.java))
 
-            Files.walkFileTree(source, copyVisitor(source, target))
+            val result = ReconciliationExecutor().execute(plan(source, target))
 
-            assertEquals("contents", Files.readString(target.resolve("entry")))
-            assertEmpty(target.resolve("empty"))
-            assertEquals("contents", Files.readString(source.resolve("entry")))
+            assertUnpublishedFailure(result, source, target)
+            val failure = result.relocations.first().actions.first()
+            assertTrue(failure.message.startsWith("cannot preserve directory permissions"), failure.message)
+            assertFalse(failure.stateDrift)
+            assertTrue(Files.notExists(zip.getPath("/local")), "nothing is created on the refused filesystem")
+            assertMode(source, "rwx------")
+            assertEquals("keep", Files.readString(source.resolve("entry")))
         }
     }
 
@@ -275,16 +292,12 @@ class StagedPermissionTest {
     }
 
     companion object {
-        private fun defaultDirectoryPermissions(root: Path): Set<PosixFilePermission> {
-            return Files.getPosixFilePermissions(Files.createDirectory(root.resolve("default-mode-control")))
-        }
-
         private fun mode(path: Path, mode: String) {
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(mode))
         }
 
         private fun assertMode(path: Path, mode: String) {
-            assertEquals(PosixFilePermissions.fromString(mode), Files.getPosixFilePermissions(path))
+            assertEquals(PosixFilePermissions.fromString(mode), Files.getPosixFilePermissions(path), path.toString())
         }
 
         private fun assertEmpty(path: Path) {
