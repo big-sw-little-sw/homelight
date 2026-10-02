@@ -4,8 +4,9 @@
 #   expect ci/native/tui.exp <logfile> <command...>
 #
 # TERM comes from the environment. The command runs in /bin/sh on a 120x40 pty, then the pty is
-# resized to 80x24, 120x30 and 140x50; each size must trigger a redraw. All terminal output goes to
-# <logfile>, with "@@RESIZE <rows>x<cols>@@" and "@@QUIT@@" markers for render.py.
+# resized to 80x24, 120x30 and 140x50; each size must trigger a redraw. Then the TUI is quit with
+# `q`, or with Ctrl-C when TUI_QUIT=ctrl-c. All terminal output goes to <logfile>, with
+# "@@RESIZE <rows>x<cols>@@" and "@@QUIT@@" markers for render.py.
 #
 # Prints one line of key=value results. Exit status: 0 all checks passed, 1 a check failed,
 # 3 the command exited without rendering (the expected outcome for TERM=dumb).
@@ -20,6 +21,9 @@ set stty_init "rows 40 cols 120"
 set env(PS1) "PROMPT> "
 set res [dict create]
 set failed 0
+# TamboUI turns off ISIG, so Ctrl-C reaches it as a key bound to quit, not as SIGINT.
+set quit_key q
+if {[info exists env(TUI_QUIT)] && $env(TUI_QUIT) eq "ctrl-c"} { set quit_key "\003" }
 
 proc report {status} {
   global res lf
@@ -97,7 +101,7 @@ foreach size {{24 80} {30 120} {50 140}} {
 
 puts -nonewline $lf "\n@@QUIT@@\n"
 set sent [clock milliseconds]
-send "q"
+send $quit_key
 set timeout 8
 expect {
   -re {EXITCODE=([0-9]+)} {
