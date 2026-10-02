@@ -206,7 +206,7 @@ class ConfigurationLoaderTest {
             WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT,
             WhenAdoptingTarget.ARCHIVE_SOURCE, temporary.resolve("archive"))
         val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
-        val loaded = ConfigurationLoader().load(write(ConfigurationPublisher.json(draft)))
+        val loaded = ConfigurationLoader().load(write(configurationJson(draft)))
         assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
     }
 

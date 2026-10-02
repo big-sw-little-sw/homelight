@@ -18,7 +18,7 @@ import java.nio.file.Path
 class CandidateParser {
     fun parse(source: CandidateSource, root: Path, contents: ByteArray): CandidateCatalog.Snapshot {
         @Suppress("NAME_SHADOWING")
-        val root = normalizedRoot(root)
+        val root = normalizedSourceRoot(root)
         if (contents.size > MAX_BYTES) {
             return failure(source, root, Kind.LIMIT, "Input exceeds 1 MiB UTF-8 limit")
         }
@@ -40,6 +40,9 @@ class CandidateParser {
 
     internal fun failure(source: CandidateSource, root: Path, kind: Kind, message: String): CandidateCatalog.Snapshot =
         rejected(root, Invalid(CandidateDiagnostic(source, kind, 0, 0, 0, "", "", message)))
+
+    private fun rejected(root: Path, e: Invalid): CandidateCatalog.Snapshot =
+        CandidateCatalog.Snapshot.of(e.diagnostic.source, root, listOf(), listOf(e.diagnostic))
 
     /** Rejects the whole source with one diagnostic. */
     private class Invalid(val diagnostic: CandidateDiagnostic) : RuntimeException(diagnostic.message)
@@ -79,7 +82,7 @@ class CandidateParser {
                 val record = "$location[$i]"
                 val path = required(text(directory.path, index, record, "path"), index, record, "path")
                 val resolved = try {
-                    resolve(root, path)
+                    resolveCandidatePath(root, path)
                 } catch (e: IllegalArgumentException) {
                     // Both resolve's own failures and Path.of's InvalidPathException carry a message.
                     throw invalid(Kind.UNSAFE_PATH, index, record, "path", e.message!!)
@@ -122,37 +125,35 @@ class CandidateParser {
         const val MAX_RECORDS = 10_000
         const val MAX_APPS = 10_000
         const val MAX_STRING_CHARACTERS = 4_096
-        private val EXPANSION = Regex("\\$(?:\\{|[A-Za-z_])")
-
-        internal fun normalizedRoot(root: Path): Path {
-            require(root.isAbsolute) { "Source root must be absolute" }
-            return root.normalize()
-        }
-
-        internal fun validatePath(path: String) {
-            val unsafe = path.isJavaBlank() || path.startsWith("/") || path.startsWith("~") || path.contains("\\")
-                || path.matches(Regex("^[A-Za-z][A-Za-z0-9+.-]*:.*"))
-                || path.indexOf('*') >= 0 || path.indexOf('?') >= 0 || path.indexOf('[') >= 0 || path.indexOf(']') >= 0
-                || path.any { it.isISOControl() }
-                || EXPANSION.containsMatchIn(path)
-            require(!unsafe) { "Path must be a literal portable relative path" }
-            require(path.split("/").none { it == ".." }) { "Parent path components are forbidden" }
-            val relative = Path.of(path)
-            require(!relative.isAbsolute && relative.normalize().toString().isNotEmpty()) {
-                "Path must name a strict descendant of the source root"
-            }
-        }
-
-        internal fun resolve(root: Path, path: String): Path {
-            validatePath(path)
-            val resolved = root.resolve(path).normalize()
-            require(resolved != root && resolved.startsWith(root)) { "Path must name a strict descendant of the source root" }
-            return resolved
-        }
-
-        private fun rejected(root: Path, e: Invalid): CandidateCatalog.Snapshot =
-            CandidateCatalog.Snapshot.of(e.diagnostic.source, root, listOf(), listOf(e.diagnostic))
     }
+}
+
+private val EXPANSION = Regex("\\$(?:\\{|[A-Za-z_])")
+
+internal fun normalizedSourceRoot(root: Path): Path {
+    require(root.isAbsolute) { "Source root must be absolute" }
+    return root.normalize()
+}
+
+internal fun validateCandidatePath(path: String) {
+    val unsafe = path.isJavaBlank() || path.startsWith("/") || path.startsWith("~") || path.contains("\\")
+        || path.matches(Regex("^[A-Za-z][A-Za-z0-9+.-]*:.*"))
+        || path.indexOf('*') >= 0 || path.indexOf('?') >= 0 || path.indexOf('[') >= 0 || path.indexOf(']') >= 0
+        || path.any { it.isISOControl() }
+        || EXPANSION.containsMatchIn(path)
+    require(!unsafe) { "Path must be a literal portable relative path" }
+    require(path.split("/").none { it == ".." }) { "Parent path components are forbidden" }
+    val relative = Path.of(path)
+    require(!relative.isAbsolute && relative.normalize().toString().isNotEmpty()) {
+        "Path must name a strict descendant of the source root"
+    }
+}
+
+internal fun resolveCandidatePath(root: Path, path: String): Path {
+    validateCandidatePath(path)
+    val resolved = root.resolve(path).normalize()
+    require(resolved != root && resolved.startsWith(root)) { "Path must name a strict descendant of the source root" }
+    return resolved
 }
 
 // File shape of a candidate list. Every value is optional here so that a missing key and a blank value are

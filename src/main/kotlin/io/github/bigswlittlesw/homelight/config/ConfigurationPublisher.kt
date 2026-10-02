@@ -17,7 +17,7 @@ class ConfigurationPublisher {
             Files.createDirectories(parent)
             val temporary = Files.createTempFile(parent, ".homelight-", ".json")
             try {
-                Files.writeString(temporary, json(draft), StandardCharsets.UTF_8)
+                Files.writeString(temporary, configurationJson(draft), StandardCharsets.UTF_8)
                 // A hard-link creation is an atomic create-if-absent operation. Unlike move(REPLACE_EXISTING),
                 // it cannot replace a configuration created concurrently.
                 Files.createLink(destination, temporary)
@@ -30,25 +30,23 @@ class ConfigurationPublisher {
             throw ConfigurationException("Unable to create configuration $destination", exception)
         }
     }
+}
 
-    companion object {
-        /** Pretty-printed for hand editing. Keys keep declaration order, and absent (null) values are omitted. */
-        private val OUTPUT = Json { prettyPrint = true }
+/** Pretty-printed for hand editing. Keys keep declaration order, and absent (null) values are omitted. */
+private val OUTPUT = Json { prettyPrint = true }
 
-        internal fun json(draft: ConfigurationDraft): String {
-            val relocations = draft.relocations.map { relocation ->
-                RelocationFile(
-                    relocation.sourcePath.toString(), relocation.targetPath.toString(),
-                    relocation.whenSourceAndTargetDirectoriesExist?.value, relocation.whenOnlyTargetExists?.value,
-                    relocation.whenAdoptingTarget?.value, relocation.sourceArchiveRoot?.toString(),
-                )
-            }
-            val homelight = HomeLightFile(
-                targetRoot = draft.targetRoot.toString(),
-                discovery = draft.sharedList?.let { DiscoveryFile(it.toString()) },
-                relocations = relocations,
-            )
-            return OUTPUT.encodeToString(ConfigurationFile.serializer(), ConfigurationFile(homelight)) + "\n"
-        }
+internal fun configurationJson(draft: ConfigurationDraft): String {
+    val relocations = draft.relocations.map { relocation ->
+        RelocationFile(
+            relocation.sourcePath.toString(), relocation.targetPath.toString(),
+            relocation.whenSourceAndTargetDirectoriesExist?.value, relocation.whenOnlyTargetExists?.value,
+            relocation.whenAdoptingTarget?.value, relocation.sourceArchiveRoot?.toString(),
+        )
     }
+    val homelight = HomeLightFile(
+        targetRoot = draft.targetRoot.toString(),
+        discovery = draft.sharedList?.let { DiscoveryFile(it.toString()) },
+        relocations = relocations,
+    )
+    return OUTPUT.encodeToString(ConfigurationFile.serializer(), ConfigurationFile(homelight)) + "\n"
 }

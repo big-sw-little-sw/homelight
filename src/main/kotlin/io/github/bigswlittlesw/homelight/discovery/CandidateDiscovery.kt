@@ -348,15 +348,13 @@ class CandidateDiscovery internal constructor(
 
         data class Failure(val failure: Exception, override val finished: Long) : Completion<Nothing>
     }
-
-    companion object {
-        private const val SOURCE_NANOS = 5_000_000_000L
-
-        internal const val METADATA_NANOS = 5_000_000_000L
-
-        private val PROCESS_LANES = Lanes()
-    }
 }
+
+private const val SOURCE_NANOS = 5_000_000_000L
+
+internal const val METADATA_NANOS = 5_000_000_000L
+
+private val PROCESS_LANES = CandidateDiscovery.Lanes()
 
 private class NotRegular(path: Path) : IOException("Shared source is not a regular file: $path")
 

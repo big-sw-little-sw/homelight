@@ -55,7 +55,7 @@ object CandidateCatalog {
             require(
                 definitions.all { definition ->
                     definition.source == source
-                            && definition.sourcePath == CandidateParser.resolve(root, definition.originalPath)
+                            && definition.sourcePath == resolveCandidatePath(root, definition.originalPath)
                 },
             ) { "Definition does not belong to this source/root" }
             require(diagnostics.all { diagnostic -> diagnostic.source == source }) {
@@ -70,7 +70,7 @@ object CandidateCatalog {
                 source: CandidateSource, root: Path, definitions: List<CandidateDefinition>,
                 diagnostics: List<CandidateDiagnostic>,
             ): Snapshot = Snapshot(
-                source, CandidateParser.normalizedRoot(root),
+                source, normalizedSourceRoot(root),
                 definitions.toList(), diagnostics.toList(),
             )
         }
