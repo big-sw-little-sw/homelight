@@ -98,7 +98,6 @@ class ReconciliationExecutor {
     private fun apply(action: ReconciliationAction): String = when (action) {
         is ReconciliationAction.CreateDirectory -> { createDirectory(action); "completed" }
         is ReconciliationAction.EnsureDirectory -> { ensureDirectory(action); "completed" }
-        is ReconciliationAction.CopyDirectory -> { copyDirectory(action); "completed" }
         is ReconciliationAction.MigrateDirectoryForPublication -> migrateDirectoryForPublication(action)
         is ReconciliationAction.ArchiveDirectory -> { archiveDirectory(action); "completed" }
         is ReconciliationAction.DeleteDirectory -> { deleteDirectory(action); "completed" }
@@ -125,14 +124,6 @@ class ReconciliationExecutor {
                         + " but found " + state.name.lowercase(Locale.ROOT),
             )
         }
-    }
-
-    private fun copyDirectory(action: ReconciliationAction.CopyDirectory) {
-        requireState(action.path, action.expectedSourceState)
-        requireState(action.target, action.expectedTargetState)
-        Files.createDirectory(action.target)
-        Files.walkFileTree(action.path, CopyVisitor(action.path, action.target))
-        verifyCopy(action.path, action.target)
     }
 
     private fun migrateDirectoryForPublication(action: ReconciliationAction.MigrateDirectoryForPublication): String {

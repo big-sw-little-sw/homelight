@@ -12,7 +12,6 @@ sealed interface ReconciliationAction {
         get() = when (this) {
             is CreateDirectory -> "create-directory"
             is EnsureDirectory -> "ensure-directory"
-            is CopyDirectory -> "copy-directory"
             is MigrateDirectoryForPublication -> "migrate-directory-for-publication"
             is ArchiveDirectory -> "archive-directory"
             is DeleteDirectory -> "delete-directory"
@@ -28,7 +27,7 @@ sealed interface ReconciliationAction {
     val destructive: Boolean
         get() = when (this) {
             is DeleteDirectory, is ReplaceDirectoryWithSymlink, is ReplaceSymlink -> true
-            is CreateDirectory, is EnsureDirectory, is CopyDirectory, is MigrateDirectoryForPublication,
+            is CreateDirectory, is EnsureDirectory, is MigrateDirectoryForPublication,
             is ArchiveDirectory, is CreateSymlink, is NoOp, is LeaveUnchanged, is Blocked -> false
         }
 
@@ -36,7 +35,7 @@ sealed interface ReconciliationAction {
     val mutatesFilesystem: Boolean
         get() = when (this) {
             is NoOp, is LeaveUnchanged, is Blocked -> false
-            is CreateDirectory, is EnsureDirectory, is CopyDirectory, is MigrateDirectoryForPublication,
+            is CreateDirectory, is EnsureDirectory, is MigrateDirectoryForPublication,
             is ArchiveDirectory, is DeleteDirectory, is CreateSymlink, is ReplaceDirectoryWithSymlink,
             is ReplaceSymlink -> true
         }
@@ -47,12 +46,6 @@ sealed interface ReconciliationAction {
 
     /** Creates a prerequisite directory when absent and refuses files or symlinks. */
     data class EnsureDirectory(override val path: Path) : ReconciliationAction
-
-    /** Copies a source tree into an exclusively created target, leaving the source intact on failure. */
-    data class CopyDirectory(
-        override val path: Path, val target: Path, val expectedSourceState: PathState = PathState.DIRECTORY,
-        val expectedTargetState: PathState = PathState.ABSENT,
-    ) : ReconciliationAction
 
     /**
      * Migrates a verified source copy for target-local atomic publication.

@@ -154,7 +154,7 @@ internal object ApplyView {
     fun affectedPath(action: ReconciliationAction): String = when (action) {
         is ReconciliationAction.EnsureDirectory -> "Parent directory: "
         is ReconciliationAction.CreateDirectory -> "Create at: "
-        is ReconciliationAction.CopyDirectory, is ReconciliationAction.MigrateDirectoryForPublication -> "Copy from: "
+        is ReconciliationAction.MigrateDirectoryForPublication -> "Copy from: "
         is ReconciliationAction.ArchiveDirectory -> "Archive from: "
         is ReconciliationAction.DeleteDirectory -> "Delete at: "
         is ReconciliationAction.CreateSymlink, is ReconciliationAction.ReplaceDirectoryWithSymlink,
@@ -165,7 +165,6 @@ internal object ApplyView {
 
     fun destination(action: ReconciliationAction): String = when (action) {
         is ReconciliationAction.ArchiveDirectory -> "Archive: " + action.target
-        is ReconciliationAction.CopyDirectory -> "Copy to: " + action.target
         is ReconciliationAction.MigrateDirectoryForPublication -> "Publish to: " + action.target
         is ReconciliationAction.CreateSymlink -> "Link to: " + action.target
         is ReconciliationAction.ReplaceDirectoryWithSymlink -> "Link to: " + action.target
@@ -177,7 +176,6 @@ internal object ApplyView {
 
     private fun destinationPath(action: ReconciliationAction): Path? = when (action) {
         is ReconciliationAction.ArchiveDirectory -> action.target
-        is ReconciliationAction.CopyDirectory -> action.target
         is ReconciliationAction.MigrateDirectoryForPublication -> action.target
         is ReconciliationAction.CreateSymlink -> action.target
         is ReconciliationAction.ReplaceDirectoryWithSymlink -> action.target
@@ -190,7 +188,6 @@ internal object ApplyView {
     private fun actionLabel(action: ReconciliationAction): String = when (action) {
         is ReconciliationAction.EnsureDirectory -> "Ensure parent directory"
         is ReconciliationAction.CreateDirectory -> "Create directory"
-        is ReconciliationAction.CopyDirectory -> "Copy directory"
         is ReconciliationAction.MigrateDirectoryForPublication -> "Copy, verify and publish"
         is ReconciliationAction.ArchiveDirectory -> "Archive source"
         is ReconciliationAction.DeleteDirectory -> "Delete directory"

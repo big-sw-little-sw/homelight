@@ -23,7 +23,6 @@ internal data class ActionJson(
 
 internal fun actionJson(action: ReconciliationAction): ActionJson {
     val target = when (action) {
-        is ReconciliationAction.CopyDirectory -> action.target
         is ReconciliationAction.MigrateDirectoryForPublication -> action.target
         is ReconciliationAction.ArchiveDirectory -> action.target
         is ReconciliationAction.CreateSymlink -> action.target
