@@ -14,8 +14,7 @@ class WorkspaceObservationTest {
 
     @Test
     fun unconfiguredWhenDefaultPathDoesNotExist(@TempDir tempDir: Path) {
-        val workflow = PlanWorkflow()
-        val result = workflow.loadPlan(tempDir.resolve(".homelight.json"))
+        val result = planModel(ConfigurationEvaluation().load(tempDir.resolve(".homelight.json")))
 
         // If it's not the default path and doesn't exist, it's invalid
         assertInstanceOf(PlanModel.Invalid::class.java, result)
@@ -40,8 +39,7 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -68,8 +66,7 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -96,8 +93,7 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -123,8 +119,7 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -152,8 +147,7 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -203,8 +197,7 @@ class WorkspaceObservationTest {
                 sourceB, targetB,
                 sourceC, targetC))
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Configured::class.java, model)
         val configured = model as PlanModel.Configured
@@ -227,8 +220,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, "{\"invalid\": : }")
 
-        val workflow = PlanWorkflow()
-        val model = workflow.loadPlan(config)
+        val model = planModel(ConfigurationEvaluation().load(config))
 
         assertInstanceOf(PlanModel.Invalid::class.java, model)
     }
