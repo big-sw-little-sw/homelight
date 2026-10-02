@@ -7,18 +7,20 @@ import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.fs.PathInspector
+import io.github.bigswlittlesw.homelight.fs.PathObservation
+import io.github.bigswlittlesw.homelight.fs.PathState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
 class ReconciliationPlannerTest {
     @Test
-    fun sourceDirectoryWithAbsentTargetRequiresStagedPublication() {
-        val root = Files.createTempDirectory("homelight")
+    fun sourceDirectoryWithAbsentTargetRequiresStagedPublication(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
 
         val plan = plan(Relocation(source, root.resolve("local/cache")))
@@ -30,8 +32,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun bothDirectoriesRequireADecisionByDefault() {
-        val root = Files.createTempDirectory("homelight")
+    fun bothDirectoriesRequireADecisionByDefault(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
@@ -42,8 +43,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun leaveUnchangedIsSuccessfulButNotConverged() {
-        val root = Files.createTempDirectory("homelight")
+    fun leaveUnchangedIsSuccessfulButNotConverged(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
@@ -55,8 +55,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun onlyTargetRequiresAdoptTargetDecision() {
-        val root = Files.createTempDirectory("homelight")
+    fun onlyTargetRequiresAdoptTargetDecision(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         val target = Files.createDirectories(root.resolve("local/cache"))
 
@@ -68,8 +67,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun archiveSourceUsesADeterministicPath() {
-        val root = Files.createTempDirectory("homelight")
+    fun archiveSourceUsesADeterministicPath(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
@@ -85,8 +83,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun refusesFilesAndTargetSymlinks() {
-        val root = Files.createTempDirectory("homelight")
+    fun refusesFilesAndTargetSymlinks(@TempDir root: Path) {
         val fileSource = Files.writeString(root.resolve("source-file"), "value")
         val filePlan = plan(Relocation(fileSource, root.resolve("target")))
 
@@ -101,8 +98,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun repairsBrokenLinksOnlyWhenTheTargetIsARealDirectory() {
-        val root = Files.createTempDirectory("homelight")
+    fun repairsBrokenLinksOnlyWhenTheTargetIsARealDirectory(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
         Files.createSymbolicLink(source, root.resolve("missing"))
@@ -117,8 +113,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun correctLinksAreTheOnlyNoOpState() {
-        val root = Files.createTempDirectory("homelight")
+    fun correctLinksAreTheOnlyNoOpState(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
@@ -131,8 +126,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun wrongLiveSourceLinksRequireARepairPlan() {
-        val root = Files.createTempDirectory("homelight")
+    fun wrongLiveSourceLinksRequireARepairPlan(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
@@ -145,14 +139,13 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun blocksInaccessibleSourcesAndOverlappingRelocations() {
-        val root = Files.createTempDirectory("homelight")
+    fun blocksInaccessibleSourcesAndOverlappingRelocations(@TempDir root: Path) {
         val relocation = Relocation(root.resolve("home/cache"), root.resolve("local/cache"))
         val inaccessible = RelocationState(relocation,
-                io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.INACCESSIBLE),
-                io.github.bigswlittlesw.homelight.fs.PathObservation(
-                        io.github.bigswlittlesw.homelight.fs.PathState.ABSENT))
+                PathObservation(
+                        PathState.INACCESSIBLE),
+                PathObservation(
+                        PathState.ABSENT))
         val inaccessiblePlan = ReconciliationPlanner().plan(listOf(inaccessible))
 
         val parent = Relocation(root.resolve("home/parent"), root.resolve("local/parent"))
@@ -165,8 +158,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun reportsTheSameRelocationProblemAsDraftValidation() {
-        val root = Files.createTempDirectory("homelight")
+    fun reportsTheSameRelocationProblemAsDraftValidation(@TempDir root: Path) {
         val home = root.resolve("home")
         val local = root.resolve("local")
         val invalidSets = listOf(
@@ -178,7 +170,7 @@ class ReconciliationPlannerTest {
             ),
         )
         for (relocations in invalidSets) {
-            val expected = assertThrows(IllegalArgumentException::class.java) {
+            val expected = assertThrows<IllegalArgumentException> {
                 validateConfiguration(ConfigurationDraft.of(local, relocations))
             }.message
             val diagnostic = ReconciliationPlanner().plan(relocations.map(::state)).diagnostics.single()

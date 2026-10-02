@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
 import java.nio.file.Path
@@ -16,7 +17,7 @@ object CandidateSetupPty {
             fixture.realTime = true
             if (args.size > 1) { fixture.block = true; fixture.releaseFile = Path.of(args[1]) }
             val app = HomeLightApp(HomeLightSession(Path.of(args[0])), discoveryFactory = fixture::get)
-            app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofChar('i'))
+            app.handleKeyEvent(KeyEvent.ofChar('i'))
             app.run()
         }
     }

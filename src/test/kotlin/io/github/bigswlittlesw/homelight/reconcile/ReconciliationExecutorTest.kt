@@ -5,25 +5,26 @@ import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 
 class ReconciliationExecutorTest {
     @Test
-    fun rejectsUnresolvedPlans() {
-        val root = Files.createTempDirectory("homelight")
+    fun rejectsUnresolvedPlans(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
 
-        assertThrows(IllegalArgumentException::class.java) { ReconciliationExecutor().execute(plan(Relocation(source, target))) }
+        assertThrows<IllegalArgumentException> { ReconciliationExecutor().execute(plan(Relocation(source, target))) }
     }
 
     @Test
-    fun createsAnAbsentSourceLinkAndTargetDirectory() {
-        val root = Files.createTempDirectory("homelight")
+    fun createsAnAbsentSourceLinkAndTargetDirectory(@TempDir root: Path) {
         val source = root.resolve("source")
         val target = root.resolve("target")
 
@@ -34,8 +35,7 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    fun archivesTheSourceBeforeLinkingToAnAdoptedTarget() {
-        val root = Files.createTempDirectory("homelight")
+    fun archivesTheSourceBeforeLinkingToAnAdoptedTarget(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
         val target = Files.createDirectories(root.resolve("local/cache"))
@@ -52,8 +52,8 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    fun reportsFailedRecoveryWhenPublicationSucceedsButSourceReplacementCannotStart() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun reportsFailedRecoveryWhenPublicationSucceedsButSourceReplacementCannotStart(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val sourceParent = Files.createDirectories(root.resolve("home"))
         val source = Files.createDirectories(sourceParent.resolve("cache"))
         Files.writeString(source.resolve("entry"), "source")
@@ -69,7 +69,7 @@ class ReconciliationExecutorTest {
                                 try {
                                     Files.setPosixFilePermissions(sourceParent, setOf(
                                             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE))
-                                } catch (exception: java.io.IOException) {
+                                } catch (exception: IOException) {
                                     throw AssertionError(exception)
                                 }
                             }
@@ -89,8 +89,7 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    fun reportsAnUnresolvedResultWhenPlannedStateIsStale() {
-        val root = Files.createTempDirectory("homelight")
+    fun reportsAnUnresolvedResultWhenPlannedStateIsStale(@TempDir root: Path) {
         val source = root.resolve("source")
         val target = root.resolve("target")
         val relocation = Relocation(source, target)
@@ -105,8 +104,8 @@ class ReconciliationExecutorTest {
     }
 
     @Test
-    fun reportsTypedDriftAtAnActionBoundaryAfterSuccessfulPreflight() {
-        val root = Files.createTempDirectory("homelight").toRealPath()
+    fun reportsTypedDriftAtAnActionBoundaryAfterSuccessfulPreflight(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
         val plan = plan(Relocation(source, target))
@@ -118,7 +117,7 @@ class ReconciliationExecutorTest {
                 if (action.action is ReconciliationAction.EnsureDirectory && action.action.path.equals(target.parent)) {
                     try {
                         Files.createDirectory(target)
-                    } catch (exception: java.io.IOException) {
+                    } catch (exception: IOException) {
                         throw AssertionError(exception)
                     }
                 }

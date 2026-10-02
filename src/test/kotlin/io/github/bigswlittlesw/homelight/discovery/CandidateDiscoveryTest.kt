@@ -12,14 +12,15 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProb
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceStatus
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.homelight.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTimeout
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
@@ -34,8 +35,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.locks.LockSupport
-import java.util.function.BooleanSupplier
 import java.util.function.Predicate
 
 class CandidateDiscoveryTest {
@@ -170,7 +169,7 @@ class CandidateDiscoveryTest {
                     && lanes.bundled.availablePermits() == 1 }
         }
         assertTrue(discovery.snapshot().sources.isEmpty())
-        assertThrows(IllegalStateException::class.java) { discovery.refresh(temporary, null) }
+        assertThrows<IllegalStateException> { discovery.refresh(temporary, null) }
     }
 
     @Test fun lateCompletionBeyondDeadlineRejectedEvenWithoutEarlierPoll() {
@@ -540,13 +539,7 @@ class CandidateDiscoveryTest {
             await { result.set(discovery.snapshot()); condition.test(result.get()) }
             return result.get()
         }
-        private fun await(condition: BooleanSupplier) {
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4)
-            while (!condition.getAsBoolean()) {
-                if (System.nanoTime() >= deadline) fail<Unit>("Controlled work did not complete")
-                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1))
-            }
-        }
+        private fun await(condition: () -> Boolean) = pollUntil("Controlled work did not complete", condition)
     }
 
     private class Gate {

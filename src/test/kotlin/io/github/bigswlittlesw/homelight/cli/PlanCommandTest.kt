@@ -1,16 +1,20 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
+import java.nio.file.Path
 
 class PlanCommandTest {
 
     @Test
-    fun pathOverridesAffectOnlyFirstRelocationAndPreserveJsonContract(@org.junit.jupiter.api.io.TempDir temporary: java.nio.file.Path) {
+    fun pathOverridesAffectOnlyFirstRelocationAndPreserveJsonContract(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val config = root.resolve("config.json")
         val json = ("""
@@ -36,8 +40,8 @@ class PlanCommandTest {
 
         assertEquals(0, command.execute("plan", "-c", config.toString(), "--json",
             "--source-path", source.toString(), "--target-path", target.toString()))
-        val expected = io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation().loadRequired(config,
-            io.github.bigswlittlesw.homelight.config.ConfigurationLoader.PathOverride(source, target))
+        val expected = ConfigurationEvaluation().loadRequired(config,
+            ConfigurationLoader.PathOverride(source, target))
         val rendered = StringWriter()
         renderPlanJson(expected.plan, PrintWriter(rendered, true))
         assertEquals(rendered.toString(), out.toString())
@@ -52,8 +56,7 @@ class PlanCommandTest {
     }
 
     @Test
-    fun rendersPlanAsJson() {
-        val root = Files.createTempDirectory("homelight")
+    fun rendersPlanAsJson(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
         val config = root.resolve("config.json")
@@ -80,8 +83,7 @@ class PlanCommandTest {
     }
 
     @Test
-    fun rendersPlanAsJsonWithSubcommandShortConfig() {
-        val root = Files.createTempDirectory("homelight")
+    fun rendersPlanAsJsonWithSubcommandShortConfig(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
         val config = root.resolve("config.json")
@@ -108,8 +110,7 @@ class PlanCommandTest {
     }
 
     @Test
-    fun rendersPlanAsJsonWithTopLevelConfig() {
-        val root = Files.createTempDirectory("homelight")
+    fun rendersPlanAsJsonWithTopLevelConfig(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
         val config = root.resolve("config.json")
@@ -136,8 +137,7 @@ class PlanCommandTest {
     }
 
     @Test
-    fun rendersPlanAsJsonWithTopLevelShortConfig() {
-        val root = Files.createTempDirectory("homelight")
+    fun rendersPlanAsJsonWithTopLevelShortConfig(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
         val config = root.resolve("config.json")
@@ -164,8 +164,7 @@ class PlanCommandTest {
     }
 
     @Test
-    fun nonInteractivePlanWithoutJsonFailsGracefully() {
-        val root = Files.createTempDirectory("homelight")
+    fun nonInteractivePlanWithoutJsonFailsGracefully(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
         val config = root.resolve("config.json")
@@ -194,7 +193,7 @@ class PlanCommandTest {
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
-        assertEquals(0, command.execute("plan", "--config", io.github.bigswlittlesw.homelight.config.ConfigurationLoader.DEFAULT_PATH.toString(), "--json"))
+        assertEquals(0, command.execute("plan", "--config", ConfigurationLoader.DEFAULT_PATH.toString(), "--json"))
         assertTrue(out.toString().contains("\"relocations\":[]"))
     }
 }

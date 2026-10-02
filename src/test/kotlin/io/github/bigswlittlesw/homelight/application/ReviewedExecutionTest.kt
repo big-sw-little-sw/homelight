@@ -6,10 +6,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -65,7 +65,7 @@ class ReviewedExecutionTest {
         assertFalse(result.succeeded())
         assertFalse(result.stale)
         assertNull(result.execution)
-        assertEquals(java.util.List.of("worker unavailable"), result.diagnostics)
+        assertEquals(listOf("worker unavailable"), result.diagnostics)
         assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertSame(completion, review.start { task -> fail<Unit>("Rejected review cannot restart") })
         assertFalse(Files.exists(directory.resolve("local")))
@@ -88,10 +88,10 @@ class ReviewedExecutionTest {
     @Test
     fun unresolvedAndBlockedPlansAreRejectedAtCapture() {
         Files.createDirectories(directory.resolve("local/cache"))
-        assertThrows(IllegalArgumentException::class.java) { ReviewedExecution(plan("cache")) }
+        assertThrows<IllegalArgumentException> { ReviewedExecution(plan("cache")) }
         Files.createDirectories(directory.resolve("home"))
         Files.writeString(directory.resolve("home/cache"), "unsupported source file")
-        assertThrows(IllegalArgumentException::class.java) { ReviewedExecution(plan("cache")) }
+        assertThrows<IllegalArgumentException> { ReviewedExecution(plan("cache")) }
         assertEquals("unsupported source file", Files.readString(directory.resolve("home/cache")))
     }
 

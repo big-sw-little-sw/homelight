@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -33,13 +34,13 @@ class PlanModelTest {
     }
 
     @Test
-    fun plansStagedPublicationForExistingSource() {
-        val root = Files.createTempDirectory("homelight-plan-test").toRealPath()
+    fun plansStagedPublicationForExistingSource(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         Files.writeString(source.resolve("file.txt"), "hello")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {
                   "homelight": {
@@ -73,13 +74,13 @@ class PlanModelTest {
     }
 
     @Test
-    fun detectsConflictWhenOnlyTargetExistsAndProvidesTypedResolutions() {
-        val root = Files.createTempDirectory("homelight-plan-test").toRealPath()
+    fun detectsConflictWhenOnlyTargetExistsAndProvidesTypedResolutions(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("file.txt"), "target content")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {
                   "homelight": {
@@ -125,13 +126,13 @@ class PlanModelTest {
     }
 
     @Test
-    fun detectsConflictWhenBothDirectoriesExistAndProvidesAllResolutions() {
-        val root = Files.createTempDirectory("homelight-plan-test").toRealPath()
+    fun detectsConflictWhenBothDirectoriesExistAndProvidesAllResolutions(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("local/archive")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {
                   "homelight": {
@@ -168,12 +169,12 @@ class PlanModelTest {
     }
 
     @Test
-    fun resolvesWithDiscardBothProducesDiscardBadgeAndDestructiveWarning() {
-        val root = Files.createTempDirectory("homelight-plan-test").toRealPath()
+    fun resolvesWithDiscardBothProducesDiscardBadgeAndDestructiveWarning(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {
                   "homelight": {
@@ -198,14 +199,14 @@ class PlanModelTest {
     }
 
     @Test
-    fun handlesConvergedAndNoOpRelocation() {
-        val root = Files.createTempDirectory("homelight-plan-test").toRealPath()
+    fun handlesConvergedAndNoOpRelocation(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
         Files.createSymbolicLink(source, target)
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {
                   "homelight": {

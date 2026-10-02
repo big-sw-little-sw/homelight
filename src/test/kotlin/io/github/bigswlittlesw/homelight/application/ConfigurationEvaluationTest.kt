@@ -7,14 +7,14 @@ import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -71,7 +71,7 @@ class ConfigurationEvaluationTest {
             DecisionChoice.LEAVE_UNCHANGED -> mapOf("when-source-and-target-directories-exist" to "leave-unchanged")
             DecisionChoice.DISCARD_BOTH -> mapOf("when-source-and-target-directories-exist" to "discard")
         }
-        val policies = java.util.LinkedHashMap<String, String>()
+        val policies = LinkedHashMap<String, String>()
         policies.put("when-source-and-target-directories-exist", "prompt")
         policies.put("when-only-target-exists", "prompt")
         policies.put("source-archive-root", root.resolve("archive").toString())
@@ -150,15 +150,15 @@ class ConfigurationEvaluationTest {
         assertTrue(session.requestApply())
         val review = session.applyModel()
         val before = session.evaluation()
-        assertThrows(IllegalArgumentException::class.java) { session.choose(root.resolve("unknown"), DecisionChoice.ADOPT_TARGET) }
-        assertThrows(IllegalArgumentException::class.java) { session.choose(root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
+        assertThrows<IllegalArgumentException> { session.choose(root.resolve("unknown"), DecisionChoice.ADOPT_TARGET) }
+        assertThrows<IllegalArgumentException> { session.choose(root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
         assertSame(before, session.evaluation())
         assertSame(review, session.applyModel())
 
         bothDirectories("other-source", "other-target")
         write(entry("other-source", "other-target"))
         val noArchive = loaded()
-        assertThrows(IllegalArgumentException::class.java) {
+        assertThrows<IllegalArgumentException> {
             evaluator.choose(noArchive, root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE) }
     }
 
@@ -219,7 +219,7 @@ class ConfigurationEvaluationTest {
         assertFalse(duplicate.plan.diagnostics.isEmpty())
         assertTrue(duplicate.draft.isEmpty())
         assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, replanned.discardedChoices.first().reason)
-        assertThrows(IllegalArgumentException::class.java) { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
+        assertThrows<IllegalArgumentException> { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
     }
 
     @Test
@@ -253,7 +253,7 @@ class ConfigurationEvaluationTest {
         Files.delete(config)
         assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
         assertInstanceOf(PlanModel.Invalid::class.java, planModel(evaluator.load(config)))
-        assertThrows(ConfigurationException::class.java) { evaluator.loadRequired(config) }
+        assertThrows<ConfigurationException> { evaluator.loadRequired(config) }
         Files.createDirectory(config)
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
     }
@@ -268,12 +268,12 @@ class ConfigurationEvaluationTest {
         val tasks = mutableListOf<Runnable>()
         session.confirmApply(tasks::add)
         val before = session.evaluation()
-        assertThrows(IllegalStateException::class.java) { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
+        assertThrows<IllegalStateException> { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
         session.refresh()
         assertSame(before, session.evaluation())
         tasks.first().run()
         assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
-        assertThrows(IllegalStateException::class.java) { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
+        assertThrows<IllegalStateException> { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, session.discardedChoices().first().reason)

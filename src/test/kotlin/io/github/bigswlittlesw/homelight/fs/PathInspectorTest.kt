@@ -3,12 +3,13 @@ package io.github.bigswlittlesw.homelight.fs
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
+import java.nio.file.Path
 
 class PathInspectorTest {
     @Test
-    fun reportsFilesystemStatesWithoutFollowingLinks() {
-        val root = Files.createTempDirectory("homelight")
+    fun reportsFilesystemStatesWithoutFollowingLinks(@TempDir root: Path) {
         val expected = root.resolve("local")
         Files.createDirectories(expected)
         val inspector = PathInspector()
@@ -42,8 +43,7 @@ class PathInspectorTest {
     }
 
     @Test
-    fun treatsAnInaccessibleSymlinkDestinationAsInaccessible() {
-        val root = Files.createTempDirectory("homelight")
+    fun treatsAnInaccessibleSymlinkDestinationAsInaccessible(@TempDir root: Path) {
         val expected = root.resolve("local")
         val observation = PathObservation(PathState.SYMLINK, expected,
                 SymlinkTargetAvailability.INACCESSIBLE)

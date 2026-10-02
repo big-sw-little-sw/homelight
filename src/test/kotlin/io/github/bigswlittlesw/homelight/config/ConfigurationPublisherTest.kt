@@ -1,12 +1,15 @@
 package io.github.bigswlittlesw.homelight.config
 
+import dev.tamboui.tui.event.KeyCode
+import dev.tamboui.tui.event.KeyEvent
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.tui.HomeLightApp
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -25,7 +28,7 @@ class ConfigurationPublisherTest {
         assertFalse(Files.exists(root.resolve("home/cache")), "save must not relocate")
         session.refresh()
         assertEquals(root.resolve("local").toAbsolutePath(),
-                assertInstanceOf(io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation.Loaded::class.java,
+                assertInstanceOf(ConfigurationEvaluation.Loaded::class.java,
                         session.evaluation()).savedConfiguration.targetRoot)
         assertEquals(root.resolve("home/cache").toAbsolutePath(),
                 ConfigurationLoader().load(path).relocations.first().sourcePath)
@@ -37,9 +40,9 @@ class ConfigurationPublisherTest {
         val overlapping = relocation(root.resolve("home/a/child"), root.resolve("local/b"))
         val duplicateTarget = relocation(root.resolve("home/b"), root.resolve("local/a"))
         val publisher = ConfigurationPublisher()
-        assertThrows(IllegalArgumentException::class.java) { publisher.saveNew(path,
+        assertThrows<IllegalArgumentException> { publisher.saveNew(path,
                 ConfigurationDraft.of(root.resolve("local"), listOf(first, overlapping))) }
-        assertThrows(IllegalArgumentException::class.java) { publisher.saveNew(path,
+        assertThrows<IllegalArgumentException> { publisher.saveNew(path,
                 ConfigurationDraft.of(root.resolve("local"), listOf(first, duplicateTarget))) }
         assertFalse(Files.exists(path))
     }
@@ -47,14 +50,14 @@ class ConfigurationPublisherTest {
     @Test fun failedWriteAndExistingMalformedFileKeepTheDraftAndFile(@TempDir root: Path) {
         val draft = draft(root)
         val blockedParent = Files.writeString(root.resolve("not-a-directory"), "occupied")
-        assertThrows(ConfigurationException::class.java) {
+        assertThrows<ConfigurationException> {
             ConfigurationPublisher().saveNew(blockedParent.resolve("config.json"), draft) }
 
         val path = root.resolve("config.json")
         Files.writeString(path, "{\"homelight\": [")
-        assertThrows(ConfigurationException::class.java) { ConfigurationPublisher().saveNew(path, draft) }
+        assertThrows<ConfigurationException> { ConfigurationPublisher().saveNew(path, draft) }
         assertEquals("{\"homelight\": [", Files.readString(path))
-        assertThrows(RuntimeException::class.java) { ConfigurationLoader().load(path) }
+        assertThrows<RuntimeException> { ConfigurationLoader().load(path) }
     }
 
     @Test fun concurrentCreationPublishesExactlyOneCompleteConfiguration(@TempDir root: Path) {
@@ -73,8 +76,8 @@ class ConfigurationPublisherTest {
     @Test fun cancellingManualSetupWritesNothing(@TempDir root: Path) {
         val path = root.resolve("config.json")
         val app = HomeLightApp(HomeLightSession(path))
-        app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofChar('i'))
-        app.handleKeyEvent(dev.tamboui.tui.event.KeyEvent.ofKey(dev.tamboui.tui.event.KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofChar('i'))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
         assertFalse(Files.exists(path))
         assertFalse(app.session.requestApply())
     }

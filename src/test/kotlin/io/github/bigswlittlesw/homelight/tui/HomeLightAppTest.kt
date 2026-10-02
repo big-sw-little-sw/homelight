@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
@@ -8,28 +9,33 @@ import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanModel
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.application.PlanSummary
+import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.fs.SymlinkTargetAvailability
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicReference
 
 class HomeLightAppTest {
 
     @Test
-    fun createsRootRelativeRowsWithDefaultPolicies(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun createsRootRelativeRowsWithDefaultPolicies(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val config = root.resolve("new/config.json")
         val app = HomeLightApp(HomeLightSession(config))
@@ -48,7 +54,7 @@ class HomeLightAppTest {
         assertTrue(validation.contains("Validation: valid"), validation)
         app.handleKeyEvent(KeyEvent.ofChar('s'))
 
-        val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
+        val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath)
         assertEquals(root.resolve("local/.cache/tool"), relocation.targetPath)
         assertNull(relocation.whenSourceAndTargetDirectoriesExist)
@@ -56,7 +62,7 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@TempDir temporary: Path) {
         val app = HomeLightApp(HomeLightSession(temporary.resolve("config.json")))
         app.handleKeyEvent(KeyEvent.ofChar('i'))
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
@@ -100,7 +106,7 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun rejectsUnsafeRelativeRowsUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun rejectsUnsafeRelativeRowsUntilCorrected(@TempDir temporary: Path) {
         for (invalid in listOf("", ".", "..")) {
             val config = temporary.resolve("config-" + (if (invalid.isEmpty()) "blank" else invalid.replace('.', 'd')) + ".json")
             val app = setupWithEmptyRow(config, temporary)
@@ -114,14 +120,14 @@ class HomeLightAppTest {
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
             app.handleKeyEvent(KeyEvent.ofChar('s'))
             assertTrue(Files.exists(config), invalid)
-            val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
+            val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/nested/cache"), relocation.sourcePath)
             assertEquals(temporary.resolve("local/nested/cache"), relocation.targetPath)
         }
     }
 
     @Test
-    fun rejectsInvalidTargetsWithValidSourcesUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun rejectsInvalidTargetsWithValidSourcesUntilCorrected(@TempDir temporary: Path) {
         var index = 0
         for (invalid in listOf("", ".", "../escape")) {
             val config = temporary.resolve("invalid-target-" + index++ + ".json")
@@ -138,14 +144,14 @@ class HomeLightAppTest {
             type(app, "valid/target")
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
             app.handleKeyEvent(KeyEvent.ofChar('s'))
-            val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
+            val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/valid/source"), relocation.sourcePath)
             assertEquals(temporary.resolve("local/valid/target"), relocation.targetPath)
         }
     }
 
     @Test
-    fun rejectsRelativeArchiveRootUntilCorrected(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun rejectsRelativeArchiveRootUntilCorrected(@TempDir temporary: Path) {
         val config = temporary.resolve("archive.json")
         val app = setupWithEmptyRow(config, temporary)
         type(app, "nested/cache")
@@ -161,7 +167,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
         app.handleKeyEvent(KeyEvent.ofChar('s'))
 
-        val relocation = io.github.bigswlittlesw.homelight.config.ConfigurationLoader().load(config).relocations.first()
+        val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(temporary.resolve("archive"), relocation.sourceArchiveRoot)
         assertFalse(Files.exists(temporary.resolve("home/nested/cache")), "saving must not relocate")
     }
@@ -176,7 +182,7 @@ class HomeLightAppTest {
         val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
             listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
         val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
-        val progress = java.util.concurrent.atomic.AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
+        val progress = AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
         val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
             override fun applyModel(): ApplyModel {
                 return progress.get()
@@ -224,7 +230,7 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun reviewsConfirmsAppliesAndReturnsToRefreshedStatus(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun reviewsConfirmsAppliesAndReturnsToRefreshedStatus(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
@@ -241,7 +247,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('2'))
         assertEquals(Screen.APPLY, app.activeScreen)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        assertTrue(app.session.applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Confirmation)
+        assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
         app.handleKeyEvent(KeyEvent.ofChar('n'))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
@@ -249,7 +255,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('y'))
         app.session.awaitExecution()
         assertTrue(Files.isSymbolicLink(source))
-        assertTrue(app.session.applyModel() is io.github.bigswlittlesw.homelight.application.ApplyModel.Result)
+        assertTrue(app.session.applyModel() is ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
         assertEquals(1, (app.planModel() as PlanModel.Configured).summary.inSync)
@@ -261,14 +267,14 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofChar('a'))
         val unchanged = app.session.applyModel()
         app.handleKeyEvent(KeyEvent.ofChar('y'))
-        org.junit.jupiter.api.Assertions.assertSame(unchanged, app.session.applyModel())
+        assertSame(unchanged, app.session.applyModel())
         assertFalse(app.session.isApplying())
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
     }
 
     @Test
-    fun runningApplyConsumesQuitRefreshAndRepeatedConfirmation(@org.junit.jupiter.api.io.TempDir temporary: Path) {
+    fun runningApplyConsumesQuitRefreshAndRepeatedConfirmation(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val config = Files.writeString(root.resolve("config.json"), ("""
                 {"homelight": {
@@ -284,9 +290,9 @@ class HomeLightAppTest {
         app.session.confirmApply(Executor { tasks.add(it) })
         val running = app.session.applyModel()
         for (key in charArrayOf('r', 'y', 'a', '1', '2', 'q')) {
-            assertEquals(dev.tamboui.toolkit.event.EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)))
+            assertEquals(EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)))
             assertEquals(Screen.APPLY, app.activeScreen)
-            org.junit.jupiter.api.Assertions.assertSame(running, app.session.applyModel())
+            assertSame(running, app.session.applyModel())
         }
         tasks.first().run()
         assertTrue(Files.isSymbolicLink(root.resolve("source")))
@@ -358,8 +364,8 @@ class HomeLightAppTest {
         val rel3 = Relocation(Path.of("/source3"), Path.of("/target3"))
 
         // plan1 is CONFLICT, plan2 and plan3 are CONVERGED
-        val conflict = io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict(
-            rel1.sourcePath, "conflict", listOf(io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT))
+        val conflict = ReconciliationConflict(
+            rel1.sourcePath, "conflict", listOf(ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT))
         val plan1 = RelocationPlan(rel1, RelocationOutcome.UNRESOLVED, listOf(), listOf(), conflict)
         val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf())
         val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf())
@@ -451,13 +457,13 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun resolvesConflictOnPlanScreenWithSpaceOrEnter() {
-        val root = Files.createTempDirectory("homelight-app-test").toRealPath()
+    fun resolvesConflictOnPlanScreenWithSpaceOrEnter(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("file.txt"), "target content")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {"homelight": {
                   "target-root": "%s",
@@ -494,8 +500,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun handlesMasterDetailFocusSwitchingAndDetailCursorMovement() {
-        val root = Files.createTempDirectory("homelight-app-focus-test").toRealPath()
+    fun handlesMasterDetailFocusSwitchingAndDetailCursorMovement(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source1 = Files.createDirectories(root.resolve("home/cache1"))
         Files.writeString(source1.resolve("file1.txt"), "source content 1")
         val target1 = Files.createDirectories(root.resolve("local/cache1"))
@@ -506,7 +512,7 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {"homelight": {
                   "target-root": "%s",
@@ -597,8 +603,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun handlesDecisionSelectionAndPreservesSelectionOnResolvedItem() {
-        val root = Files.createTempDirectory("homelight-app-select-test").toRealPath()
+    fun handlesDecisionSelectionAndPreservesSelectionOnResolvedItem(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
         val source1 = Files.createDirectories(root.resolve("home/cache1"))
         Files.writeString(source1.resolve("file1.txt"), "source content 1")
         val target1 = Files.createDirectories(root.resolve("local/cache1"))
@@ -609,7 +615,7 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile("homelight", ".json")
+        val config = Files.createTempFile(root, "homelight", ".json")
         Files.writeString(config, ("""
                 {"homelight": {
                   "target-root": "%s",

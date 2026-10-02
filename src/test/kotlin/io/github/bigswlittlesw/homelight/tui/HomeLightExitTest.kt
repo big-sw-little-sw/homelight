@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -171,7 +173,7 @@ class HomeLightExitTest {
         app.switchScreen(Screen.APPLY)
         val completion = app.session.confirmApply(Executor {
             app.handleKeyEvent(KeyEvent.ofChar('q'))
-            throw java.util.concurrent.RejectedExecutionException("worker unavailable")
+            throw RejectedExecutionException("worker unavailable")
         })
         assertTrue(completion.isDone)
         assertTrue(render(app, 80, 24).contains("❯ Keep running"))
@@ -202,7 +204,7 @@ class HomeLightExitTest {
         app.render()
         assertTrue(app.exitRequested())
         assertSame(result, app.session.applyModel())
-        assertSame(failure, assertThrows(CompletionException::class.java, app.session::awaitExecution).cause)
+        assertSame(failure, assertThrows<CompletionException> { app.session.awaitExecution() }.cause)
         assertFalse(Files.exists(temporary.resolve("source")))
     }
 
