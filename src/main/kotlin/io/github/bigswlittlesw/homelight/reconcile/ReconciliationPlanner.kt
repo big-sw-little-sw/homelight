@@ -156,10 +156,10 @@ private fun unsupportedTarget(state: RelocationState): RelocationPlan =
 private fun outcome(state: RelocationState, actions: List<ReconciliationAction>): RelocationPlan =
     RelocationPlan(state.relocation, RelocationOutcome.CONVERGED, actions, listOf())
 
-/** Only planned for a broken symlink, so the source observation has a link target. */
+/** Only planned for a broken symlink with a directory target, so the source observation has a link target. */
 private fun replacementLink(state: RelocationState): ReconciliationAction.ReplaceSymlink =
     ReconciliationAction.ReplaceSymlink(
-        state.relocation.sourcePath, state.relocation.targetPath, state.source.symlinkTarget, state.target.state,
+        state.relocation.sourcePath, state.relocation.targetPath, state.source.symlinkTarget!!,
     )
 
 private fun unresolved(state: RelocationState, path: Path, reason: String): RelocationPlan = conflict(

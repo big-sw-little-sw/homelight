@@ -110,7 +110,7 @@ class ReconciliationExecutor {
     }
 
     private fun createDirectory(action: ReconciliationAction.CreateDirectory) {
-        requireState(action.path, action.expectedPathState)
+        requireState(action.path, PathState.ABSENT)
         Files.createDirectory(action.path)
     }
 
@@ -165,10 +165,7 @@ class ReconciliationExecutor {
     }
 
     private fun deleteDirectory(action: ReconciliationAction.DeleteDirectory) {
-        requireState(action.path, action.expectedPathState)
-        if (action.expectedEmpty && !inspector.inspect(action.path).emptyDirectory) {
-            throw StateDriftException("expected empty directory at " + action.path)
-        }
+        requireState(action.path, PathState.DIRECTORY)
         deleteTree(action.path)
     }
 
@@ -179,18 +176,18 @@ class ReconciliationExecutor {
     }
 
     private fun createSymlink(action: ReconciliationAction.CreateSymlink) {
-        requireState(action.path, action.expectedSourceState)
-        requireState(action.target, action.expectedTargetState)
+        requireState(action.path, PathState.ABSENT)
+        requireState(action.target, PathState.DIRECTORY)
         replaceWithLink(action.path, action.target, false)
     }
 
     private fun replaceDirectoryWithSymlink(action: ReconciliationAction.ReplaceDirectoryWithSymlink) {
         requireState(action.path, PathState.DIRECTORY)
-        requireState(action.target, action.expectedTargetState)
+        requireState(action.target, PathState.DIRECTORY)
         val temporary = prepareLink(action.path, action.target)
         try {
             requireState(action.path, PathState.DIRECTORY)
-            requireState(action.target, action.expectedTargetState)
+            requireState(action.target, PathState.DIRECTORY)
             deleteTree(action.path)
             Files.move(temporary, action.path, StandardCopyOption.ATOMIC_MOVE)
         } finally {
@@ -200,10 +197,10 @@ class ReconciliationExecutor {
 
     private fun replaceSymlink(action: ReconciliationAction.ReplaceSymlink) {
         requireState(action.path, PathState.SYMLINK)
-        requireState(action.target, action.expectedTargetState)
+        requireState(action.target, PathState.DIRECTORY)
         val actualTarget = inspector.inspect(action.path).symlinkTarget
             ?: throw StateDriftException("expected symlink at " + action.path)
-        if (action.expectedSourceTarget != null && actualTarget != action.expectedSourceTarget) {
+        if (actualTarget != action.expectedSourceTarget) {
             throw StateDriftException("expected symlink target " + action.expectedSourceTarget + " at " + action.path)
         }
         replaceWithLink(action.path, action.target, true)
