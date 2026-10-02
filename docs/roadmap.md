@@ -59,7 +59,7 @@ Status: done (PR #33).
 
 - GitHub Actions workflow: `mvn verify` (`./gradlew build` since K1) on Temurin 25 for every PR and push to `main`.
 - Branch protection on `main` requiring that check.
-- CI must resolve the TamboUI snapshot from `central.sonatype.com`.
+- CI must resolve TamboUI: from Maven Central since #88, from the Sonatype snapshot repository before.
 
 Done when: a PR shows the check and `main` cannot merge without it.
 
