@@ -153,8 +153,8 @@ internal class CandidateBrowser {
             }
         }
         if (details || diagnostics) {
-            if (key.isUp() || key.isCharIgnoreCase('k')) viewport.scroll(-1)
-            else if (key.isDown() || key.isCharIgnoreCase('j')) viewport.scroll(1)
+            if (key.isUp()) viewport.scroll(-1)
+            else if (key.isDown()) viewport.scroll(1)
             else if (key.isHome()) viewport.scroll(-Int.MAX_VALUE)
             else if (key.isEnd()) viewport.scroll(Int.MAX_VALUE)
             return -1
@@ -166,14 +166,14 @@ internal class CandidateBrowser {
             if (focused is Item.Group) {
                 if (!collapsed.remove(focused.app)) collapsed.add(focused.app)
             } else if (focused is Item.Directory) { details = true; viewport.reset() }
-        } else if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j') || key.isHome() || key.isEnd()) {
+        } else if (key.isUp() || key.isDown() || key.isHome() || key.isEnd()) {
             val items = items(draft, entriesByPath(draft))
             if (items.isNotEmpty()) {
                 val index = items.indexOfLast { same(it, focus) }
                 val next = when {
                     key.isHome() -> 0
                     key.isEnd() -> items.size - 1
-                    else -> (index + (if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1)).coerceIn(0, items.size - 1)
+                    else -> (index + (if (key.isUp()) -1 else 1)).coerceIn(0, items.size - 1)
                 }
                 focus = items[next]; message = ""; viewport.keepChoiceVisible()
             }

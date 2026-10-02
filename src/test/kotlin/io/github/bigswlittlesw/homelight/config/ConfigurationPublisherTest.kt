@@ -5,6 +5,7 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.tui.HomeLightApp
+import io.github.bigswlittlesw.homelight.tui.KEY_BINDINGS
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -76,8 +77,8 @@ class ConfigurationPublisherTest {
     @Test fun cancellingManualSetupWritesNothing(@TempDir root: Path) {
         val path = root.resolve("config.json")
         val app = HomeLightApp(HomeLightSession(path))
-        app.handleKeyEvent(KeyEvent.ofChar('i'))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
         assertFalse(Files.exists(path))
         assertFalse(app.session.requestApply())
     }

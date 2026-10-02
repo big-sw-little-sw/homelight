@@ -17,7 +17,7 @@ object CandidateSetupPty {
             fixture.realTime = true
             if (args.size > 1) { fixture.block = true; fixture.releaseFile = Path.of(args[1]) }
             val app = HomeLightApp(HomeLightSession(Path.of(args[0])), discoveryFactory = fixture::get)
-            app.handleKeyEvent(KeyEvent.ofChar('i'))
+            app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
             app.run()
         }
     }
