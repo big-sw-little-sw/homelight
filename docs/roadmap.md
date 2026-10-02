@@ -29,7 +29,7 @@ line, then continue. Update the status line when a step's state changes.
   built on Oracle Linux 8, glibc 2.17+). macOS is a development platform only.
 - Replace smallrye-config with snakeyaml (replaced by kotlinx.serialization JSON in K6b). Drop environment and system-property
   config overrides; they were an unused SmallRye side effect. Keep `${USER}` expansion.
-- Native builds default JLine to the exec terminal provider.
+- Native builds always use JLine's exec terminal provider; `-Dorg.jline.terminal.provider` does not override it (#78).
 - #25: preserve the nine POSIX permission bits on every published directory; refuse
   publication where the filesystem cannot represent them. Ownership, ACLs,
   timestamps and xattrs stay out of scope.
