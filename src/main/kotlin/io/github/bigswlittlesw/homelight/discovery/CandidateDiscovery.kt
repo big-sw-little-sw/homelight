@@ -23,10 +23,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Session-scoped discovery. `refresh`, `snapshot`, `cancel` and `close` do no filesystem I/O and never wait for
- * workers. The bundled list is parsed synchronously, the shared list is read on its own thread, and a run thread
- * resolves the root and then inspects candidates, [Workers.n] at a time, in catalog order. Paths that only the
- * shared list names form a second batch once that list is accepted. `snapshot` reads the recorded state and
- * applies the deadlines.
+ * workers. The bundled list is parsed synchronously from bytes read once per process. The shared list is read on
+ * its own thread. A run thread resolves the root and then inspects candidates, [Workers.n] at a time, in catalog
+ * order; paths that only the shared list names form a second batch once that list is accepted. `snapshot` reads
+ * the recorded state and applies the deadlines.
  *
  * The shared read and each root or candidate inspection have five seconds, measured from the start of its I/O. A
  * result that arrives later is rejected even if no snapshot was taken at the deadline.
