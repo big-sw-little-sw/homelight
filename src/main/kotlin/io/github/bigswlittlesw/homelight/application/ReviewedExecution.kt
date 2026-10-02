@@ -7,6 +7,9 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
+/** The accepted range of the visual-test delay that holds each action in its running state. */
+internal val DEBUG_STEP_DELAY_MILLIS: LongRange = 0L..60_000L
+
 /**
  * One captured plan's preflight, execution, immutable progress, and retained result.
  * Capturing performs no I/O; starting never reloads or substitutes the plan.
@@ -18,7 +21,9 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
 
     init {
         require(!plan.hasBlockedActions() && !plan.hasConflicts()) { "Review requires a resolved, unblocked plan" }
-        require(debugStepDelayMillis in 0L..60_000L) { "debug step delay must be between 0 and 60000 milliseconds" }
+        require(debugStepDelayMillis in DEBUG_STEP_DELAY_MILLIS) {
+            "debug step delay must be between ${DEBUG_STEP_DELAY_MILLIS.first} and ${DEBUG_STEP_DELAY_MILLIS.last} milliseconds"
+        }
         snapshot = ApplyModel.Confirmation(plan)
     }
 

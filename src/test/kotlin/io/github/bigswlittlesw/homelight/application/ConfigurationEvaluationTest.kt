@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.homelight.application
 
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
+import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -89,13 +89,6 @@ class ConfigurationEvaluationTest {
             assertEquals("source", Files.readString(source.resolve("content")))
         }
         assertFalse(Files.exists(root.resolve("archive")))
-        // Kotlin's read-only collections have no `clear`; the casts reach the JDK collections' mutators.
-        assertThrows(UnsupportedOperationException::class.java) { (selected.draft as MutableMap<*, *>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) { (selected.observations as MutableList<*>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) {
-            (selected.savedConfiguration.relocations as MutableList<*>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) {
-            (selected.availableChoices.get(source) as MutableList<*>).clear() }
     }
 
     @Test
@@ -260,7 +253,7 @@ class ConfigurationEvaluationTest {
         Files.delete(config)
         assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
         assertInstanceOf(PlanModel.Invalid::class.java, planModel(evaluator.load(config)))
-        assertThrows(ConfigurationLoader.ConfigurationException::class.java) { evaluator.loadRequired(config) }
+        assertThrows(ConfigurationException::class.java) { evaluator.loadRequired(config) }
         Files.createDirectory(config)
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
     }

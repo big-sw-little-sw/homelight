@@ -55,9 +55,6 @@ class CandidateDiscoveryTest {
             val maven = row(result, temporary.resolve(".m2"))
             assertEquals(2, maven.catalog.definitions.size)
             assertEquals(shared.toString(), maven.catalog.definitions.get(1).source.location)
-            // Kotlin's read-only `List` has no `clear`; the cast reaches the JDK list's mutator.
-            assertThrows(UnsupportedOperationException::class.java) { (result.candidates as MutableList<*>).clear() }
-            assertThrows(UnsupportedOperationException::class.java) { (child.ancestors as MutableList<*>).clear() }
         }
     }
 

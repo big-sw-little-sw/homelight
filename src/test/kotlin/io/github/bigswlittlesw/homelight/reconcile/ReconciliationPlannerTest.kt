@@ -1,12 +1,15 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
+import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.validateConfiguration
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -159,6 +162,30 @@ class ReconciliationPlannerTest {
         assertTrue(inaccessiblePlan.hasBlockedActions())
         assertTrue(overlapPlan.hasBlockedActions())
         assertEquals("INVALID_RELOCATION", overlapPlan.diagnostics.first().code)
+    }
+
+    @Test
+    fun reportsTheSameRelocationProblemAsDraftValidation() {
+        val root = Files.createTempDirectory("homelight")
+        val home = root.resolve("home")
+        val local = root.resolve("local")
+        val invalidSets = listOf(
+            listOf(Relocation(home.resolve("cache"), home.resolve("cache/local"))),
+            listOf(Relocation(home.resolve("a"), local.resolve("same")), Relocation(home.resolve("b"), local.resolve("same"))),
+            listOf(
+                Relocation(home.resolve("parent"), local.resolve("parent")),
+                Relocation(home.resolve("parent/child"), local.resolve("child")),
+            ),
+        )
+        for (relocations in invalidSets) {
+            val expected = assertThrows(IllegalArgumentException::class.java) {
+                validateConfiguration(ConfigurationDraft.of(local, relocations))
+            }.message
+            val diagnostic = ReconciliationPlanner().plan(relocations.map(::state)).diagnostics.single()
+            assertEquals(expected, diagnostic.message)
+            assertEquals(relocations.first().sourcePath, diagnostic.source)
+            assertEquals("INVALID_RELOCATION", diagnostic.code)
+        }
     }
 
     companion object {

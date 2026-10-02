@@ -68,7 +68,7 @@ class ConfigurationLoader {
         val whenAdoptingTarget =
             choice(fields.whenAdoptingTarget, "$path.when-adopting-target", WhenAdoptingTarget.entries) { it.value }
         val archiveRoot = fields.sourceArchiveRoot.present()?.let(::resolve)
-        if (whenAdoptingTarget == WhenAdoptingTarget.ARCHIVE_SOURCE && archiveRoot == null) {
+        if (lacksArchiveRoot(whenAdoptingTarget, archiveRoot)) {
             throw ConfigurationException("source-archive-root is required when when-adopting-target is archive-source")
         }
         return Relocation(
@@ -109,8 +109,6 @@ class ConfigurationLoader {
     }
 
     private fun missing(path: String) = ConfigurationException("Missing required key $path")
-
-    class ConfigurationException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
     companion object {
         val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".homelight.json")

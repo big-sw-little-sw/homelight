@@ -99,7 +99,7 @@ class DiscoverySettingTest {
         private fun save(path: Path, draft: ConfigurationDraft, gate: CyclicBarrier): Boolean {
             gate.await()
             try { ConfigurationPublisher().saveNew(path, draft); return true }
-            catch (expected: ConfigurationPublisher.ConfigurationException) { return false }
+            catch (expected: ConfigurationException) { return false }
         }
     }
 }

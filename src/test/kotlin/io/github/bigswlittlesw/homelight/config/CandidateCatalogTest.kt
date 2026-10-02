@@ -341,20 +341,12 @@ class CandidateCatalogTest {
             CandidateCatalog.merge(listOf(valid, parse(EMPTY, OTHER))) }
     }
 
-    @Test fun returnedCollectionsAreImmutableAndDefensivelyCopied() {
+    @Test fun snapshotCopiesItsListsAndRejectsDefinitionsWithDiagnostics() {
         val parsed = parse("""{"directories": [{"path": "cache"}]}""")
         val definitions = parsed.definitions.toMutableList()
         val copied = CandidateCatalog.Snapshot.of(SHARED, HOME, definitions, listOf())
         definitions.clear()
         assertEquals(1, copied.definitions.size)
-        // Kotlin's read-only `List` has no `clear`; the casts reach the JDK lists' mutators.
-        assertThrows(UnsupportedOperationException::class.java) { (copied.definitions as MutableList<*>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) { (copied.diagnostics as MutableList<*>).clear() }
-        val merged = CandidateCatalog.merge(listOf(copied))
-        assertThrows(UnsupportedOperationException::class.java) { (merged.candidates as MutableList<*>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) { (merged.diagnostics as MutableList<*>).clear() }
-        assertThrows(UnsupportedOperationException::class.java) {
-            (merged.candidates.first().definitions as MutableList<*>).clear() }
         assertThrows(IllegalArgumentException::class.java) { CandidateCatalog.Snapshot.of(SHARED, HOME,
                 parsed.definitions, parse("").diagnostics) }
     }

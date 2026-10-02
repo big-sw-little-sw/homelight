@@ -21,22 +21,10 @@ internal data class ActionJson(
     val message: String? = null,
 )
 
-internal fun actionJson(action: ReconciliationAction): ActionJson {
-    val target = when (action) {
-        is ReconciliationAction.MigrateDirectoryForPublication -> action.target
-        is ReconciliationAction.ArchiveDirectory -> action.target
-        is ReconciliationAction.CreateSymlink -> action.target
-        is ReconciliationAction.ReplaceDirectoryWithSymlink -> action.target
-        is ReconciliationAction.ReplaceSymlink -> action.target
-        is ReconciliationAction.EnsureDirectory, is ReconciliationAction.CreateDirectory,
-        is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
-        is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> null
-    }
-    return ActionJson(
-        action.type, action.path.toString(), action.destructive,
-        target = target?.toString(), reason = (action as? ReconciliationAction.Blocked)?.reason,
-    )
-}
+internal fun actionJson(action: ReconciliationAction): ActionJson = ActionJson(
+    action.type, action.path.toString(), action.destructive,
+    target = action.destination?.toString(), reason = (action as? ReconciliationAction.Blocked)?.reason,
+)
 
 /**
  * Encodes one JSON response on a single line.

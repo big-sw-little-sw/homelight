@@ -3,6 +3,8 @@ package io.github.bigswlittlesw.homelight.reconcile
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.config.intersects
+import io.github.bigswlittlesw.homelight.config.relocationProblem
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
 import java.nio.file.Path
@@ -10,10 +12,16 @@ import java.nio.file.Path
 /** Computes safe filesystem actions from observations and never mutates the filesystem. */
 class ReconciliationPlanner {
     fun plan(states: List<RelocationState>): ReconciliationPlan {
-        val diagnostics = validateConfiguration(states)
-        if (diagnostics.isNotEmpty()) {
+        val problem = relocationProblem(states.map { it.relocation })
+        if (problem != null) {
             return ReconciliationPlan(
-                states.map { state -> blocked(state, "relocation configuration is invalid") }, diagnostics, states,
+                states.map { state -> blocked(state, "relocation configuration is invalid") },
+                listOf(
+                    ReconciliationDiagnostic(
+                        ReconciliationDiagnostic.Severity.ERROR, problem.source, "INVALID_RELOCATION", problem.message,
+                    ),
+                ),
+                states,
             )
         }
         return ReconciliationPlan(states.map { plan(it) }, listOf(), states)
@@ -106,7 +114,7 @@ private fun adoptTarget(state: RelocationState): RelocationPlan =
 
 private fun archiveSource(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
-    // validateConfiguration has already blocked archive-source without an archive root.
+    // relocationProblem has already blocked archive-source without an archive root.
     val archivePath = relocation.sourceArchiveRoot!!.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
     if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
         return blocked(state, "source archive path overlaps a relocation path")
@@ -178,38 +186,3 @@ private fun blocked(state: RelocationState, reason: String): RelocationPlan = Re
     state.relocation, RelocationOutcome.UNRESOLVED,
     listOf(ReconciliationAction.Blocked(state.relocation.sourcePath, reason)), listOf(),
 )
-
-private fun validateConfiguration(states: List<RelocationState>): List<ReconciliationDiagnostic> {
-    for (state in states) {
-        val relocation = state.relocation
-        if (relocation.whenAdoptingTarget == WhenAdoptingTarget.ARCHIVE_SOURCE && relocation.sourceArchiveRoot == null) {
-            return listOf(configurationError(relocation.sourcePath, "archive-source requires source-archive-root"))
-        }
-        if (intersects(relocation.sourcePath, relocation.targetPath)) {
-            return listOf(configurationError(relocation.sourcePath, "source and target paths overlap"))
-        }
-    }
-    for (leftIndex in states.indices) {
-        val left = states[leftIndex].relocation
-        for (rightIndex in leftIndex + 1 until states.size) {
-            val right = states[rightIndex].relocation
-            if (intersects(left.sourcePath, right.sourcePath) || intersects(left.sourcePath, right.targetPath)
-                || intersects(left.targetPath, right.sourcePath) || intersects(left.targetPath, right.targetPath)
-            ) {
-                return listOf(
-                    configurationError(left.sourcePath, "relocation paths overlap: " + left.sourcePath + " and " + right.sourcePath),
-                )
-            }
-        }
-    }
-    return listOf()
-}
-
-private fun intersects(left: Path, right: Path): Boolean {
-    val normalizedLeft = left.toAbsolutePath().normalize()
-    val normalizedRight = right.toAbsolutePath().normalize()
-    return normalizedLeft.startsWith(normalizedRight) || normalizedRight.startsWith(normalizedLeft)
-}
-
-private fun configurationError(source: Path, message: String): ReconciliationDiagnostic =
-    ReconciliationDiagnostic(ReconciliationDiagnostic.Severity.ERROR, source, "INVALID_RELOCATION", message)

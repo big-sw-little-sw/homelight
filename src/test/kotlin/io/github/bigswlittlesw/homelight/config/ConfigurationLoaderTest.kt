@@ -213,14 +213,14 @@ class ConfigurationLoaderTest {
     @Test fun reportsAMissingFile() {
         val missing = temporary.resolve("absent.json")
         assertEquals("Configuration file does not exist: $missing",
-            assertThrows(ConfigurationLoader.ConfigurationException::class.java) { ConfigurationLoader().load(missing) }.message)
+            assertThrows(ConfigurationException::class.java) { ConfigurationLoader().load(missing) }.message)
     }
 
     private fun load(json: String): HomeLightConfiguration = ConfigurationLoader().load(write(json))
 
     private fun failure(json: String): String? {
         val file = write(json)
-        return assertThrows(ConfigurationLoader.ConfigurationException::class.java) { ConfigurationLoader().load(file) }
+        return assertThrows(ConfigurationException::class.java) { ConfigurationLoader().load(file) }
             .message
     }
 

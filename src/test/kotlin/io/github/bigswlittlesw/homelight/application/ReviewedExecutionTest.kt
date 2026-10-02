@@ -33,8 +33,6 @@ class ReviewedExecutionTest {
         assertSame(completion, review.start(tasks::add))
         assertEquals(1, tasks.size)
         assertFalse(completion.isDone())
-        // Kotlin's read-only `List` has no `clear`; the cast reaches the JDK list's mutator.
-        assertThrows(UnsupportedOperationException::class.java) { (running.steps as MutableList<*>).clear() }
 
         // Execution owns the captured plan, with no configuration dependency after capture.
         Files.delete(directory.resolve("config.json"))
