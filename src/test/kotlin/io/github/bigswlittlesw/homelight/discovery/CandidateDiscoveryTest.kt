@@ -5,7 +5,6 @@ import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic
 import io.github.bigswlittlesw.homelight.config.CandidateParser
 import io.github.bigswlittlesw.homelight.config.CandidateSource
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Candidate
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Lanes
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.Result
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutcome
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProblem
@@ -30,6 +29,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -87,15 +87,13 @@ class CandidateDiscoveryTest {
     }
 
     @Test fun sourceFailureRetainsStaleDefinitionsAndObservationsOnlyForSameRequest() {
-        val lanes = Lanes()
         val input = AtomicReference(bytes("{\"directories\": [{\"path\": \"team-cache\"}]}"))
         Files.createDirectory(temporary.resolve("team-cache"))
         val location = temporary.resolve("shared")
-        discovery(lanes, AtomicLong(), { ignored -> input.get() }, "cache", CandidateMetadata()).use { discovery ->
+        discovery(Workers(), AtomicLong(), { ignored -> input.get() }, "cache", CandidateMetadata()).use { discovery ->
             val original = discovery.refresh(temporary, location)
             val first = awaitResult(discovery, ::finished)
             val originalRow = row(first, temporary.resolve("team-cache"))
-            await { lanes.shared.availablePermits() == 1 }
             input.set(bytes("{\"directories\": ["))
             discovery.refresh(temporary, location)
             val failed = awaitResult(discovery, ::finished)
@@ -113,7 +111,7 @@ class CandidateDiscoveryTest {
 
     @Test fun unreadableAndMidReadFailureRejectSourceWithoutHidingBundled() {
         for (denied in listOf(true, false)) {
-            discovery(Lanes(), AtomicLong(), { path ->
+            discovery(Workers(), AtomicLong(), { path ->
                 if (denied) throw AccessDeniedException(path.toString())
                 // Simulates a reader failing after receiving a prefix: no prefix is returned for parsing.
                 throw IOException("Read failed after partial bytes")
@@ -126,13 +124,13 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun sharedDeadlineRepeatedRefreshAndShutdownDoNotWaitOrReleaseCapacity() {
+    @Test fun sharedReadIsSingleFlightAcrossDeadlineRefreshCloseAndReopen() {
         val gate = Gate()
-        val lanes = Lanes()
+        val workers = Workers()
         val clock = AtomicLong()
         val calls = AtomicInteger()
         val worker = AtomicReference<Thread>()
-        val discovery = discovery(lanes, clock, { path ->
+        val discovery = discovery(workers, clock, { path ->
             calls.incrementAndGet()
             worker.set(Thread.currentThread())
             gate.block()
@@ -142,6 +140,7 @@ class CandidateDiscoveryTest {
             assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary,
                     temporary.resolve("shared")) })
             assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+            // The run does not wait for the shared read.
             awaitResult(discovery) { r -> !r.candidates.isEmpty()
                     && r.candidates.first().observation.kind == Kind.MISSING }
             worker.get().interrupt()
@@ -153,11 +152,11 @@ class CandidateDiscoveryTest {
                 assertProblem(discovery.snapshot(), SourceProblem.Kind.PREVIOUS_PENDING)
             }
             assertEquals(1, calls.get())
-            assertEquals(0, lanes.shared.availablePermits())
+            assertTrue(workers.sharedRead.get())
             assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             assertTrue(discovery.snapshot().candidates.isEmpty())
-            // Reopening a session with the same process lanes cannot replace a stuck worker.
-            discovery(lanes, clock, { path -> fail<Unit>("Extra read"); ByteArray(0) },
+            // Reopening a session with the same process workers cannot replace a stuck read.
+            discovery(workers, clock, { path -> fail<Unit>("Extra read"); ByteArray(0) },
                     "cache", CandidateMetadata()).use { reopened ->
                 reopened.refresh(temporary, temporary.resolve("shared"))
                 assertProblem(reopened.snapshot(), SourceProblem.Kind.PREVIOUS_PENDING)
@@ -165,8 +164,7 @@ class CandidateDiscoveryTest {
         } finally {
             discovery.close()
             gate.release.countDown()
-            await { lanes.shared.availablePermits() == 1 && lanes.filesystem.availablePermits() == 1
-                    && lanes.bundled.availablePermits() == 1 }
+            await { !workers.sharedRead.get() }
         }
         assertTrue(discovery.snapshot().sources.isEmpty())
         assertThrows<IllegalStateException> { discovery.refresh(temporary, null) }
@@ -175,9 +173,9 @@ class CandidateDiscoveryTest {
     @Test fun lateCompletionBeyondDeadlineRejectedEvenWithoutEarlierPoll() {
         val gate = Gate()
         val clock = AtomicLong()
-        val lanes = Lanes()
+        val workers = Workers()
         try {
-            discovery(lanes, clock, { path ->
+            discovery(workers, clock, { path ->
                 gate.block()
                 bytes("{\"directories\": [{\"path\": \"late\"}]}")
             }, "cache", CandidateMetadata()).use { discovery ->
@@ -185,10 +183,11 @@ class CandidateDiscoveryTest {
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(5_000_000_001L)
                 gate.release.countDown()
-                await { lanes.shared.availablePermits() == 1 }
+                await { !workers.sharedRead.get() }
                 val result = discovery.snapshot()
                 assertProblem(result, SourceProblem.Kind.DEADLINE)
                 assertNull(shared(result).catalog)
+                assertFalse(result.candidates.any { c -> c.catalog.sourcePath.endsWith("late") })
             }
         } finally { gate.release.countDown() }
     }
@@ -196,10 +195,10 @@ class CandidateDiscoveryTest {
     @Test fun rootAndLocationChangeAndCancellationIgnoreObsoleteSourceResults() {
         for (cancel in listOf(false, true)) {
             val gate = Gate()
-            val lanes = Lanes()
+            val workers = Workers()
             val other = Files.createTempDirectory(temporary, "other")
             try {
-                discovery(lanes, AtomicLong(), { path ->
+                discovery(workers, AtomicLong(), { path ->
                     gate.block()
                     bytes("{\"directories\": [{\"path\": \"obsolete\"}]}")
                 }, "cache", CandidateMetadata()).use { discovery ->
@@ -208,7 +207,7 @@ class CandidateDiscoveryTest {
                     if (cancel) discovery.cancel()
                     else discovery.refresh(other, other.resolve("new-location"))
                     gate.release.countDown()
-                    await { lanes.shared.availablePermits() == 1 }
+                    await { !workers.sharedRead.get() }
                     val result = discovery.snapshot()
                     assertTrue(result.generation > first)
                     assertFalse(result.candidates.any { c -> c.catalog.sourcePath.endsWith("obsolete") })
@@ -228,17 +227,15 @@ class CandidateDiscoveryTest {
         Files.createDirectory(temporary.resolve("cache"))
         Files.write(temporary.resolve("cache/a"), ByteArray(17))
         val fail = AtomicInteger()
-        val lanes = Lanes()
         val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
             override fun attributes(path: Path): BasicFileAttributes {
                 if (path.endsWith("cache") && fail.get() == 1) throw AccessDeniedException(path.toString())
                 return super.attributes(path)
             }
         })
-        discovery(lanes, AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
+        discovery(Workers(), AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
             val first = discovery.refresh(temporary, null)
             awaitResult(discovery, ::finished)
-            await { lanes.filesystem.availablePermits() == 1 && lanes.bundled.availablePermits() == 1 }
             fail.set(1)
             discovery.refresh(temporary, null)
             val result = awaitResult(discovery) { r -> !r.candidates.isEmpty() && r.candidates.first()
@@ -250,76 +247,114 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun filesystemWorkStaysBoundedAcrossTimeoutRefreshAndClose() {
+    @Test fun inspectionsStayBoundedAcrossTimeoutRefreshCloseAndReopen() {
         val gate = Gate()
-        val entered = CountDownLatch(1)
-        val calls = AtomicInteger()
-        val lanes = Lanes()
+        val inspected = ConcurrentHashMap.newKeySet<Path>()
+        val inFlight = AtomicInteger()
+        val most = AtomicInteger()
+        val workers = Workers(2)
         val clock = AtomicLong()
         for (i in 0 until 6) Files.createDirectory(temporary.resolve("cache$i"))
         val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
             override fun attributes(path: Path): BasicFileAttributes {
-                if (path.fileName.toString().startsWith("cache")) {
-                    calls.incrementAndGet()
-                    entered.countDown()
+                if (!path.fileName.toString().startsWith("cache")) return super.attributes(path)
+                inspected.add(path)
+                most.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                try {
                     gate.block()
-                }
-                return super.attributes(path)
+                    return super.attributes(path)
+                } finally { inFlight.decrementAndGet() }
             }
         })
-        val discovery = discovery(lanes, clock, { path -> bytes("{\"directories\": []}") },
+        val discovery = discovery(workers, clock, { path -> bytes("{\"directories\": []}") },
                 "cache0,cache1,cache2,cache3,cache4,cache5", metadata)
         try {
             discovery.refresh(temporary, null)
-            awaitResult(discovery) { r -> r.candidates.size == 6 && lanes.filesystem.availablePermits() == 0 }
-            assertTrue(entered.await(3, TimeUnit.SECONDS))
+            await { inspected.size == 2 }
+            val waiting = discovery.snapshot()
+            assertTrue(waiting.candidates.all { c -> c.observation.kind == Kind.PENDING })
+            assertEquals(listOf("cache2", "cache3", "cache4", "cache5"), waiting.candidates
+                    .filter { c -> c.observation.diagnostics.any { d -> d.reason == Reason.CAPACITY } }
+                    .map { c -> c.catalog.sourcePath.fileName.toString() })
             clock.set(METADATA_NANOS)
             val timed = discovery.snapshot()
-            assertEquals(1, timed.candidates.count { c -> c.observation.kind == Kind.UNKNOWN })
-            assertEquals(5, timed.candidates.count { c -> c.observation.kind == Kind.PENDING })
+            assertEquals(2, timed.candidates.count { c -> c.observation.kind == Kind.UNKNOWN
+                    && c.observation.diagnostics.any { d -> d.reason == Reason.DEADLINE } })
+            assertEquals(4, timed.candidates.count { c -> c.observation.kind == Kind.PENDING })
+            // Each refresh replaces the run; none adds inspections while the earlier ones are stuck.
             for (i in 0 until 20) {
-                discovery.refresh(temporary, null)
-                assertEquals(Reason.CAPACITY, checkNotNull(discovery.snapshot().rootFailure).reason)
+                assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary, null) })
+                val replaced = discovery.snapshot()
+                assertNull(replaced.rootFailure)
+                assertEquals(4, replaced.candidates.count { c -> c.observation.kind == Kind.PENDING })
             }
-            assertEquals(1, calls.get())
             assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
-            assertEquals(0, lanes.filesystem.availablePermits())
-            discovery(lanes, clock, { p -> bytes("{\"directories\": []}") },
+            discovery(workers, clock, { p -> bytes("{\"directories\": []}") },
                     "cache0", CandidateMetadata()).use { reopened ->
                 reopened.refresh(temporary, null)
-                assertEquals(Reason.CAPACITY, checkNotNull(reopened.snapshot().rootFailure).reason)
-                assertEquals(1, calls.get())
+                assertEquals(Kind.PENDING, reopened.snapshot().candidates.first().observation.kind)
             }
+            assertEquals(2, inspected.size)
         } finally {
             discovery.close()
             gate.release.countDown()
-            await { lanes.filesystem.availablePermits() == 1 && lanes.bundled.availablePermits() == 1 }
+            drain(workers)
         }
+        // The closed generation's queued paths never started.
+        assertEquals(2, inspected.size)
+        assertEquals(2, most.get())
         assertTrue(discovery.snapshot().candidates.isEmpty())
     }
 
-    @Test fun serialMetadataPassCompletesWithoutSnapshotDrivingWork() {
-        for (i in 0 until 8) Files.createDirectory(temporary.resolve("cache$i"))
-        val last = CountDownLatch(1)
+    @Test fun inspectionsRunConcurrentlyInCatalogOrderWithoutSnapshotDrivingWork() {
+        val names = (0 until 8).map { "cache$it" }
+        for (name in names) Files.createDirectory(temporary.resolve(name))
+        val inFlight = AtomicInteger()
+        val most = AtomicInteger()
+        val full = CountDownLatch(3)
         val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
             override fun attributes(path: Path): BasicFileAttributes {
-                if (path.endsWith("cache7")) last.countDown()
-                return super.attributes(path)
+                if (!path.fileName.toString().startsWith("cache")) return super.attributes(path)
+                most.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                full.countDown()
+                // Hold the first inspections until three run at once.
+                full.await(3, TimeUnit.SECONDS)
+                try { return super.attributes(path) } finally { inFlight.decrementAndGet() }
             }
         })
-        discovery(Lanes(), AtomicLong(), { path -> bytes("{\"directories\": []}") },
-                "cache0,cache1,cache2,cache3,cache4,cache5,cache6,cache7", metadata).use { discovery ->
+        val workers = Workers(3)
+        discovery(workers, AtomicLong(), { path -> bytes("{\"directories\": []}") },
+                names.joinToString(","), metadata).use { discovery ->
+            val generation = discovery.refresh(temporary, null)
+            drain(workers)
+            val result = discovery.snapshot()
+            assertTrue(finished(result), "Work depended on snapshot polling")
+            assertEquals(names, result.candidates.map { c -> c.catalog.sourcePath.fileName.toString() })
+            assertTrue(result.candidates.all { c -> c.observation.kind == Kind.DIRECTORY
+                    && c.observation.generation == generation && !c.observation.stale })
+        }
+        assertEquals(3, most.get())
+    }
+
+    @Test fun snapshotRowsComeFromOneGenerationWhileInspectionsComplete() {
+        val names = (0 until 30).map { "cache$it" }
+        for (name in names) Files.createDirectory(temporary.resolve(name))
+        discovery(Workers(4), AtomicLong(), { path -> bytes("{\"directories\": []}") },
+                names.joinToString(","), CandidateMetadata()).use { discovery ->
             discovery.refresh(temporary, null)
-            assertTrue(last.await(3, TimeUnit.SECONDS), "Work depended on snapshot polling")
-            val result = awaitResult(discovery, ::finished)
-            assertEquals(8, result.candidates.size)
-            assertTrue(result.candidates.all { c -> c.observation.kind == Kind.DIRECTORY })
+            val generation = discovery.refresh(temporary, null)
+            awaitResult(discovery) { r ->
+                assertEquals(generation, r.generation)
+                // Rows are either this generation's evidence or retained evidence marked stale.
+                assertTrue(r.candidates.all { c -> c.observation.generation == generation
+                        || (c.observation.stale && c.observation.generation < generation) }, r.toString())
+                finished(r)
+            }
         }
     }
 
-    @Test fun obsoleteFilesystemCompletionCannotAttachToNewRoot() {
+    @Test fun obsoleteInspectionCannotAttachToNewRootAndNewRunFollowsIt() {
         val gate = Gate()
-        val lanes = Lanes()
         val firstRoot = Files.createDirectory(temporary.resolve("first"))
         val physicalFirstRoot = firstRoot.toRealPath()
         val secondRoot = Files.createDirectory(temporary.resolve("second"))
@@ -331,18 +366,20 @@ class CandidateDiscoveryTest {
             }
         })
         try {
-            discovery(lanes, AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
+            discovery(Workers(), AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
                 discovery.refresh(firstRoot, null)
-                awaitResult(discovery) { r -> gate.entered.count == 0L }
+                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 val generation = discovery.refresh(secondRoot, null)
-                val second = awaitResult(discovery, ::finished)
-                assertEquals(Kind.UNKNOWN, second.candidates.first().observation.kind)
+                // The new run waits for the stuck one; its row is queued, not failed.
+                val waiting = discovery.snapshot().candidates.first().observation
+                assertEquals(Kind.PENDING, waiting.kind)
+                assertEquals(Reason.CAPACITY, waiting.diagnostics.first().reason)
                 gate.release.countDown()
-                await { lanes.filesystem.availablePermits() == 1 }
-                val result = discovery.snapshot()
-                assertEquals(generation, result.candidates.first().observation.generation)
-                assertEquals(secondRoot.resolve("cache"), result.candidates.first().observation.path)
-                assertEquals(Kind.UNKNOWN, result.candidates.first().observation.kind)
+                val result = awaitResult(discovery, ::finished)
+                val observation = result.candidates.first().observation
+                assertEquals(generation, observation.generation)
+                assertEquals(secondRoot.resolve("cache"), observation.path)
+                assertEquals(Kind.MISSING, observation.kind)
             }
         } finally { gate.release.countDown() }
     }
@@ -350,7 +387,6 @@ class CandidateDiscoveryTest {
     @Test fun rootProbeDeadlineDoesNotBlockSharedParsingOrClose() {
         val gate = Gate()
         val clock = AtomicLong()
-        val lanes = Lanes()
         val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
             override fun realPath(path: Path): Path {
                 gate.block()
@@ -358,19 +394,48 @@ class CandidateDiscoveryTest {
             }
         })
         try {
-            discovery(lanes, clock, { p -> bytes("{\"directories\": [{\"path\": \"team\"}]}") }, "cache", metadata).use { discovery ->
+            discovery(Workers(), clock, { p -> bytes("{\"directories\": [{\"path\": \"team\"}]}") }, "cache", metadata).use { discovery ->
                 discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 awaitResult(discovery) { r -> shared(r).status == SourceStatus.CURRENT }
                 clock.set(METADATA_NANOS)
                 val result = discovery.snapshot()
                 assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
+                assertTrue(result.candidates.all { c -> c.observation.kind == Kind.UNKNOWN })
                 assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             }
-        } finally {
-            gate.release.countDown()
-            await { lanes.filesystem.availablePermits() == 1 }
-        }
+        } finally { gate.release.countDown() }
+    }
+
+    @Test fun lateRootCompletionIsRejectedAndNothingIsInspected() {
+        val gate = Gate()
+        val clock = AtomicLong()
+        val workers = Workers()
+        val inspected = AtomicInteger()
+        Files.createDirectory(temporary.resolve("cache"))
+        val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
+            override fun realPath(path: Path): Path {
+                gate.block()
+                return super.realPath(path)
+            }
+            override fun attributes(path: Path): BasicFileAttributes {
+                if (path.endsWith("cache")) inspected.incrementAndGet()
+                return super.attributes(path)
+            }
+        })
+        try {
+            discovery(workers, clock, { p -> ByteArray(0) }, "cache", metadata).use { discovery ->
+                discovery.refresh(temporary, null)
+                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                clock.set(METADATA_NANOS)
+                gate.release.countDown()
+                drain(workers)
+                val result = discovery.snapshot()
+                assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
+                assertEquals(Kind.UNKNOWN, result.candidates.first().observation.kind)
+                assertEquals(0, inspected.get())
+            }
+        } finally { gate.release.countDown() }
     }
 
     @Test fun blockedWorkerDoesNotKeepJvmAlive() {
@@ -378,7 +443,7 @@ class CandidateDiscoveryTest {
                 "-cp", System.getProperty("java.class.path"), ExitProbe::class.java.name, temporary.toString())
                 .redirectErrorStream(true).start()
         try {
-            assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Daemon discovery worker kept JVM alive")
+            assertTrue(process.waitFor(5, TimeUnit.SECONDS), "Discovery worker kept JVM alive")
             assertEquals(0, process.exitValue(), String(process.inputStream.readAllBytes(), StandardCharsets.UTF_8))
         } finally { if (process.isAlive) process.destroyForcibly() }
     }
@@ -395,7 +460,7 @@ class CandidateDiscoveryTest {
                         return super.realPath(path)
                     }
                 })
-                discovery(Lanes(), AtomicLong(), { path ->
+                discovery(Workers(), AtomicLong(), { path ->
                     gate.block()
                     bytes("{\"directories\": []}")
                 }, "cache", metadata).use { discovery ->
@@ -408,37 +473,41 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun sharedResultsProceedWhenBundledSourceStallsOrFails() {
+    @Test fun sharedOnlyPathsFormSecondBatchAndRunNeverWaitsForSharedRead() {
         val gate = Gate()
-        val clock = AtomicLong()
-        val lanes = Lanes()
+        Files.createDirectory(temporary.resolve("cache"))
         Files.createDirectory(temporary.resolve("team"))
         try {
-            CandidateDiscovery(lanes, clock::get,
-                    { p -> bytes("{\"directories\": [{\"path\": \"team\"}]}") }, { root ->
-                        gate.block()
-                        CandidateParser().parse(CandidateCatalog.BUNDLED, root, bytes("{\"directories\": []}"))
-                    }, CandidateMetadata()).use { discovery ->
-                discovery.refresh(temporary, temporary.resolve("shared"))
+            discovery(Workers(), AtomicLong(), { path ->
+                gate.block()
+                bytes("{\"directories\": [{\"path\": \"team\"}, {\"path\": \"cache\"}]}")
+            }, "cache", CandidateMetadata()).use { discovery ->
+                val generation = discovery.refresh(temporary, temporary.resolve("shared"))
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
-                val result = awaitResult(discovery) { r -> !r.candidates.isEmpty()
-                        && r.candidates.first().observation.kind == Kind.DIRECTORY }
-                assertEquals(SourceStatus.PENDING, result.sources.first().status)
-                assertEquals(SourceStatus.CURRENT, shared(result).status)
-                clock.set(5_000_000_000L)
-                assertEquals(SourceProblem.Kind.DEADLINE, discovery.snapshot().sources.first().problems.first().kind)
+                val early = awaitResult(discovery) { r -> r.candidates.first().observation.kind == Kind.DIRECTORY }
+                assertEquals(SourceStatus.PENDING, shared(early).status)
+                gate.release.countDown()
+                val result = awaitResult(discovery, ::finished)
+                for (name in listOf("team", "cache")) {
+                    val observation = row(result, temporary.resolve(name)).observation
+                    assertEquals(Kind.DIRECTORY, observation.kind)
+                    assertEquals(generation, observation.generation)
+                }
             }
-        } finally {
-            gate.release.countDown()
-            await { lanes.bundled.availablePermits() == 1 }
-        }
-        CandidateDiscovery(Lanes(), System::nanoTime,
+        } finally { gate.release.countDown() }
+    }
+
+    @Test fun sharedResultsProceedWhenBundledSourceFails() {
+        Files.createDirectory(temporary.resolve("team"))
+        CandidateDiscovery(Workers(), System::nanoTime,
                 { p -> bytes("{\"directories\": [{\"path\": \"team\"}]}") }, { root -> CandidateCatalog.Snapshot.of(
                 CandidateCatalog.BUNDLED, root, listOf(), listOf(CandidateDiagnostic(
                 CandidateCatalog.BUNDLED, CandidateDiagnostic.Kind.RESOURCE, 0, 0, 0, "", "",
                 "Controlled packaging failure"))) },
                 CandidateMetadata()).use { discovery ->
             discovery.refresh(temporary, temporary.resolve("shared"))
+            // The bundled list is parsed during the refresh, so its outcome is known at once.
+            assertEquals(SourceStatus.FAILED, discovery.snapshot().sources.first().status)
             val result = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.FAILED, result.sources.first().status)
             assertEquals(SourceStatus.CURRENT, shared(result).status)
@@ -449,7 +518,7 @@ class CandidateDiscoveryTest {
     @Test fun lateMetadataCompletionIsUnknownAndCannotOverwriteRetainedState() {
         val gate = Gate()
         val clock = AtomicLong()
-        val lanes = Lanes()
+        val workers = Workers()
         val block = AtomicInteger()
         Files.createDirectory(temporary.resolve("cache"))
         val metadata = CandidateMetadata(object : CandidateMetadata.Access() {
@@ -459,16 +528,16 @@ class CandidateDiscoveryTest {
             }
         })
         try {
-            discovery(lanes, clock, { p -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
+            discovery(workers, clock, { p -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
                 val original = discovery.refresh(temporary, null)
                 awaitResult(discovery, ::finished)
                 block.set(1)
                 discovery.refresh(temporary, null)
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(METADATA_NANOS)
-                // No snapshot until the late completion has returned.
+                // No snapshot until the late completion has been recorded.
                 gate.release.countDown()
-                await { lanes.filesystem.availablePermits() == 1 }
+                drain(workers)
                 val observation = discovery.snapshot().candidates.first().observation
                 assertEquals(Kind.DIRECTORY, observation.kind)
                 assertTrue(observation.stale)
@@ -480,12 +549,12 @@ class CandidateDiscoveryTest {
 
     @Test fun sharedTimeoutRetainsStaleSnapshotAndSuccessfulRefreshRemovesOldEntries() {
         val gate = Gate()
-        val lanes = Lanes()
+        val workers = Workers()
         val clock = AtomicLong()
         val contents = AtomicReference(bytes("{\"directories\": [{\"path\": \"team\"}]}"))
         val block = AtomicInteger()
         try {
-            discovery(lanes, clock, { p ->
+            discovery(workers, clock, { p ->
                 if (block.get() == 1) gate.block()
                 contents.get()
             }, "cache", CandidateMetadata()).use { discovery ->
@@ -502,7 +571,7 @@ class CandidateDiscoveryTest {
                 assertTrue(old.observation.stale)
                 assertEquals(original, old.observation.generation)
                 gate.release.countDown()
-                await { lanes.shared.availablePermits() == 1 && lanes.filesystem.availablePermits() == 1 }
+                await { !workers.sharedRead.get() }
                 block.set(0)
                 contents.set(bytes("{\"directories\": []}"))
                 discovery.refresh(temporary, location)
@@ -514,10 +583,10 @@ class CandidateDiscoveryTest {
     }
 
     companion object {
-        private fun discovery(lanes: Lanes, clock: AtomicLong, reader: (Path) -> ByteArray,
+        private fun discovery(workers: Workers, clock: AtomicLong, reader: (Path) -> ByteArray,
                               paths: String, metadata: CandidateMetadata): CandidateDiscovery {
             val json = paths.split(",").joinToString(", ", "{\"directories\": [", "]}") { path -> "{\"path\": \"$path\"}" }
-            return CandidateDiscovery(lanes, clock::get, reader,
+            return CandidateDiscovery(workers, clock::get, reader,
                     { root -> CandidateParser().parse(CandidateCatalog.BUNDLED, root, bytes(json)) }, metadata)
         }
         private fun bytes(value: String): ByteArray = value.toByteArray(StandardCharsets.UTF_8)
@@ -540,6 +609,13 @@ class CandidateDiscoveryTest {
             return result.get()
         }
         private fun await(condition: () -> Boolean) = pollUntil("Controlled work did not complete", condition)
+
+        /** Returns once every run chained so far has returned, and with it every inspection it started. */
+        private fun drain(workers: Workers) {
+            val drained = CountDownLatch(1)
+            workers.chain { drained.countDown() }
+            assertTrue(drained.await(3, TimeUnit.SECONDS), "Discovery runs did not finish")
+        }
     }
 
     private class Gate {

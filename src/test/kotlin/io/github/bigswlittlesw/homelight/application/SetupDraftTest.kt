@@ -13,6 +13,7 @@ import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesEx
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateMetadata
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
+import io.github.bigswlittlesw.homelight.discovery.Workers
 import io.github.bigswlittlesw.homelight.pollUntil
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -221,7 +222,7 @@ class SetupDraftTest {
         val clock = AtomicLong()
         val draft = draft(root, listOf())
         try {
-            CandidateDiscovery(CandidateDiscovery.Lanes(), clock::get, { path ->
+            CandidateDiscovery(Workers(), clock::get, { path ->
                 entered.countDown()
                 try { release.await() } catch (exception: InterruptedException) { throw AssertionError(exception) }
                 Files.readAllBytes(shared())
@@ -447,7 +448,7 @@ class SetupDraftTest {
 
     private fun worker(): CandidateDiscovery {
         val bundled = Files.readAllBytes(fixture("bundled"))
-        return CandidateDiscovery(CandidateDiscovery.Lanes(), System::nanoTime, Files::readAllBytes,
+        return CandidateDiscovery(Workers(), System::nanoTime, Files::readAllBytes,
                 { root -> CandidateParser().parse(CandidateCatalog.BUNDLED, root, bundled) }, CandidateMetadata())
     }
 
