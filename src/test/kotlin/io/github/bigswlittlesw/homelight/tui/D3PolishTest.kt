@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
@@ -24,11 +25,14 @@ class D3PolishTest {
         val view = Toolkit.column(viewport.render("Details", lines, true, 0), viewport.help("Tab: Back", "q: Quit")).fill()
         val small = WorkspaceViewTest.render(view, 80, 24)
         assertTrue(small.contains("█"), small)
+        // TamboUI's Scrollbar: thumb length ceil(20 * 20 / 28) = 15 rows, offset round(top / 8 * (20 - 15)).
+        assertEquals((1..15).toList(), thumbRows(small, 78), small)
         assertTrue(small.contains("[/]: Scroll"), small)
         viewport.scroll(Int.MAX_VALUE)
         val bottom = WorkspaceViewTest.render(view, 80, 24)
         assertTrue(bottom.contains("Row 27"), bottom)
         assertNotEquals(small.indexOf('█'), bottom.indexOf('█'))
+        assertEquals((6..20).toList(), thumbRows(bottom, 78), bottom)
         for (size in listOf(intArrayOf(120, 30), intArrayOf(200, 50))) {
             val grown = WorkspaceViewTest.render(view, size[0], size[1])
             if (size[1] == 50) {
@@ -44,13 +48,40 @@ class D3PolishTest {
     }
 
     @Test
+    fun wrapMeasuresEmojiSequencesAsTheTerminalDrawsThem() {
+        val warning = "\u26A0\uFE0F" // ⚠ with VS16: emoji presentation, two cells.
+        val coder = "\uD83D\uDC69\u200D\uD83D\uDCBB" // 👩‍💻, a ZWJ sequence: one glyph, two cells.
+        assertEquals(2, CharWidth.of(warning))
+        assertEquals(2, CharWidth.of(coder))
+        // Measured per code point, ⚠️ was one cell and 👩‍💻 four.
+        assertEquals(listOf("ab", warning + "c", "d"), wrap("ab${warning}cd", 3))
+        assertEquals(listOf(coder + coder), wrap(coder + coder, 4))
+        assertEquals(listOf("/a$coder", warning + "b"), wrap("/a$coder${warning}b", 4))
+
+        val path = "/home/me/${warning}alerts/$coder-work/$coder$coder$warning/cache"
+        for (width in 2..12) {
+            val lines = wrap(path, width)
+            assertEquals(path, lines.joinToString(""), "width $width")
+            for (line in lines) {
+                assertTrue(CharWidth.of(line) <= width, "'$line' overflows $width cells")
+                assertFalse(line.startsWith("\uFE0F") || line.startsWith("\u200D") || line.endsWith("\u200D"), "'$line' splits a cluster")
+            }
+        }
+        val viewport = DetailViewport()
+        val screen = WorkspaceViewTest.render(viewport.render("Details", listOf(DetailViewport.Line(path)), true, 0), 14, 8)
+        val rows = screen.lines().drop(1).take(6)
+        for (row in rows) assertTrue(row.endsWith("│"), screen)
+        assertEquals(path, rows.joinToString("") { row -> row.removePrefix("│").removeSuffix("│").trimEnd() }, screen)
+    }
+
+    @Test
     fun reviewIsDiscoverableFromBothPanesAndNumberOnePreservesDraftFocus() {
         val session = HomeLightSession(WorkspaceViewTest.fixture(temporary))
         val app = HomeLightApp(session)
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
-        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(80, 24))) {
             val screen = WorkspaceViewTest.render(app.render(), size[0], size[1])
             assertTrue(screen.contains("a: Review & apply"), screen)
@@ -58,24 +89,24 @@ class D3PolishTest {
             assertFalse(screen.contains("3: "))
             assertFalse(screen.contains("never quit"))
             assertFalse(screen.contains("Planned actions"))
-            app.handleKeyEvent(KeyEvent.ofChar('a'))
+            app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
             val review = WorkspaceViewTest.render(app.render(), size[0], size[1])
             assertTrue(review.contains("planned changes"), review)
             assertFalse(review.contains("actions completed"), review)
             assertEquals(1, review.split("Cancel review").size - 1, review)
             assertFalse(review.contains("Esc: Back"), review)
-            app.handleKeyEvent(KeyEvent.ofChar('2'))
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+            app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
             assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
-            app.handleKeyEvent(KeyEvent.ofChar('1'))
+            app.handleKeyEvent(KeyEvent.ofChar('1', KEY_BINDINGS))
             assertEquals(PaneFocus.DETAIL, app.paneFocus())
             assertFalse(Files.isSymbolicLink(temporary.resolve("home/conflict")))
         }
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
         assertTrue(WorkspaceViewTest.render(app.render(), 80, 24).contains("a: Review & apply"))
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         val selected: Int = app.selectedIndex()
-        app.handleKeyEvent(KeyEvent.ofChar('1'))
+        app.handleKeyEvent(KeyEvent.ofChar('1', KEY_BINDINGS))
         assertEquals(selected, app.selectedIndex())
     }
 
@@ -98,4 +129,7 @@ class D3PolishTest {
         assertFalse(conflict.contains("Planned actions"), conflict)
         assertFalse(conflict.contains("Overlapping risks"), conflict)
     }
+
+    private fun thumbRows(screen: String, column: Int): List<Int> =
+        screen.lines().withIndex().filter { (_, row) -> row.getOrNull(column) == '█' }.map { (index, _) -> index }
 }

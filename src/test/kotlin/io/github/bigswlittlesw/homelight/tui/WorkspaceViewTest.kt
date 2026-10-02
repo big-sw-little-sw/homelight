@@ -40,18 +40,18 @@ class WorkspaceViewTest {
         assertEquals(5, WorkspaceView.visibleItems(model, false).size)
         assertEquals(6, WorkspaceView.visibleItems(model, true).size)
         val app = HomeLightApp(session)
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
-        app.handleKeyEvent(KeyEvent.ofChar(' '))
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         session.confirmApply(Executor(Runnable::run)).join()
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(result.succeeded())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         val refreshed = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
         assertEquals(listOf("✔ 5 in sync", "─ 1 unchanged"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertSame(result, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofChar('r'))
+        app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         assertFalse(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan.hasChanges())
     }
@@ -64,7 +64,7 @@ class WorkspaceViewTest {
         val source = model.items.first().relocation.sourcePath
         val choices = model.items.first().availableResolutions
         assertEquals(4, choices.size)
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
         for (choice in 0 until choices.size) {
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
                 val screen = render(app.render(), size[0], size[1])
@@ -77,16 +77,16 @@ class WorkspaceViewTest {
                 assertTrue(details.contains(choices[choice].label), details)
                 assertTrue(details.replace(" ", "").contains(choices[choice].description.replace(" ", "")), screen)
             }
-            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofChar('j'))
+            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         }
-        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         val loaded = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val draft = loaded.draft
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofChar('n'))
+        app.handleKeyEvent(KeyEvent.ofChar('n', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(3, app.detailSelectedIndex)
         val visible = WorkspaceView.visibleItems(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()), app.showInSync)

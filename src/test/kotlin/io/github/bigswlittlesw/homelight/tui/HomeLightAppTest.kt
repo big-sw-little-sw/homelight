@@ -39,20 +39,20 @@ class HomeLightAppTest {
         val root = temporary.toRealPath()
         val config = root.resolve("new/config.json")
         val app = HomeLightApp(HomeLightSession(config))
-        app.handleKeyEvent(KeyEvent.ofChar('i'))
-        app.handleKeyEvent(KeyEvent.ofChar('\u0015'))
+        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
         type(app, root.resolve("home").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
-        app.handleKeyEvent(KeyEvent.ofChar('\u0015'))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
         type(app, root.resolve("local").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
-        app.handleKeyEvent(KeyEvent.ofChar('v'))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('v', KEY_BINDINGS))
         val validation = WorkspaceViewTest.render(app.render(), 120, 30)
         assertTrue(validation.contains("Validation: valid"), validation)
-        app.handleKeyEvent(KeyEvent.ofChar('s'))
+        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath)
@@ -64,41 +64,41 @@ class HomeLightAppTest {
     @Test
     fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@TempDir temporary: Path) {
         val app = HomeLightApp(HomeLightSession(temporary.resolve("config.json")))
-        app.handleKeyEvent(KeyEvent.ofChar('i'))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
+        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
 
         var table = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(table.contains("Source (relative)"), table)
         assertTrue(table.contains(".cache/tool"), table)
 
-        app.handleKeyEvent(KeyEvent.ofChar('d'))
+        app.handleKeyEvent(KeyEvent.ofChar('d', KEY_BINDINGS))
         table = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(table.contains("No relocations yet"), table)
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
 
-        app.handleKeyEvent(KeyEvent.ofChar('e'))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
+        app.handleKeyEvent(KeyEvent.ofChar('e', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
         type(app, "/target")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         table = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(table.contains(".cache/tool"), table)
         assertTrue(table.contains("Validation: not run"), table)
 
-        app.handleKeyEvent(KeyEvent.ofChar('q'))
+        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
         assertTrue(WorkspaceViewTest.render(app.render(), 80, 24).contains("Discard setup draft?"))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
         table = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(table.contains(".cache/tool"), table)
         assertFalse(Files.exists(temporary.resolve("config.json")))
 
-        app.handleKeyEvent(KeyEvent.ofChar('q'))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        app.handleKeyEvent(KeyEvent.ofChar('i'))
+        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
         val fresh = WorkspaceViewTest.render(app.render(), 80, 24)
         assertTrue(fresh.contains("Target root: "), fresh)
         assertTrue(fresh.contains("Validation: not run"), fresh)
@@ -111,14 +111,14 @@ class HomeLightAppTest {
             val config = temporary.resolve("config-" + (if (invalid.isEmpty()) "blank" else invalid.replace('.', 'd')) + ".json")
             val app = setupWithEmptyRow(config, temporary)
             type(app, invalid)
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
 
             assertInvalidAndUnpublished(app, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE)) }
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
             type(app, "nested/cache")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
-            app.handleKeyEvent(KeyEvent.ofChar('s'))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
             assertTrue(Files.exists(config), invalid)
             val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/nested/cache"), relocation.sourcePath)
@@ -133,17 +133,17 @@ class HomeLightAppTest {
             val config = temporary.resolve("invalid-target-" + index++ + ".json")
             val app = setupWithEmptyRow(config, temporary)
             type(app, "valid/source")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
-            repeat("valid/source".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE)) }
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
+            repeat("valid/source".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
             type(app, invalid)
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
             assertInvalidAndUnpublished(app, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
-            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE)) }
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
+            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
             type(app, "valid/target")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
-            app.handleKeyEvent(KeyEvent.ofChar('s'))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
             val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/valid/source"), relocation.sourcePath)
             assertEquals(temporary.resolve("local/valid/target"), relocation.targetPath)
@@ -155,17 +155,17 @@ class HomeLightAppTest {
         val config = temporary.resolve("archive.json")
         val app = setupWithEmptyRow(config, temporary)
         type(app, "nested/cache")
-        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN)) }
+        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
         type(app, "archive")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
 
         assertInvalidAndUnpublished(app, config, "Archive root must be an absolute path")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN)) }
-        repeat("archive".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE)) }
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
+        repeat("archive".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
         type(app, temporary.resolve("archive").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE))
-        app.handleKeyEvent(KeyEvent.ofChar('s'))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(temporary.resolve("archive"), relocation.archiveRoot)
@@ -204,7 +204,7 @@ class HomeLightAppTest {
             progress.set(ApplyModel.Running.of(plan, steps))
             app.render()
             assertEquals(active, app.selectedIndex())
-            app.handleKeyEvent(KeyEvent.ofChar(if (active == 0) 'j' else 'k'))
+            app.handleKeyEvent(KeyEvent.ofChar(if (active == 0) 'j' else 'k', KEY_BINDINGS))
             val inspected: Int = app.selectedIndex()
             app.render()
             assertEquals(inspected, app.selectedIndex())
@@ -218,7 +218,7 @@ class HomeLightAppTest {
         progress.set(result)
         app.render()
         assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('k'))
+        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
         app.render()
         assertEquals(0, app.selectedIndex())
 
@@ -286,32 +286,32 @@ class HomeLightAppTest {
                 """.trimIndent() + "\n").format(root, source, target))
         val app = HomeLightApp(HomeLightSession(config))
 
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.APPLY, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
-        app.handleKeyEvent(KeyEvent.ofChar('n'))
+        app.handleKeyEvent(KeyEvent.ofChar('n', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
-        app.handleKeyEvent(KeyEvent.ofChar('y'))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('y', KEY_BINDINGS))
         app.session.awaitExecution()
         assertTrue(Files.isSymbolicLink(source))
         assertTrue(app.session.applyModel() is ApplyModel.Result)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
         assertEquals(1, (app.planModel() as PlanModel.Configured).summary.inSync)
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertTrue(app.session.applyModel() is ApplyModel.Result)
-        app.handleKeyEvent(KeyEvent.ofChar('r'))
+        app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
         assertTrue(app.session.isPlanReady())
         assertFalse((app.planModel() as PlanModel.Configured).plan.actions().any(ReconciliationAction::mutatesFilesystem))
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         val unchanged = app.session.applyModel()
-        app.handleKeyEvent(KeyEvent.ofChar('y'))
+        app.handleKeyEvent(KeyEvent.ofChar('y', KEY_BINDINGS))
         assertSame(unchanged, app.session.applyModel())
         assertFalse(app.session.isApplying())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
     }
 
@@ -327,12 +327,12 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
         val app = HomeLightApp(HomeLightSession(config))
-        app.handleKeyEvent(KeyEvent.ofChar('a'))
+        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         val tasks = mutableListOf<Runnable>()
         app.session.confirmApply(Executor { tasks.add(it) })
         val running = app.session.applyModel()
         for (key in charArrayOf('r', 'y', 'a', '1', '2', 'q')) {
-            assertEquals(EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key)))
+            assertEquals(EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key, KEY_BINDINGS)))
             assertEquals(Screen.APPLY, app.activeScreen)
             assertSame(running, app.session.applyModel())
         }
@@ -371,31 +371,31 @@ class HomeLightAppTest {
         assertEquals(0, app.selectedIndex())
 
         // Move down with 'j'
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
         // Move down with DOWN key
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
         // Cannot move past the end
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
         // Move up with 'k'
-        app.handleKeyEvent(KeyEvent.ofChar('k'))
+        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
         // Jump to end with 'G'
-        app.handleKeyEvent(KeyEvent.ofChar('G'))
+        app.handleKeyEvent(KeyEvent.ofChar('G', KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
         // Jump to start with 'g'
-        app.handleKeyEvent(KeyEvent.ofChar('g'))
+        app.handleKeyEvent(KeyEvent.ofChar('g', KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
         // Cannot move before 0
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
     }
 
@@ -435,21 +435,21 @@ class HomeLightAppTest {
         assertEquals(0, app.selectedIndex())
 
         // Moving down stays at 0 because only 1 active item is visible
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
         // Press 'c' to toggle showInSync to true
-        app.handleKeyEvent(KeyEvent.ofChar('c'))
+        app.handleKeyEvent(KeyEvent.ofChar('c', KEY_BINDINGS))
         assertTrue(app.showInSync)
 
         // Now all 3 items are navigable
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
         // Press SPACE to toggle showInSync back to false
-        app.handleKeyEvent(KeyEvent.ofChar('c'))
+        app.handleKeyEvent(KeyEvent.ofChar('c', KEY_BINDINGS))
         assertFalse(app.showInSync)
         assertEquals(0, app.selectedIndex())
     }
@@ -482,19 +482,19 @@ class HomeLightAppTest {
         val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.json")))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('1'))
+        app.handleKeyEvent(KeyEvent.ofChar('1', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('p'))
+        app.handleKeyEvent(KeyEvent.ofChar('p', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('s'))
+        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
     }
 
@@ -521,20 +521,20 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Press TAB to focus detail pane
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Press SPACE in detail pane to resolve highlighted decision
-        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         assertFalse(app.session.hasConflicts())
         assertTrue(app.session.isPlanReady())
 
-        app.handleKeyEvent(KeyEvent.ofChar('2'))
+        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.APPLY, app.activeScreen)
         assertEquals(PaneFocus.MASTER, app.paneFocus())
         assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
@@ -570,48 +570,48 @@ class HomeLightAppTest {
         assertEquals(0, app.selectedIndex())
 
         // Press 'l' (vim right) to move focus to DETAIL pane
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex)
 
         // Press 'j' to move down resolution options
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(1, app.detailSelectedIndex)
 
         // Press 'j' again
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(2, app.detailSelectedIndex)
 
         // Press 'k' to move back up
-        app.handleKeyEvent(KeyEvent.ofChar('k'))
+        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
         assertEquals(1, app.detailSelectedIndex)
 
         // Press 'h' (vim left) to return to MASTER pane
-        app.handleKeyEvent(KeyEvent.ofChar('h'))
+        app.handleKeyEvent(KeyEvent.ofChar('h', KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // In MASTER pane, move down to second relocation
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
         // Focus DETAIL pane with RIGHT arrow
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Select resolution (Enter) on second item
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Return to master with LEFT arrow
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Enter detail pane using raw TAB character '\t'
-        app.handleKeyEvent(KeyEvent.ofChar('\t'))
+        app.handleKeyEvent(KeyEvent.ofChar('\t', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Return to master using TAB in detail pane
-        app.handleKeyEvent(KeyEvent.ofChar('\t'))
+        app.handleKeyEvent(KeyEvent.ofChar('\t', KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
     }
 
@@ -637,10 +637,10 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Read-only details remain accessible without choices.
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
     }
 
@@ -673,17 +673,17 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // Focus detail pane with 'l'
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
         // Move past ADOPT_AND_ARCHIVE_SOURCE to choice 2: LEAVE_UNCHANGED (Unchanged)
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(2, app.detailSelectedIndex)
 
         // Select it (Space)
-        app.handleKeyEvent(KeyEvent.ofChar(' '))
+        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // The item must stay selected and visible as SKIPPED
@@ -697,24 +697,24 @@ class HomeLightAppTest {
         }
 
         // Return to master list with 'h'
-        app.handleKeyEvent(KeyEvent.ofChar('h'))
+        app.handleKeyEvent(KeyEvent.ofChar('h', KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
         assertEquals(1, app.selectedIndex())
 
         // Move up to unresolved conflict item (source2 is at index 0)
-        app.handleKeyEvent(KeyEvent.ofChar('k'))
+        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
         // Move into detail pane with 'l'
-        app.handleKeyEvent(KeyEvent.ofChar('l'))
+        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Select choice 3: DISCARD_BOTH (index 3)
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
-        app.handleKeyEvent(KeyEvent.ofChar('j'))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
         assertEquals(3, app.detailSelectedIndex)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
 
         // The second item must stay selected and have DISCARD badge
         (app.planModel() as? PlanModel.Configured)?.let { configured ->
@@ -741,26 +741,26 @@ class HomeLightAppTest {
 
     private companion object {
         fun type(app: HomeLightApp, value: String) {
-            for (character in value.toCharArray()) app.handleKeyEvent(KeyEvent.ofChar(character))
+            for (character in value.toCharArray()) app.handleKeyEvent(KeyEvent.ofChar(character, KEY_BINDINGS))
         }
 
         fun setupWithEmptyRow(config: Path, temporary: Path): HomeLightApp {
             val app = HomeLightApp(HomeLightSession(config))
-            app.handleKeyEvent(KeyEvent.ofChar('i'))
-            app.handleKeyEvent(KeyEvent.ofChar('\u0015'))
+            app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
             type(app, temporary.resolve("home").toString())
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
             type(app, temporary.resolve("local").toString())
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER))
-            app.handleKeyEvent(KeyEvent.ofChar('a'))
+            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
             return app
         }
 
         fun assertInvalidAndUnpublished(app: HomeLightApp, config: Path, message: String) {
-            app.handleKeyEvent(KeyEvent.ofChar('v'))
+            app.handleKeyEvent(KeyEvent.ofChar('v', KEY_BINDINGS))
             val validation = WorkspaceViewTest.render(app.render(), 120, 30)
             assertTrue(validation.contains(message), validation)
-            app.handleKeyEvent(KeyEvent.ofChar('s'))
+            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
             val save = WorkspaceViewTest.render(app.render(), 120, 30)
             assertTrue(save.contains(message), save)
             assertFalse(Files.exists(config))

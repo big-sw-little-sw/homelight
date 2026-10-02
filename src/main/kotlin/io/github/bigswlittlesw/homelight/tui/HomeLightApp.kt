@@ -5,6 +5,8 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.Column
 import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.tui.TuiConfig
+import dev.tamboui.tui.bindings.BindingSets
+import dev.tamboui.tui.bindings.Bindings
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
@@ -16,6 +18,14 @@ import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
+
+/**
+ * Key handlers read navigation from this set: arrows plus `h`/`j`/`k`/`l` and `g`/`G`, matched without Ctrl or Alt.
+ *
+ * Vim also binds `x` (delete forward) and Ctrl+U/Ctrl+D (page up/down). HomeLight has no such actions; setup
+ * ignores the paging chords and its text fields take typed characters before any binding.
+ */
+internal val KEY_BINDINGS: Bindings = BindingSets.vim()
 
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.
@@ -54,7 +64,9 @@ internal class HomeLightApp(
         syncInSyncSetting()
     }
 
-    internal fun configure(): TuiConfig = customTuiConfig ?: TuiConfig.defaults()
+    // The key handlers depend on KEY_BINDINGS, so a custom configuration gets them too.
+    internal fun configure(): TuiConfig =
+        (customTuiConfig ?: TuiConfig.defaults()).toBuilder().bindings(KEY_BINDINGS).build()
 
     fun run() { runTui(this) }
 
@@ -135,7 +147,7 @@ internal class HomeLightApp(
             else paneFocus = PaneFocus.MASTER
             return EventResult.HANDLED
         }
-        if (key.isQuit() || key.isCharIgnoreCase('q')) {
+        if (key.isQuit()) {
             if (exitIntent == ExitIntent.STAY) exitIntent = if (session.isApplying() || !session.executionSettled())
                 ExitIntent.CONFIRM_KEEP else ExitIntent.EXIT
             return EventResult.HANDLED
@@ -157,30 +169,30 @@ internal class HomeLightApp(
             workspaceDetails.scroll(if (key.isChar(']')) 1 else -1)
             return EventResult.HANDLED
         }
-        if (isTab(key) || key.isRight() || key.isCharIgnoreCase('l')) {
+        if (isTab(key) || key.isRight()) {
             paneFocus = if (isTab(key) && paneFocus == PaneFocus.DETAIL) PaneFocus.MASTER else PaneFocus.DETAIL
             if (paneFocus == PaneFocus.DETAIL) workspaceDetails.followChoice()
             return EventResult.HANDLED
         }
-        if (key.isLeft() || key.isCharIgnoreCase('h')) { paneFocus = PaneFocus.MASTER; return EventResult.HANDLED }
+        if (key.isLeft()) { paneFocus = PaneFocus.MASTER; return EventResult.HANDLED }
         val item = selectedPlanItem()
         val choices = paneFocus == PaneFocus.DETAIL && item != null && item.availableResolutions.isNotEmpty() &&
             session.applyModel() !is ApplyModel.Result
-        if (key.isUp() || key.isCharIgnoreCase('k') || key.isDown() || key.isCharIgnoreCase('j')) {
-            val delta = if (key.isUp() || key.isCharIgnoreCase('k')) -1 else 1
+        if (key.isUp() || key.isDown()) {
+            val delta = if (key.isUp()) -1 else 1
             if (choices) {
                 detailSelectedIndex = (detailSelectedIndex + delta).coerceIn(0, item.availableResolutions.size - 1)
                 workspaceDetails.followChoice()
             } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(delta)
             else if (delta < 0) selectPrevious() else selectNext()
-        } else if (key.isHome() || key.isChar('g') || key.isEnd() || key.isChar('G')) {
-            val end = key.isEnd() || key.isChar('G')
+        } else if (key.isHome() || key.isEnd()) {
+            val end = key.isEnd()
             if (choices) {
                 detailSelectedIndex = if (end) item.availableResolutions.size - 1 else 0
                 workspaceDetails.followChoice()
             } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(if (end) Int.MAX_VALUE else -Int.MAX_VALUE)
             else if (end) selectLast() else selectFirst()
-        } else if (key.isChar(' ') || key.isKey(KeyCode.ENTER)) {
+        } else if (key.isSelect()) {
             if (choices) resolveSelected(item.availableResolutions[detailSelectedIndex])
             else { paneFocus = PaneFocus.DETAIL; workspaceDetails.followChoice() }
         }
@@ -194,13 +206,13 @@ internal class HomeLightApp(
 
     private fun handleApplyKeyEvent(key: KeyEvent): EventResult {
         val model = session.applyModel()
-        if (isTab(key) || key.isRight() || key.isCharIgnoreCase('l')) {
+        if (isTab(key) || key.isRight()) {
             actionFocus = if (isTab(key) && actionFocus == PaneFocus.DETAIL) PaneFocus.MASTER else PaneFocus.DETAIL
-        } else if (key.isLeft() || key.isCharIgnoreCase('h')) actionFocus = PaneFocus.MASTER
+        } else if (key.isLeft()) actionFocus = PaneFocus.MASTER
         else if (key.isChar('[') || key.isChar(']')) actionDetails.scroll(if (key.isChar(']')) 1 else -1)
-        else if (key.isUp() || key.isCharIgnoreCase('k')) {
+        else if (key.isUp()) {
             if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(-1) else selectPrevious()
-        } else if (key.isDown() || key.isCharIgnoreCase('j')) {
+        } else if (key.isDown()) {
             if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(1) else selectNext()
         } else if (model is ApplyModel.Running || exitIntent == ExitIntent.AFTER_EXECUTION) return EventResult.HANDLED
         else if (model is ApplyModel.Confirmation) {
@@ -218,8 +230,8 @@ internal class HomeLightApp(
 
     private fun handleExitDialog(key: KeyEvent): EventResult {
         if (key.isKey(KeyCode.ESCAPE)) exitIntent = ExitIntent.STAY
-        else if (key.isUp() || key.isCharIgnoreCase('k')) exitIntent = ExitIntent.CONFIRM_KEEP
-        else if (key.isDown() || key.isCharIgnoreCase('j')) exitIntent = ExitIntent.CONFIRM_EXIT
+        else if (key.isUp()) exitIntent = ExitIntent.CONFIRM_KEEP
+        else if (key.isDown()) exitIntent = ExitIntent.CONFIRM_EXIT
         else if (isTab(key)) exitIntent = if (exitIntent == ExitIntent.CONFIRM_KEEP) ExitIntent.CONFIRM_EXIT else ExitIntent.CONFIRM_KEEP
         else if (key.isKey(KeyCode.ENTER)) {
             exitIntent = if (exitIntent == ExitIntent.CONFIRM_KEEP) ExitIntent.STAY else ExitIntent.AFTER_EXECUTION
