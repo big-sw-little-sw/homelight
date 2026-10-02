@@ -26,7 +26,7 @@ sealed interface PlanModel {
                 items: List<PlanRelocationItem>, summary: PlanSummary,
             ): Configured = Configured(
                 configPath, targetRoot, plan,
-                java.util.List.copyOf(items.sortedWith(BY_URGENCY_AND_PATH)), summary,
+                items.sortedWith(BY_URGENCY_AND_PATH), summary,
             )
         }
     }
