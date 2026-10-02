@@ -65,7 +65,7 @@ class DefaultConfigurationClassificationTest {
                     val evaluation = evaluator.load(path)
                     val session = HomeLightSession(path)
                     assertClassification(evaluation, session.planModel(), unconfigured)
-                    assertClassification(evaluation, PlanWorkflow().loadPlan(path), unconfigured)
+                    assertClassification(evaluation, planModel(evaluator.load(path)), unconfigured)
                     session.refresh()
                     assertClassification(session.evaluation(), session.planModel(), unconfigured)
                     assertFalse(session.requestApply())
@@ -100,7 +100,7 @@ class DefaultConfigurationClassificationTest {
                     Files.delete(config)
                     Files.writeString(config, "{\"homelight\": [")
                     // Adapting a retained result must not reclassify it using a later filesystem state.
-                    assertInstanceOf(PlanModel.Unconfigured::class.java, PlanWorkflow.from(retained))
+                    assertInstanceOf(PlanModel.Unconfigured::class.java, planModel(retained))
                     assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.replan(retained).evaluation)
                 }
             }

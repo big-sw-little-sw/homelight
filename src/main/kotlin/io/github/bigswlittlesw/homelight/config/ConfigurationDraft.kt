@@ -12,10 +12,6 @@ data class ConfigurationDraft private constructor(
     val relocations: List<Relocation>,
     val sharedList: Path?,
 ) {
-    fun withTargetRoot(value: Path): ConfigurationDraft = of(value, relocations, sharedList)
-
-    fun withRelocations(value: List<Relocation>): ConfigurationDraft = of(targetRoot, value, sharedList)
-
     companion object {
         /** Normalizes `targetRoot` and `sharedList`, and copies `relocations`. */
         fun of(targetRoot: Path, relocations: List<Relocation>, sharedList: Path? = null): ConfigurationDraft =

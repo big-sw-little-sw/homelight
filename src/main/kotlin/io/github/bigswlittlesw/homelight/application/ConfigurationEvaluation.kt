@@ -54,6 +54,9 @@ class ConfigurationEvaluation(
                 plan,
             )
         }
+
+        /** Evaluation records choices, possibly none, for every configured source. */
+        fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
     }
 
     enum class DiscardReason { REMOVED, DEFINITION_CHANGED, UNAVAILABLE, CONFIGURATION_UNAVAILABLE }

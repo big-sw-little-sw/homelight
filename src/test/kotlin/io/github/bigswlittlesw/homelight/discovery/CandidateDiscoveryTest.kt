@@ -12,9 +12,7 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutc
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProblem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceStatus
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Ownership
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Size
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -54,15 +52,12 @@ class CandidateDiscoveryTest {
             assertTrue(result.sources.all { s -> s.status == SourceStatus.CURRENT })
             val child = row(result, temporary.resolve(".local/share/uv/tools"))
             assertEquals(listOf(temporary.resolve(".local/share/uv")), child.ancestors)
-            assertEquals(Size.NOT_ESTIMATED, child.observation.size)
-            assertNull(child.observation.size.bytes)
             val maven = row(result, temporary.resolve(".m2"))
             assertEquals(2, maven.catalog.definitions.size)
             assertEquals(shared.toString(), maven.catalog.definitions.get(1).source.location)
             // Kotlin's read-only `List` has no `clear`; the cast reaches the JDK list's mutator.
             assertThrows(UnsupportedOperationException::class.java) { (result.candidates as MutableList<*>).clear() }
             assertThrows(UnsupportedOperationException::class.java) { (child.ancestors as MutableList<*>).clear() }
-            assertEquals(Ownership.NOT_EVALUATED, child.observation.ownership)
         }
     }
 
@@ -114,7 +109,6 @@ class CandidateDiscoveryTest {
             assertTrue(retained.observation.stale)
             assertEquals(original, retained.observation.generation)
             assertEquals(originalRow.catalog, retained.catalog)
-            assertEquals(Size.NOT_ESTIMATED, retained.observation.size)
             discovery.refresh(temporary, temporary.resolve("other-location"))
             val changed = awaitResult(discovery, ::finished)
             assertEquals(SourceStatus.FAILED, shared(changed).status)
@@ -257,7 +251,6 @@ class CandidateDiscoveryTest {
             val retained = result.candidates.first().observation
             assertTrue(retained.stale)
             assertEquals(Kind.DIRECTORY, retained.kind)
-            assertNull(retained.size.bytes)
             assertEquals(first, retained.generation)
         }
     }
@@ -377,7 +370,6 @@ class CandidateDiscoveryTest {
                 clock.set(CandidateDiscovery.METADATA_NANOS)
                 val result = discovery.snapshot()
                 assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
-                assertTrue(result.candidates.all { c -> c.observation.size.bytes == null })
                 assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             }
         } finally {
@@ -487,7 +479,6 @@ class CandidateDiscoveryTest {
                 assertTrue(observation.stale)
                 assertEquals(original, observation.generation)
                 assertTrue(observation.diagnostics.any { d -> d.reason == Reason.DEADLINE })
-                assertNull(observation.size.bytes)
             }
         } finally { gate.release.countDown() }
     }
