@@ -14,10 +14,6 @@ val picocliCodegen = configurations.create("picocliCodegen")
 
 repositories {
     mavenCentral()
-    // TamboUI snapshots.
-    maven("https://central.sonatype.com/repository/maven-snapshots/") {
-        mavenContent { snapshotsOnly() }
-    }
 }
 
 java {

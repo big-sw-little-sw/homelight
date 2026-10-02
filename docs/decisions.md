@@ -60,7 +60,7 @@ Running `homelight` starts one persistent full-screen TamboUI application. `init
 
 The earlier guided inline CLI approach created separate short-lived terminal applications for plan display, conflict resolution, confirmation, and progress. That lifecycle made focus, rendering, and workflow continuity unreliable. A single application lifecycle and retained workflow state match the product's need to compare relocations, edit decisions, review an exact plan, and observe execution progress in place.
 
-TamboUI remains the presentation toolkit because its high-level layout, widget, focus, and styling primitives allow a distinctive interface without rebuilding terminal infrastructure. It remains isolated behind the TUI adapter because its snapshot API is experimental.
+TamboUI remains the presentation toolkit because its high-level layout, widget, focus, and styling primitives allow a distinctive interface without rebuilding terminal infrastructure. It remains isolated behind the TUI adapter because its pre-1.0 API still changes between releases.
 
 ## 2026-09-12: Keep TUI and JSON automation in one binary without dual human presentation
 
@@ -216,6 +216,20 @@ Considered: a sealed `when-adopting-target` (`prompt`, `discard-source`, `archiv
 Nothing has been released, so existing files are not migrated.
 
 Rejected: a hand-written pre-pass or validator to restore the earlier error details (closed PR #39 tried this with Jackson). It would reintroduce the parsing code this decision removes.
+
+## 2026-10-03: Stay with TamboUI; Kotlin TUI frameworks reviewed
+
+HomeLight stays with TamboUI, now pinned to the 0.5.0 release from Maven Central (#88). A survey of Kotlin TUI frameworks found none that meets our requirements: a full-screen alternate-screen app with layout widgets, running in a static native binary.
+
+- **Mosaic 0.18:** no alternate screen (#455), only basic layout widgets, coroutines required, native image untested (#764). Its bundled JNI `.so` likely cannot load in a fully static musl binary. No release in 13 months.
+- **Kotter 1.4:** inline only, no alternate screen (#156), GraalVM support self-described as incomplete, 4 contributors.
+- **Mordant 3.1:** the best native-image story (graal-ffi), but it is an output and input library, not a full-screen app framework.
+- **Lanterna:** needs reflection configuration, and LGPL-3.0 in a static binary is an open question.
+- **ratatui-kotlin ports:** immature.
+
+Issue numbers in this list are the upstream projects' own.
+
+Revisit if Mosaic ships alternate-screen support and CI-tested native-image support, or if TamboUI stalls: no release for about 6 months, or a native regression upstream won't fix.
 
 ## How to add decisions
 
