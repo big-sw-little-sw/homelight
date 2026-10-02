@@ -426,7 +426,7 @@ private fun cleanStaleStaging(stagingRoot: Path) {
             continue
         }
         val target = markedTarget(marker)
-        if (target == null || !hasOnlyOperationEntries(entry) || containsSymlink(entry)) {
+        if (target == null || !hasOnlyOperationEntries(entry)) {
             continue
         }
         if (!sameFileStore(stagingRoot, target.parent) || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
@@ -437,7 +437,7 @@ private fun cleanStaleStaging(stagingRoot: Path) {
                 val held = tryAcquireLock(channel)
                 if (held != null) {
                     held.use {
-                        deleteTree(entry)
+                        deleteStaleOperation(entry)
                     }
                 }
             }
@@ -445,6 +445,26 @@ private fun cleanStaleStaging(stagingRoot: Path) {
             return
         }
     }
+}
+
+/**
+ * Deletes an operation that passed the ownership checks and whose lock the caller holds.
+ *
+ * A killed copy can leave directories with their source's restrictive mode (`0500`), so owner access
+ * is restored first; this also lets the symlink check walk every directory. The copy goes before the
+ * marker and lock: if its delete fails partway, the operation still passes the ownership checks and
+ * a later run retries it.
+ */
+private fun deleteStaleOperation(operation: Path) {
+    val copy = operation.resolve("copy")
+    if (Files.isDirectory(copy, LinkOption.NOFOLLOW_LINKS)) {
+        restoreOwnerAccess(copy)
+    }
+    if (containsSymlink(operation)) {
+        return
+    }
+    deleteTree(copy)
+    deleteTree(operation)
 }
 
 private fun isOwnedOperation(entry: Path): Boolean {
