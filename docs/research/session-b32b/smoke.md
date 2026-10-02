@@ -26,7 +26,7 @@ walkthrough; rerun the script for another fresh, absent configuration path.
    explanation, add it directly, edit its target, then Refresh. Its checkmark
    and edits should remain. In Row details, “When only target exists” defaults
    to Prompt; Adopt target is an explicit choice, not inferred by discovery.
-4. From the table use `e` for Locations. Enter the printed `first-run/shared.yaml`
+4. From the table use `e` for Locations. Enter the printed `first-run/shared.json`
    in the third field. Return to the table and browser. Inspect `.m2` to see
    conflicting advice with both app/source attributions; `.cache/uv` includes
    omitted advice. Find ungrouped `team-cache` and add it. Use `u` to reveal
@@ -37,18 +37,18 @@ walkthrough; rerun the script for another fresh, absent configuration path.
    diagnostics with the indicated scrolling keys. Resize to 120×30 and back,
    checking focus, wrapping, scrollbars and contextual shortcuts.
 6. Edit `team-cache`'s target. Run the printed `cp` command to replace only the
-   temporary shared file with `shared-refreshed.yaml`. Press `r` in the browser.
+   temporary shared file with `shared-refreshed.json`. Press `r` in the browser.
    The selected row and target survive; details label former advice as historical.
    `new-cache` remains unselected. Editing roots explicitly re-resolves relative
    rows; clearing the shared field returns to bundled-only discovery.
-7. For an input failure, enter an absent YAML path under the temporary fixture.
+7. For an input failure, enter an absent JSON path under the temporary fixture.
    Browse, then `i` opens source diagnostics. Manual Add, Validate and Save remain
    available. A syntactically valid unavailable list location may still be saved.
 8. `q` in the table/browser opens discard confirmation. Escape keeps the draft;
    Enter discards it. Reopen with `i` and confirm the old roots, list and rows are
    gone. Escape from Locations cancels setup; it never exits the application.
 9. On a fresh draft, save one manual and one candidate row with `s` from the
-   table. Workspace opens. Exit with `q` without applying. Inspect the YAML:
+   table. Workspace opens. Exit with `q` without applying. Inspect the JSON:
    only chosen rows and the optional shared location persist. Source directories
    and payloads remain in place; target relocations were not created. Selected
    missing source paths must still be absent. Do not Apply during this walkthrough.
