@@ -185,13 +185,14 @@ Follow-ups found during 4d, all done:
 - #84: discovery on virtual threads with a bounded sliding window (PR #93).
 - #83: TamboUI key bindings, scrollbar and terminal check (PR #94).
 - #10: independent relocations run concurrently (PR #95).
-- #96: existing parent directories no longer make relocations dependent.
+- #96: existing parent directories no longer make relocations dependent (PR #97).
+- #98: relocations that share a staging root run concurrently.
 
 Not scheduled: #70 (Clikt instead of picocli), for the user's own simplification pass.
 
 Done when: all six are merged with all 7 checks green.
 
-Status: done once #96 merges. Steps 5–7 stay deferred. Next: step 8 (TUI design pass) and the user's simplification pass (#70, a generic `Policy<C>`, the size of `CandidateDiscovery`).
+Status: done once #98 merges. Steps 5–7 stay deferred. Next: step 8 (TUI design pass) and the user's simplification pass (#70, a generic `Policy<C>`, the size of `CandidateDiscovery`).
 
 ### 5–7. Cloud setup, pilot worker, coordinator routine (deferred)
 
@@ -221,6 +222,6 @@ Order:
 2. Simplification: K6 and step 4d covered the mechanical part. The user's own simplification pass follows: #70, a generic `Policy<C>`, and the size of `CandidateDiscovery`.
 3. #11 integration verification.
 4. TUI changes from the accepted design.
-5. Remaining features (#5, #6, #19, and what the splits produce). #10 is done (PR #95, refined by #96).
+5. Remaining features (#5, #6, #19, and what the splits produce). #10 is done (PR #95, refined by #96 and #98).
 
 Status: not started.

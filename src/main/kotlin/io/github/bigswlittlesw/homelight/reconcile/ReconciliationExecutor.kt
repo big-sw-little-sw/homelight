@@ -20,6 +20,7 @@ import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
@@ -30,6 +31,7 @@ import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.ExperimentalPathApi
@@ -45,7 +47,13 @@ import kotlin.io.path.readSymbolicLink
 import kotlin.io.path.walk
 
 /** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
-class ReconciliationExecutor(private val concurrency: Int = RELOCATION_CONCURRENCY) {
+class ReconciliationExecutor internal constructor(
+    private val concurrency: Int,
+    /** A test seam, called with the operation directory as staged publication reaches each [StagingStep]. */
+    private val stagingStep: (StagingStep, Path) -> Unit,
+) {
+    constructor(concurrency: Int = RELOCATION_CONCURRENCY) : this(concurrency, { _, _ -> })
+
     private val inspector = PathInspector()
 
     /**
@@ -197,32 +205,55 @@ class ReconciliationExecutor(private val concurrency: Int = RELOCATION_CONCURREN
         cleanStaleStaging(stagingRoot)
         probeAtomicMove(stagingRoot)
 
-        val operation = Files.createDirectory(stagingRoot.resolve(OPERATION_PREFIX + UUID.randomUUID()))
-        val marker = operation.resolve("target")
-        val lockPath = operation.resolve("lock")
-        Files.writeString(marker, "$MARKER_HEADER${action.target.toAbsolutePath().normalize()}\n", StandardCharsets.UTF_8)
+        // The order below is the protocol that keeps cleanup away from this operation; see [claimedOperations].
+        val name = OPERATION_PREFIX + UUID.randomUUID()
+        check(claimedOperations.add(name)) { "staging operation name reused: $name" }
+        val operation = stagingRoot.resolve(name)
         val copy = operation.resolve("copy")
         var lockSupported = true
+        var locked = false
         try {
-            FileChannel.open(lockPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
+            Files.createDirectory(operation)
+            stagingStep(StagingStep.CREATED, operation)
+            FileChannel.open(operation.resolve("lock"), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
                 acquireLock(channel).use { lock ->
+                    locked = true
                     lockSupported = lock != null
-                    Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
-                    verifyCopy(action.path, copy)
-                    requireState(action.path, PathState.DIRECTORY)
-                    requireState(action.target, PathState.ABSENT)
-                    publish(copy, action.target)
+                    try {
+                        stagingStep(StagingStep.LOCKED, operation)
+                        Files.writeString(
+                            operation.resolve("target"), "$MARKER_HEADER${action.target.toAbsolutePath().normalize()}\n",
+                            StandardCharsets.UTF_8,
+                        )
+                        stagingStep(StagingStep.MARKED, operation)
+                        Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
+                        verifyCopy(action.path, copy)
+                        stagingStep(StagingStep.COPIED, operation)
+                        requireState(action.path, PathState.DIRECTORY)
+                        requireState(action.target, PathState.ABSENT)
+                        publish(copy, action.target)
+                        stagingStep(StagingStep.PUBLISHED, operation)
+                    } finally {
+                        // A failed copy may hold directories without owner write; deleting their entries needs it.
+                        if (Files.isDirectory(copy, LinkOption.NOFOLLOW_LINKS)) {
+                            restoreOwnerAccess(copy)
+                        }
+                        deleteOperation(operation) { stagingStep(StagingStep.UNMARKED, operation) }
+                    }
                 }
             }
         } finally {
-            // A failed copy may hold directories without owner write; deleting their entries needs it.
-            if (Files.isDirectory(copy, LinkOption.NOFOLLOW_LINKS)) {
-                restoreOwnerAccess(copy)
+            // Opening or locking failed before any marker was written, so no cleanup can touch what is left.
+            if (!locked) {
+                deleteTree(operation)
             }
-            deleteTree(operation)
+            claimedOperations.remove(name)
         }
         return if (lockSupported) "completed" else "completed; staging locks unsupported, stale cleanup skipped"
     }
+
+    /** Points in staged publication at which [stagingStep] is called; each one is after the step it names. */
+    internal enum class StagingStep { CREATED, LOCKED, MARKED, COPIED, PUBLISHED, UNMARKED }
 
     private fun deleteDirectory(action: ReconciliationAction.DeleteDirectory) {
         requireState(action.path, PathState.DIRECTORY)
@@ -385,37 +416,105 @@ private fun notRun(action: ReconciliationAction) =
  *
  * Parents are checked here, when [ReconciliationExecutor.execute] starts, not at plan time: the review snapshot does
  * not observe parents, and this is the latest state before any action runs.
+ *
+ * Relocations may share a staging root where [stagingLocksWork] confirms that file locks work, because stale cleanup
+ * then never touches another relocation's operation (see [claimedOperations]). A shared root still overlaps every
+ * other path it intersects, including a different staging root nested in it. Where locks are not confirmed, a shared
+ * staging root keeps its relocations in one group.
  */
-internal fun independentGroups(relocations: List<RelocationPlan>): List<List<Int>> {
-    val claims = relocations.map(::claimedPaths)
+internal fun independentGroups(
+    relocations: List<RelocationPlan>,
+    stagingLocksWork: (Path) -> Boolean = ::stagingLocksWork,
+): List<List<Int>> {
+    val roots = relocations.map(::stagingRoots)
+    val shared = roots.flatMap { it.distinct() }.groupingBy { it }.eachCount().filterValues { count -> count > 1 }.keys
+    val shareable = shared.filter(stagingLocksWork).toSet()
+    val claims = relocations.mapIndexed { index, relocation -> claimedPaths(relocation, roots[index], shareable) }
     var groups = listOf<List<Int>>()
     for (index in relocations.indices) {
         val (dependent, independent) = groups.partition { group ->
-            group.any { other -> claims[other].any { left -> claims[index].any { right -> intersects(left, right) } } }
+            group.any { other -> claims[other].any { left -> claims[index].any { right -> left.overlaps(right) } } }
         }
         groups = independent + listOf((dependent.flatten() + index).sorted())
     }
     return groups.sortedBy { group -> group.first() }
 }
 
-private fun claimedPaths(relocation: RelocationPlan): List<Path> {
-    val paths = listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
-        relocation.actions.mapNotNull { action -> action.destination } +
-        relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
-            migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME)
-        }
+/** A path a relocation claims. A [shareable] staging root does not overlap the same staging root of another. */
+private data class Claim(val path: Path, val shareable: Boolean = false) {
+    fun overlaps(other: Claim): Boolean =
+        intersects(path, other.path) && !(shareable && other.shareable && path == other.path)
+}
+
+private fun stagingRoots(relocation: RelocationPlan): List<Path> =
+    relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
+        (migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME)).toAbsolutePath().normalize()
+    }
+
+private fun claimedPaths(relocation: RelocationPlan, stagingRoots: List<Path>, shareable: Set<Path>): List<Claim> {
+    val own = listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
+        relocation.actions.mapNotNull { action -> action.destination }
     // An existing parent is not claimed. On POSIX, creating, renaming, linking or deleting different names in one
     // directory is safe, and each action's guards check only its own paths. A parent another relocation changes is
     // inside one of that relocation's paths, so this relocation's path overlaps it anyway. A missing parent stays
     // claimed. Its missing ancestors may still be created concurrently, which `ensureRealDirectories` and
     // `Files.createDirectories` tolerate before checking for a real directory.
-    val parents = paths.mapNotNull { path -> path.toAbsolutePath().normalize().parent }
-    return paths + parents.filterNot { parent -> Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) }
+    val parents = (own + stagingRoots).mapNotNull { path -> path.toAbsolutePath().normalize().parent }
+        .filterNot { parent -> Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) }
+    return (own + parents).map(::Claim) + stagingRoots.map { root -> Claim(root, root in shareable) }
+}
+
+/**
+ * Whether file locks work on the filesystem of [stagingRoot]: probed by locking a temporary file in the root, or in
+ * its parent while the root is missing, since the root will be created there. A root or parent that is not a real
+ * directory, or any failure, counts as no.
+ */
+internal fun stagingLocksWork(stagingRoot: Path): Boolean {
+    val directory = if (Files.exists(stagingRoot, LinkOption.NOFOLLOW_LINKS)) stagingRoot else stagingRoot.parent
+    if (directory == null || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+        return false
+    }
+    return try {
+        val probe = Files.createTempFile(directory, ".homelight-lock-probe-", null)
+        try {
+            FileChannel.open(probe, StandardOpenOption.WRITE).use { channel -> channel.tryLock()?.use { true } ?: false }
+        } finally {
+            Files.deleteIfExists(probe)
+        }
+    } catch (_: IOException) {
+        false
+    } catch (_: UnsupportedOperationException) {
+        false
+    }
 }
 
 private const val DEFAULT_STAGING_NAME = ".homelight-staging"
 private const val OPERATION_PREFIX = "operation-"
 private const val MARKER_HEADER = "homelight-staging-v1\n"
+
+/**
+ * Names of the staging operations this process is running or cleaning up. Relocations in this process and in others
+ * may share a staging root, and this set and each operation's file lock together keep stale cleanup away from an
+ * operation in flight. The set is process-wide because file locks are.
+ *
+ * In this process, an operation's name is claimed before its directory is created and released only after the
+ * directory is deleted. Cleanup claims a name before it opens anything inside, and skips the operation if the claim
+ * fails. It must not even try the lock: closing any channel to a file releases every lock this process holds on it
+ * (see [FileLock]), so a failed try would free a running operation's lock for other processes.
+ *
+ * Across processes, the order of steps lets the lock decide. The owner creates the directory, then creates and locks
+ * `lock`, then writes the `target` marker, copies and publishes. It then deletes the copy, then the marker, then
+ * `lock` and the directory, and only then releases the lock. Cleanup needs the marker and the lock, and checks again
+ * once it holds the lock. So:
+ * - before the marker exists, cleanup skips the operation;
+ * - while the marker exists, the owner holds the lock and cleanup cannot acquire it;
+ * - a cleanup that acquires the lock after the owner released it finds no marker, or, if the owner's delete failed
+ *   partway, leftovers that the owner no longer uses.
+ *
+ * Where locks are unsupported, cleanup deletes nothing, and [independentGroups] also keeps relocations that share
+ * such a staging root sequential.
+ */
+private val claimedOperations: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
 private val OWNER_ACCESS = setOf(
     PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE,
@@ -505,47 +604,55 @@ private fun probeAtomicMove(stagingRoot: Path) {
     }
 }
 
-private fun cleanStaleStaging(stagingRoot: Path) {
+/**
+ * Deletes operations that a run left behind (see [claimedOperations]). An operation is stale only when this process
+ * has not claimed it, its marker names a missing target, and its lock is free. The checks are repeated under the
+ * lock, because an owner deletes its marker before it releases the lock.
+ */
+internal fun cleanStaleStaging(stagingRoot: Path) {
     for (entry in stagingRoot.listDirectoryEntries()) {
-        if (!isOwnedOperation(entry)) {
-            continue
-        }
-        val marker = entry.resolve("target")
-        val lock = entry.resolve("lock")
-        if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)
-            || !Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)
-        ) {
-            continue
-        }
-        val target = markedTarget(marker)
-        if (target == null || !hasOnlyOperationEntries(entry)) {
-            continue
-        }
-        if (!sameFileStore(stagingRoot, target.parent) || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+        val name = entry.fileName.toString()
+        if (!isOwnedOperation(entry) || !claimedOperations.add(name)) {
             continue
         }
         try {
-            FileChannel.open(lock, StandardOpenOption.WRITE).use { channel ->
-                val held = tryAcquireLock(channel)
-                if (held != null) {
-                    held.use {
+            if (!isStale(stagingRoot, entry)) {
+                continue
+            }
+            FileChannel.open(entry.resolve("lock"), StandardOpenOption.WRITE).use { channel ->
+                tryAcquireLock(channel)?.use {
+                    if (isStale(stagingRoot, entry)) {
                         deleteStaleOperation(entry)
                     }
                 }
             }
+        } catch (_: NoSuchFileException) {
+            // Another process finished or cleaned up this operation meanwhile.
         } catch (_: UnsupportedOperationException) {
             return
+        } finally {
+            claimedOperations.remove(name)
         }
     }
+}
+
+private fun isStale(stagingRoot: Path, operation: Path): Boolean {
+    val marker = operation.resolve("target")
+    if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)
+        || !Files.isRegularFile(operation.resolve("lock"), LinkOption.NOFOLLOW_LINKS)
+    ) {
+        return false
+    }
+    val target = markedTarget(marker) ?: return false
+    return hasOnlyOperationEntries(operation) && sameFileStore(stagingRoot, target.parent)
+        && !Files.exists(target, LinkOption.NOFOLLOW_LINKS)
 }
 
 /**
  * Deletes an operation that passed the ownership checks and whose lock the caller holds.
  *
  * A killed copy can leave directories with their source's restrictive mode (`0500`), so owner access
- * is restored first; this also lets the symlink check walk every directory. The copy goes before the
- * marker and lock: if its delete fails partway, the operation still passes the ownership checks and
- * a later run retries it.
+ * is restored first; this also lets the symlink check walk every directory.
  */
 private fun deleteStaleOperation(operation: Path) {
     val copy = operation.resolve("copy")
@@ -555,7 +662,20 @@ private fun deleteStaleOperation(operation: Path) {
     if (containsSymlink(operation)) {
         return
     }
-    deleteTree(copy)
+    deleteOperation(operation)
+}
+
+/**
+ * Deletes an operation whose lock the caller holds: the copy, then the marker, then the lock and the directory.
+ *
+ * If the copy's delete fails partway, the operation still passes the ownership checks and a later run retries it.
+ * Once the marker is gone, a cleanup that acquires the lock afterwards no longer finds the operation stale.
+ * [afterUnmarked] is a test seam for that window.
+ */
+private fun deleteOperation(operation: Path, afterUnmarked: () -> Unit = {}) {
+    deleteTree(operation.resolve("copy"))
+    Files.deleteIfExists(operation.resolve("target"))
+    afterUnmarked()
     deleteTree(operation)
 }
 
