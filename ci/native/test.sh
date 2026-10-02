@@ -5,8 +5,8 @@
 #
 # smoke: --version and plan --json on a small fixture.
 # cli:   smoke, then the compare.sh suite diffed against the JVM transcript from build.sh.
-# full:  cli, then the TUI under expect for each TERM in $TUI_TERMS, TERM=dumb refused with exit 2,
-#        and the setup flow finding a bundled candidate (setup.exp).
+# full:  cli, then the TUI under expect for each TERM in $TUI_TERMS, Ctrl-C quitting cleanly,
+#        TERM=dumb refused with exit 2, and the setup flow finding a bundled candidate (setup.exp).
 #        Needs expect and the terminfo entries for those TERMs (ncurses-term on Debian and Fedora).
 #
 # Logs go to results-dir (default: a new temporary directory). Every command gets an explicit
@@ -70,6 +70,12 @@ for term in ${TUI_TERMS:-xterm-256color screen-256color tmux-256color linux vt10
     fail "TUI TERM=$term: $line"
   fi
 done
+line=$(TERM=xterm-256color TUI_QUIT=ctrl-c expect "$here/tui.exp" "$results/tui-ctrl-c.log" "$binary" -c "$fx/config.json" status)
+if [ $? -eq 0 ]; then
+  pass "TUI Ctrl-C quits: $line"
+else
+  fail "TUI Ctrl-C quits: $line"
+fi
 line=$(TERM=dumb expect "$here/tui.exp" "$results/tui-dumb.log" "$binary" -c "$fx/config.json" status)
 if [ $? -eq 3 ] && [[ $line == *exit=2* ]] && grep -q 'does not support a dumb terminal' "$results/tui-dumb.log"; then
   pass "TUI TERM=dumb refused: $line"
