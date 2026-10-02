@@ -40,7 +40,7 @@ line, then continue. Update the status line when a step's state changes.
 
 ## Steps
 
-Steps 1–4 run locally with the user. Step 8 runs in parallel with steps 6–7.
+Work runs from a local Claude Code session acting as orchestrator. Agents do the work in worktrees, and the orchestrator merges each PR into `main` once all 7 required checks pass and it has reviewed the change. It stops only for product or UX questions.
 
 ### 1. Checkpoint
 
@@ -63,10 +63,7 @@ Status: done (PR #33).
 
 Done when: a PR shows the check and `main` cannot merge without it.
 
-Status: CI green on PR #34 (first Linux run exposed a wrap-dependent assertion in
-`CandidateSetupTest`, fixed). Repo made public so branch protection is available.
-Remaining: user merges #34 and applies branch protection (required check `JVM verify`,
-PRs required, no force-push).
+Status: done (PR #34). The repo is public, and `main` is protected: PRs are required, force-pushes are blocked, and 7 checks are required (`JVM verify` plus the six native jobs from step 4).
 
 ### 3. Remove native-image blockers
 
@@ -82,11 +79,7 @@ PRs required, no force-push).
 
 Done when: SmallRye dependencies are gone, tests cover the new cases, CI is green.
 
-Status: done on `step3/native-blockers`. snakeyaml loader with line/column errors
-(SmallRye and jboss-logging gone from the dependency tree), typed
-`ConfigurationLoader.PathOverride`, exec provider default in native builds, dumb
-terminal refused with exit 2. 252 tests pass on macOS and Linux.
-Remaining: user merges PR.
+Status: done (PR #36). The snakeyaml loader was later replaced by JSON configuration in step 4c (K6b).
 
 ### 4. Native Linux CI
 
@@ -115,7 +108,7 @@ starts in parallel. Scripts in `ci/native/`, `ci/try-pr` for local tries. Distro
 x86_64 on Oracle Linux 7 (full), Oracle Linux 8, Debian 13, Fedora (CLI), Ubuntu 24.04
 with noexec `/tmp` (full), Alpine (smoke); arm64 on Oracle Linux 8 and Ubuntu 24.04
 noexec (full), Fedora (CLI); both runners also run the full suite on Ubuntu 24.04.
-Remaining: user merges PR; add the new jobs as required checks.
+All six native jobs are required checks on `main`.
 
 ### 4b. Adopt Jackson databind for YAML and JSON (superseded)
 
@@ -168,52 +161,32 @@ behavior; the Java tests guard behavior until K5.
 Done when: the user merges `kotlin-migration` into `main` with all 7 checks green
 and both native binaries working.
 
-Status: done except the final merge, which the user performs. Steps 5–9 work on the
-Kotlin codebase: conventions in `AGENTS.md`, build with `./gradlew build`,
-configuration in `~/.homelight.json`.
+Status: done (PR #68, merged 2026-10-02). All later work is on the Kotlin codebase: conventions in `AGENTS.md`, `./gradlew build`, and configuration in `~/.homelight.json`.
 
-### 5. Cloud setup (user performs account steps)
+### 4d. Post-migration cleanup and #25
 
-- Install the Claude GitHub App on the repo.
-- Create a cloud environment: setup script installs a JDK 25 and runs
-  `./gradlew build` (the wrapper downloads Gradle and Kotlin); network allowlist
-  includes `services.gradle.org`, `plugins.gradle.org`, Maven Central and
-  `central.sonatype.com`.
-- Create labels: `in-progress`, `needs-human`, `ready-for-review` (the canonical
-  triage labels already exist, see `docs/agents/triage-labels.md`).
+These are behavior-neutral follow-ups from the K7 review, plus the #25 bug fix. The user has decided every question they raise (see each issue). Order:
 
-Done when: a manual cloud session can build, test, push a `claude/` branch and open a PR.
+1. #63: remove unused and test-only code. Done (PR #69).
+2. #65: one wording for policy labels in the TUI (the configuration words). PR #72.
+3. #64: consolidate duplicated rules and types, and use `toList()` for defensive copies.
+4. #71: audit native-image reachability metadata. Native CI decides; an entry goes only when CI exercises its path.
+5. #25: preserve directory permission bits during staged relocation, per the 2026-09-30 decision. It runs after #64 because both touch the reconcile code, and before #66 because it is a real bug.
+6. #66: Kotlin idiom leftovers, including the `@field:` check (3 small PRs).
 
-Status: not started.
+Not scheduled: #70 (Clikt instead of picocli), for the user's own simplification pass.
 
-### 6. Pilot worker: #25
+Done when: all six are merged with all 7 checks green.
 
-- Start one cloud session on #25: directory permission preservation per the decision.
-  Follows the migration (step 4c); implemented in Kotlin under `AGENTS.md`.
-- CI verifies on Linux; the user reviews and merges.
+Status: in progress.
 
-Done when: #25 is merged and closed; any friction in the worker path is fixed.
+### 5–7. Cloud setup, pilot worker, coordinator routine (deferred)
 
-Status: not started.
+Cloud setup did not work (2026-10-02). Orchestration continues from a local session, as described under Steps. #25, the planned pilot, moved into step 4d. Revisit cloud sessions and a scheduled coordinator if unattended runs become necessary; the earlier plan is in git history.
 
-### 7. Coordinator routine
+Status: deferred.
 
-- Instructions in `docs/agents/coordinator.md` so they change through PRs.
-- Triggers: PR events (opened, labeled, synchronized) and the shortest schedule
-  routines allow for issue changes. Exit immediately when nothing changed.
-- The coordinator never edits code. It triages and splits issues, starts one worker
-  per `ready-for-agent` issue, reviews PRs (`code-review` and `simplify` skills),
-  moves labels, and posts `needs-human` questions with a checklist.
-- Workers: one issue, one branch, one PR; the Gradle build passes before review.
-- Roll out in dry-run mode (comment intended actions only), then live.
-
-Done when: the coordinator has taken one issue from `ready-for-agent` to a
-merged PR without local involvement.
-
-Status: not started. Verify routine limits (minimum schedule interval, GitHub event
-caps) before writing the prompt.
-
-### 8. TUI design pass (with the user, parallel to 6–7)
+### 8. TUI design pass (with the user)
 
 - Start from `docs/tui-design.md`. Audit at 80x24 and 120x30, prototype
   the changes, decide.
@@ -227,12 +200,12 @@ Done when: the user accepts the design and the tickets are `ready-for-agent`.
 
 Status: not started.
 
-### 9. Coordinator works the roadmap
+### 9. Orchestrator works the backlog
 
 Order:
 
 1. Split umbrella tickets (#7, #8, #15, #17); the user checks each split's scope.
-2. Simplification outside the TUI: covered by the migration's K6 (#24 closed).
+2. Simplification: K6 and step 4d covered the mechanical part. The user's own simplification pass follows, including #70.
 3. #11 integration verification.
 4. TUI changes from the accepted design.
 5. Remaining features (#5, #6, #19, and what the splits produce). #10 is back in
