@@ -7,20 +7,25 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionExecution
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionStatus
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ExecutionOutcome
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.StagingStep
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Collections
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.io.path.PathWalkOption
 import kotlin.io.path.walk
 
 class ConcurrentExecutionTest {
@@ -67,11 +72,9 @@ class ConcurrentExecutionTest {
 
     @Test
     fun runsSiblingsUnderAnExistingParentConcurrently() {
-        // `home` and `store` exist. Each migration has its own staging root, because a shared one is a claimed path.
+        // `home` and `store` exist, and the migrations share the default staging root `store/.homelight-staging`.
         Files.createDirectories(root.resolve("store"))
-        val relocations = listOf("a", "b", "c").map { name ->
-            migration("home/.$name", "store/$name", files = 20, stagingRoot = "store/.staging-$name")
-        }
+        val relocations = listOf("a", "b", "c").map { name -> migration("home/.$name", "store/$name", files = 20) }
         val plan = plan(relocations)
         assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(plan.relocations))
         val inFlight = AtomicInteger()
@@ -98,6 +101,57 @@ class ConcurrentExecutionTest {
             assertTrue(Files.isSymbolicLink(relocation.sourcePath))
             assertEquals(20, Files.list(relocation.targetPath).use { it.count() }.toInt())
         }
+        assertEquals(listOf<Path>(), entries(root.resolve("store/.homelight-staging")))
+    }
+
+    /**
+     * Pauses one migration after [step] and runs stale cleanup against its shared staging root from another process
+     * and from another migration in this one. Neither changes the paused operation or frees its lock, and both still
+     * delete a stale leftover.
+     */
+    @ParameterizedTest
+    @EnumSource(StagingStep::class)
+    internal fun cleanupLeavesAnInFlightOperationInASharedStagingRootAlone(step: StagingStep) {
+        Files.createDirectories(root.resolve("store"))
+        val staging = root.resolve("store/.homelight-staging")
+        val paused = plan(listOf(migration("home/.paused", "store/paused", files = 5)))
+        val other = plan(listOf(migration("home/.other", "store/other", files = 5)))
+        val reached = CompletableFuture<Path>()
+        val release = CountDownLatch(1)
+        val executor = ReconciliationExecutor(RELOCATION_CONCURRENCY) { at, operation ->
+            if (at == step) {
+                reached.complete(operation)
+                assertTrue(release.await(10, TimeUnit.SECONDS))
+            }
+        }
+        val pausedRun = CompletableFuture.supplyAsync { executor.execute(paused) }
+        try {
+            val operation = reached.get(10, TimeUnit.SECONDS)
+            val lock = operation.resolve("lock")
+            val locked = step != StagingStep.CREATED
+            val before = snapshot(operation)
+            ForeignStagingProcess().use { foreign ->
+                val stale = staleOperation(staging)
+                foreign.cleanStaleStaging(staging)
+                assertTrue(Files.notExists(stale))
+                assertEquals(before, snapshot(operation))
+                assertEquals(locked, Files.exists(lock) && foreign.lockIsHeld(lock))
+
+                val alsoStale = staleOperation(staging)
+                assertTrue(ReconciliationExecutor().execute(other).succeeded())
+                assertTrue(Files.notExists(alsoStale))
+                assertEquals(before, snapshot(operation))
+                // Cleanup in this process must not even try the lock: closing its channel would free the lock.
+                assertEquals(locked, Files.exists(lock) && foreign.lockIsHeld(lock))
+            }
+        } finally {
+            release.countDown()
+        }
+
+        assertTrue(pausedRun.get(10, TimeUnit.SECONDS).succeeded())
+        assertTrue(Files.isSymbolicLink(root.resolve("home/.paused")))
+        assertEquals(5, entries(root.resolve("store/paused")).size)
+        assertEquals(listOf<Path>(), entries(staging))
     }
 
     @Test
@@ -120,8 +174,7 @@ class ConcurrentExecutionTest {
 
     @Test
     fun runsDependentRelocationsSequentially() {
-        // Sibling targets in the existing `local` share the default staging root.
-        Files.createDirectories(root.resolve("local"))
+        // Sibling targets in `local`, which does not exist yet, so every relocation claims it.
         val relocations = (1..3).map { n -> migration("home/s$n", "local/t$n", files = 5) }
         val plan = plan(relocations)
         assertEquals(listOf(listOf(0, 1, 2)), independentGroups(plan.relocations))
@@ -159,6 +212,9 @@ class ConcurrentExecutionTest {
         val second = relocation("d/source", "e/target")
         val sharedStaging = listOf(migration("a/one", "store/one", "e/.staging"), migration("b/two", "f/two", "e/.staging"))
         val defaultStaging = listOf(migration("a/one", "store/one"), migration("b/two", "store/two"))
+        val nestedStaging = listOf(migration("a/one", "store/one", "e/.staging"), migration("b/two", "f/two", "e/.staging/b"))
+        // A shared staging root inside a third relocation's target still overlaps it.
+        val stagingInTarget = defaultStaging + relocation("j/source", "store/.homelight-staging/k")
         val archiveIntoFirst = relocation("h/source", "c/target",
             ReconciliationAction.ArchiveDirectory(root.resolve("h/source"), root.resolve("b/target/archive/h/source")))
         val independent = relocation("j/source", "k/target")
@@ -168,8 +224,13 @@ class ConcurrentExecutionTest {
         val bridge = relocation("a/source/bridge", "d/source/bridge")
 
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, nested)))
-        assertEquals(listOf(listOf(0, 1)), independentGroups(sharedStaging))
-        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging))
+        assertEquals(listOf(listOf(0), listOf(1)), independentGroups(sharedStaging))
+        assertEquals(listOf(listOf(0), listOf(1)), independentGroups(defaultStaging))
+        // Where file locks are not confirmed to work, a shared staging root keeps its relocations sequential.
+        assertEquals(listOf(listOf(0, 1)), independentGroups(sharedStaging) { false })
+        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging) { false })
+        assertEquals(listOf(listOf(0, 1)), independentGroups(nestedStaging))
+        assertEquals(listOf(listOf(0, 1, 2)), independentGroups(stagingInTarget))
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, archiveIntoFirst)))
         assertEquals(listOf(listOf(0), listOf(1)), independentGroups(siblings))
         assertEquals(listOf(listOf(0, 1)), independentGroups(missingParent))
@@ -318,6 +379,42 @@ class ConcurrentExecutionTest {
         for (relocation in relocations) {
             assertEquals(3_000, relocation.targetPath.walk().count())
         }
+    }
+
+    @Test
+    fun lockProbeConfirmsLocksOnlyWhereItCanTakeOne() {
+        val store = Files.createDirectories(root.resolve("store"))
+        val existing = Files.createDirectories(store.resolve(".homelight-staging"))
+
+        assertTrue(stagingLocksWork(existing))
+        assertEquals(listOf<Path>(), entries(existing))
+        // A missing root is probed in its parent, on the filesystem the root will be created on.
+        assertTrue(stagingLocksWork(store.resolve(".missing-staging")))
+        assertEquals(listOf(existing), entries(store))
+        assertFalse(stagingLocksWork(root.resolve("absent/.homelight-staging")))
+        Files.createSymbolicLink(store.resolve(".linked-staging"), existing)
+        assertFalse(stagingLocksWork(store.resolve(".linked-staging")))
+    }
+
+    private fun entries(directory: Path): List<Path> = Files.list(directory).use { it.toList() }
+
+    /**
+     * Each entry under [operation], relative to it, with a regular file's contents. The lock file is never opened:
+     * closing a channel to it would release the operation's lock.
+     */
+    private fun snapshot(operation: Path): Map<Path, String?> = operation.walk(PathWalkOption.INCLUDE_DIRECTORIES)
+        .associate { entry ->
+            val readable = Files.isRegularFile(entry) && entry.fileName.toString() != "lock"
+            operation.relativize(entry) to if (readable) Files.readString(entry) else null
+        }
+
+    /** An operation left by a killed run: marked for a missing target, with a free lock and a partial copy. */
+    private fun staleOperation(staging: Path): Path {
+        val operation = Files.createDirectories(staging.resolve("operation-${UUID.randomUUID()}"))
+        Files.writeString(operation.resolve("target"), "homelight-staging-v1\n${root.resolve("store/gone")}\n")
+        Files.createFile(operation.resolve("lock"))
+        Files.writeString(Files.createDirectory(operation.resolve("copy")).resolve("entry"), "stale")
+        return operation
     }
 
     /** A source directory with [files] files under [root], to migrate to an absent target. */
