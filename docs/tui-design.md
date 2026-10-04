@@ -1,317 +1,258 @@
-# HomeLight TUI Design Language
+# HomeLight TUI Design
 
-Maintained presentation contract for the accepted returning-user and setup journeys.
-D3 and its follow-up polish are implemented locally; the user accepted the UX
-on 2026-09-14. The coordinator also accepted the technical follow-up.
-Implementation and verification: [the D3 handoff](research/session-d3-implementation-handoff.md).
-Review that prompted the polish: [the D3 UX review](research/session-d3/ux-review.md). #30 owns polish; #26 owns
-accessibility and #27 owns state accounting and wording.
+The current rules for the full-screen TUI. Decisions and the alternatives they
+rejected are in [decisions.md](decisions.md); this file holds only what the TUI
+must do now. Update it in the same PR as any change to the contract.
 
-## 1. Journey and navigation
+## 1. Principles
 
-One workspace combines observation and decisions, followed by explicit review,
-confirmation, execution and retained results. JSON commands share reconciliation
-behavior, not TUI screens or navigation state.
+- **TamboUI first.** Use a TamboUI widget or feature when one does the job, and
+  delete our own equivalent. Write our own code only where TamboUI cannot express a
+  rule, and say why in a comment.
+- **Plain language.** Help, labels and messages use everyday words, not internal
+  names, configuration keys or enum values. The configuration's "policy" is a
+  **rule** on screen.
+- **Say the next step.** After a save, a re-check or a finished apply, say what to
+  do next when there is something to do, for example `Saved. 1 relocation will
+  change: press a to review and apply.`
+- **Dialogs for short questions, screens for work.** A dialog asks one question or
+  confirms one action over the current screen and always returns to exactly where
+  the user was. A screen holds multi-step work with its own navigation and one
+  plainly labelled way back that keeps the user's place.
+- **Safety stays explicit.** Only `y` confirms filesystem changes or a file
+  replacement. Enter never does. Saving never applies. Applying never saves.
 
-```text
-⌂ HOMELIGHT   [1: Workspace]   [2: Review]
-```
+## 2. Screens and navigation
 
-Use the same numbering and handlers from either pane. The second slot becomes
-`[2: Results]` while results are retained. During execution show a noninteractive
-stage label such as `[Applying]`, not a numbered invitation to navigate away.
-The Workspace shortcut is also unavailable during execution. Show disabled
-destinations distinctly and explain the relevant blocker without implying that
-their keys are available.
+One persistent TamboUI application. JSON commands share reconciliation behavior,
+not screens.
 
-- `1` opens Workspace when idle. From review it cancels confirmation, retaining
-  the draft, selected source and prior focus. From results it retains the result.
-- `2` opens Review when the plan is ready, or revisits retained Results. It never
-  starts mutation. In Review/Results it remains on that stage.
-- Advertise `a: Review & apply` in either workspace pane for a ready changing
-  plan. If blocked or unresolved, explain the actual decision or repair needed.
-- For a resolved no-change plan, advertise `2: Review`; the review says
-  `No changes to apply` without confirmation or progress counters.
-- With retained results advertise `2: Results` and `r: Re-plan`, not another
-  apply. An existing `a` alias may revisit results but cannot start another run.
-- Only lowercase `y` confirms a changing reviewed plan. Enter never confirms
-  filesystem mutation. Explicit replanning creates a new plan requiring review.
-- Bare startup and human status/plan/apply commands enter the unified journey.
-  Do not recreate separate Status/Plan navigation or expose a stale `3: Review`.
-
-## 2. Visual language and layout
-
-Inherit the terminal background. Pair bold with an explicit semantic ANSI color.
-Color and glyphs supplement words, never replace them; check contrast with the
-terminal's palette. The house glyph is a brand cue, not a universal font-width
-guarantee.
-
-Use A's pane proportions and visual styling as the starting point: approximately
-45% relocation list, remaining width for details. Do not import B's capped narrow
-list. Compact rows show a useful source name/path and state; abbreviated list
-paths must retain distinguishing portions. Full paths remain reachable in details.
-
-Focus uses a cyan border and `❯` pointer, not color alone. Dim inactive framing.
-Use stable, meaningful titles such as Relocations and Details; avoid changing
-titles to redundant “focused” annotations when border/pointer already identify
-focus. Radio choices use `(●)` for selected and `(○)` for unselected; distinguish
-the focused option from the chosen option. Keep focused text and its consequence
-visible while navigating and resizing.
-
-Hide in-sync entries by default when other entries exist; preserve `c` and the
-all-in-sync fallback. Show a hidden-count indicator only when entries are hidden.
-Intentionally unchanged decisions remain visible. Order urgent blocked/conflict
-items ahead of actionable items, then unchanged/in-sync, with stable source
-identity across reordering. Warnings are additional properties, not a replacement
-for primary state.
-
-## 3. Workspace information hierarchy
-
-The selected relocation should answer these questions without repeated metadata:
-
-1. What is here now? Lead with a concise fact, such as
-   `Current: Source and target are directories.` Keep meaningful link, inaccessible
-   and missing-path exceptions explicit.
-2. What saved policy applies to this observed case? Show the relevant branch in
-   plain language, not all configuration keys or policy branches, for example
-   `Prompt before adopting the existing target.` or `Adopt target; prompt for source.`
-   A missing policy reads `Default (prompt)`, never as an explicit `Prompt`.
-3. What draft choice is selected? Label it unsaved; show saved policy separately.
-4. What is the expected outcome and consequence? State destructive effects
-   explicitly, for example: `Keep target contents; delete the source directory
-   and replace it with a link.`
-5. Which alternative choices are available? Show the selected radio state and
-   readable consequences. Choosing updates the draft only, never saves or applies.
-6. Where exactly? One labelled Paths section contains full source/target paths,
-   with relevant archive/link destinations. Avoid repeating identical paths.
-
-Show configuration metadata once at screen/session level, not in every relocation
-or action. Full configuration-path access must remain available if abbreviated.
-Place invalidated-draft notices where users can understand them without repeating
-the entire set under every relocation. Retained execution history stays distinct
-from current observations and expected outcomes.
-
-Use word wrapping for prose and character wrapping only for unbreakable paths.
-Do not use internal enums, storage-property keys, or “Overlapping risks” as primary
-explanations. Use Expected outcome, not a claim that planned convergence happened.
-
-Every view labels a policy value the same way, in the configuration's words:
-`Default (prompt)` for a missing policy, then `Prompt`, `Adopt target`,
-`Leave unchanged`, `Discard both`, `Discard source` and `Archive source`. The leave
-decision reads "unchanged" everywhere: the radio label, the expected outcome, the
-`[Unchanged]` badge and Review.
-
-### Empty and unresolved content
-
-Never render an empty Planned actions heading. Choose the explanation from state,
-not solely from an empty action list:
-
-- Unresolved: `Choose a decision to see planned changes.`
-- In sync: `No changes needed; already in sync.`
-- Intentionally unchanged: `No changes; source and target left unchanged by choice.`
-- Blocked: explain the concrete blocker and repair needed.
-- No configured relocations: say so; do not imply that all paths are in sync.
-
-Workspace shows concise planned consequences; exact action/path inspection belongs
-in Review. Do not remove important destructive details merely to shorten the view.
-
-## 4. Review, execution and results
-
-Review shows what will change and what may be removed before asking for confirmation.
-Use a summary such as `10 planned changes · 5 destructive actions`, not a zero-filled
-progress bar or running/completed/failed counts before execution.
-
-Keep the reviewed action hierarchy, including unchanged entries. For each action
-show its meaning, affected path and destination once. A NoOp needs no duplicate
-Source/Unchanged path fields; destructive actions must still identify source and
-target unambiguously. Preserve complete archive/publication/link destinations and
-failure causes in the keyboard-accessible details.
-
-Execution uses actual action-boundary progress, excluding NoOp/LeaveUnchanged
-from mutating-action totals. Do not imply byte progress or transaction rollback.
-
-| Meaning | Glyph and style |
-| --- | --- |
-| Queued | `○`, dim gray |
-| Running | animated `⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`, cyan |
-| Completed | `✔`, green |
-| Failed/blocked | `✖`, red |
-| Warning/destructive attention | `⚠`, yellow |
-| Unchanged | `─`, gray |
-
-Each new active action takes focus once. Manual inspection lasts until the next
-action starts. On completion select the failure or last completed action once,
-then retain manual selection. Do not add pause-follow controls in this polish.
-
-Results distinguish completed, failed and not-run actions. A preflight rejection
-with no attempts is different from a stale failure after some mutations. Preserve
-known evidence and uncertainty; never infer zero mutation from a missing result.
-Results remain available across Workspace/Results navigation until explicit
-replan or exit. No-change replans have no confirmation or progress counters.
-
-## 5. Counts, glyphs and overflow
-
-Workspace counts **relocations**. Its primary categories partition the total:
-actionable, conflict, blocked, in sync and intentionally unchanged. Warning and
-destructive counts are independent and can overlap those categories and each other.
-
-Use semantic glyphs alongside counts/text: `⚡ actionable`, `⚠ conflict`,
-`✖ blocked`, `✔ in sync`, `─ unchanged`. Keep informative counts and partition
-accounting even if zero-valued categories are omitted for space.
-
-Additional-property copy: `Of these: 1 with warnings · 4 with destructive changes`.
-Review counts **actions**, so a destructive-action count may exceed the workspace's
-destructive-relocation count. Label units explicitly. Omit empty risk rows.
-Wrap summaries into deliberate rows at 80 columns instead of clipping.
-
-Use visible scrollbars when lists/readers overflow. The track/thumb reflects the
-wrapped viewport, scroll offset and resize. Hide scrollbars when content fits.
-No numeric line counters: neither `1–25/25` nor `Lines X–Y of Z`.
-Preserve keyboard scrolling and automatic focused-choice visibility. Show the
-scroll instruction once in contextual help only when the reader overflows.
-
-## 6. Key/state matrix and help
-
-Bindings below are the polish contract. Global idle `1`/`2` behavior is specified
-above; dialogs and active execution consume them without navigation.
-
-| Context | Selection/inspection | Confirm or leave |
+| Screen | Purpose | Way back |
 | --- | --- | --- |
-| Workspace list | ↑/↓ or j/k select; Tab/right/l opens details; c toggles in-sync | a/2 review when ready; r replan; Space/Enter must not quick-cycle or choose a policy from the list |
-| Workspace details | ↑/↓ or j/k focus choices, or scroll if no choices; Space/Enter selects the focused choice; [/ ] scrolls overflowing reader | Tab/left/h/Esc returns to list; a/2 review when ready; r replan |
-| Review list | ↑/↓ or j/k select actions; Tab/right/l opens details | y confirms a changing plan; n/Esc/1 cancels review |
-| Review details | ↑/↓ or j/k and [/ ] scroll; Tab/left/h returns to list | y confirms; n/Esc/1 cancels review, not merely pane focus |
-| Execution list/details | Preserve action following/manual inspection and pane/reader navigation | Esc returns detail to list, does nothing at list; q/toolkit quit opens quit dialog; no tab-stage navigation or replan |
-| Results list/details | Select actions or scroll by focus; Tab/left/h moves between panes | 1/Enter returns to Workspace; r explicitly replans; Esc returns detail to list, does nothing at list |
-| No-change review | Inspect unchanged entries | 1/n/Esc/Enter returns to Workspace; y does nothing |
-| Quit dialog | ↑/↓, j/k or Tab chooses; repeated q/Ctrl-C does not confirm | Enter confirms selected option; Esc cancels dialog; default is Keep running |
+| Workspace | Current state of every relocation, one-time choices, entry to everything else | It is the home screen |
+| Review | The exact plan to apply, then progress and results in place | `1`, or `n`/Esc before confirming |
+| Configuration | Create or edit the configuration file | Esc from the list closes it |
+| Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
 
-The letter alternates (h/j/k/l, g/G) come from TamboUI's vim binding set and match
-only without Ctrl or Alt. A focused setup path field takes every printable
-character as text before any binding, except the `[`/`]` scroll keys; Backspace
-and Ctrl-U edit it. Vim's other bindings, `x` and Ctrl-U/Ctrl-D paging, have no
-action outside path fields.
+Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
+`[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
+are retained and `[Review unavailable]` when the plan cannot be reviewed. During a
+run the header shows only `[Applying]`. Configuration and Browse show as
+`[Configuration]` and `[Configuration › Browse]`.
 
-Escape never exits. At top level it does nothing; omit its help there rather than
-printing “never quit.” Normal idle q/toolkit quit exits. During execution or
-unsettled completion, default to **Keep running**, with **Exit when execution
-finishes** as the alternative. Explain that execution settles even on failure and
-session-local results will not remain available after exit. Confirmation sets exit
-intent only: no interruption or cancellation. Completion must not change an open
-dialog's selection. Exit only after settlement, then restore terminal resources.
+Entry points:
 
-One state- and focus-specific help area describes each binding once. Prefer
-`Esc: Back` for pane navigation, `Esc: Cancel review` for confirmation. Avoid
-simultaneous contradictory Back/Cancel labels. Two intentionally wrapped help rows
-are acceptable at 80 columns. Do not advertise unavailable commands or scroll
-instructions when content fits.
+- `homelight`, `status`, `plan` and `apply` open Workspace. `apply` never starts
+  changes without review.
+- `homelight init` and `homelight config` open Configuration: an existing file is
+  loaded for editing, a missing one starts a new file. The header says
+  `existing file` or `new file`.
+- From Workspace, `e` opens Configuration; with no configuration, `i` does.
 
-## 7. First-run configuration creation
+## 3. Keys and focus
 
-D4/#31 is accepted locally following the user walkthrough and coordinator review.
-Evidence and publication status: [D4 handoff](research/session-d4-implementation-handoff.md).
-The user also accepted #32b's candidate-browser UX. Its technical acceptance
-is complete locally, including the destructive-policy copy correction recorded in the
-[#32b handoff](research/session-b32b-implementation-handoff.md).
+- Key set: TamboUI's `standard` bindings (arrows, Home/End, PageUp/PageDown). No
+  vim letters, so every printable key types into a focused text field.
+- Focus is TamboUI's `FocusManager` with a fixed id per focusable element. Tab and
+  Shift-Tab move through every control on the screen in order (list, then each
+  field, then back). Inside a form, ↑/↓ also move between fields.
+- Esc goes back one level: from a field to its list, from a list to close the
+  screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
+  never exits.
+- `q` quits from any list. Inside a text field it types `q`. With unsaved
+  configuration changes, `q` and Esc-to-close ask before discarding.
+- One app key handler, keyed by the focused id, handles what TamboUI elements
+  leave unhandled and always reports the key as handled.
+- No mouse capture, so the terminal's own text selection keeps working.
 
-Missing default or explicit configurations prominently offer `i: Manual setup`
-and `homelight init`. Existing malformed or unreadable configurations remain
-errors, not replacement targets. Setup is creation-only.
+Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
+check again, `q` quit. `2` never starts changes.
 
-- **Storage locations:** editable source root defaults to the home directory;
-  target root is required. Relocation rows use paths relative to these roots.
-  Optional Shared candidate list accepts an absolute path or `~/...`; blank
-  uses bundled candidates only. Show its resolved location. First Browse starts
-  discovery; manual setup does not wait for a shared source.
-- **Relocations:** a compact Source, Target, Policies table. From the table,
-  `a` adds an expanded row, Enter opens row details, `d` removes the selected
-  draft row, and `e` edits locations while preserving rows.
-- **Row details:** source/target-relative paths, three state-specific optional
-  policies, and optional absolute archive root. Initially the target mirrors the
-  source. Focused help explains the field's consequence. Complete entries remain
-  accessible despite ellipsized table cells.
-- Omitted policies mean the existing per-relocation Prompt behavior, not a new
-  global defaults layer. Collapsed rows show `Default (prompt)` or explicit
-  policy overrides. Discard when both directories exist must disclose deletion
-  of both trees, empty-target creation and the source link, not source migration.
-- Every edit resets validation. Validate and Save remain explicit; both reject
-  blank row paths and normalized paths equal to or outside the chosen root.
-  Nonblank archive roots must be absolute; an empty one shows its default,
-  `.homelight-archive` beside the source. Failures retain the editable draft.
-- Escape returns from details to table and from table to locations; at locations
-  it cancels setup without writing. Escape never exits the app. The discard
-  dialog preserves edits on cancellation; confirmed discard clears all setup
-  state, and reopening starts fresh.
-- Save atomically creates a new configuration without replacing an existing or
-  concurrently created file, then reloads the workspace. Save never applies
-  relocations. Unsupported publication capability fails safely.
+## 4. Visual language
 
-Verify at 80×24 and 120×30 with resizing both ways, including root edits, row
-add/remove, invalid-input correction, discard/reopen and save without execution.
+### Color
 
-### Candidate browsing
+HomeLight paints its own dark background on the whole screen and uses the
+**Harbor** palette as exact RGB colors. On a terminal that does not report full
+color (`COLORTERM`), each role falls back to its nearest basic ANSI color. Views
+name roles only; one palette file maps roles to colors.
 
-`b` opens a subordinate browser from Relocations; manual entry remains available.
-Use compact grouped checklist rows with visible focus and overflow scrollbars.
-Each normalized path occurs once. App headings expand/collapse on Enter but
-never select a group. Other directories holds ungrouped entries; details retain
-all app associations, attributed advice/reasons and full paths.
+| Role | Color | Used for |
+| --- | --- | --- |
+| background | `#1b1d22` | Whole screen |
+| text | `#d8dbe2` | Body text |
+| brand | `#7fd1c7` | `⌂ HOMELIGHT` |
+| focus | `#6cb6e8` | Focused pane border, `❯` pointer, running spinner, active header slot |
+| ok | `#7cc79a` | Done, in sync, the chosen value, gauge fill |
+| change | `#7fd1c7` | Rows that apply will change |
+| warn | `#e6b55c` | Needs a choice, data will be deleted or replaced |
+| error | `#e76f6f` | Failed, blocked |
+| dialog | `#b39cf0` | Dialog border and title |
+| dim | `#6f7a88` | Help lines, inactive borders, pending steps, secondary notes |
 
-- `[ ]` means eligible, `[x]` means in the draft, `[=]` plus Configured means
-  saved and inspection-only. Blocking states use a dash and a plain explanation.
-- Space/`a` adds one eligible candidate directly without leaving the list;
-  Enter inspects it; `e` edits a draft member in the existing Row details.
-  Repeated Add neither duplicates nor removes a row. Overlap rejection preserves
-  prior choices and supplies an inspectable explanation.
-- Add accepts current-generation directory or confirmed-missing observations.
-  This supersedes #32a's directory-only rule. Unknown, pending, inaccessible,
-  blocked, file, link and earlier-generation observations cannot authorize Add.
-  Routine existence labels are omitted from the list. Missing-path details say
-  `Not created yet` and explain future creation without promising success or
-  inferring policy. Save creates configuration only; Apply re-observes paths.
-- `u` reveals/hides a counted set of unselected candidates for which every
-  current definition says usually-unnecessary. Mixed/omitted or retained advice,
-  manual/configured entries and draft members remain visible. App collapse also
-  keeps selected rows visible. Advice never chooses a policy or selects a row.
-- `r` refreshes evidence explicitly; `i` opens full source diagnostics. Keep
-  metadata, advice, source freshness and historical attribution separate. Sizes
-  remain `not estimated`, ownership `not evaluated`.
-- Background arrival preserves pane, field text, draft edits and focused path.
-  A removed focused path stays inspectable until navigation changes focus.
-  Returning to Browse retains context without rereading unchanged sources.
-  Root/list edits invalidate prior requests; obsolete results cannot reattach.
-- Escape returns details/sources → browser → table → locations → cancel setup.
-  `q` in browser/table confirms discard; cancel preserves edits, confirmed
-  discard clears setup and closes discovery. Save and abnormal terminal exit
-  also dispose discovery. Source failures never disable manual entry or Save.
+Color may carry meaning on its own when the same information is also on screen
+another way (text, a glyph or a count). Aim for pleasing colors, not only safe
+ones.
 
-Verify direct Add/edit, confirmed-missing Add without path creation, grouping,
-advice reveal, refresh/removal, blocked-source responsiveness, discard/reopen,
-save failure and create-only success at 80×24 and 120×30, resizing both ways.
-Existing-configuration editing remains #17.
+### Layout and glyphs
 
-Shared lists supply potential discovery candidates only. Users explicitly select
-and save relocations; list refreshes never change managed entries or reviewed plans.
+- Master-detail panes: about 45% list, the rest details. The focused pane has a
+  heavy border in the focus color; others are light and dim.
+- `❯` marks the selected row or focused field. A text field shows its cursor.
+- Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
+  `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
+- Paths on screen show the home directory as `~`. Paths sections in details show
+  the full absolute path.
+- Word-wrap prose; wrap paths by character only when they cannot break.
+- Scrollbars appear only when content overflows. No numeric line counters.
+- In-sync relocations are hidden when others exist; `c` toggles them and a count
+  says how many are hidden. Urgent rows (blocked, needs a choice) sort first.
 
-## 8. Verification and acceptance
+### Dialogs
 
-Every future UI change must update this maintained document when its contract
-changes and supply state-specific captures. Do not create competing design rules
-inside isolated tickets without reconciling this document.
+TamboUI `dialog()`: double border in the dialog color, centered both ways, sized
+to its content with one cell of padding, never covering the header or help lines.
+While a dialog is open, everything behind it renders non-focusable and loses its
+focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
+`n`/Esc cancel, and every other key is ignored.
 
-For D3 polish verify 80×24, 120×30 and 200×50 plus resize both ways. Check all
-choices/consequences, full affected paths/destinations/failure causes, visible
-focus, overflow scrollbar appearance/disappearance, plain summary units, no empty
-headings, no numeric line counters, and no duplicated/contradictory help.
+### Choices and fields
 
-Repeat conflict → choose → review → cancel → confirm → results → revisit/replan,
-including preflight rejection and partial failure. Preserve in-sync hiding/c,
-draft/source context, explicit y, action following/manual inspection, Escape and
-safe deferred exit. Run focused render/key tests, the full test suite and real
-PTY checks with the documented platform limitations.
+- Every choice among fixed values is a TamboUI `Select`: `‹ Keep target, archive
+  source ›`, ←/→ to change. At 80 columns the label sits above the value.
+- Text fields are TamboUI text inputs: ←/→, Home/End, Backspace, Delete, Ctrl-U
+  clears. `[` and `]` type normally.
 
-Passing tests do not constitute UX acceptance. The user accepted the polished
-walkthrough on 2026-09-14. The technical follow-up is accepted and #30/#26/#27
-are complete; evidence is recorded in the D3 handoff. Changing initial review selection
-to the first mutating action, new follow/skip options and larger-list experiments
-remain deferred; they are not prerequisites for this polish.
+### Help area
+
+Two lines at the bottom, specific to the focused element: navigation first, then
+commands. Each binding appears once. Never advertise a key that does nothing now.
+
+## 5. Workspace
+
+Summary rows count relocations:
+`4 relocations · ⚡ 2 to change · ⚠ 0 need a choice · ✖ 0 blocked` and
+`✔ 2 in sync · ─ 0 left as is`. A risk row appears only when non-zero:
+`Of these: 1 with warnings · 1 deletes or replaces data`.
+
+The details pane answers, in this order:
+
+1. **Now:** what is there, for example `Now: both ~/.cache/uv and its target are
+   directories.` Keep link, unreadable and missing cases explicit.
+2. **Your rule:** the rule for this observed case, for example `Your rule: keep
+   target, ask about source.`
+3. **Your choice (not saved):** a `Select` of the choices that apply, only when
+   one is needed. A choice is for the next apply only and is cleared by any
+   re-check, save or apply.
+4. **Will do:** the consequence of the current rule or choice, with destructive
+   effects stated plainly. Without a choice: `Will do: nothing until you choose.`
+5. **Paths:** source, target, archive and current link destination, each once.
+
+`s: Always do this` (shown when a choice is set) opens a dialog that explains the
+rule in words and says it is saved to the configuration file, that comments in
+the file are not kept and that nothing on disk changes until apply. `y` writes
+this relocation's rule fields to the file (same save path as Configuration), then
+re-checks and says the next step.
+
+Below the panes, when review is unavailable, one line says why: `Choose what to do
+for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
+
+Empty states: no configuration (offer `i: Create configuration`), no relocations,
+all in sync, left as is by rule, blocked (state the repair).
+
+## 6. Review, applying and results
+
+**Review** lists the exact plan as a tree: relocation rows, each with its action
+rows. Summary: `5 planned changes · 2 delete or replace data`. `y` confirms a
+plan with changes; `n`/Esc/`1` cancel and keep the Workspace state. A plan with
+no changes says `No changes to apply`, has no confirmation, and Enter/`1`/Esc
+return.
+
+**Applying** updates the same tree in place:
+
+- Each relocation row carries its own mark: spinner while any of its actions
+  runs, `✔` when all are done, `✖` if any failed. Action rows use the same glyphs.
+- The selection stays where the user put it. It never follows running steps.
+- Header line `Applying. Leave HomeLight running until it finishes.`, then a
+  TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·
+  2 running · 0 failed`. In-sync relocations appear as `─ ~/.npm (in sync)`.
+- Progress is per action. Never imply byte progress or rollback.
+- `q` opens the quit dialog: **Keep running** (default) or **Exit when it
+  finishes**. Changes always run to completion, including on failure. Results
+  are not kept after exit.
+
+**Results** keep the tree with final marks. On finish the selection moves once to
+the first failure, or else the last completed action. Messages distinguish a plan
+refused before any change (`Nothing changed: the disk no longer matches the
+reviewed plan. Check again.`), a stop partway (`Stopped after some changes. Check
+the failed and not-run steps, then check again.`) and success (`Done. Checked
+again; results are kept until you check again.`). Results stay available through
+`2` until `r` or exit.
+
+## 7. Configuration
+
+The draft is the configuration file's own shape, validated by the same loader the
+app uses. `~` and `${USER}` stay as written.
+
+- Left list: `Storage locations`, then each relocation by source as written
+  (`~/.m2`). `a` adds a row with the source root filled in; `d` removes the
+  selected row; `b` opens Browse.
+- Storage locations fields: **Source root** (default `~`), **Target root**,
+  **Candidate list (optional)** with help "A file of directories to suggest, for
+  example one shared across machines. Built-in suggestions are always included."
+  A Resolved section shows each as an absolute path, updated as you type.
+- Relocation fields: **Source**, **Target** (blank derives it from the target
+  root; a source outside the source root needs one), **Both exist** and **Only
+  target** as Selects, **Archive root** (blank means the default beside the
+  source). Field help explains the consequence of the focused field.
+- **Both exist** values: Ask each time · Keep target, delete source · Keep
+  target, archive source · Keep target, ask about source · Leave both as they
+  are · Delete both, start empty. **Only target** values: Ask each time · Keep
+  target, link source. A rule left at "Ask each time" is not written to the file.
+- Header: file path, `existing file`/`new file`, and `N unsaved changes` (the
+  draft compared with the file as loaded).
+- `s` saves. A new file is created directly. Replacing an existing file asks
+  first: `Replace ~/.homelight.json?`, noting that comments are not kept. Save
+  refuses if the file changed since it was loaded, keeps the draft and says so.
+  The write is atomic.
+- After saving: return to Workspace, check again, and say the next step.
+
+## 8. Browse
+
+- Two **Lists** lines at the top, always: the built-in list (`built in · 9
+  suggestions`) and the candidate list (location, count, `file updated 28 Sep`
+  from the file's modification time). A list that failed says why on its line;
+  `i` shows full detail.
+- One row per directory, grouped by app. Markers: `[ ]` not in the
+  configuration, `[x]` in it (saved earlier or added now), `−` cannot be added.
+  Space toggles; removing a row only edits the draft.
+- Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
+  directory`, `can't read: <reason>`, `usually not needed`.
+- When both lists name a directory, the candidate list wins: its app group and
+  advice show on the row; Details also shows the built-in advice.
+- Directories every applicable list marks usually not needed are hidden and
+  counted; `u` shows them. Rows already in the configuration are never hidden.
+- `r` checks again: rows read `checking…` until checked. A refresh never changes
+  the configuration draft.
+- Discovery never blocks the screen and never lists directory contents. Size
+  reads `not estimated` and ownership `not evaluated` until those features exist.
+- Enter opens a directory's details: state, list attribution, full path, overlap
+  with other suggestions.
+
+## 9. Wording
+
+| Thing | Words on screen |
+| --- | --- |
+| Policy | rule |
+| `prompt` or missing | Ask each time |
+| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Check]` warning, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
+| Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
+
+All screen text lives in one TUI wording file.
+
+## 10. Verification
+
+Every UI change ships rendered captures at 80x24 and 120x30 and checks resizing
+both ways. Tests drive a real session over temporary configuration files and
+assert rendered screens and key handling. Passing tests are not UX acceptance;
+user-visible changes need the user's walkthrough.

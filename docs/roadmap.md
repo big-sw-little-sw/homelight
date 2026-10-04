@@ -192,7 +192,7 @@ Not scheduled: #70 (Clikt instead of picocli), for the user's own simplification
 
 Done when: all six are merged with all 7 checks green.
 
-Status: done once #98 merges. Steps 5–7 stay deferred. Next: step 8 (TUI design pass) and the user's simplification pass (#70, a generic `Policy<C>`, the size of `CandidateDiscovery`).
+Status: done. Steps 5–7 stay deferred. Step 8 is done; next is step 9.
 
 ### 5–7. Cloud setup, pilot worker, coordinator routine (deferred)
 
@@ -212,16 +212,20 @@ Status: deferred.
 
 Done when: the user accepts the design and the tickets are `ready-for-agent`.
 
-Status: not started.
+Status: done (2026-10-04, docs PR for branch `docs/tui-design-pass`). Ten decisions dated 2026-10-04 in `decisions.md`; `tui-design.md` rewritten as current rules. Umbrellas #7, #8, #15 and #17 are closed in favor of #102–#117. The `Policy<C>` question is settled (not built) and the `CandidateDiscovery` cuts are #105. Prototype evidence: branch `prototype/tamboui-focus` (never merge).
 
 ### 9. Orchestrator works the backlog
 
-Order:
+Order (each issue lists its blockers):
 
-1. Split umbrella tickets (#7, #8, #15, #17); the user checks each split's scope.
-2. Simplification: K6 and step 4d covered the mechanical part. The user's own simplification pass follows: #70, a generic `Policy<C>`, and the size of `CandidateDiscovery`.
-3. #11 integration verification.
-4. TUI changes from the accepted design.
-5. Remaining features (#5, #6, #19, and what the splits produce). #10 is done (PR #95, refined by #96 and #98).
+1. Independent, any order or in parallel: #102 (application cleanup), #103 (missing rule means prompt), #104 (one-time choices), #105 (discovery cuts), #106 (standard keys), #107 (palette), #112 (`source-root`).
+2. #108 TamboUI focus foundation, after #106 and #107. `HomeLightApp.kt` and `WorkspaceView.kt` are conflict hotspots: avoid running several tickets that touch them at once.
+3. #109 wording, then #110 Workspace details and #111 apply progress.
+4. #113 safe replace, #114 configuration editor, #115 Browse in the editor, #116 `s: Always do this`.
+5. #11 integration verification once the above settle.
+6. Separate passes: the executor simplification after #102–#105, as one rung-tagged proposal for the user to decide; the Clikt spike (#70) after #114, so it ports the final command set.
+7. Remaining features: #5, #6, #19, #117 (ownership explanation, after #5).
 
-Status: not started.
+User-visible tickets (#106–#111, #114–#116) need the user's walkthrough before merge. Work follows the ladder and `[skipped: …]` rule in `decisions.md` (2026-10-04), and never files upstream issues.
+
+Status: ready.
