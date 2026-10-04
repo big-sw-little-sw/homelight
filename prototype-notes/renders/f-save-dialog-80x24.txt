@@ -1,0 +1,26 @@
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 2 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/m2                  │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Keep target, delete source ›        │
+│                                  ││  Only target                             │
+│                  ╔Replace ~/.homelight.json?══════════════╗                  │
+│                  ║Write 2 unsaved changes to the file.    ║                  │
+│                  ║                                        ║                  │
+│                  ║y: Replace  ·  n/Esc: Cancel            ║                  │
+│                  ╚════════════════════════════════════════╝                  │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+y/n: Choose  ·  Esc: Cancel                                                     
+The dialog takes every key                                                      
+---
+focus=dialog  focusOrder=[dialog]  runnerQuit=false  appQuit=false

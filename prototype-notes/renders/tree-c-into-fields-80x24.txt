@@ -1,0 +1,26 @@
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│  Storage locations               ││❯ Source        ~/.m2k                    │
+│  ▼ Package caches                ││  Target        (blank: from target root) │
+│❯ ├── ~/.m2                       ││  Archive root  (blank: default)          │
+│  ├── ~/.cache/uv                 ││  Both exist                              │
+│  └── ~/.cargo                    ││    ‹ Ask each time ›                     │
+│  ▼ Agent tools                   ││  Only target                             │
+│  └── ~/.config/agent-tools       ││    ‹ Ask each time ›                     │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+Type to edit  ·  ←/→ Home/End  ·  Ctrl+U: Clear  ·  ↑/↓/Enter: Field            
+Esc: Back to list                                                               
+---
+focus=field-source  focusOrder=[config-list, field-source, field-target, field-archive, field-both, field-onlyTarget]  runnerQuit=false  appQuit=false

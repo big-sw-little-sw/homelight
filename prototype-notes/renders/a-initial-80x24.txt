@@ -1,0 +1,26 @@
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 0 unsaved changes                           
+╭Configuration─────────────────────╮╭Storage locations─────────────────────────╮
+│❯   Storage locations             ││  Source root   ~                         │
+│    ~/.m2                         ││  Target root   /Volumes/Data/home        │
+│    ~/.cache/uv                   ││  Shared list   ~/.homelight-shared.txt   │
+│    ~/.cargo                      ││                                          │
+│    ~/.config/agent-tools         ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+Type to edit  ·  ←/→ Home/End  ·  Ctrl+U: Clear  ·  ↑/↓/Enter: Field            
+Esc: Back to list                                                               
+---
+focus=config-list  focusOrder=[config-list, field-sourceRoot, field-targetRoot, field-sharedList]  runnerQuit=false  appQuit=false

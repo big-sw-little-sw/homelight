@@ -83,3 +83,10 @@ graalvmNative {
         )
     }
 }
+
+// THROWAWAY: classpath for the focus prototype (src/test/.../tui/prototype). Gradle has no TTY, so a script runs java.
+tasks.register("printProtoClasspath") {
+    dependsOn(tasks.testClasses)
+    val cp = sourceSets.test.get().runtimeClasspath
+    doLast { println(cp.asPath) }
+}

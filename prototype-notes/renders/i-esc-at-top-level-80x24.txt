@@ -1,0 +1,26 @@
+⌂ HOMELIGHT  [Workspace]  [2: Configuration]                                    
+╭Workspace─────────────────────────────────────────────────────────────────────╮
+│(stub) Configuration has 2 unsaved changes                                    │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+c: Configuration  ·  Esc: (nothing to close)  ·  q: Quit                        
+                                                                                
+---
+focus=config-list  focusOrder=[]  runnerQuit=false  appQuit=false

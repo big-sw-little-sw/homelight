@@ -1,0 +1,225 @@
+===== a-initial =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 0 unsaved changes                           
+╭Configuration─────────────────────╮╭Storage locations─────────────────────────╮
+│❯   Storage locations             ││  Source root   ~                         │
+│    ~/.m2                         ││  Target root   /Volumes/Data/home        │
+│    ~/.cache/uv                   ││  Shared list   ~/.homelight-shared.txt   │
+│    ~/.cargo                      ││                                          │
+│    ~/.config/agent-tools         ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+↑/↓: Select  ·  Enter/→/Tab: Edit fields                                        
+s: Save  ·  Esc: Close  ·  q: Quit                                              
+===== b-down =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 0 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯   ~/.m2                         ││  Target        (blank: from target root) │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                                  ││    ‹ Ask each time ›                     │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+↑/↓: Select  ·  Enter/→/Tab: Edit fields                                        
+s: Save  ·  Esc: Close  ·  q: Quit                                              
+===== c-typed =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││❯ Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                                  ││    ‹ Ask each time ›                     │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+Type to edit  ·  ←/→ Home/End  ·  Ctrl+U: Clear  ·  ↑/↓/Enter: Field            
+Esc: Back to list                                                               
+===== e-esc =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                                  ││    ‹ Ask each time ›                     │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+↑/↓: Select  ·  Enter/→/Tab: Edit fields                                        
+s: Save  ·  Esc: Close  ·  q: Quit                                              
+===== f-dialog =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                  ╔Replace ~/.homelight.json?══════════════╗                  │
+│                  ║Write 1 unsaved changes to the file.    ║                  │
+│                  ║                                        ║                  │
+│                  ║y: Replace  ·  n/Esc: Cancel            ║                  │
+│                  ╚════════════════════════════════════════╝                  │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+y/n: Choose  ·  Esc: Cancel                                                     
+The dialog takes every key                                                      
+===== g-keys =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                  ╔Replace ~/.homelight.json?══════════════╗                  │
+│                  ║Write 1 unsaved changes to the file.    ║                  │
+│                  ║                                        ║                  │
+│                  ║y: Replace  ·  n/Esc: Cancel            ║                  │
+│                  ╚════════════════════════════════════════╝                  │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+y/n: Choose  ·  Esc: Cancel                                                     
+The dialog takes every key                                                      
+===== h-closed =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│                                  ││    ‹ Ask each time ›                     │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+↑/↓: Select  ·  Enter/→/Tab: Edit fields                                        
+s: Save  ·  Esc: Close  ·  q: Quit                                              
+===== i-esc-top =====
+⌂ HOMELIGHT  [Workspace]  [2: Configuration]                                    
+╭Workspace─────────────────────────────────────────────────────────────────────╮
+│(stub) Configuration has 1 unsaved changes                                    │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+c: Configuration  ·  Esc: (nothing to close)  ·  q: Quit                        
+                                                                                
+===== j-discard =====
+⌂ HOMELIGHT  [1: Workspace]  [Configuration]                                    
+~/.homelight.json · existing file · 1 unsaved changes                           
+╭Configuration─────────────────────╮╭~/.m2─────────────────────────────────────╮
+│    Storage locations             ││  Source        ~/.m2                     │
+│❯ ● ~/.m2                         ││  Target        /data/jkhlgGx q           │
+│    ~/.cache/uv                   ││  Archive root  (blank: default)          │
+│    ~/.cargo                      ││  Both exist                              │
+│    ~/.config/agent-tools         ││    ‹ Ask each time ›                     │
+│                                  ││  Only target                             │
+│              ╔Discard changes?═══════════════════════════════╗               │
+│              ║1 unsaved changes will be lost.                ║               │
+│              ║                                               ║               │
+│              ║y: Discard and quit  ·  n/Esc: Keep editing    ║               │
+│              ╚═══════════════════════════════════════════════╝               │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+│                                  ││                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────╯
+y/n: Choose  ·  Esc: Cancel                                                     
+The dialog takes every key                                                      
