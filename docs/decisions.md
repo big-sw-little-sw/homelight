@@ -231,6 +231,89 @@ Issue numbers in this list are the upstream projects' own.
 
 Revisit if Mosaic ships alternate-screen support and CI-tested native-image support, or if TamboUI stalls: no release for about 6 months, or a native regression upstream won't fix.
 
+## 2026-10-04: How design and simplification decisions are made
+
+Every proposal names the first rung that answers it: (1) does it need to exist at all, (2) reuse existing code, (3) Kotlin or JDK standard library, (4) a TamboUI or platform feature, (5) an existing dependency, (6) only then minimal new code. For the TUI, use TamboUI as much as possible and delete our own equivalents, even when that is an app-wide change. Anything dropped or deferred is recorded as `[skipped: X, add when Y]` in the decision and its ticket. HomeLight never files issues or pull requests on upstream projects; TamboUI gaps are worked around in our code.
+
+## 2026-10-04: One configuration editor for creating and editing
+
+`homelight init`, `homelight config`, `i` (no configuration) and `e` (from Workspace) open one Configuration screen. It edits the file's own shape (`HomeLightFile`/`RelocationFile`), validated by the loader's conversion, so path rules have one owner and `~`/`${USER}` survive a round trip. Layout is master-detail like Workspace; "Storage locations" is the first list entry, so there is no separate locations step. A blank Target means "derived from the target root", as a blank Archive root already means the default. Unsaved changes are the draft compared with the loaded file. Save creates a new file directly; replacing an existing file asks for `y`, notes that comments are not kept, refuses if the file's bytes changed since load, and writes atomically. Save returns to Workspace, checks again and says the next step. Saved and new relocations are the same kind of row, so Browse has two markers, `[ ]` and `[x]`, and Space toggles.
+
+The configuration gains an optional `source-root`, default `~`. Targets derive from a source's position under it; a source outside it needs an explicit target. New rows start with the source root filled in, and Browse scans under it.
+
+This removes setup's own relative-to-root rows and path rules, the creation-only "configured" join with its `[=]` state (never reachable in production: `SetupView` always passed an empty list), and the separate locations mode.
+
+- `[skipped: per-row changed/new markers, add when users lose track of edits in long lists]`
+
+Rejected: a second editor for existing files beside create-only setup (two editors for the same rows); extending setup's relative-to-root rows to existing files (needs absolute/relative mapping and makes the dead outside-root case real); deferring existing-file editing; a source root kept only in the editor (saves typing, nothing else).
+
+## 2026-10-04: Workspace choices are for one apply; rules are saved on request
+
+A choice made in Workspace applies to the next apply only and is cleared by any re-check, save or apply. `s: Always do this` saves the choice as the relocation's rule through the Configuration save path, after a dialog that explains it. This supersedes the product-spec line that durable decisions are written before application, and drops the logic that kept choices across a re-check (`DiscardedChoice`, `DiscardReason`, `Replanned` and the "draft choices discarded" banner).
+
+- `[skipped: keeping one-time choices across a re-check, add when users re-check often with many open choices]`
+
+Rejected: keeping choices across re-checks (code for a rare case); saving every choice as a rule (a one-off "delete both" would become permanent for `apply --json --yes`); a per-choice "also save" toggle.
+
+## 2026-10-04: A missing rule means "Ask each time"
+
+The three rule fields are non-null and default to `prompt`, which is omitted when written. The screen shows a missing and an explicit `prompt` the same way: "Ask each time". This reverses the part of #65 that showed `Default (prompt)` separately; the other #65 wording rules stand. A file that spells out `"prompt"` loses that line on its next save, with the same meaning. The editor merges `when-source-and-target-directories-exist` and `when-adopting-target` into one **Both exist** choice whose values read as outcomes (Ask each time; Keep target, delete source; Keep target, archive source; Keep target, ask about source; Leave both as they are; Delete both, start empty); the file keeps both keys. On screen a policy is a "rule".
+
+- `[skipped: showing a missing rule apart from an explicit prompt, add when a global defaults layer exists]`
+- `[skipped: generic Policy<C>, add when a fourth rule appears or code needs to treat all rules the same way]`
+
+Rejected: `Policy<C>` (each rule would need a hand-written serializer to keep the file's plain strings, the cost the 2026-10-02 decision already rejected).
+
+## 2026-10-04: TamboUI owns focus, fields, choices and dialogs
+
+The TUI uses TamboUI's `FocusManager` with fixed element ids, its text inputs (`TextInputState`), `Select` for every fixed-value choice, `dialog()` for dialogs, `LineGauge` and `Spinner` for progress. One app key handler, keyed by the focused id, handles what elements leave: Esc goes back one level (field, list, screen) and never exits. While a dialog is open the screen behind renders non-focusable, because TamboUI has no inert or focus-scope option and handles Tab before any element. Key bindings switch from vim to TamboUI's `standard` set, which removes the text-field-first exception, the paging guard and the risk that a TamboUI fix for binding-aware text input would make `x` delete. Tab moves through every control in order; ↑/↓ also move between form fields. A throwaway prototype confirmed all of this (escape, typing in fields, dialogs trapping keys, testability, quit).
+
+- `[skipped: TamboUI FormElement, add when it supports per-field key handling and a dialog on top]`
+- `[skipped: TreeElement for Browse, add when its selection can follow an item rather than a position]`
+- `[skipped: mouse support, add when users ask to click; mouse capture disables plain drag-to-copy]`
+- `[skipped: Tab completion for paths, add when typing paths becomes a complaint]`
+
+Rejected: keeping our own focus and field code with only TamboUI text inputs (keeps code TamboUI provides); Tab switching panes only (TamboUI owns Tab, so it would mean keeping our focus code).
+
+## 2026-10-04: Dialogs for short questions, screens for work
+
+A dialog asks one question or confirms one action over the current screen and returns to exactly where the user was. Dialogs have a double border in their own color, are centered and sized to content, and never cover the header or help lines. Multi-step work is a screen with one plainly labelled way back.
+
+- `[skipped: dimming the whole screen behind a dialog, add when the border and lost focus are not enough separation]`
+
+## 2026-10-04: Harbor palette on HomeLight's own dark background
+
+The TUI paints its own dark background and uses the Harbor palette as exact RGB colors, named by role in one palette file; terminals without full-color support fall back to the nearest basic color per role. Color may carry meaning alone when the same information is also on screen another way. This replaces "inherit the terminal background" and "color never replaces words". The palette was chosen from three candidates rendered on real screens.
+
+Rejected: the terminal's 16 colors only (plain, and drifts across 88 call sites); inheriting the terminal background with separate light and dark shades selected by a setting (two shade sets and a setting).
+
+## 2026-10-04: Browse shows its lists and drops stale evidence
+
+Browse always shows each candidate list's location, count and the shared file's modification time. Discovery no longer keeps previous results on screen while checking again, no longer distinguishes waiting from checking, and no longer remembers which lists once suggested a row. Deadlines, the single in-flight shared read, chained runs and the bundled-first batch stay (#84, #10). When both lists name a directory, the candidate list's app and advice win. Row notes use plain words.
+
+- `[skipped: showing previous results while checking again, add when re-checks are slow enough that blank rows annoy users]`
+- `[skipped: per-row list history, add when users need to know a list used to suggest a row]`
+
+Rejected: showing "lists disagree" on rows where the lists differ (two pieces of advice per row).
+
+## 2026-10-04: Apply progress does not follow running steps
+
+With several relocations running at once, the selection stays where the user put it. Each relocation row shows its own status, the tree updates in place, a line gauge and one count line summarize progress, and on finish the selection moves once to the first failure or last completed action. Action names use plain words.
+
+Rejected: following the first running step (pulls the selection away while reading); following the most recent step.
+
+## 2026-10-04: Application-layer cleanup
+
+`PlanSummary` is deleted (one reader compared two of its fields). `PlanModel` folds into the loaded evaluation. Screen text moves out of `DecisionChoice` and `PlanBadge` into the TUI's wording file. `HomeLightSession` stops being `open`; TUI tests drive real sessions. Review's pending steps are built in one place.
+
+- `[skipped: merging the Missing and Unconfigured evaluation states, add when the JSON contract is revisited]`
+
+## 2026-10-04: TUI design document holds current rules only
+
+`tui-design.md` holds the current rules; history lives here and in git. Screens are checked at 80x24 and 120x30. Displayed paths show the home directory as `~`.
+
+- `[skipped: 200x50 checks, add when a wide-terminal layout bug appears]`
+
 ## How to add decisions
 
 Use this format:

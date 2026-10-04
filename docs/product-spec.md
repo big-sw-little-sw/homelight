@@ -70,7 +70,7 @@ homelight status
 Expected behavior:
 
 - `init` opens discovery and initial configuration.
-- `config` opens configuration review and editing.
+- `config` opens configuration editing; `init` opens the same editor, starting a new file when none exists.
 - `plan` computes and displays changes without modifying the filesystem.
 - `apply` opens plan review and explicit application.
 - `status` opens the current reconciliation status.
@@ -90,7 +90,7 @@ The reconciliation engine returns structured actions, warnings, conflicts, and u
 
 The TUI holds an exact structured plan in memory between review and application. Immediately before mutation it preflights that plan's expected state. If state has drifted, the plan is marked stale and the user must re-plan; HomeLight never substitutes an unreviewed plan behind an existing confirmation.
 
-The TUI resolves only decisions that are not already stored in configuration. Durable policy decisions are written to configuration before application.
+The TUI asks only for decisions that the configuration's rules leave open. A decision made in the TUI applies to the next apply only; the user saves it as a rule explicitly, and saving never applies.
 
 The full-screen `init` workflow should:
 
