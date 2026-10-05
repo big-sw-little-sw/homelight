@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState
+import io.github.bigswlittlesw.homelight.reconcile.replacedSourcePath
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -102,6 +103,7 @@ class ConfigurationEvaluation(
                     val path = relocation.archiveRoot.resolve(source.root.relativize(source)).normalize()
                     RelocationState.ArchiveDestination(path, inspect(path))
                 },
+                inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
             )
         }
         val savedPlan = plan(observations)

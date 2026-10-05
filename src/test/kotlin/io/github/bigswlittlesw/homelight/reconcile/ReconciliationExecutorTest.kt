@@ -137,8 +137,8 @@ class ReconciliationExecutorTest {
 
     /** A failed internal precondition is a bug: it propagates, and staging is cleaned up as on an I/O failure. */
     @ParameterizedTest
-    @EnumSource(ReconciliationExecutor.StagingStep::class, names = ["LOCKED", "COPIED"])
-    internal fun aFailedPreconditionPropagatesAfterStagingCleanup(step: ReconciliationExecutor.StagingStep, @TempDir root: Path) {
+    @EnumSource(ReconciliationExecutor.Step::class, names = ["LOCKED", "COPIED"])
+    internal fun aFailedPreconditionPropagatesAfterStagingCleanup(step: ReconciliationExecutor.Step, @TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
         val target = root.resolve("local/cache")
@@ -165,7 +165,7 @@ class ReconciliationExecutorTest {
         val bug = IllegalStateException("injected bug")
         // The copy's contents can be deleted, but the copy cannot be removed from the read-only staging root.
         val executor = ReconciliationExecutor(1) { at, _ ->
-            if (at == ReconciliationExecutor.StagingStep.COPIED) {
+            if (at == ReconciliationExecutor.Step.COPIED) {
                 Files.setPosixFilePermissions(staging, PosixFilePermissions.fromString("r-x------"))
                 throw bug
             }
@@ -192,7 +192,7 @@ class ReconciliationExecutorTest {
         Files.writeString(source.resolve("entry"), "source")
         val target = root.resolve("local/cache")
         val executor = ReconciliationExecutor(1) { at, _ ->
-            if (at == ReconciliationExecutor.StagingStep.PUBLISHED) throw IOException("injected failure")
+            if (at == ReconciliationExecutor.Step.PUBLISHED) throw IOException("injected failure")
         }
 
         val relocation = executor.execute(plan(Relocation(source, target))).relocations.single()
