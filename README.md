@@ -23,6 +23,8 @@ Running `homelight` starts the full-screen TUI. Named commands open the correspo
 
 The [user guide](docs/user-guide.md) walks through a run, says what each rule does on disk, and how to undo a change. In the TUI, `?` shows the same steps and every key for the current screen.
 
+For the JSON commands, their `"schema"` field and exit codes, see [Scripting](docs/user-guide.md#scripting) in the user guide.
+
 ## Design
 
 HomeLight has a small library-oriented core with a presentation-neutral application workflow. Reconciliation produces structured plans independently of terminal rendering and filesystem mutation. The full-screen TUI and JSON commands are adapters around that workflow.

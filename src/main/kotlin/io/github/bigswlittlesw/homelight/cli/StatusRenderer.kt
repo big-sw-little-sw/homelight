@@ -2,32 +2,30 @@ package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Locale
 
-internal fun renderStatusJson(snapshots: List<StatusSnapshot>, output: PrintWriter) {
+/** An unconfigured default path has no relocations, so it is written with `configured` false and an empty list. */
+internal fun renderStatusJson(
+    config: Path, snapshots: List<StatusSnapshot>, output: PrintWriter, configured: Boolean = true,
+) {
     val relocations = snapshots.map { snapshot ->
-        StatusJson(
+        RelocationStatusJson(
             snapshot.sourcePath.toString(), snapshot.targetPath.toString(),
             snapshot.state.name.lowercase(Locale.ROOT),
         )
     }
-    output.println(encodeJson(ListSerializer(StatusJson.serializer()), relocations))
-}
-
-internal fun renderUnconfiguredStatusJson(config: Path, output: PrintWriter) {
-    val status = UnconfiguredStatusJson(false, config.toAbsolutePath().normalize().toString(), listOf())
-    output.println(encodeJson(UnconfiguredStatusJson.serializer(), status))
+    val status = StatusJson(JSON_SCHEMA, configured, config.toAbsolutePath().normalize().toString(), relocations)
+    output.println(encodeJson(StatusJson.serializer(), status))
 }
 
 internal data class StatusSnapshot(val sourcePath: Path, val targetPath: Path, val state: RelocationSourceState)
 
 @Serializable
-private data class StatusJson(val sourcePath: String, val targetPath: String, val state: String)
+private data class StatusJson(
+    val schema: Int, val configured: Boolean, val configPath: String, val relocations: List<RelocationStatusJson>,
+)
 
 @Serializable
-private data class UnconfiguredStatusJson(
-    val configured: Boolean, val configPath: String, val relocations: List<StatusJson>,
-)
+private data class RelocationStatusJson(val sourcePath: String, val targetPath: String, val state: String)

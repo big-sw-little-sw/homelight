@@ -87,7 +87,7 @@ class DefaultConfigurationClassificationTest {
                         if (command.equals("status")) {
                             assertTrue(out.toString().contains("\"configured\":false"), out.toString())
                         } else if (command.equals("apply")) {
-                            assertEquals("{\"succeeded\":true,\"relocations\":[]}", out.toString().javaStrip())
+                            assertEquals("{\"schema\":1,\"succeeded\":true,\"relocations\":[]}", out.toString().javaStrip())
                         }
                     } else {
                         assertNotEquals(0, exit)

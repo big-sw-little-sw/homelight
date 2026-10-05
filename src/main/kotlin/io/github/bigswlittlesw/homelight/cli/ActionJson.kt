@@ -27,6 +27,12 @@ internal fun actionJson(action: ReconciliationAction): ActionJson = ActionJson(
 )
 
 /**
+ * The version of the `status`, `plan` and `apply` JSON responses, written as each response's first
+ * property. Raise it when a change could break a script that reads the current shape.
+ */
+internal const val JSON_SCHEMA = 1
+
+/**
  * Encodes one JSON response on a single line.
  *
  * The response classes rely on the default [Json] settings: properties in declaration order, a

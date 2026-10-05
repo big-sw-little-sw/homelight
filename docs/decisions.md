@@ -403,7 +403,7 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 
 ## 2026-10-05: `?` explains the workflow; keys come from one place per screen
 
-Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a help overlay on every screen: five "How it works" steps, every key for the current screen, and three key ideas (rule or one-time choice, archive or delete, check again). `docs/user-guide.md` copies the steps word for word, adds captures, what each rule does on disk and how to undo by hand; a test compares the guide's steps with the overlay's. The empty Workspace says `Press ? for help.`
+Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a help overlay on every screen: five "How it works" steps, every key for the current screen, and three key ideas (rule or one-time choice, archive or delete, check again). `docs/user-guide.md` copies the steps word for word, adds captures, what each rule does on disk and how to undo by hand; a test compares the guide's steps with the overlay's. The empty Workspace says `Press ? for help.` The guide also takes over the Scripting section that #19 put in the README while no guide existed; the README points to it.
 
 Each screen's keys are a list of `KeyHint(keys, action, inHelpArea)` built in one function (`WorkspaceView.keys`, `ApplyView.keys`, `SetupView.keys`, `CandidateBrowser.keys`). The help lines show the hints marked for them and the overlay lists all of them, so the two cannot disagree. The overlay is a TamboUI `dialog()` holding a borderless `DetailViewport` pane, which already wraps, scrolls and draws the scrollbar (rung 2, 4); the dialog's footer is the viewport's own help line, so `↑/↓: Scroll` shows only when it scrolls.
 
@@ -415,6 +415,21 @@ Each screen's keys are a list of `KeyHint(keys, action, inHelpArea)` built in on
 - `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` The overlay lists only keys that work.
 
 Rejected: listing keys in the overlay by hand beside the help lines (two lists that drift); a separate help screen (help is a short question over the current screen, so it is a dialog).
+
+## 2026-10-05: Scripting keeps today's JSON commands, versioned
+
+#19 is trimmed (user decision). The JSON commands already share evaluation, planning and `ReviewedExecution` with the TUI, and CI's native comparison depends on them, so they stay. Most of the original scope is not needed now. What remains: `plan --no-color`, parsed but never read, is removed; `status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; the README documents the three commands, `--yes` and exit codes 0, 1, 2 and 70. `status --json` now has one shape, configured or not: `{"schema": 1, "configured": <bool>, "configPath": "...", "relocations": [...]}`. A configured status used to be a bare array, which has no first field. No one scripts against it yet, so the break costs nothing, and one shape needs one response class.
+
+- `[skipped: one shared envelope for every outcome across commands, add when someone scripts against HomeLight and needs it]`
+- `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`
+- `[skipped: config validate --json, add when a script needs validation without planning]`
+- `[skipped: redirected-I/O/terminal-isolation and source-audit test suites beyond what exists]`
+
+## 2026-10-05: B6 is left as is
+
+A crash between publishing the target and setting the source aside leaves two whole directories, so the next plan reports "both exist". The reorder alternative needs recovery that relies on naming conventions, which is brittle (user).
+
+- `[skipped: crash recovery between copying and linking, add when users report "both exist" after an interrupted apply]`
 
 ## How to add decisions
 
