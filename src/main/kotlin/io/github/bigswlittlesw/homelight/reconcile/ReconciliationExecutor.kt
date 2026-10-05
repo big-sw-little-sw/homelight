@@ -36,32 +36,23 @@ class ReconciliationExecutor internal constructor(
         require(plan.expectedStates.map { it.relocation } == plan.relocations.map { it.relocation }) {
             "Plan has no complete review snapshot"
         }
-        val diagnostics = ArrayList<ReconciliationDiagnostic>()
-        for (state in plan.expectedStates) {
-            checkObservation(state.relocation.sourcePath, state.source, diagnostics)
-            checkObservation(state.relocation.targetPath, state.target, diagnostics)
-            state.archiveDestination?.let { archive -> checkObservation(archive.path, archive.observation, diagnostics) }
-            state.replacedSource?.let { observation ->
-                val path = replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath)
-                checkObservation(path, observation, diagnostics)
-            }
-        }
-        return diagnostics
+        return plan.expectedStates.flatMap { state ->
+            listOfNotNull(
+                state.relocation.sourcePath to state.source,
+                state.relocation.targetPath to state.target,
+                state.archiveDestination?.let { it.path to it.observation },
+                state.replacedSource?.let {
+                    replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath) to it
+                },
+            )
+        }.mapNotNull { (path, expected) -> stalePlan(path, expected) }
     }
 
-    private fun checkObservation(
-        path: Path, expected: PathObservation,
-        diagnostics: MutableList<ReconciliationDiagnostic>,
-    ) {
-        if (inspector.inspect(path) != expected) {
-            diagnostics.add(
-                ReconciliationDiagnostic(
-                    ReconciliationDiagnostic.Severity.ERROR, path,
-                    "STALE_PLAN", "Filesystem state changed since review: $path",
-                ),
-            )
-        }
-    }
+    private fun stalePlan(path: Path, expected: PathObservation): ReconciliationDiagnostic? =
+        if (inspector.inspect(path) == expected) null else ReconciliationDiagnostic(
+            ReconciliationDiagnostic.Severity.ERROR, path,
+            "STALE_PLAN", "Filesystem state changed since review: $path",
+        )
 
     /**
      * Runs the plan's relocations, with at most [concurrency] independent groups at once (see [independentGroups]).
