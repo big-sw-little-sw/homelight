@@ -12,6 +12,7 @@ internal fun renderPlanJson(plan: ReconciliationPlan, output: PrintWriter) {
 
 @Serializable
 private data class PlanJson(
+    val schema: Int,
     val blocked: Boolean,
     val conflicts: Boolean,
     val diagnostics: List<DiagnosticJson>,
@@ -36,7 +37,7 @@ private data class ConflictJson(val path: String, val reason: String, val resolu
 private data class DiagnosticJson(val severity: String, val source: String, val code: String, val message: String)
 
 private fun planJson(plan: ReconciliationPlan) = PlanJson(
-    plan.hasBlockedActions(), plan.hasConflicts(), plan.diagnostics.map(::diagnosticJson),
+    JSON_SCHEMA, plan.hasBlockedActions(), plan.hasConflicts(), plan.diagnostics.map(::diagnosticJson),
     plan.relocations.map { relocation ->
         RelocationPlanJson(
             relocation.relocation.sourcePath.toString(), relocation.relocation.targetPath.toString(),
