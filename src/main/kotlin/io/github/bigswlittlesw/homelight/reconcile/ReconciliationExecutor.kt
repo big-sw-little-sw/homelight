@@ -36,32 +36,23 @@ class ReconciliationExecutor internal constructor(
         require(plan.expectedStates.map { it.relocation } == plan.relocations.map { it.relocation }) {
             "Plan has no complete review snapshot"
         }
-        val diagnostics = ArrayList<ReconciliationDiagnostic>()
-        for (state in plan.expectedStates) {
-            checkObservation(state.relocation.sourcePath, state.source, diagnostics)
-            checkObservation(state.relocation.targetPath, state.target, diagnostics)
-            state.archiveDestination?.let { archive -> checkObservation(archive.path, archive.observation, diagnostics) }
-            state.replacedSource?.let { observation ->
-                val path = replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath)
-                checkObservation(path, observation, diagnostics)
-            }
-        }
-        return diagnostics
+        return plan.expectedStates.flatMap { state ->
+            listOfNotNull(
+                state.relocation.sourcePath to state.source,
+                state.relocation.targetPath to state.target,
+                state.archiveDestination?.let { it.path to it.observation },
+                state.replacedSource?.let {
+                    replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath) to it
+                },
+            )
+        }.mapNotNull { (path, expected) -> stalePlan(path, expected) }
     }
 
-    private fun checkObservation(
-        path: Path, expected: PathObservation,
-        diagnostics: MutableList<ReconciliationDiagnostic>,
-    ) {
-        if (inspector.inspect(path) != expected) {
-            diagnostics.add(
-                ReconciliationDiagnostic(
-                    ReconciliationDiagnostic.Severity.ERROR, path,
-                    "STALE_PLAN", "Filesystem state changed since review: $path",
-                ),
-            )
-        }
-    }
+    private fun stalePlan(path: Path, expected: PathObservation): ReconciliationDiagnostic? =
+        if (inspector.inspect(path) == expected) null else ReconciliationDiagnostic(
+            ReconciliationDiagnostic.Severity.ERROR, path,
+            "STALE_PLAN", "Filesystem state changed since review: $path",
+        )
 
     /**
      * Runs the plan's relocations, with at most [concurrency] independent groups at once (see [independentGroups]).
@@ -110,37 +101,40 @@ class ReconciliationExecutor internal constructor(
 
     /** Runs one relocation's actions in order; a failure leaves its remaining actions pending and sets [halted]. */
     private fun execute(relocation: RelocationPlan, progress: ProgressListener, halted: AtomicBoolean): RelocationExecution {
-        val actions = ArrayList<ActionExecution>()
         var failed = false
-        for (action in relocation.actions) {
+        val actions = relocation.actions.map { action ->
             if (failed) {
-                actions.add(notRun(action))
-                continue
-            }
-            fun fail(exception: Exception) {
-                val execution = ActionExecution(
-                    action, ActionStatus.FAILED, exception.message ?: exception.toString(),
-                    stateDrift = exception is StateDriftException, targetPublished = exception is PartlyPublishedException,
-                )
-                actions.add(execution)
-                halted.set(true)
-                failed = true
-                progress.finished(relocation, execution)
-            }
-            // Only I/O and environment failures fail the action and halt the plan. Anything else is a bug: it
-            // propagates, after `finally` blocks have cleaned up staging.
-            try {
-                progress.started(relocation, action)
-                val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
-                actions.add(execution)
-                progress.finished(relocation, execution)
-            } catch (exception: IOException) {
-                fail(exception)
-            } catch (exception: EnvironmentException) {
-                fail(exception)
+                notRun(action)
+            } else {
+                runAction(relocation, action, progress, halted).also { failed = it.status == ActionStatus.FAILED }
             }
         }
         return RelocationExecution(relocation, actions)
+    }
+
+    /**
+     * Runs one action and reports it to [progress] exactly once. A failure sets [halted] before it is reported:
+     * a listener that sees the failure can rely on no new relocation starting.
+     *
+     * Only I/O and environment failures, from the action or from [ProgressListener.started], fail the action. Anything
+     * else is a bug: it propagates, after `finally` blocks have cleaned up staging. [ProgressListener.finished] runs
+     * outside that handling, so a listener that throws there propagates too, rather than recording the action again
+     * as failed.
+     */
+    private fun runAction(
+        relocation: RelocationPlan, action: ReconciliationAction, progress: ProgressListener, halted: AtomicBoolean,
+    ): ActionExecution {
+        val execution = try {
+            progress.started(relocation, action)
+            ActionExecution(action, ActionStatus.COMPLETED, apply(action))
+        } catch (exception: IOException) {
+            failure(action, exception)
+        } catch (exception: EnvironmentException) {
+            failure(action, exception)
+        }
+        if (execution.status == ActionStatus.FAILED) halted.set(true)
+        progress.finished(relocation, execution)
+        return execution
     }
 
     private fun apply(action: ReconciliationAction): String = when (action) {
@@ -349,6 +343,11 @@ internal class PartlyPublishedException(message: String, cause: IOException) : I
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
 
+private fun failure(action: ReconciliationAction, exception: Exception) = ReconciliationExecutor.ActionExecution(
+    action, ReconciliationExecutor.ActionStatus.FAILED, exception.message ?: exception.toString(),
+    stateDrift = exception is StateDriftException, targetPublished = exception is PartlyPublishedException,
+)
+
 /**
  * Refuses publication where directory permission bits cannot be read or set, rather than letting
  * the copy fall back to provider defaults (decision 2026-09-30). A provider that accepts but ignores
@@ -402,15 +401,11 @@ private fun createRealDirectory(path: Path) {
 
 /** Follows a symlink at the nearest existing component, as [ensureDirectories] would. */
 private fun fileStoreOfExistingAncestor(path: Path): FileStore {
-    var current: Path? = path.toAbsolutePath().normalize()
-    while (current != null) {
-        if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            if (!Files.isDirectory(current)) {
-                throw StateDriftException("expected real directory at $current")
-            }
-            return Files.getFileStore(current)
-        }
-        current = current.parent
+    val existing = generateSequence(path.toAbsolutePath().normalize()) { it.parent }
+        .firstOrNull { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
+        ?: throw IOException("no existing ancestor for $path")
+    if (!Files.isDirectory(existing)) {
+        throw StateDriftException("expected real directory at $existing")
     }
-    throw IOException("no existing ancestor for $path")
+    return Files.getFileStore(existing)
 }

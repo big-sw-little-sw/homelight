@@ -135,6 +135,30 @@ class ReconciliationExecutorTest {
         assertTrue(Files.notExists(source))
     }
 
+    /**
+     * A listener that throws while told an action completed does not also record that action as failed. Each action is
+     * reported once, and the listener's exception propagates like any other listener bug.
+     */
+    @Test
+    fun aListenerFailureAfterAnActionCompletesDoesNotRecordTheActionTwice(@TempDir root: Path) {
+        val plan = plan(Relocation(root.resolve("source"), root.resolve("target")))
+        val reported = mutableListOf<ReconciliationExecutor.ActionExecution>()
+        val failure = IOException("listener failed")
+
+        val thrown = assertThrows<IOException> {
+            ReconciliationExecutor().execute(plan, object : ReconciliationExecutor.ProgressListener {
+                override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
+                    reported.add(action)
+                    if (action.status == ReconciliationExecutor.ActionStatus.COMPLETED) throw failure
+                }
+            })
+        }
+
+        assertSame(failure, thrown)
+        val first = plan.relocations.single().actions.first()
+        assertEquals(listOf(first to ReconciliationExecutor.ActionStatus.COMPLETED), reported.map { it.action to it.status })
+    }
+
     /** A failed internal precondition is a bug: it propagates, and staging is cleaned up as on an I/O failure. */
     @ParameterizedTest
     @EnumSource(ReconciliationExecutor.Step::class, names = ["LOCKED", "COPIED"])

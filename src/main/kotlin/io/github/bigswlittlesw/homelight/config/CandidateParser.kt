@@ -54,34 +54,37 @@ class CandidateParser {
      * and `key` instead.
      */
     private class Reader(val source: CandidateSource, val root: Path) {
-        private val definitions = ArrayList<CandidateDefinition>()
-
         fun definitions(file: CandidateListFile): List<CandidateDefinition> {
             if (file.apps == null && file.directories == null) {
                 throw invalid(Kind.SCHEMA, 0, "", "", "At least one of apps or directories is required")
             }
             val apps = file.apps.orEmpty()
             if (apps.size > MAX_APPS) throw invalid(Kind.LIMIT, 0, "", "apps", "Too many app groups")
-            apps.forEachIndexed { i, app ->
-                val location = "apps[$i]"
-                val name = bounded(app.name, 0, location, "name")
-                if (name.isJavaBlank() || name != name.javaStrip()) {
-                    throw invalid(
-                        Kind.SCHEMA, 0, location, "name", "App label must not be blank or have leading or trailing whitespace",
-                    )
+            return buildList {
+                apps.forEachIndexed { i, app ->
+                    val location = "apps[$i]"
+                    val name = bounded(app.name, 0, location, "name")
+                    if (name.isJavaBlank() || name != name.javaStrip()) {
+                        throw invalid(
+                            Kind.SCHEMA, 0, location, "name",
+                            "App label must not be blank or have leading or trailing whitespace",
+                        )
+                    }
+                    addAll(records(app.directories, name, "$location.directories", size))
                 }
-                append(app.directories, name, "$location.directories")
+                file.directories?.let { directories -> addAll(records(directories, null, "directories", size)) }
             }
-            file.directories?.let { directories -> append(directories, null, "directories") }
-            return definitions
         }
 
-        private fun append(directories: List<DirectoryFile>, app: String?, location: String) {
-            if (directories.size > MAX_RECORDS - definitions.size) {
+        /** [preceding] is the number of records already read, so indices and the limit run across the catalog. */
+        private fun records(
+            directories: List<DirectoryFile>, app: String?, location: String, preceding: Int,
+        ): List<CandidateDefinition> {
+            if (directories.size > MAX_RECORDS - preceding) {
                 throw invalid(Kind.LIMIT, 0, location, "directories", "Too many records across catalog")
             }
-            directories.forEachIndexed { i, directory ->
-                val index = definitions.size + 1
+            return directories.mapIndexed { i, directory ->
+                val index = preceding + i + 1
                 val record = "$location[$i]"
                 val path = bounded(directory.path, index, record, "path")
                 val resolved = try {
@@ -94,7 +97,7 @@ class CandidateParser {
                 if (reason != null && reason.isJavaBlank()) {
                     throw invalid(Kind.SCHEMA, index, record, "reason", "Reason must not be blank")
                 }
-                definitions.add(CandidateDefinition(resolved, source, index, record, path, app, directory.advice, reason))
+                CandidateDefinition(resolved, source, index, record, path, app, directory.advice, reason)
             }
         }
 
