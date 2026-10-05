@@ -44,9 +44,10 @@ private val OUTPUT = Json {
 internal fun encodeConfiguration(file: ConfigurationFile): String =
     OUTPUT.encodeToString(ConfigurationFile.serializer(), file) + "\n"
 
-/** A draft holds resolved paths, so they are written absolute. */
+/** A draft holds resolved paths, so they are written absolute. A source root at the home directory is left out. */
 internal fun configurationFile(draft: ConfigurationDraft): ConfigurationFile = ConfigurationFile(
     HomeLightFile(
+        sourceRoot = if (draft.sourceRoot == home()) DEFAULT_SOURCE_ROOT else draft.sourceRoot.toString(),
         targetRoot = draft.targetRoot.toString(),
         discovery = draft.sharedList?.let { DiscoveryFile(it.toString()) },
         relocations = draft.relocations.map { relocation ->
@@ -60,3 +61,5 @@ internal fun configurationFile(draft: ConfigurationDraft): ConfigurationFile = C
         },
     ),
 )
+
+private fun home(): Path = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
