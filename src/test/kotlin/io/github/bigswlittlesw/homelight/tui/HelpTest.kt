@@ -14,94 +14,126 @@ class HelpTest {
     @TempDir lateinit var temporary: Path
 
     @Test
-    fun theOverlayListsEveryKeyTheHelpAreaShowsOnEachScreen() {
+    fun helpListsEveryKeyTheHelpLinesShowOnEachScreen() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
-        checkOverlay(ui, "Workspace list", "c: Show 1 in sync", "PageUp/PageDown: Move a page")
+        checkHelp(ui, WORKSPACE_NAME, PURPOSE_WORKSPACE, "c", "PageUp/PageDown")
         ui.press(KeyCode.TAB)
-        checkOverlay(ui, "Workspace details", "↑/↓: Choose", "←: Back")
+        checkHelp(ui, WORKSPACE_NAME, PURPOSE_WORKSPACE, "↑/↓", "←")
         ui.press(KeyCode.ENTER)
         ui.press(KeyCode.ESCAPE)
         ui.press('a')
-        checkOverlay(ui, "Review", "y: Apply", "Home/End: First/last")
+        checkHelp(ui, REVIEW_NAME, PURPOSE_REVIEW, "y", "Home/End")
 
         val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
-        checkOverlay(setup, "empty Workspace", "i: Create configuration", "Home/End: Top/bottom")
+        checkHelp(setup, WORKSPACE_NAME, PURPOSE_NO_CONFIGURATION, "i", "Home/End")
         setup.press('i')
         setup.press(KeyCode.ENTER)
         setup.press('a')
         setup.type(".cache/tool")
         setup.press(KeyCode.ESCAPE)
-        checkOverlay(setup, "Setup relocations", "b: Browse", "[/]: Scroll")
+        checkHelp(setup, CONFIGURATION_NAME, PURPOSE_CONFIGURATION, "b", "[/]")
         setup.press(KeyCode.ENTER)
         repeat(2) { setup.press(KeyCode.DOWN) }
-        checkOverlay(setup, "Setup rule field", "Space: Change rule", "q: Discard", note = true)
+        checkHelp(setup, CONFIGURATION_NAME, PURPOSE_CONFIGURATION, "Space", "q", note = true)
     }
 
     /**
-     * Opens help over the screen as it is, checks that the overlay lists each key the help area shows and `extra`
-     * keys it does not, then closes it with Esc and checks that the screen is as it was. A field note takes the
-     * first help line when `note` is set.
+     * Opens Help over the screen as it is and checks its header, title and purpose, that its key table has a row for
+     * each key the help lines show and for the `extra` keys they leave out, and that Esc returns to the screen exactly
+     * as it was. A field note takes the first help line when `note` is set.
      */
-    private fun checkOverlay(ui: HeadlessTui, screen: String, vararg extra: String, note: Boolean = false) {
+    private fun checkHelp(ui: HeadlessTui, name: String, purpose: String, vararg extra: String, note: Boolean = false) {
         val before = ui.screen(80, 24)
         val focused = ui.focused()
         val shown = before.lines().subList(if (note) 23 else 22, 24).flatMap { it.trim().split(" · ") }
             .map { it.replace("↑/↓/[/]: Scroll", "↑/↓: Scroll") }.filter { it.isNotEmpty() && it != "[/]: Scroll" }
-        assertTrue("?: Help" in shown, "$screen: $before")
+        assertTrue("?: Help" in shown, "$name: $before")
         ui.press('?')
-        assertEquals(DIALOG, ui.focused(), screen)
-        // Tall enough that the overlay does not scroll.
-        val listed = ui.screen(80, 80).lines().map { it.substringAfter('║').substringBefore('║').trim() }
-        for (key in shown - "?: Help" + extra) assertTrue(key in listed, "$screen lists $key: ${listed.joinToString("\n")}")
-        assertFalse("?: Help" in listed, screen)
+        assertEquals(HELP_SCREEN, ui.focused(), name)
+        // Tall enough to show the whole key table.
+        val help = ui.screen(100, 120)
+        val rows = help.lines()
+        assertTrue(rows[0].startsWith("⌂ HOMELIGHT  [Help]"), help)
+        assertTrue(rows[1].contains("Help · $name"), help)
+        assertTrue(help.contains(onThisScreenTitle(name)), help)
+        assertTrue(paneText(help).contains(purpose), help)
+        // A key row is the key, padding, then its action.
+        fun listed(keys: String, action: String?) = paneRows(help).any { row ->
+            row.startsWith("$keys ") && (action == null || row.substringAfter("$keys ").trim() == action)
+        }
+        for (hint in shown) {
+            val (keys, action) = hint.split(": ", limit = 2)
+            assertTrue(listed(keys, action), "$name lists $hint: $help")
+        }
+        for (keys in extra) assertTrue(listed(keys, null), "$name lists $keys: $help")
         ui.press(KeyCode.ESCAPE)
-        assertEquals(focused, ui.focused(), screen)
-        assertEquals(before, ui.screen(80, 24), screen)
+        assertEquals(focused, ui.focused(), name)
+        assertEquals(before, ui.screen(80, 24), name)
     }
 
     @Test
-    fun theOverlayScrollsAt80x24AndLeavesTheHeaderAndHelpLinesUncovered() {
+    fun helpScrollsTheGuideAndOtherKeysDoNothing() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
-        val header = ui.screen(80, 24).lines()[0]
+        ui.press(KeyCode.DOWN)
+        val before = ui.screen(80, 24)
         ui.press('?')
         val top = ui.screen(80, 24)
         val rows = top.lines()
-        assertEquals(header, rows[0], top)
-        assertTrue(rows[1].contains("╔Help"), top)
-        assertTrue(rows[21].contains("╚"), top)
-        assertTrue(rows[22].isBlank() && rows[23].isBlank(), top)
-        assertTrue(top.contains("1. Setup: say where storage is."), top)
-        assertTrue(top.contains("↑/↓/[/]: Scroll · ?/Esc: Close"), top)
-        assertFalse(top.contains("change files outside HomeLight."), top)
+        assertTrue(rows[22].startsWith("↑/↓/[/]: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom"), top)
+        assertTrue(rows[23].startsWith("?/Esc: Back · q: Quit"), top)
+        assertFalse(top.contains("What HomeLight does"), top)
+
+        for (c in listOf('a', 'r', 'c', '2', 'i', 'y')) ui.press(c)
+        ui.press(KeyCode.TAB)
+        ui.press(KeyCode.ENTER)
+        assertEquals(top, ui.screen(80, 24))
 
         ui.press(KeyCode.PAGE_DOWN)
         val page = ui.screen(80, 24)
-        assertFalse(page.contains("1. Setup"), page)
+        // A page keeps one line of context: the last line of the first page is now the first.
+        assertEquals(paneRows(top).last(), paneRows(page).first(), page)
         ui.press(KeyCode.END)
         val end = ui.screen(80, 24)
-        assertTrue(end.contains("change files outside HomeLight."), end)
+        assertTrue(end.contains("More help"), end)
         ui.press(KeyCode.HOME)
         assertEquals(top, ui.screen(80, 24))
 
-        // At 120x30 it still scrolls, and fits without cutting a line.
-        val wide = ui.screen(120, 30)
-        assertTrue(wide.contains("2. Workspace: see what HomeLight found and what it plans for each"), wide)
+        ui.press('?')
+        assertEquals(before, ui.screen(80, 24))
+        assertEquals(1, ui.app.selectedIndex(), "the selection is kept")
+        assertEquals(WORKSPACE_LIST, ui.focused())
     }
 
     @Test
-    fun theOverlayTakesEveryKeyAndQuestionMarkClosesIt() {
+    fun theGuideRendersAsMarkdownWithEntitiesDecoded() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
-        val before = ui.screen(80, 24)
         ui.press('?')
-        val open = ui.screen(80, 24)
-        for (c in listOf('q', 'a', 'r', 'c', '2', 'i')) ui.press(c)
-        ui.press(KeyCode.TAB)
-        ui.press(KeyCode.ENTER)
-        assertEquals(open, ui.screen(80, 24))
-        assertFalse(ui.app.exitRequested())
+        val text = ui.screen(100, 400)
+        assertTrue(text.contains("When source & target both exist"), text)
+        assertFalse(text.contains("&amp;"), text)
+        assertFalse(text.contains("## "), "headings render without their markers: $text")
+    }
+
+    @Test
+    fun qInHelpDoesWhatItDoesOnTheScreenBehind() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
         ui.press('?')
-        assertEquals(before, ui.screen(80, 24))
-        assertEquals(WORKSPACE_LIST, ui.focused())
+        ui.press('q')
+        assertTrue(ui.app.exitRequested())
+
+        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        setup.press('i')
+        setup.press(KeyCode.ENTER)
+        setup.press('?')
+        val help = setup.screen(80, 24)
+        assertTrue(help.lines()[23].startsWith("?/Esc: Back · q: Discard"), help)
+        setup.press('q')
+        val dialog = setup.screen(80, 24)
+        assertTrue(dialog.contains("╔$DISCARD_SETUP_TITLE"), dialog)
+        assertFalse(setup.app.exitRequested())
+        setup.press('y')
+        val workspace = setup.screen(80, 24)
+        assertTrue(workspace.contains("[1: Workspace]"), workspace)
     }
 
     @Test
@@ -112,7 +144,7 @@ class HelpTest {
         ui.type("/srv/what?")
         val screen = ui.screen(80, 24)
         assertTrue(screen.contains("Target root: /srv/what?"), screen)
-        assertFalse(screen.contains("╔Help"), screen)
+        assertFalse(screen.contains("[Help]"), screen)
         // Where every field is a text field, help does not offer `?`.
         assertFalse(screen.contains("?: Help"), screen)
     }
@@ -124,10 +156,20 @@ class HelpTest {
         val empty = Files.writeString(
             temporary.resolve("empty.json"), "{\"homelight\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
         )
-        val none = HeadlessTui(HomeLightSession(empty)).screen(80, 24)
+        val ui = HeadlessTui(HomeLightSession(empty))
+        val none = ui.screen(80, 24)
         assertTrue(none.contains(NO_RELOCATIONS), none)
         assertTrue(none.contains(HELP_HINT), none)
+        ui.press('?')
+        assertTrue(paneText(ui.screen(100, 60)).contains(PURPOSE_NO_RELOCATIONS))
     }
+
+    /** The rows inside the Help pane's border, without the scrollbar. */
+    private fun paneRows(screen: String): List<String> = screen.lines().filter { it.startsWith("│") }
+        .map { row -> row.removePrefix("│").removeSuffix("│").trimEnd('│', '█', ' ') }
+
+    /** The Help pane's text with wrapped lines joined, for matching sentences. */
+    private fun paneText(screen: String): String = paneRows(screen).joinToString(" ").replace(Regex("\\s+"), " ")
 
     /** One relocation that needs a choice, one to move and one in sync. */
     private fun conflictConfiguration(): Path {

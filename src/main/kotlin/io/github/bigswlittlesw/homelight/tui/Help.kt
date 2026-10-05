@@ -1,65 +1,74 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.markdown.MarkdownStyles
+import dev.tamboui.style.Style
+import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
-import dev.tamboui.toolkit.event.EventResult
-import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
 
-/** A key as help shows it, `keys: action`. A hint not [inHelpArea] is listed only by the `?` overlay. */
+/** A key as help shows it, `keys: action`. A hint not [inHelpArea] is listed only on the Help screen. */
 internal data class KeyHint(val keys: String, val action: String, val inHelpArea: Boolean = true) {
     val text: String get() = "$keys: $action"
 }
 
 /**
- * A screen's keys in its current state, navigation first. Each screen builds them in one function that both its
- * help lines and the `?` overlay read, so the two cannot disagree.
+ * What a screen is for and its keys, in its current state and focus, navigation first. Each screen builds it in one
+ * function that both its help lines and the Help screen read, so the two cannot disagree.
  */
-internal data class ScreenKeys(val navigation: List<KeyHint>, val commands: List<KeyHint>) {
-    val all: List<KeyHint> get() = navigation + commands
+internal data class ScreenHelp(
+    val name: String, val purpose: String, val navigation: List<KeyHint>, val commands: List<KeyHint>,
+) {
+    val keys: List<KeyHint> get() = navigation + commands
 }
 
 /** The help area's line for `hints`: the ones it shows, joined by ` · `. */
 internal fun helpLine(hints: List<KeyHint>): String = hints.filter { it.inHelpArea }.joinToString(" · ") { it.text }
 
-// Fits 80 columns with a cell to spare on each side.
-private const val HELP_WIDTH = 76
-
 /**
- * The `?` overlay: how HomeLight works, every key of the screen behind it, then the ideas behind them. It scrolls
- * when it does not fit, and keeps the header and help lines uncovered, as every dialog does.
+ * The Help screen over `screen`: what that screen is for and every key it takes now, then the user guide.
+ * `interactive` is false while a dialog is open over it.
  */
-internal fun helpDialog(keys: List<KeyHint>, viewport: DetailViewport, onClose: () -> Unit): Element {
-    val lines = helpLines(keys - HELP_KEY)
-    // Border and one cell of padding on each side; DialogElement takes a fixed height and shrinks it to fit.
-    val height = lines.sumOf { wrap(it.text, HELP_WIDTH - 4).size } + 5
-    fun padded(element: Element) = Toolkit.row(Toolkit.spacer(1), element, Toolkit.spacer(1))
-    val dialog = Toolkit.dialog(
-        HELP_TITLE, Toolkit.text(""),
-        padded(viewport.render(null, lines, focused = false, choiceLine = 0)).fill(),
-        padded(viewport.help(HELP_DIALOG_KEYS)).length(2),
+internal fun helpScreen(screen: ScreenHelp, guide: String, viewport: DetailViewport, interactive: Boolean): Element {
+    val header = Toolkit.row(
+        Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$HELP_TITLE]").fg(palette.focus).bold(),
     )
-        .doubleBorder().borderColor(palette.dialog).width(HELP_WIDTH).length(height)
-        .id(DIALOG).focusable()
-        .onKeyEvent { key ->
-            when {
-                key.isChar('?') -> onClose()
-                key.isUp() || key.isChar('[') -> viewport.scroll(-1)
-                key.isDown() || key.isChar(']') -> viewport.scroll(1)
-                key.isPageUp() || key.isPageDown() -> viewport.scrollPage(if (key.isPageUp()) -1 else 1)
-                key.isHome() || key.isEnd() -> viewport.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
-                // DialogElement then closes on Esc and takes every other key.
-                else -> return@onKeyEvent EventResult.UNHANDLED
-            }
-            EventResult.HANDLED
-        }
-        .onCancel(onClose)
-    return Toolkit.column(Toolkit.spacer(1), dialog, Toolkit.spacer(2))
+    // Help passes `q` to the screen behind, so it shows that screen's `q`, or none where `q` does nothing there.
+    val quit = screen.commands.firstOrNull { it.keys == "q" }?.copy(inHelpArea = true)
+    val own = ScreenHelp(
+        HELP_TITLE, "",
+        listOf(SCROLL_KEY, KeyHint("PageUp/PageDown", "Page"), KeyHint("Home/End", "Top/bottom")),
+        listOfNotNull(KeyHint("?/Esc", "Back"), quit),
+    )
+    val source = onThisScreen(screen) + "\n" + guide
+    return Toolkit.column(
+        header,
+        viewport.markdown("$HELP_TITLE · ${screen.name}", source, markdownStyles(), HELP_SCREEN, interactive),
+        viewport.help(own, interactive),
+    ).fill()
 }
 
-private fun helpLines(keys: List<KeyHint>): List<Line> =
-    listOf(Line(HOW_IT_WORKS_TITLE, palette.text, true)) +
-        HOW_IT_WORKS.mapIndexed { i, step -> Line("${i + 1}. $step") } +
-        Line("") + Line(SCREEN_KEYS_TITLE, palette.text, true) +
-        keys.map { Line(it.text) } +
-        Line("") + Line(KEY_IDEAS_TITLE, palette.text, true) +
-        KEY_IDEAS.flatMap { (idea, meaning) -> listOf(Line(idea, palette.focus, false), Line(meaning)) }
+/**
+ * The screen's part of Help as Markdown, so it scrolls and reads like the guide below it. Each key is a code span,
+ * which keeps keys such as `[/]` literal, padded so the actions line up; a trailing `\` breaks the line.
+ */
+private fun onThisScreen(screen: ScreenHelp): String {
+    val width = screen.keys.maxOfOrNull { CharWidth.of(it.keys) } ?: 0
+    val keys = screen.keys.joinToString("\\\n") { hint ->
+        "`" + hint.keys + " ".repeat(width - CharWidth.of(hint.keys) + 2) + "`" + hint.action
+    }
+    return "## " + onThisScreenTitle(screen.name) + "\n\n" + screen.purpose + "\n\n" + keys + "\n"
+}
+
+/** Headings and emphasis in the palette's roles; the rest keeps TamboUI's defaults. */
+private fun markdownStyles(): MarkdownStyles = MarkdownStyles.builder()
+    .heading(1, Style.EMPTY.fg(palette.brand).bold())
+    .heading(2, Style.EMPTY.fg(palette.focus).bold())
+    .heading(3, Style.EMPTY.fg(palette.text).bold())
+    .strong(Style.EMPTY.fg(palette.text).bold())
+    .inlineCode(Style.EMPTY.fg(palette.change))
+    .codeBlock(Style.EMPTY.fg(palette.text))
+    .link(Style.EMPTY.fg(palette.focus).underlined())
+    .listMarker(Style.EMPTY.fg(palette.dim))
+    .blockquote(Style.EMPTY.fg(palette.dim))
+    .horizontalRule(Style.EMPTY.fg(palette.dim))
+    .build()

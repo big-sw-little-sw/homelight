@@ -401,20 +401,25 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 - `[skipped: "or s to always do this" in the quit dialog, add with #116]`
 - `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
 
-## 2026-10-05: `?` explains the workflow; keys come from one place per screen
+## 2026-10-05: Help is a screen, and the user guide is its only text
 
-Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a help overlay on every screen: five "How it works" steps, every key for the current screen, and three key ideas (rule or one-time choice, archive or delete, check again). `docs/user-guide.md` copies the steps word for word, adds captures, what each rule does on disk and how to undo by hand; a test compares the guide's steps with the overlay's. The empty Workspace says `Press ? for help.` The guide also takes over the Scripting section that #19 put in the README while no guide existed; the README points to it.
+Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a full-screen Help screen from any screen: "On this screen", with one purpose line for the screen's state and every key for its current focus, then the user guide. `?` or Esc returns exactly where the user was; an apply keeps running behind it. The empty Workspace says `Press ? for help.`
 
-Each screen's keys are a list of `KeyHint(keys, action, inHelpArea)` built in one function (`WorkspaceView.keys`, `ApplyView.keys`, `SetupView.keys`, `CandidateBrowser.keys`). The help lines show the hints marked for them and the overlay lists all of them, so the two cannot disagree. The overlay is a TamboUI `dialog()` holding a borderless `DetailViewport` pane, which already wraps, scrolls and draws the scrollbar (rung 2, 4); the dialog's footer is the viewport's own help line, so `↑/↓: Scroll` shows only when it scrolls.
+This reverses the first version of #152, which rejected a separate help screen. That version was a `?` dialog with five steps and three "key ideas" kept in `Wording.kt`, plus a separate `docs/user-guide.md` and a test that the two matched. The user's walkthrough rejected it: the dialog never said what HomeLight is, used the internal name "Setup", and pointed to a Markdown file that users of the native binary never see. A screen has room for the whole guide, and showing the guide itself leaves one copy of the text.
 
-- The issue's fifth step said "press `c` to check again"; check again is `r`, and `c` shows or hides in-sync rows, so the step says `r`. "Results show here" became "shows the results", because the overlay is not where results show.
-- Setup's locations step and its path fields do not offer `?: Help`: every key there types, including `?`, as the issue asks.
+- `docs/user-guide.md` is end-user documentation shown in the app. It is packaged as a resource and rendered with TamboUI's Markdown element (`tamboui-toolkit-markdown`, rung 4) inside a `DetailViewport` pane that scrolls it and draws the scrollbar (rung 2). Native Image needs CommonMark's `org/commonmark/internal/util/entities.txt` registered; the native TUI test opens Help to prove it. `homelight guide` prints the same Markdown. Its online address comes from one constant: `main` for a `-SNAPSHOT` version, else the `v<version>` tag; `homelight --help` ends with it.
+- The guide is written for people using HomeLight: plain language, the names shown on screen, no internal names or history. It takes over the Scripting section #19 put in the README while no guide existed; the README points to it.
+- Each screen's help is a `ScreenHelp(name, purpose, navigation, commands)` built in one function (`WorkspaceView.screenHelp`, `ApplyView.screenHelp`, `SetupView.screenHelp`, `CandidateBrowser.screenHelp`). The help lines show the hints marked for them and Help lists all of them, so the two cannot disagree.
+- `q` on Help does what it does on the screen behind: quit, or discard over Configuration, so a draft is never lost without the discard question.
+- Names users see: `[Setup]` becomes `[Configuration]`, and the warning badge `[Check]` becomes `[Warning]` (it clashed with "Check again"). `init` says "Create a configuration file." The README no longer lists `homelight config` until #114 adds it.
+- Setup's locations step and its path fields do not offer `?: Help`: every key there types, including `?`.
 - Setup's relocations table says `b: Browse` instead of `b: Browse candidates`, so the line and `?: Help` fit 80 columns.
-- `[skipped: first-run tour, add when walkthroughs show the overlay is not found]`
-- `[skipped: a key that opens help from a text field (such as F1), add when users in Setup's locations step look for help]`
-- `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` The overlay lists only keys that work.
+- `[skipped: tying key handlers to their listing, add when a walkthrough finds a listed key that does nothing]`
+- `[skipped: first-run tour, add when walkthroughs show Help is not found]`
+- `[skipped: help key from text fields, add with #114 (likely F1)]`
+- `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` Help lists only keys that work.
 
-Rejected: listing keys in the overlay by hand beside the help lines (two lists that drift); a separate help screen (help is a short question over the current screen, so it is a dialog).
+Rejected: a `?` dialog with its own steps and key ideas (the first version of this PR; it duplicated the guide and still did not say what HomeLight is); listing keys by hand beside the help lines (two lists that drift); a hand-written Markdown renderer (kept as the fallback if TamboUI's failed in Native Image).
 
 ## 2026-10-05: Scripting keeps today's JSON commands, versioned
 

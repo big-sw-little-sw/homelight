@@ -46,7 +46,7 @@ internal object ApplyView {
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
-                Toolkit.text(helpLine(keys(model, focused, quitting).all)).fg(palette.dim),
+                Toolkit.text(helpLine(screenHelp(model, focused, quitting).keys)).fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
         }
@@ -128,13 +128,13 @@ internal object ApplyView {
                     viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
-            add(viewport.help(keys(model, focused, quitting), interactive))
+            add(viewport.help(screenHelp(model, focused, quitting), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
 
-    /** Review's keys in its current state, for its help lines and the `?` overlay. */
-    fun keys(model: ApplyModel, focused: String?, quitting: Boolean): ScreenKeys {
+    /** Review's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(model: ApplyModel, focused: String?, quitting: Boolean): ScreenHelp {
         val navigation = when {
             model is ApplyModel.Idle -> listOf()
             focused != REVIEW_DETAILS -> listOf(
@@ -152,7 +152,13 @@ internal object ApplyView {
             is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
             is ApplyModel.Result -> listOf(KeyHint("1/Enter", "Workspace"), CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY)
         }
-        return ScreenKeys(navigation, commands)
+        return when (model) {
+            is ApplyModel.Idle -> ScreenHelp(REVIEW_NAME, NOTHING_TO_REVIEW, navigation, commands)
+            is ApplyModel.Confirmation ->
+                ScreenHelp(REVIEW_NAME, if (model.plan.hasChanges()) PURPOSE_REVIEW else PURPOSE_NO_CHANGES, navigation, commands)
+            is ApplyModel.Running -> ScreenHelp(APPLYING_NAME, PURPOSE_APPLYING, navigation, commands)
+            is ApplyModel.Result -> ScreenHelp(RESULTS_NAME, PURPOSE_RESULTS, navigation, commands)
+        }
     }
 
     fun steps(model: ApplyModel): List<ApplyModel.Step> = when (model) {

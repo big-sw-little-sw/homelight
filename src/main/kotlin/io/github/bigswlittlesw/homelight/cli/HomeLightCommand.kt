@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.DEBUG_STEP_DELAY_MILLIS
+import io.github.bigswlittlesw.homelight.application.guideUrl
 import io.github.bigswlittlesw.homelight.application.internalErrorMessage
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
@@ -20,7 +21,7 @@ import kotlin.system.exitProcess
 /** Root command and CLI entry point for HomeLight. */
 @Command(
     name = "homelight",
-    subcommands = [StatusCommand::class, PlanCommand::class, ApplyCommand::class, InitCommand::class],
+    subcommands = [StatusCommand::class, PlanCommand::class, ApplyCommand::class, InitCommand::class, GuideCommand::class],
     mixinStandardHelpOptions = true,
     versionProvider = HomeLightVersionProvider::class,
     description = ["Relocates selected bulky home directories to machine-local storage."],
@@ -55,6 +56,9 @@ class HomeLightCommand : Callable<Int> {
         fun createCommandLine(): CommandLine = CommandLine(HomeLightCommand())
             .setExecutionStrategy(::executeValidated)
             .setExecutionExceptionHandler(::handleExecutionException)
+            // Set here, not in @Command: the address depends on the version. It has a line of its own, so picocli's
+            // wrapping at 80 columns never splits it.
+            .also { it.commandSpec.usageMessage().footer("", "User guide: run homelight guide, or read it online:", guideUrl()) }
     }
 }
 

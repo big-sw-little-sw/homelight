@@ -56,7 +56,7 @@ class WordingTest {
     @Test
     fun badgesUseTheDesignVocabulary() {
         assertEquals(
-            listOf("Choose", "Blocked", "Can't read", "Check", "Move", "Keep target", "Link", "Archive", "Delete", "Left as is", "In sync"),
+            listOf("Choose", "Blocked", "Can't read", "Warning", "Move", "Keep target", "Link", "Archive", "Delete", "Left as is", "In sync"),
             PlanBadge.entries.map(::badgeLabel),
         )
     }

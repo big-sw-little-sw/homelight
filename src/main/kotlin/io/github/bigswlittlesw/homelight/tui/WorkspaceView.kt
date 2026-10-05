@@ -70,7 +70,7 @@ internal object WorkspaceView {
                 header,
                 // The only pane, so it has focus unless a dialog is open.
                 viewport.render("Configuration", lines, interactive, 0, WORKSPACE_DETAILS, interactive),
-                viewport.help(keys(session, list, showInSync, focused), interactive),
+                viewport.help(screenHelp(session, list, showInSync, focused), interactive),
             )
         }
         val configured = model
@@ -110,17 +110,18 @@ internal object WorkspaceView {
                     palette.warn,
                 ),
             )
-            add(viewport.help(keys(session, list, showInSync, focused), interactive))
+            add(viewport.help(screenHelp(session, list, showInSync, focused), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
 
-    /** Workspace's keys in its current state, for its help lines and the `?` overlay. */
-    fun keys(session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenKeys {
+    /** Workspace's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenHelp {
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
             val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
-            return ScreenKeys(
+            return ScreenHelp(
+                WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, SCROLL_DETAILS_KEYS),
                 listOfNotNull(KeyHint("i", "Create configuration").takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
             )
@@ -146,7 +147,10 @@ internal object WorkspaceView {
         val inSync = toggledInSync(model)
         // The list title shows `c`, so the help lines leave it out.
         val toggle = KeyHint("c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false)
-        return ScreenKeys(navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY))
+        return ScreenHelp(
+            WORKSPACE_NAME, if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE,
+            navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
+        )
     }
 
     private fun selection(list: ListElement<Any>, items: List<PlanRelocationItem>): Int =

@@ -432,7 +432,7 @@ class CandidateSetupTest {
             key(ui, 'q'); key(ui, 'y')
             workers.release.countDown()
             repeat(20) {
-                assertFalse(render(ui).contains("[Setup]"))
+                assertFalse(render(ui).contains("[Configuration]"))
                 LockSupport.parkNanos(1_000_000)
             }
             assertNull(workers.workers.first().snapshot().request)

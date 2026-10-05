@@ -7,6 +7,12 @@
       "glob": "io/github/bigswlittlesw/homelight/version.properties"
     },
     {
+      "glob": "io/github/bigswlittlesw/homelight/user-guide.md"
+    },
+    {
+      "glob": "org/commonmark/internal/util/entities.txt"
+    },
+    {
       "glob": "dev/tamboui/tui/bindings/*.properties"
     }
   ]

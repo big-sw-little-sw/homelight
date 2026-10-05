@@ -17,7 +17,7 @@ internal fun badgeLabel(badge: PlanBadge): String = when (badge) {
     PlanBadge.CONFLICT -> "Choose"
     PlanBadge.BLOCKED -> "Blocked"
     PlanBadge.INACCESSIBLE -> "Can't read"
-    PlanBadge.WARNING -> "Check"
+    PlanBadge.WARNING -> "Warning"
     PlanBadge.MIGRATE -> "Move"
     PlanBadge.ADOPT -> "Keep target"
     PlanBadge.LINK -> "Link"
@@ -204,29 +204,36 @@ internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
     "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)
 
-// The `?` overlay (tui-design §3 Help). docs/user-guide.md copies HOW_IT_WORKS word for word; UserGuideTest checks it.
+// The Help screen (tui-design §3 Help). The guide below it is docs/user-guide.md, never copied here.
 internal const val HELP_TITLE = "Help"
-internal const val HOW_IT_WORKS_TITLE = "How it works"
-internal val HOW_IT_WORKS = listOf(
-    "Setup: say where storage is.",
-    "Workspace: see what HomeLight found and what it plans for each directory.",
-    "Pick a choice for anything marked as needing one, or leave the plan as is.",
-    "Press a to review every change. Nothing changes until you press y.",
-    "Apply runs the changes and shows the results. Press r to check again.",
-)
-internal const val SCREEN_KEYS_TITLE = "Keys on this screen"
-internal const val KEY_IDEAS_TITLE = "Key ideas"
-internal val KEY_IDEAS = listOf(
-    "Rule or one-time choice" to
-        "A rule is saved in your configuration and decides every run. A one-time choice decides one relocation for " +
-        "the next apply only. Checking again, saving or applying forgets it.",
-    "Archive or delete" to
-        "Archive moves the source into an archive folder, shown under Paths, so you can move it back. " +
-        "Delete removes it for good.",
-    "Check again" to
-        "HomeLight looks at the disk again and makes a new plan. Do it after you change files outside HomeLight.",
-)
+internal fun onThisScreenTitle(screen: String) = "On this screen: $screen"
 internal const val HELP_HINT = "Press ? for help."
+
+// Screen names as the header shows them, and what each screen is for in its current state.
+internal const val WORKSPACE_NAME = "Workspace"
+internal const val REVIEW_NAME = "Review"
+internal const val RESULTS_NAME = "Results"
+internal const val APPLYING_NAME = "Applying"
+internal const val CONFIGURATION_NAME = "Configuration"
+internal const val BROWSE_NAME = "Browse"
+internal const val PURPOSE_NO_CONFIGURATION =
+    "There is no configuration file yet. Press i to create one: say where storage is and which directories to move."
+internal const val PURPOSE_INVALID =
+    "HomeLight cannot read the configuration file; the message says why. Fix the file, then press r to check again."
+internal const val PURPOSE_NO_RELOCATIONS =
+    "The configuration lists no directories to move yet. Add them to the configuration file, then press r."
+internal const val PURPOSE_WORKSPACE =
+    "Each relocation and what HomeLight plans for it. Pick a choice where one is needed, then press a to review."
+internal const val PURPOSE_REVIEW =
+    "Every step apply will take. Nothing has changed yet: y applies the plan, n goes back without changing anything."
+internal const val PURPOSE_NO_CHANGES = "Nothing needs to change. Press 1 or Enter to go back to the Workspace."
+internal const val PURPOSE_APPLYING =
+    "HomeLight is making the changes. Leave it running until it finishes; Help does not stop it."
+internal const val PURPOSE_RESULTS =
+    "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
+internal const val PURPOSE_CONFIGURATION =
+    "Create the configuration file: where storage is and which directories to move. Saving changes nothing on disk."
+internal const val PURPOSE_BROWSE = "Directories HomeLight knows about. Add the ones you want to move."
 
 internal val HELP_KEY = KeyHint("?", "Help")
 internal val QUIT_KEY = KeyHint("q", "Quit")
@@ -236,4 +243,3 @@ internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = 
 internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
 internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
 internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)
-internal val HELP_DIALOG_KEYS = ScreenKeys(listOf(SCROLL_KEY, KeyHint("?/Esc", "Close")), listOf())

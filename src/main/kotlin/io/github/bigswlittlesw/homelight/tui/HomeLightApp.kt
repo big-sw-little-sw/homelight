@@ -16,6 +16,7 @@ import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
+import io.github.bigswlittlesw.homelight.application.userGuide
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import java.nio.file.Path
 
@@ -33,6 +34,7 @@ internal const val REVIEW_LIST = "review-list"
 internal const val REVIEW_DETAILS = "review-details"
 internal const val SETUP_SCREEN = "setup"
 internal const val DIALOG = "dialog"
+internal const val HELP_SCREEN = "help"
 
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.
@@ -71,7 +73,9 @@ internal class HomeLightApp(
     private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
     private var helpOpen = false
+    private var focusBeforeHelp: String? = null
     private val helpViewport = DetailViewport()
+    private val guide: String by lazy { userGuide() }
 
     /** `CONFIRM_*` while a quit dialog is open: during an apply, or with one-time choices not applied yet. */
     private enum class ExitIntent { STAY, CONFIRM_APPLYING, CONFIRM_CHOICES, AFTER_EXECUTION, EXIT }
@@ -100,9 +104,12 @@ internal class HomeLightApp(
         settleDeferredExit()
         // The discard dialog closes setup without a key reaching handleKey.
         dropClosedSetup()
-        val dialog = setup?.dialog() ?: quitDialog() ?: helpDialog()
+        val dialog = setup?.dialog() ?: quitDialog()
         val interactive = dialog == null
-        val view = setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+        val view = when {
+            helpOpen -> helpScreen(screenHelp(), guide, helpViewport, interactive)
+            else -> setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+        }
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
         if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
@@ -127,25 +134,38 @@ internal class HomeLightApp(
         ExitIntent.STAY, ExitIntent.AFTER_EXECUTION, ExitIntent.EXIT -> null
     }
 
-    /** It lists the keys of the screen behind it, with the focus that screen had when help opened. */
-    private fun helpDialog(): Element? {
-        if (!helpOpen) return null
-        val focused = focusBeforeDialog
-        val keys = setup?.keys() ?: when (activeScreen) {
-            Screen.WORKSPACE -> WorkspaceView.keys(session, workspaceList, showInSync, focused)
-            Screen.APPLY -> ApplyView.keys(session.applyModel(), focused, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
-        }
-        return helpDialog(keys.all, helpViewport) {
-            helpOpen = false
-            focus.setFocus(focusBeforeDialog)
-        }
+    /** The screen behind Help, with the focus it had when Help opened. */
+    private fun screenHelp(): ScreenHelp = setup?.screenHelp() ?: when (activeScreen) {
+        Screen.WORKSPACE -> WorkspaceView.screenHelp(session, workspaceList, showInSync, focusBeforeHelp)
+        Screen.APPLY ->
+            ApplyView.screenHelp(session.applyModel(), focusBeforeHelp, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
     }
 
     private fun openHelp() {
         helpOpen = true
         helpViewport.reset()
-        // The dialog is the only focusable while it is open, so the next frame focuses it.
-        focusBeforeDialog = focus.focusedId()
+        // Help's pane is the only focusable while it is open, so the next frame focuses it.
+        focusBeforeHelp = focus.focusedId()
+    }
+
+    private fun closeHelp() {
+        helpOpen = false
+        focus.setFocus(focusBeforeHelp)
+    }
+
+    /**
+     * Help scrolls and goes back; every other key of the screen behind does nothing, so a key typed while reading
+     * changes nothing. `q` does what it does on that screen, which Help's own help line names.
+     */
+    private fun helpKey(key: KeyEvent) {
+        when {
+            key.isChar('?') || key.isKey(KeyCode.ESCAPE) -> closeHelp()
+            key.isQuit() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
+            key.isUp() || key.isChar('[') -> helpViewport.scroll(-1)
+            key.isDown() || key.isChar(']') -> helpViewport.scroll(1)
+            key.isPageUp() || key.isPageDown() -> helpViewport.scrollPage(if (key.isPageUp()) -1 else 1)
+            key.isHome() || key.isEnd() -> helpViewport.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
+        }
     }
 
     /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
@@ -183,6 +203,7 @@ internal class HomeLightApp(
     }
 
     private fun handleKey(key: KeyEvent) {
+        if (helpOpen) { helpKey(key); return }
         // In a setup text field `?` is typed like any other character.
         if (key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
         setup?.let { current ->
@@ -289,6 +310,8 @@ internal class HomeLightApp(
     private fun dropClosedSetup() {
         if (setup?.closed != true) return
         setup = null
+        // Discarding from Help over Configuration returns to the Workspace, not to Help about it.
+        helpOpen = false
         workspaceDetails.reset()
         syncInSyncSetting()
         focus.setFocus(WORKSPACE_LIST)

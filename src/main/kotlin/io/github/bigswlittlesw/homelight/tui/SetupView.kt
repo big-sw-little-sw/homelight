@@ -62,10 +62,13 @@ internal class SetupView(
             }
             lines.add(Line(literal(message), palette.warn, false))
             Toolkit.column(
-                viewport.render("Setup", lines, interactive, anchor), viewport.help(keys(), interactive, fieldNote()),
+                viewport.render(CONFIGURATION_NAME, lines, interactive, anchor),
+                viewport.help(screenHelp(), interactive, fieldNote()),
             ).fill()
         }
-        val header = Toolkit.row(Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[Setup]").fg(palette.focus).bold())
+        val header = Toolkit.row(
+            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$CONFIGURATION_NAME]").fg(palette.focus).bold(),
+        )
         // Setup keeps its own field focus until the configuration editor replaces it, so the screen is one focusable.
         return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(interactive)
     }
@@ -147,18 +150,20 @@ internal class SetupView(
     }
 
     /**
-     * Setup's keys in its current state, for its help lines and the `?` overlay. In a text field `?` types, so help
-     * does not offer it there.
+     * Configuration's purpose and keys in its current state, for its help lines and the Help screen. In a text field
+     * `?` types, so help does not offer it there.
      */
-    fun keys(): ScreenKeys {
+    fun screenHelp(): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
         val editing = listOf(KeyHint("Type", "Edit"), KeyHint("Ctrl-U", "Clear"))
+        fun help(navigation: List<KeyHint>, commands: List<KeyHint>) =
+            ScreenHelp(CONFIGURATION_NAME, PURPOSE_CONFIGURATION, navigation, commands)
         return when (mode) {
-            Mode.LOCATIONS -> ScreenKeys(
+            Mode.LOCATIONS -> help(
                 listOf(KeyHint("↑/↓", "Field")) + editing + scroll,
                 listOf(KeyHint("Enter", "Relocations"), KeyHint("Esc", "Cancel without writing")),
             )
-            Mode.TABLE -> ScreenKeys(
+            Mode.TABLE -> help(
                 if (draft.rows.isEmpty()) listOf(KeyHint("e", "Edit locations"), KeyHint("Esc", "Back"), scroll)
                 else listOf(
                     KeyHint("↑/↓", "Row"), KeyHint("Enter", "Details"), KeyHint("d", "Remove"), KeyHint("e", "Locations"),
@@ -170,7 +175,7 @@ internal class SetupView(
                     HELP_KEY, KeyHint("q", "Discard"),
                 ),
             )
-            Mode.ROW -> ScreenKeys(
+            Mode.ROW -> help(
                 listOf(scroll),
                 if (textField()) listOf(KeyHint("↑/↓", "Field")) + editing + KeyHint("Esc", "Table")
                 else listOf(
@@ -178,7 +183,7 @@ internal class SetupView(
                     HELP_KEY, KeyHint("q", "Discard", inHelpArea = false),
                 ),
             )
-            Mode.CANDIDATES -> browser.keys(draft)
+            Mode.CANDIDATES -> browser.screenHelp(draft)
         }
     }
 

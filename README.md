@@ -13,15 +13,15 @@ The project is at the initial design and implementation stage. Configuration loa
 ```text
 homelight
 homelight init
-homelight config
 homelight plan
 homelight apply
 homelight status
+homelight guide
 ```
 
 Running `homelight` starts the full-screen TUI. Named commands open the corresponding TUI workflow. Automation uses prompt-free JSON forms such as `plan --json`, `status --json`, and `apply --json --yes`.
 
-The [user guide](docs/user-guide.md) walks through a run, says what each rule does on disk, and how to undo a change. In the TUI, `?` shows the same steps and every key for the current screen.
+The [user guide](docs/user-guide.md) is for people using HomeLight: how to use it, the words it uses, what each rule does on disk and how to undo a change. The TUI shows it on its Help screen (`?`), and `homelight guide` prints it.
 
 For the JSON commands, their `"schema"` field and exit codes, see [Scripting](docs/user-guide.md#scripting) in the user guide.
 

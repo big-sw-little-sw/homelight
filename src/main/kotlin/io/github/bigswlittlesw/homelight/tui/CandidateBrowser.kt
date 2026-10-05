@@ -113,7 +113,7 @@ internal class CandidateBrowser {
         }
         if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), palette.warn, false))
         val reader = viewport.render(title, lines, interactive, anchor)
-        val help = viewport.help(keys(draft), interactive)
+        val help = viewport.help(screenHelp(draft), interactive)
         return if (message.isNotEmpty() && !details && !diagnostics)
             Toolkit.column(
                 reader,
@@ -123,14 +123,15 @@ internal class CandidateBrowser {
         else Toolkit.column(reader, help).fill()
     }
 
-    /** The browser's keys in its current state, for its help lines and the `?` overlay. */
-    fun keys(draft: SetupDraft): ScreenKeys {
+    /** Browse's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(draft: SetupDraft): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
         val back = KeyHint("Esc", "Back")
         val refresh = KeyHint("r", "Refresh")
         if (diagnostics || details) {
             val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
-            return ScreenKeys(
+            return ScreenHelp(
+                BROWSE_NAME, PURPOSE_BROWSE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, back),
                 listOfNotNull(entryKey, refresh, HELP_KEY, KeyHint("q", "Discard draft")),
             )
@@ -143,7 +144,8 @@ internal class CandidateBrowser {
             listedFocus -> KeyHint("Enter", "Expand/collapse")
             else -> null
         }
-        return ScreenKeys(
+        return ScreenHelp(
+            BROWSE_NAME, PURPOSE_BROWSE,
             listOfNotNull(
                 KeyHint("↑/↓", "Move").takeIf { items.isNotEmpty() }, focusedEntry(draft)?.let { listAction(it, draft) },
                 enter, back, HOME_END_KEYS.takeIf { items.isNotEmpty() }, scroll,

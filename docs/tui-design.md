@@ -33,6 +33,7 @@ not screens.
 | Review | The exact plan to apply, then progress and results in place | `1`, or `n`/Esc before confirming |
 | Configuration | Create or edit the configuration file | Esc from the list closes it |
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
+| Help | The current screen's purpose and keys, then the user guide | `?` or Esc returns where you were |
 
 Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
 `[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
@@ -155,26 +156,32 @@ commands. Each binding appears once. Never advertise a key that does nothing now
 Every screen offers `?: Help` before `q`, except where every field is a text
 field: there `?` types a question mark, as it does in any text field.
 
-Each screen builds its keys in one function, which the help lines and the `?`
-overlay both read, so they cannot disagree. Keys left out of the help lines for
-room (PageUp/PageDown, Home/End, `[`/`]`, `←` back, `c` in the list title) are
-marked overlay-only there.
+Each screen builds its help in one function: a name, one purpose line for its
+current state, and its keys (`ScreenHelp`). The help lines and the Help screen
+both read it, so they cannot disagree. Keys left out of the help lines for room
+(PageUp/PageDown, Home/End, `[`/`]`, `←` back, `c` in the list title) are marked
+Help-only there.
 
-`?` opens the help overlay, a dialog over the current screen, with three parts:
+### Help screen
 
-1. **How it works:** the same five steps on every screen. `docs/user-guide.md`
-   copies them word for word, and a test fails if the two differ.
-2. **Keys on this screen:** every key for the screen and focus behind it, as
-   `keys: action`, including the overlay-only ones.
-3. **Key ideas:** rule or one-time choice, archive or delete, check again.
+`?` opens a full-screen **Help** screen from any screen. Header `⌂ HOMELIGHT
+[Help]`, one pane titled `Help · <screen name>`, holding, in order:
 
-It is 76 columns wide and as tall as its content, shrunk to leave the header
-and help lines uncovered; at 80x24 and 120x30 it scrolls. ↑/↓, PageUp/PageDown,
-Home/End and `[`/`]` scroll it; `?` or Esc closes it and returns focus to where
-it was; every other key is ignored.
+1. **On this screen: <name>**: the purpose line, then every key for the screen
+   and focus behind Help as `key  action`, Help-only keys included.
+2. **The user guide**: `docs/user-guide.md` as packaged in the build, rendered
+   with TamboUI's Markdown element in the palette's colors. The guide is the only
+   copy of its text; nothing in the code repeats it.
+
+Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
+`?/Esc: Back · q: Quit`. `?` or Esc returns exactly where the user was, with
+focus and selection kept. `q` does what it does on the screen behind, and the
+help line names it (`q: Discard` over Configuration); where `q` does nothing, it
+is not shown. Every other key does nothing. An apply keeps running behind Help.
 
 The empty Workspace (no configuration, or no relocations) says `Press ? for
-help.`
+help.` `homelight guide` prints the same guide as Markdown; `homelight --help`
+ends with its online address.
 
 ## 5. Workspace
 
@@ -315,7 +322,7 @@ app uses. `~` and `${USER}` stay as written.
 | --- | --- |
 | Policy | rule |
 | `prompt` or missing | Ask each time |
-| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Check]` warning, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
+| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
 | Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
 
 All screen text lives in one TUI wording file.

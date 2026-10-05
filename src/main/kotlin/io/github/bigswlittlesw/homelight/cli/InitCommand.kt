@@ -8,7 +8,7 @@ import picocli.CommandLine.Spec
 import java.util.concurrent.Callable
 
 /** Opens manual creation for a missing configuration; it never edits an existing file. */
-@Command(name = "init", description = ["Create a new configuration through the interactive setup."])
+@Command(name = "init", description = ["Create a configuration file."])
 internal class InitCommand : Callable<Int> {
     @ParentCommand private lateinit var parent: HomeLightCommand
     @Spec private lateinit var spec: CommandSpec
