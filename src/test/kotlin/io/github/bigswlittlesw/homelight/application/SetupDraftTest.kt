@@ -295,6 +295,7 @@ class SetupDraftTest {
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
             assertFalse(Files.exists(temporary.resolve("target")))
             val json = Files.readString(path)
+            assertTrue(json.contains("\"source-root\": \"$root\""), json)
             for (forbidden in listOf("advice", "usually-unnecessary", "Example IDE", "observations", "provenance", "datasets")) {
                 assertFalse(json.contains(forbidden), json)
             }

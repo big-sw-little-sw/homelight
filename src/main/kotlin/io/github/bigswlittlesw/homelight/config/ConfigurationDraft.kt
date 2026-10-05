@@ -8,15 +8,21 @@ import java.nio.file.Path
  */
 @ConsistentCopyVisibility
 data class ConfigurationDraft private constructor(
+    val sourceRoot: Path,
     val targetRoot: Path,
     val relocations: List<Relocation>,
     val sharedList: Path?,
 ) {
     companion object {
-        /** Normalizes `targetRoot` and `sharedList`, and copies `relocations`. */
-        fun of(targetRoot: Path, relocations: List<Relocation>, sharedList: Path? = null): ConfigurationDraft =
-            ConfigurationDraft(
-                targetRoot.toAbsolutePath().normalize(), relocations.toList(), sharedList?.let(::normalizeSharedList),
-            )
+        /** Normalizes the roots and `sharedList`, and copies `relocations`. */
+        fun of(
+            targetRoot: Path,
+            relocations: List<Relocation>,
+            sharedList: Path? = null,
+            sourceRoot: Path = Path.of(System.getProperty("user.home")),
+        ): ConfigurationDraft = ConfigurationDraft(
+            sourceRoot.toAbsolutePath().normalize(), targetRoot.toAbsolutePath().normalize(), relocations.toList(),
+            sharedList?.let(::normalizeSharedList),
+        )
     }
 }
