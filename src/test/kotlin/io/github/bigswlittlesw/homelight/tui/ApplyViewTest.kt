@@ -78,19 +78,73 @@ class ApplyViewTest {
     }
 
     @Test
-    fun runningViewShowsActiveAndPendingStepsAndQuitOptions() {
+    fun runningViewMarksEachRelocationAndCountsChanges() {
+        val changing = plan().relocations.first()
+        val relocation = Relocation(Path.of("/home/npm"), Path.of("/local/npm"))
+        val inSync = RelocationPlan(relocation, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(relocation.sourcePath)), listOf())
+        val plan = ReconciliationPlan(listOf(changing, inSync), listOf())
+        val steps = listOf(
+            ApplyModel.Step(changing, changing.actions.first(), ApplyModel.StepStatus.COMPLETED, "Copied"),
+            ApplyModel.Step(changing, changing.actions.last(), ApplyModel.StepStatus.RUNNING, "Running"),
+            ApplyModel.Step(inSync, inSync.actions.first(), ApplyModel.StepStatus.PENDING, "Not started"))
+        for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
+            val text = render(ApplyModel.Running.of(plan, steps), 0, size[0], size[1])
+            // Only what is happening: neither destination can be reached while applying.
+            assertTrue(text.contains("⌂ HOMELIGHT  [Applying]"), text)
+            assertFalse(text.contains("Workspace"), text)
+            assertTrue(text.contains("Applying. Leave HomeLight running until it finishes."), text)
+            assertTrue(text.contains("1 of 2 changes done · 1 running · 0 failed"), text)
+            assertTrue(text.contains("━"), text)
+            // The relocation and its running step both spin; the done step is checked.
+            assertTrue(text.contains("│⠙ /home/cache"), text)
+            assertTrue(text.contains("❯ ✔ Copy to target and check"), text)
+            assertTrue(text.contains("  ⠙ Replace source with a link ⚠ "), text)
+            assertTrue(text.contains("│─ /home/npm (in sync)"), text)
+            assertFalse(text.contains("Already in sync"), text)
+            // Selected, the in-sync row's pointer takes its mark's cell.
+            val selected = render(ApplyModel.Running.of(plan, steps), 2, size[0], size[1])
+            assertTrue(selected.contains("│❯ /home/npm (in sync)"), selected)
+            assertTrue(text.contains("q: Quit"), text)
+        }
+        val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
+        assertTrue(nextFrame.contains("⠹ Replace source with a link"), nextFrame)
+    }
+
+    @Test
+    fun relocationMarksFollowTheirStepsAndResultsCountWhatDidNotRun() {
+        val first = plan().relocations.first()
+        val relocation = Relocation(Path.of("/home/other"), Path.of("/local/other"))
+        val second = RelocationPlan(relocation, RelocationOutcome.CONVERGED,
+            listOf(ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath)), listOf())
+        val plan = ReconciliationPlan(listOf(first, second), listOf())
+        val steps = listOf(
+            ApplyModel.Step(first, first.actions.first(), ApplyModel.StepStatus.COMPLETED, "Copied"),
+            ApplyModel.Step(first, first.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"),
+            ApplyModel.Step(second, second.actions.first(), ApplyModel.StepStatus.PENDING, "Not run"))
+        val text = render(ApplyModel.Result.of(plan, steps, null, listOf(), true), 1, 120, 30)
+        assertTrue(text.contains("│✖ /home/cache"), text)
+        assertTrue(text.contains("│○ /home/other"), text)
+        assertTrue(text.contains("1 of 3 changes done · 1 failed · 1 not run"), text)
+        assertTrue(text.contains("[1: Workspace]  [2: Results]"), text)
+
+        val done = steps.map { it.copy(status = ApplyModel.StepStatus.COMPLETED) }
+        val finished = render(ApplyModel.Result.of(plan, done, null, listOf(), false), 0, 120, 30)
+        assertTrue(finished.contains("│✔ /home/cache"), finished)
+        assertTrue(finished.contains("│✔ /home/other"), finished)
+    }
+
+    @Test
+    fun runningViewStopsOfferingQuitOnceHomeLightWillExit() {
         val plan = plan()
         val relocation = plan.relocations.first()
         val steps = listOf(
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.RUNNING, "Running"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.PENDING, "Not started"))
-        val text = render(ApplyModel.Running.of(plan, steps), 0, 80, 24)
-        assertTrue(text.contains("⠋"), text)
-        assertTrue(text.contains("○"), text)
-        assertTrue(text.contains("q: Quit"), text)
-        val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
-        assertTrue(nextFrame.contains("⠙"), nextFrame)
-        assertTrue(nextFrame.contains("○"), nextFrame)
+        val text = WorkspaceViewTest.render(
+            ApplyView.render(Path.of("/config.json"), ApplyModel.Running.of(plan, steps), list(0), quitting = true), 80, 24,
+        )
+        assertTrue(text.contains("○ Replace source with a link"), text)
+        assertFalse(text.contains("q: Quit"), text)
     }
 
     @Test

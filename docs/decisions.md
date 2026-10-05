@@ -392,6 +392,15 @@ Workspace Details (#110) replace the "Your rule" and "Your choice (not saved)" p
 
 Rejected: a softer warning line on a Move ("Replaces the source with a link after a verified copy."), because it repeats the `Will do` line.
 
+## 2026-10-05: Quitting asks before forgetting one-time choices
+
+From the #110 walkthrough, folded into #111. `q` with one-time choices that are not applied yet opens a dialog that says how many there are and that quitting forgets them; `n` or Esc goes back. A plan with no one-time choices quits at once, because the next run plans it again. Details call a choice `(your choice, this run only)`, matching the dialog; "saved" is kept for rules saved with `s` (#116).
+
+Apply progress (#111) keeps the plan a tree by starting relocation rows at the left edge with their mark (`✔ ~/.cache/uv`), while action rows keep the pointer slot (`❯ ○ Replace source with a link ⚠`). Actions sit two cells under their relocation, as before, and the longest label still fits at 80 columns beside the scrollbar's cell. A deeper indent would cut it.
+
+- `[skipped: "or s to always do this" in the quit dialog, add with #116]`
+- `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
+
 ## How to add decisions
 
 Use this format:

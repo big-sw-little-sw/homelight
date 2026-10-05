@@ -2,10 +2,13 @@ package io.github.bigswlittlesw.homelight.tui
 
 import dev.tamboui.style.Color
 import dev.tamboui.style.Style
+import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
+import dev.tamboui.toolkit.element.StyledElement
 import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.widgets.common.ScrollBarPolicy
+import dev.tamboui.widgets.spinner.SpinnerState
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
@@ -13,7 +16,7 @@ import java.nio.file.Path
 
 /** Renders the review and results screen. The object names the screen; it holds no state. */
 internal object ApplyView {
-    private val SPINNER_FRAMES = listOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    private val SPINNER_FRAMES = arrayOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 
     /**
      * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
@@ -23,22 +26,23 @@ internal object ApplyView {
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
 
-    /** `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen. */
+    /**
+     * `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen.
+     * `quitting` is true once HomeLight will exit when the apply finishes, so `q` no longer does anything.
+     */
     fun render(
         config: Path, model: ApplyModel, list: ListElement<Any>, spinnerFrame: Int = 0, focused: String? = REVIEW_LIST,
-        interactive: Boolean = true, viewport: DetailViewport = DetailViewport(),
+        interactive: Boolean = true, viewport: DetailViewport = DetailViewport(), quitting: Boolean = false,
     ): Element {
-        val header = Toolkit.row(
-            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
-            Toolkit.text(if (model is ApplyModel.Running) "[Workspace unavailable]  " else "[1: Workspace]  ").fg(palette.dim),
-            Toolkit.text(
-                when (model) {
-                    is ApplyModel.Result -> "[2: Results]"
-                    is ApplyModel.Running -> "[Applying]"
-                    is ApplyModel.Idle, is ApplyModel.Confirmation -> "[2: Review]"
-                },
-            ).fg(palette.focus).bold(),
-        )
+        val brand = Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold()
+        // While applying, neither destination is reachable, so the header names only what is happening.
+        val header = when (model) {
+            is ApplyModel.Running -> Toolkit.row(brand, Toolkit.text("[Applying]").fg(palette.focus).bold())
+            is ApplyModel.Idle, is ApplyModel.Confirmation, is ApplyModel.Result -> Toolkit.row(
+                brand, Toolkit.text("[1: Workspace]  ").fg(palette.dim),
+                Toolkit.text(if (model is ApplyModel.Result) "[2: Results]" else "[2: Review]").fg(palette.focus).bold(),
+            )
+        }
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
@@ -49,23 +53,31 @@ internal object ApplyView {
         val plan = reviewed.plan
         val steps = steps(model)
         val selected = list.selected().coerceIn(0, maxOf(0, steps.size - 1))
+        val byRelocation = steps.groupBy { it.relocation }
         val rows = steps.mapIndexed { i, step ->
-            val action = step.action
-            val row = Toolkit.text(
-                (if (i == selected) "❯ " else "  ") + glyph(step, spinnerFrame) + " " + actionLabel(action) +
-                    (if (action.destructive) " ⚠" else ""),
-            ).fg(color(step))
-            if (i > 0 && steps[i - 1].relocation == step.relocation) row
-            // TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the
-            // scrollbar can cover a row's last cell: the trailing space is what it covers.
-            else Toolkit.column(Toolkit.text(displayPath(step.relocation.relocation.sourcePath) + " ").bold().ellipsisMiddle(), row)
-                .length(2)
+            val pointer = if (i == selected) "❯ " else "  "
+            val own = byRelocation.getValue(step.relocation)
+            val path = displayPath(step.relocation.relocation.sourcePath)
+            when {
+                i > 0 && steps[i - 1].relocation == step.relocation -> actionRow(pointer, step, spinnerFrame)
+                // An in-sync relocation is its own single row, at the relocation column: there is no step to show
+                // under it. Selected, the pointer takes its mark's cell, so the row does not shift.
+                own.size == 1 && step.action is ReconciliationAction.NoOp -> markedRow(
+                    "", if (i == selected) Toolkit.text("❯").fg(palette.focus) else mark(step.status, false, spinnerFrame),
+                    inSyncRow(path), palette.dim,
+                )
+                else -> Toolkit.column(
+                    markedRow("", mark(relocationStatus(own), own.any { it.action.mutatesFilesystem }, spinnerFrame),
+                        path, palette.text, bold = true),
+                    actionRow(pointer, step, spinnerFrame),
+                ).length(2)
+            }
         }
         list.elements(*rows.toTypedArray()).borderColor(if (focused == REVIEW_LIST) palette.focus else palette.dim)
             .focusable(interactive)
-        val detailLines = if (steps.isEmpty()) mutableListOf(DetailViewport.Line(NO_STEPS))
-        else details(steps[selected]).toMutableList()
-        if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, palette.error, false) }
+        val detailLines = if (steps.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
+        else details(steps[selected]) +
+            (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
             is ApplyModel.Confirmation -> when {
@@ -88,9 +100,10 @@ internal object ApplyView {
                 !plan.hasChanges() -> "1/Enter/n/Esc: Workspace · q: Quit"
                 else -> "y: Apply · n/Esc/1: Cancel · q: Quit"
             }
-            is ApplyModel.Running -> "q: Quit"
+            is ApplyModel.Running -> if (quitting) "" else "q: Quit"
             is ApplyModel.Result -> "1/Enter: Workspace · r: Check again · q: Quit"
         }
+        val changes = steps.filter { it.action.mutatesFilesystem }
         val content = buildList {
             add(header)
             add(wrappedText("Config: " + displayPath(config), palette.dim))
@@ -99,10 +112,23 @@ internal object ApplyView {
                 if (plan.hasChanges()) add(
                     wrappedText(plannedChanges(plan.actions().count { it.mutatesFilesystem }, destructive), palette.change),
                 )
-            } else {
-                val progress = progress(steps)
-                if (progress.isNotEmpty()) add(wrappedText(progress, palette.ok))
-                add(wrappedText(counts(steps, model is ApplyModel.Result), palette.text))
+            } else if (changes.isNotEmpty()) {
+                fun count(status: ApplyModel.StepStatus) = changes.count { it.status == status }
+                val done = count(ApplyModel.StepStatus.COMPLETED)
+                add(
+                    // LineGauge sets each cell's whole style, so the background must be in it.
+                    Toolkit.lineGauge(done.toDouble() / changes.size).thick()
+                        .filledStyle(Style.EMPTY.fg(palette.ok).bg(palette.background))
+                        .unfilledStyle(Style.EMPTY.fg(palette.dim).bg(palette.background)).length(1),
+                )
+                val failed = count(ApplyModel.StepStatus.FAILED)
+                add(
+                    wrappedText(
+                        if (model is ApplyModel.Result) finishedCount(done, changes.size, failed, count(ApplyModel.StepStatus.PENDING))
+                        else runningCount(done, changes.size, count(ApplyModel.StepStatus.RUNNING), failed),
+                        palette.text,
+                    ),
+                )
             }
             add(
                 Toolkit.row(
@@ -164,14 +190,47 @@ internal object ApplyView {
         } + destination
     }
 
-    private fun glyph(step: ApplyModel.Step, spinnerFrame: Int): String {
-        if (!step.action.mutatesFilesystem && step.status != ApplyModel.StepStatus.FAILED) return "─"
-        return when (step.status) {
-            ApplyModel.StepStatus.PENDING -> "○"
-            ApplyModel.StepStatus.RUNNING -> SPINNER_FRAMES[spinnerFrame.mod(SPINNER_FRAMES.size)]
-            ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) "✔" else "─"
-            ApplyModel.StepStatus.FAILED -> "✖"
+    // Indented under its relocation line by the pointer's two cells only: at 80 columns a deeper indent would cut the
+    // longest label, "Replace source with a link ⚠", once the scrollbar's cell is kept free.
+    private fun actionRow(pointer: String, step: ApplyModel.Step, spinnerFrame: Int): StyledElement<*> = markedRow(
+        pointer, mark(step.status, step.action.mutatesFilesystem, spinnerFrame),
+        actionLabel(step.action) + (if (step.action.destructive) " ⚠" else ""), color(step),
+    )
+
+    /**
+     * A list row: the pointer (none on a relocation line), a status mark, then the label, shortened in the middle.
+     *
+     * TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the scrollbar can
+     * cover a row's last cell: the trailing space is what it covers.
+     */
+    private fun markedRow(
+        prefix: String, mark: StyledElement<*>, label: String, color: Color, bold: Boolean = false,
+    ): StyledElement<*> {
+        val text = Toolkit.text("$label ").fg(color).ellipsisMiddle().fill()
+        val cells = listOf(mark.length(2), if (bold) text.bold() else text)
+        val row = if (prefix.isEmpty()) cells else listOf(Toolkit.text(prefix).fg(palette.focus).length(CharWidth.of(prefix))) + cells
+        return Toolkit.row(*row.toTypedArray())
+    }
+
+    /** TamboUI's spinner while running; otherwise the step's glyph. `changes` is false for steps that change nothing. */
+    private fun mark(status: ApplyModel.StepStatus, changes: Boolean, spinnerFrame: Int): StyledElement<*> {
+        if (!changes && status != ApplyModel.StepStatus.FAILED) return Toolkit.text("─").fg(palette.dim)
+        return when (status) {
+            ApplyModel.StepStatus.PENDING -> Toolkit.text("○").fg(palette.dim)
+            // The spinner advances its state once before drawing, and a fresh state per frame keeps rows in step.
+            ApplyModel.StepStatus.RUNNING ->
+                Toolkit.spinner(*SPINNER_FRAMES).state(SpinnerState(spinnerFrame.toLong())).fg(palette.focus)
+            ApplyModel.StepStatus.COMPLETED -> Toolkit.text("✔").fg(palette.ok)
+            ApplyModel.StepStatus.FAILED -> Toolkit.text("✖").fg(palette.error)
         }
+    }
+
+    /** A relocation's own status: failed if any step failed, done when all are, running while any runs. */
+    private fun relocationStatus(steps: List<ApplyModel.Step>): ApplyModel.StepStatus = when {
+        steps.any { it.status == ApplyModel.StepStatus.FAILED } -> ApplyModel.StepStatus.FAILED
+        steps.all { it.status == ApplyModel.StepStatus.COMPLETED } -> ApplyModel.StepStatus.COMPLETED
+        steps.any { it.status == ApplyModel.StepStatus.RUNNING } -> ApplyModel.StepStatus.RUNNING
+        else -> ApplyModel.StepStatus.PENDING
     }
 
     private fun color(step: ApplyModel.Step): Color = when (step.status) {
@@ -179,24 +238,5 @@ internal object ApplyView {
         ApplyModel.StepStatus.RUNNING -> palette.focus
         ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) palette.ok else palette.dim
         ApplyModel.StepStatus.FAILED -> palette.error
-    }
-
-    private fun progress(steps: List<ApplyModel.Step>): String {
-        val changes = steps.filter { it.action.mutatesFilesystem }
-        if (changes.isEmpty()) return ""
-        val completed = changes.count { it.status == ApplyModel.StepStatus.COMPLETED }
-        val filled = 20 * completed / changes.size
-        return "[" + "█".repeat(filled) + "░".repeat(20 - filled) + "] " + completed + " of " + changes.size + " changes done"
-    }
-
-    private fun counts(steps: List<ApplyModel.Step>, result: Boolean): String {
-        val changes = steps.filter { it.action.mutatesFilesystem }
-        fun changes(status: ApplyModel.StepStatus) = changes.count { it.status == status }
-        val inSync = steps.count { it.action is ReconciliationAction.NoOp }
-        val unchanged = steps.count { it.action is ReconciliationAction.LeaveUnchanged }
-        return "Changes: " + changes(ApplyModel.StepStatus.COMPLETED) + " done · " +
-            changes(ApplyModel.StepStatus.FAILED) + " failed · " + changes(ApplyModel.StepStatus.PENDING) +
-            (if (result) " not run" else " not started") + " · " + changes(ApplyModel.StepStatus.RUNNING) + " running\n" +
-            "No change needed: " + inSync + " in sync · " + unchanged + " left as is"
     }
 }

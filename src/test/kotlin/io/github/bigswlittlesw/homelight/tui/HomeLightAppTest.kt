@@ -179,46 +179,60 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun followsExecutionAcrossRelocationsWithoutOverridingManualInspectionBetweenActions() {
+    fun finishingMovesTheSelectionToTheFirstFailureOrElseTheLastCompletedStep() {
         val (plan, firstPlan, secondPlan) = twoRelocations(Path.of("/home/second"), Path.of("/local/second"))
-        val follower = ProgressFollower()
-        assertNull(follower.jump(ApplyModel.Confirmation(plan)))
-        for (active in 0 until 3) {
-            fun running(): ApplyModel = ApplyModel.Running.of(plan, steps(plan) { i ->
-                if (i < active) ApplyModel.StepStatus.COMPLETED
-                else if (i == active) ApplyModel.StepStatus.RUNNING else ApplyModel.StepStatus.PENDING
-            })
-            assertEquals(active, follower.jump(running()))
-            // Until the running step changes, the user's own selection stands.
-            assertNull(follower.jump(running()))
-        }
+        val (pending, completed, failed) =
+            listOf(ApplyModel.StepStatus.PENDING, ApplyModel.StepStatus.COMPLETED, ApplyModel.StepStatus.FAILED)
+        fun selection(vararg statuses: ApplyModel.StepStatus) = finishedSelection(steps(plan) { statuses[it] })
 
-        val result = ApplyModel.Result.of(plan, listOf(
-            ApplyModel.Step(firstPlan, firstPlan.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
-            ApplyModel.Step(firstPlan, firstPlan.actions.last(), ApplyModel.StepStatus.FAILED, "source changed"),
-            ApplyModel.Step(secondPlan, secondPlan.actions.first(), ApplyModel.StepStatus.PENDING, "not run")),
-            null, listOf(), true)
-        assertEquals(1, follower.jump(result))
-        assertNull(follower.jump(result))
-
-        val completed = result.steps.map { step -> ApplyModel.Step(step.relocation, step.action,
-            ApplyModel.StepStatus.COMPLETED, "completed") }
-        assertEquals(2, follower.jump(ApplyModel.Result.of(plan, completed, null, listOf(), false)))
+        assertEquals(1, selection(completed, failed, pending))
+        assertEquals(0, selection(failed, completed, failed))
+        assertEquals(2, selection(completed, completed, completed))
+        assertEquals(1, selection(completed, completed, pending))
+        assertNull(selection(pending, pending, pending))
+        assertEquals(listOf(firstPlan, firstPlan, secondPlan), steps(plan) { pending }.map { it.relocation })
     }
 
     @Test
-    fun followsTheFirstRunningStepWhenRelocationsRunConcurrently() {
-        val (plan) = twoRelocations(Path.of("/opt/second"), Path.of("/srv/second"))
-        val follower = ProgressFollower()
-        val (pending, running, completed) =
-            listOf(ApplyModel.StepStatus.PENDING, ApplyModel.StepStatus.RUNNING, ApplyModel.StepStatus.COMPLETED)
-        fun model(vararg statuses: ApplyModel.StepStatus) = ApplyModel.Running.of(plan, steps(plan) { statuses[it] })
+    fun selectionStaysWhereTheUserPutItWhileIndependentRelocationsRun(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val names = listOf("one", "two", "three")
+        for (name in names) Files.createDirectories(root.resolve("home/$name"))
+        // Siblings under an existing parent are independent; with a missing parent they would share one group.
+        Files.createDirectories(root.resolve("local"))
+        val relocations = names.joinToString(",\n") { name ->
+            "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
+        }
+        val config = Files.writeString(root.resolve("config.json"),
+            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+        // Each changing step stays running for this long, so frames render while steps start and finish.
+        val ui = HeadlessTui(HomeLightSession(config, debugStepDelayMillis = 150))
+        ui.press('a')
+        val steps = ApplyView.steps(ui.app.session.applyModel())
+        ui.press(KeyCode.END)
+        ui.press(KeyCode.UP)
+        val chosen = steps.size - 2
+        assertEquals(chosen, ui.app.selectedIndex())
+        ui.press('y')
 
-        assertEquals(0, follower.jump(model(running, pending, running)))
-        // Repeated frames with two running steps keep following the first, rather than alternating.
-        assertNull(follower.jump(model(running, pending, running)))
-        assertEquals(1, follower.jump(model(completed, running, running)))
-        assertEquals(2, follower.jump(model(completed, completed, running)))
+        var mostRunning = 0
+        while (ui.app.session.isApplying()) {
+            val running = ui.app.session.applyModel() as? ApplyModel.Running ?: break
+            mostRunning = maxOf(mostRunning, running.steps.count { it.status == ApplyModel.StepStatus.RUNNING })
+            val screen = ui.screen(120, 30)
+            assertEquals(chosen, ui.app.selectedIndex(), screen)
+            assertTrue(screen.contains("[Applying]") && !screen.contains("Workspace"), screen)
+            Thread.sleep(10)
+        }
+        assertTrue(mostRunning > 1, "relocations should run at once")
+        ui.app.session.awaitExecution()
+        val result = ui.screen(120, 30)
+        assertEquals(steps.size - 1, ui.app.selectedIndex(), result)
+        assertTrue(result.contains("${steps.count { it.action.mutatesFilesystem }} of ${steps.count { it.action.mutatesFilesystem }} changes done"), result)
+        // The jump happens once: afterwards the user's selection stands.
+        ui.press(KeyCode.HOME)
+        ui.screen(120, 30)
+        assertEquals(0, ui.app.selectedIndex())
     }
 
     @Test

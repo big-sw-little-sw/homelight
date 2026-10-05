@@ -64,12 +64,9 @@ internal class DetailViewport {
                 val height = maxOf(1, area.height() - 2)
                 val overflow = lines.sumOf { line -> wrap(line.text, width).size } > height
                 if (overflow) width = maxOf(1, width - 1)
-                val wrapped = mutableListOf<Line>()
-                var anchor = 0
-                for ((i, line) in lines.withIndex()) {
-                    if (i == choiceLine) anchor = wrapped.size
-                    wrap(line.text, width).mapTo(wrapped) { part -> Line(part, line.color, line.bold) }
-                }
+                val parts = lines.map { line -> wrap(line.text, width).map { part -> Line(part, line.color, line.bold) } }
+                val anchor = if (choiceLine in parts.indices) parts.take(choiceLine).sumOf { it.size } else 0
+                val wrapped = parts.flatten()
                 maximum = maxOf(0, wrapped.size - height)
                 if (followingChoice && focused) {
                     if (!keepVisible) top = minOf(anchor, maximum)

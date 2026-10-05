@@ -95,7 +95,7 @@ class WorkspaceDetailsTest {
     fun aChoiceIsTheDecisionAndMovesTheArchiveDestinationToPaths() {
         session.choose(root.resolve("home/choose"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         val details = details("choose")
-        assertTrue(squeezed(details).contains(squeezed("Decision: keep target, archive source (your choice, not saved)")), details)
+        assertTrue(squeezed(details).contains(squeezed("Decision: keep target, archive source (your choice, this run only)")), details)
         assertTrue(squeezed(details).contains(squeezed("Archive: " + archive("choose"))), details)
         assertTrue(details.contains("Move the source to the archive and"), details)
         assertEquals(1, Regex(Regex.escape(".homelight-archive")).findAll(details).count(), details)
@@ -105,7 +105,7 @@ class WorkspaceDetailsTest {
     fun aChoiceThatDoesNotArchiveLeavesArchiveOutOfPaths() {
         session.choose(root.resolve("home/choose"), DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
         val details = details("choose")
-        assertTrue(squeezed(details).contains(squeezed("Decision: keep target, delete source (your choice, not saved)")), details)
+        assertTrue(squeezed(details).contains(squeezed("Decision: keep target, delete source (your choice, this run only)")), details)
         assertFalse(details.contains("Archive:"), details)
         assertTrue(details.contains(DELETES_DATA), details)
     }

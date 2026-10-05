@@ -17,7 +17,6 @@ import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
 
 /**
@@ -58,7 +57,8 @@ internal class HomeLightApp(
         private set
     private var userShowInSync: Boolean? = null
     private var spinnerFrame = 0
-    private val progress = ProgressFollower()
+    // The result the selection has already jumped for: on finish it moves once, then the user's selection stands.
+    private var shownResult: ApplyModel.Result? = null
     // What the details panes show. The lists move their selection themselves, so a frame compares against these.
     private var detailsSource: Path? = null
     private var detailsStep = 0
@@ -71,7 +71,8 @@ internal class HomeLightApp(
     private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
 
-    private enum class ExitIntent { STAY, CONFIRM, AFTER_EXECUTION, EXIT }
+    /** `CONFIRM_*` while a quit dialog is open: during an apply, or with one-time choices not applied yet. */
+    private enum class ExitIntent { STAY, CONFIRM_APPLYING, CONFIRM_CHOICES, AFTER_EXECUTION, EXIT }
 
     init {
         syncInSyncSetting()
@@ -97,7 +98,7 @@ internal class HomeLightApp(
         settleDeferredExit()
         // The discard dialog closes setup without a key reaching handleKey.
         dropClosedSetup()
-        val dialog = setup?.dialog() ?: if (exitIntent == ExitIntent.CONFIRM) quitDialog() else null
+        val dialog = setup?.dialog() ?: quitDialog()
         val interactive = dialog == null
         val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
@@ -110,11 +111,22 @@ internal class HomeLightApp(
         return Toolkit.stack(*listOfNotNull(content, dialog).toTypedArray()).bg(palette.background).fg(palette.text)
     }
 
-    private fun quitDialog(): Element = confirmDialog(
-        QUIT_TITLE, QUIT_BODY, QUIT_KEYS,
-        onYes = { closeQuitDialog(ExitIntent.AFTER_EXECUTION) },
-        onNo = { closeQuitDialog(ExitIntent.STAY) },
-    )
+    private fun quitDialog(): Element? = when (exitIntent) {
+        ExitIntent.CONFIRM_APPLYING -> confirmDialog(
+            QUIT_TITLE, QUIT_BODY, QUIT_KEYS,
+            onYes = { closeQuitDialog(ExitIntent.AFTER_EXECUTION) },
+            onNo = { closeQuitDialog(ExitIntent.STAY) },
+        )
+        ExitIntent.CONFIRM_CHOICES -> confirmDialog(
+            QUIT_TITLE, unappliedChoices(unappliedChoiceCount()), QUIT_CHOICES_KEYS,
+            onYes = { closeQuitDialog(ExitIntent.EXIT) },
+            onNo = { closeQuitDialog(ExitIntent.STAY) },
+        )
+        ExitIntent.STAY, ExitIntent.AFTER_EXECUTION, ExitIntent.EXIT -> null
+    }
+
+    /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
+    private fun unappliedChoiceCount(): Int = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.size ?: 0
 
     private fun renderWorkspace(interactive: Boolean): Element {
         val source = selectedPlanItem()?.relocation?.sourcePath
@@ -133,13 +145,17 @@ internal class HomeLightApp(
 
     private fun renderApply(interactive: Boolean): Element {
         val model = session.applyModel()
-        progress.jump(model)?.let(reviewList::selected)
+        if (model is ApplyModel.Result && model !== shownResult) {
+            shownResult = model
+            finishedSelection(model.steps)?.let(reviewList::selected)
+        }
         if (reviewList.selected() != detailsStep) {
             detailsStep = reviewList.selected()
             actionDetails.reset()
         }
         return ApplyView.render(
             session.configPath, model, reviewList, spinnerFrame++, focus.focusedId(), interactive, actionDetails,
+            quitting = exitIntent == ExitIntent.AFTER_EXECUTION,
         )
     }
 
@@ -230,11 +246,13 @@ internal class HomeLightApp(
 
     private fun requestQuit() {
         if (exitIntent != ExitIntent.STAY) return
-        if (session.isApplying() || !session.executionSettled()) {
-            // The dialog is the only focusable while it is open, so the next frame focuses it.
-            focusBeforeDialog = focus.focusedId()
-            exitIntent = ExitIntent.CONFIRM
-        } else exitIntent = ExitIntent.EXIT
+        exitIntent = when {
+            session.isApplying() || !session.executionSettled() -> ExitIntent.CONFIRM_APPLYING
+            unappliedChoiceCount() > 0 -> ExitIntent.CONFIRM_CHOICES
+            else -> ExitIntent.EXIT
+        }
+        // A dialog is the only focusable while it is open, so the next frame focuses it.
+        if (exitIntent != ExitIntent.EXIT) focusBeforeDialog = focus.focusedId()
     }
 
     private fun closeQuitDialog(intent: ExitIntent) {
@@ -343,32 +361,9 @@ internal class HomeLightApp(
         if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(visibleItems())
 }
 
-/**
- * Where Review's selection jumps while an apply runs: to the first running step in plan order whenever that step
- * changes (independent relocations can run at once), and once to the first failure, or else the last finished
- * step, when the result arrives. Between jumps the user's own selection stands.
- */
-internal class ProgressFollower {
-    private var followedAction: ReconciliationAction? = null
-    private var displayedResult: ApplyModel.Result? = null
-
-    /** The step to select for this model, or `null` to keep the current selection. */
-    fun jump(model: ApplyModel): Int? = when (model) {
-        is ApplyModel.Running -> {
-            val running = model.steps.indexOfFirst { step -> step.status == ApplyModel.StepStatus.RUNNING }
-            if (running < 0 || model.steps[running].action === followedAction) null
-            else running.also { followedAction = model.steps[running].action }
-        }
-        is ApplyModel.Result -> if (model === displayedResult) null else {
-            displayedResult = model
-            val failed = model.steps.indexOfFirst { it.status == ApplyModel.StepStatus.FAILED }
-            if (failed >= 0) failed
-            else model.steps.indexOfLast { it.status == ApplyModel.StepStatus.COMPLETED }.takeIf { it >= 0 }
-        }
-        is ApplyModel.Idle, is ApplyModel.Confirmation -> {
-            followedAction = null
-            displayedResult = null
-            null
-        }
-    }
+/** Where Review's selection moves once when an apply finishes: the first failure, or else the last completed step. */
+internal fun finishedSelection(steps: List<ApplyModel.Step>): Int? {
+    val failed = steps.indexOfFirst { it.status == ApplyModel.StepStatus.FAILED }
+    if (failed >= 0) return failed
+    return steps.indexOfLast { it.status == ApplyModel.StepStatus.COMPLETED }.takeIf { it >= 0 }
 }
