@@ -28,7 +28,7 @@ internal class StatusCommand : Callable<Int> {
         }
         val output = spec.commandLine().out
         if (isUnconfiguredDefault(configPath)) {
-            renderUnconfiguredStatusJson(configPath, output)
+            renderStatusJson(configPath, listOf(), output, configured = false)
             return CommandLine.ExitCode.OK
         }
         val snapshots = ConfigurationEvaluation().loadRequired(configPath).observations.map { state ->
@@ -37,7 +37,7 @@ internal class StatusCommand : Callable<Int> {
                 state.source.sourceStateForTarget(state.relocation.targetPath),
             )
         }
-        renderStatusJson(snapshots, output)
+        renderStatusJson(configPath, snapshots, output)
         return CommandLine.ExitCode.OK
     }
 }

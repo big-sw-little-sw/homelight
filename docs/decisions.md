@@ -403,7 +403,7 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 
 ## 2026-10-05: Scripting keeps today's JSON commands, versioned
 
-#19 is trimmed (user decision). The JSON commands already share evaluation, planning and `ReviewedExecution` with the TUI, and CI's native comparison depends on them, so they stay. Most of the original scope is not needed now. What remains: `plan --no-color`, parsed but never read, is removed; `status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; the README documents the three commands, `--yes` and exit codes 0, 1, 2 and 70. Configured `status --json` becomes an object, `{"schema": 1, "relocations": [...]}`, instead of a bare array, because an array has no first field.
+#19 is trimmed (user decision). The JSON commands already share evaluation, planning and `ReviewedExecution` with the TUI, and CI's native comparison depends on them, so they stay. Most of the original scope is not needed now. What remains: `plan --no-color`, parsed but never read, is removed; `status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; the README documents the three commands, `--yes` and exit codes 0, 1, 2 and 70. `status --json` now has one shape, configured or not: `{"schema": 1, "configured": <bool>, "configPath": "...", "relocations": [...]}`. A configured status used to be a bare array, which has no first field. No one scripts against it yet, so the break costs nothing, and one shape needs one response class.
 
 - `[skipped: one shared envelope for every outcome across commands, add when someone scripts against HomeLight and needs it]`
 - `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`

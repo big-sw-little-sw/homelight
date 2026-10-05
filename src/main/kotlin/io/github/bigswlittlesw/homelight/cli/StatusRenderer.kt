@@ -6,30 +6,26 @@ import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Locale
 
-internal fun renderStatusJson(snapshots: List<StatusSnapshot>, output: PrintWriter) {
+/** An unconfigured default path has no relocations, so it is written with `configured` false and an empty list. */
+internal fun renderStatusJson(
+    config: Path, snapshots: List<StatusSnapshot>, output: PrintWriter, configured: Boolean = true,
+) {
     val relocations = snapshots.map { snapshot ->
-        StatusJson(
+        RelocationStatusJson(
             snapshot.sourcePath.toString(), snapshot.targetPath.toString(),
             snapshot.state.name.lowercase(Locale.ROOT),
         )
     }
-    output.println(encodeJson(ConfiguredStatusJson.serializer(), ConfiguredStatusJson(JSON_SCHEMA, relocations)))
-}
-
-internal fun renderUnconfiguredStatusJson(config: Path, output: PrintWriter) {
-    val status = UnconfiguredStatusJson(JSON_SCHEMA, false, config.toAbsolutePath().normalize().toString(), listOf())
-    output.println(encodeJson(UnconfiguredStatusJson.serializer(), status))
+    val status = StatusJson(JSON_SCHEMA, configured, config.toAbsolutePath().normalize().toString(), relocations)
+    output.println(encodeJson(StatusJson.serializer(), status))
 }
 
 internal data class StatusSnapshot(val sourcePath: Path, val targetPath: Path, val state: RelocationSourceState)
 
 @Serializable
-private data class StatusJson(val sourcePath: String, val targetPath: String, val state: String)
-
-@Serializable
-private data class ConfiguredStatusJson(val schema: Int, val relocations: List<StatusJson>)
-
-@Serializable
-private data class UnconfiguredStatusJson(
-    val schema: Int, val configured: Boolean, val configPath: String, val relocations: List<StatusJson>,
+private data class StatusJson(
+    val schema: Int, val configured: Boolean, val configPath: String, val relocations: List<RelocationStatusJson>,
 )
+
+@Serializable
+private data class RelocationStatusJson(val sourcePath: String, val targetPath: String, val state: String)

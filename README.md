@@ -25,7 +25,7 @@ Running `homelight` starts the full-screen TUI. Named commands open the correspo
 
 Three commands print one line of JSON on stdout and never prompt:
 
-- `homelight status --json`: the state of each configured relocation.
+- `homelight status --json`: the state of each configured relocation, as `{"schema": 1, "configured": true, "configPath": "...", "relocations": [...]}`. Without a configuration file at the default path, `configured` is false and `relocations` is empty.
 - `homelight plan --json`: the actions that would converge each relocation, with conflicts and diagnostics. It changes nothing.
 - `homelight apply --json --yes`: plans and, if nothing is blocked or in conflict, applies that plan and prints the result of each action. If the plan is blocked or has a conflict, it prints the plan instead and changes nothing.
 

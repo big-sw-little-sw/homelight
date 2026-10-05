@@ -280,7 +280,7 @@ class HomeLightCommandTest {
         val snapshot = StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
             RelocationSourceState.ABSENT)
 
-        renderStatusJson(listOf(snapshot), PrintWriter(output, true))
+        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
 
         assertTrue(output.toString().contains("line\\nbreak"))
     }
@@ -294,7 +294,7 @@ class HomeLightCommandTest {
         // Turkish lower-cases I to a dotless ı.
         Locale.setDefault(Locale.forLanguageTag("tr"))
         try {
-            renderStatusJson(listOf(snapshot), PrintWriter(output, true))
+            renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
         } finally {
             Locale.setDefault(previous)
         }
@@ -306,12 +306,22 @@ class HomeLightCommandTest {
     fun unconfiguredStatusReportsJson() {
         val output = StringWriter()
 
-        renderUnconfiguredStatusJson(Path.of("/tmp/.homelight.json"),
-            PrintWriter(output, true))
+        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(), PrintWriter(output, true), configured = false)
 
-        assertTrue(output.toString().contains("\"configured\":false"))
-        assertTrue(output.toString().contains("\"configPath\":"))
-        assertTrue(output.toString().contains("\"relocations\":[]"))
+        assertEquals("{\"schema\":1,\"configured\":false,\"configPath\":\"/tmp/.homelight.json\",\"relocations\":[]}",
+            output.toString().trim())
+    }
+
+    @Test
+    fun configuredStatusHasTheSameShape() {
+        val output = StringWriter()
+        val snapshot = StatusSnapshot(Path.of("/source"), Path.of("/target"), RelocationSourceState.ABSENT)
+
+        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
+
+        assertEquals("{\"schema\":1,\"configured\":true,\"configPath\":\"/tmp/.homelight.json\"," +
+            "\"relocations\":[{\"sourcePath\":\"/source\",\"targetPath\":\"/target\",\"state\":\"absent\"}]}",
+            output.toString().trim())
     }
 
     private data class CapturedOutput(val exitCode: Int, val output: String, val errorOutput: String)
