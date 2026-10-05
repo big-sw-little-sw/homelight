@@ -13,11 +13,10 @@ import java.nio.file.Path
 class WorkspaceObservationTest {
 
     @Test
-    fun unconfiguredWhenDefaultPathDoesNotExist(@TempDir tempDir: Path) {
-        val result = planModel(ConfigurationEvaluation().load(tempDir.resolve(".homelight.json")))
+    fun missingWhenNonDefaultPathDoesNotExist(@TempDir tempDir: Path) {
+        val result = ConfigurationEvaluation().load(tempDir.resolve(".homelight.json"))
 
-        // If it's not the default path and doesn't exist, it's invalid
-        assertInstanceOf(PlanModel.Invalid::class.java, result)
+        assertInstanceOf(ConfigurationEvaluation.Missing::class.java, result)
     }
 
     @Test
@@ -39,13 +38,12 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(1, configured.items.size)
         assertEquals(PlanBadge.IN_SYNC, configured.items.first().badge())
-        assertEquals(1, configured.summary.inSync)
     }
 
     @Test
@@ -66,12 +64,11 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(PlanBadge.LINK, configured.items.first().badge())
-        assertEquals(1, configured.summary.link)
     }
 
     @Test
@@ -93,12 +90,11 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(PlanBadge.CONFLICT, configured.items.first().badge())
-        assertEquals(1, configured.summary.conflicts)
     }
 
     @Test
@@ -119,12 +115,11 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(PlanBadge.BLOCKED, configured.items.first().badge())
-        assertEquals(1, configured.summary.blocked)
     }
 
     @Test
@@ -147,12 +142,12 @@ class WorkspaceObservationTest {
                 }
                 """.trimIndent() + "\n").format(root, source, root))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(PlanBadge.LINK, configured.items.first().badge())
-        assertEquals(1, configured.summary.warnings)
+        assertTrue(configured.items.first().hasWarnings())
     }
 
     @Test
@@ -197,10 +192,10 @@ class WorkspaceObservationTest {
                 sourceB, targetB,
                 sourceC, targetC))
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Configured::class.java, model)
-        val configured = model as PlanModel.Configured
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
+        val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(3, configured.items.size)
 
         // Blocked and Conflict have priority 1 (ordered by path), Converged has priority 5
@@ -220,8 +215,8 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, "{\"invalid\": : }")
 
-        val model = planModel(ConfigurationEvaluation().load(config))
+        val model = ConfigurationEvaluation().load(config)
 
-        assertInstanceOf(PlanModel.Invalid::class.java, model)
+        assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, model)
     }
 }

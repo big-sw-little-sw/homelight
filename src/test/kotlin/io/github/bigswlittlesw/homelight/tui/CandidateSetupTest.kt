@@ -5,7 +5,7 @@ import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanModel
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.SetupDraft
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
@@ -55,7 +55,7 @@ class CandidateSetupTest {
             enter(app); down(app); down(app)
         }
         escape(app); key(app, 's')
-        val plan = assertInstanceOf(PlanModel.Configured::class.java, app.session.planModel())
+        val plan = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation())
         assertEquals(listOf(
             ReconciliationAction.DeleteDirectory(source),
             ReconciliationAction.DeleteDirectory(target),

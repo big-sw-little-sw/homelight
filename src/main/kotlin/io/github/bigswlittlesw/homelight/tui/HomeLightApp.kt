@@ -13,7 +13,7 @@ import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanModel
+import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
@@ -284,8 +284,8 @@ internal class HomeLightApp(
     }
 
     private fun visibleItems(): List<PlanRelocationItem> {
-        val model = session.planModel()
-        return if (model is PlanModel.Configured) WorkspaceView.visibleItems(model, showInSync) else listOf()
+        val model = session.evaluation()
+        return if (model is ConfigurationEvaluation.Loaded) WorkspaceView.visibleItems(model, showInSync) else listOf()
     }
 
     private fun selectedPlanItem(): PlanRelocationItem? {
@@ -332,14 +332,13 @@ internal class HomeLightApp(
     }
 
     private fun syncInSyncSetting() {
-        showInSync = userShowInSync ?: session.planModel().let { model ->
-            model is PlanModel.Configured && model.summary.inSync == model.summary.total
+        showInSync = userShowInSync ?: session.evaluation().let { model ->
+            model is ConfigurationEvaluation.Loaded && model.items.all { it.badge() == PlanBadge.IN_SYNC }
         }
         clampSelection()
     }
 
     // Read only by tests.
-    internal fun planModel(): PlanModel = session.planModel()
     internal fun selectedIndex(): Int = if (activeScreen == Screen.APPLY) actionIndex else selectedIndex
     internal fun paneFocus(): PaneFocus = if (activeScreen == Screen.APPLY) actionFocus else paneFocus
 }

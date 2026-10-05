@@ -63,12 +63,11 @@ class DefaultConfigurationClassificationTest {
                 val evaluator = ConfigurationEvaluation()
                 // Include a lexically different spelling of the same default path.
                 for (path in listOf(config, config.parent.resolve(".").resolve(config.fileName))) {
-                    val evaluation = evaluator.load(path)
                     val session = HomeLightSession(path)
-                    assertClassification(evaluation, session.planModel(), unconfigured)
-                    assertClassification(evaluation, planModel(evaluator.load(path)), unconfigured)
+                    assertClassification(evaluator.load(path), unconfigured)
+                    assertClassification(session.evaluation(), unconfigured)
                     session.refresh()
-                    assertClassification(session.evaluation(), session.planModel(), unconfigured)
+                    assertClassification(session.evaluation(), unconfigured)
                     assertFalse(session.requestApply())
                 }
                 for (command in listOf("status", "plan", "apply")) {
@@ -100,20 +99,15 @@ class DefaultConfigurationClassificationTest {
                     val retained = evaluator.load(config)
                     Files.delete(config)
                     Files.writeString(config, "{\"homelight\": [")
-                    // Adapting a retained result must not reclassify it using a later filesystem state.
-                    assertInstanceOf(PlanModel.Unconfigured::class.java, planModel(retained))
                     assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.replan(retained).evaluation)
                 }
             }
 
-            private fun assertClassification(evaluation: ConfigurationEvaluation.Evaluation?,
-                    plan: PlanModel, unconfigured: Boolean) {
+            private fun assertClassification(evaluation: ConfigurationEvaluation.Evaluation, unconfigured: Boolean) {
                 if (unconfigured) {
                     assertInstanceOf(ConfigurationEvaluation.Unconfigured::class.java, evaluation)
-                    assertInstanceOf(PlanModel.Unconfigured::class.java, plan)
                 } else {
                     assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluation)
-                    assertInstanceOf(PlanModel.Invalid::class.java, plan)
                 }
             }
         }

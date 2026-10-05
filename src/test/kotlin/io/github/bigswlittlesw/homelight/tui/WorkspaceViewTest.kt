@@ -10,7 +10,6 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanModel
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
@@ -30,7 +29,7 @@ class WorkspaceViewTest {
     @Test
     fun partitionsAllSixRelocationsAndKeepsIndependentRisksAfterExecution() {
         val session = HomeLightSession(fixture(temporary))
-        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val summary = WorkspaceView.summary(model.items)
         assertEquals(
             listOf(listOf("6 relocations", "⚡ 3 actionable", "⚠ 1 conflict", "✖ 0 blocked"), listOf("✔ 1 in sync", "─ 1 unchanged")),
@@ -47,20 +46,20 @@ class WorkspaceViewTest {
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(result.succeeded())
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        val refreshed = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val refreshed = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertEquals(listOf("✔ 5 in sync", "─ 1 unchanged"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
         app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertSame(result, session.applyModel())
         app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        assertFalse(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan.hasChanges())
+        assertFalse(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan.hasChanges())
     }
 
     @Test
     fun everyChoiceAndConsequenceStaysAccessibleAcrossResizeAndCancel() {
         val session = HomeLightSession(fixture(temporary))
         val app = HomeLightApp(session)
-        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val source = model.items.first().relocation.sourcePath
         val choices = model.items.first().availableResolutions
         assertEquals(4, choices.size)
@@ -89,7 +88,7 @@ class WorkspaceViewTest {
         app.handleKeyEvent(KeyEvent.ofChar('n', KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(3, app.detailSelectedIndex)
-        val visible = WorkspaceView.visibleItems(assertInstanceOf(PlanModel.Configured::class.java, session.planModel()), app.showInSync)
+        val visible = WorkspaceView.visibleItems(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()), app.showInSync)
         assertEquals(source, visible[app.selectedIndex()].relocation.sourcePath)
         assertEquals(draft, assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).draft)
         assertFalse(Files.isSymbolicLink(source))
@@ -98,7 +97,7 @@ class WorkspaceViewTest {
     @Test
     fun completePathsPoliciesAndDiagnosticsCanBeScrolledWithoutChangingChoice() {
         val session = HomeLightSession(fixture(temporary))
-        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
             val viewport = DetailViewport()
             val all = StringBuilder()
@@ -119,7 +118,7 @@ class WorkspaceViewTest {
     @Test
     fun adoptionPolicyDetailsFollowTheSavedEnum() {
         val session = HomeLightSession(fixture(temporary))
-        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
             WhenSourceAndTargetDirectoriesExist.ADOPT,
@@ -146,7 +145,7 @@ class WorkspaceViewTest {
         both: WhenSourceAndTargetDirectoriesExist?, adopting: WhenAdoptingTarget?, expected: String,
     ) {
         val session = HomeLightSession(fixture(temporary))
-        val item = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
         val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, null, adopting)
         assertEquals(expected, WorkspaceView.policy(relocation, item))
@@ -168,14 +167,14 @@ class WorkspaceViewTest {
         Files.createDirectories(source.parent)
         val config = Files.writeString(root.resolve("config.json"),
             "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
-        val item = assertInstanceOf(PlanModel.Configured::class.java, HomeLightSession(config).planModel()).items.single()
+        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, HomeLightSession(config).evaluation()).items.single()
         assertEquals(expected, WorkspaceView.policy(Relocation(source, target, null, onlyTarget), item))
     }
 
     @Test
     fun leftUnchangedRelocationReadsUnchangedEverywhere() {
         val session = HomeLightSession(fixture(temporary))
-        val model = assertInstanceOf(PlanModel.Configured::class.java, session.planModel())
+        val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
         val screen = render(WorkspaceView.render(session, index, false, PaneFocus.DETAIL, 0, DetailViewport()), 200, 50)
         assertTrue(screen.contains("[Unchanged] "), screen)

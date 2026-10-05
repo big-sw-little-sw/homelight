@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
+import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -111,7 +112,7 @@ class ConfigurationEvaluationTest {
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
 
         val selected = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
-        val plan = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.first()
+        val plan = selected.items.first()
         assertSame(original.savedPlan, selected.savedPlan)
         assertSame(observation.source, plan.sourceObservation)
         assertEquals(RelocationSourceState.DIRECTORY, plan.sourceState)
@@ -233,8 +234,7 @@ class ConfigurationEvaluationTest {
         assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, result.discardedChoices.first().reason)
         val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, result.evaluation)
         assertTrue(next.draft.isEmpty())
-        assertEquals(RelocationSourceState.CORRECT_SYMLINK,
-                assertInstanceOf(PlanModel.Configured::class.java, planModel(next)).items.first().sourceState)
+        assertEquals(RelocationSourceState.CORRECT_SYMLINK, next.items.first().sourceState)
     }
 
     @Test
@@ -252,8 +252,8 @@ class ConfigurationEvaluationTest {
         assertEquals(ConfigurationEvaluation.DiscardReason.CONFIGURATION_UNAVAILABLE,
                 session.discardedChoices().first().reason)
         Files.delete(config)
-        assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
-        assertInstanceOf(PlanModel.Invalid::class.java, planModel(evaluator.load(config)))
+        val missing = assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
+        assertTrue(missing.message.contains("does not exist"), missing.message)
         assertThrows<ConfigurationException> { evaluator.loadRequired(config) }
         Files.createDirectory(config)
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
@@ -274,11 +274,83 @@ class ConfigurationEvaluationTest {
         assertSame(before, session.evaluation())
         tasks.first().run()
         assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
+        // Applying clears the draft and re-inspects, so Workspace shows the applied state.
+        val applied = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
+        assertTrue(applied.draft.isEmpty())
+        assertEquals(PlanBadge.IN_SYNC, applied.items.single().badge())
         assertThrows<IllegalStateException> { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, session.discardedChoices().first().reason)
+        assertTrue(session.discardedChoices().isEmpty())
         assertTrue(session.isPlanReady())
+    }
+
+    @Test
+    fun itemsDescribeStagedPublicationWithoutTouchingTheFilesystem() {
+        Files.writeString(Files.createDirectories(root.resolve("home/cache")).resolve("file.txt"), "hello")
+        write(entry("home/cache", "local/cache"))
+        val item = loaded().items.single()
+        assertEquals(PlanBadge.MIGRATE, item.badge())
+        assertEquals(RelocationOutcome.CONVERGED, item.plan.outcome)
+        assertTrue(item.plan.actions.any { it is ReconciliationAction.MigrateDirectoryForPublication })
+        assertTrue(item.plan.actions.any { it is ReconciliationAction.ReplaceDirectoryWithSymlink })
+        assertTrue(item.hasDestructiveActions())
+        assertFalse(item.hasConflict())
+        assertFalse(Files.isSymbolicLink(root.resolve("home/cache")))
+        assertFalse(Files.exists(root.resolve("local/cache")))
+    }
+
+    @Test
+    fun onlyTargetConflictOffersAdoptTargetAndChoosingLinks() {
+        Files.writeString(Files.createDirectories(root.resolve("local/cache")).resolve("file.txt"), "target")
+        write(entry("home/cache", "local/cache"))
+        val session = HomeLightSession(config)
+        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items.single()
+        assertEquals(PlanBadge.CONFLICT, item.badge())
+        assertTrue(item.hasConflict())
+        assertEquals(listOf(DecisionChoice.ADOPT_TARGET), item.availableResolutions)
+        assertTrue(session.hasConflicts())
+        assertFalse(session.isPlanReady())
+
+        session.choose(item.relocation.sourcePath, DecisionChoice.ADOPT_TARGET)
+        assertFalse(session.hasConflicts())
+        assertTrue(session.isPlanReady())
+        val resolved = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items.single()
+        assertEquals(PlanBadge.LINK, resolved.badge())
+        assertEquals(RelocationOutcome.CONVERGED, resolved.plan.outcome)
+        assertTrue(resolved.plan.actions.any { it is ReconciliationAction.CreateSymlink })
+        assertFalse(Files.exists(root.resolve("home/cache")))
+    }
+
+    @Test
+    fun bothDirectoriesOfferEveryChoiceAndEachChangesTheBadge() {
+        bothDirectories("source", "target")
+        write(entry("source", "target", mapOf("archive-root" to archive())))
+        val item = loaded().items.single()
+        assertEquals(PlanBadge.CONFLICT, item.badge())
+        assertEquals(
+            listOf(DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE,
+                DecisionChoice.LEAVE_UNCHANGED, DecisionChoice.DISCARD_BOTH),
+            item.availableResolutions,
+        )
+        val archived = evaluator.choose(loaded(), item.relocation.sourcePath, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
+        assertEquals(PlanBadge.BACKUP, archived.items.single().badge())
+        assertTrue(archived.items.single().plan.actions.any { it is ReconciliationAction.ArchiveDirectory })
+        val discarded = evaluator.choose(loaded(), item.relocation.sourcePath, DecisionChoice.DISCARD_BOTH).items.single()
+        assertEquals(PlanBadge.DISCARD, discarded.badge())
+        assertTrue(discarded.hasDestructiveActions())
+        assertFalse(discarded.plan.diagnostics.isEmpty())
+    }
+
+    @Test
+    fun correctLinkIsInSyncWithoutDestructiveActions() {
+        Files.createDirectories(root.resolve("home"))
+        Files.createSymbolicLink(root.resolve("home/cache"), Files.createDirectories(root.resolve("local/cache")))
+        write(entry("home/cache", "local/cache"))
+        val item = loaded().items.single()
+        assertEquals(PlanBadge.IN_SYNC, item.badge())
+        assertEquals(RelocationOutcome.CONVERGED, item.plan.outcome)
+        assertFalse(item.hasDestructiveActions())
     }
 
     private fun loaded(): ConfigurationEvaluation.Loaded {

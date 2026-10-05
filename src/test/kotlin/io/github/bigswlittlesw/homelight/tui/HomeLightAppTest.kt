@@ -6,22 +6,16 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.application.PlanModel
-import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
-import io.github.bigswlittlesw.homelight.application.PlanSummary
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.fs.SymlinkTargetAvailability
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationConflict
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -300,12 +294,12 @@ class HomeLightAppTest {
         assertTrue(app.session.applyModel() is ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
-        assertEquals(1, (app.planModel() as PlanModel.Configured).summary.inSync)
+        assertEquals(1, (app.session.evaluation() as ConfigurationEvaluation.Loaded).items.count { it.badge() == PlanBadge.IN_SYNC })
         app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertTrue(app.session.applyModel() is ApplyModel.Result)
         app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
         assertTrue(app.session.isPlanReady())
-        assertFalse((app.planModel() as PlanModel.Configured).plan.actions().any(ReconciliationAction::mutatesFilesystem))
+        assertFalse((app.session.evaluation() as ConfigurationEvaluation.Loaded).plan.actions().any(ReconciliationAction::mutatesFilesystem))
         app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
         val unchanged = app.session.applyModel()
         app.handleKeyEvent(KeyEvent.ofChar('y', KEY_BINDINGS))
@@ -341,31 +335,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun handlesNavigationKeys() {
-        val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val rel2 = Relocation(Path.of("/source2"), Path.of("/target2"))
-        val rel3 = Relocation(Path.of("/source3"), Path.of("/target3"))
-
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
-        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf())
-        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf())
-
-        val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
-        val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
-        val item2 = PlanRelocationItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY, listOf())
-        val item3 = PlanRelocationItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY, listOf())
-
-        val items = listOf(item1, item2, item3)
-        val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
-            ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
-
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun planModel(): PlanModel {
-                return configured
-            }
-        }
-
+    fun handlesNavigationKeys(@TempDir temporary: Path) {
+        val session = session(temporary, inSync = listOf("source1", "source2", "source3"))
         val app = HomeLightApp(session)
 
         assertEquals(0, app.selectedIndex())
@@ -400,34 +371,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun handlesConvergedFilterAndToggle() {
-        val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val rel2 = Relocation(Path.of("/source2"), Path.of("/target2"))
-        val rel3 = Relocation(Path.of("/source3"), Path.of("/target3"))
-
-        // plan1 is CONFLICT, plan2 and plan3 are CONVERGED
-        val conflict = ReconciliationConflict(
-            rel1.sourcePath, "conflict", listOf(ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.UNRESOLVED, listOf(), listOf(), conflict)
-        val plan2 = RelocationPlan(rel2, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel2.sourcePath)), listOf())
-        val plan3 = RelocationPlan(rel3, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel3.sourcePath)), listOf())
-
-        val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
-        val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
-        val item2 = PlanRelocationItem(rel2, obs, obs, plan2, RelocationSourceState.DIRECTORY, listOf())
-        val item3 = PlanRelocationItem(rel3, obs, obs, plan3, RelocationSourceState.DIRECTORY, listOf())
-
-        val items = listOf(item1, item2, item3)
-        val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
-            ReconciliationPlan(listOf(plan1, plan2, plan3), listOf()), items, summary)
-
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun planModel(): PlanModel {
-                return configured
-            }
-        }
-
+    fun handlesConvergedFilterAndToggle(@TempDir temporary: Path) {
+        val session = session(temporary, inSync = listOf("source2", "source3"), conflicts = listOf("source1"))
         val app = HomeLightApp(session)
 
         // When there is an unresolved item, showInSync defaults to false
@@ -455,23 +400,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun allInSyncDefaultsToShowInSync() {
-        val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
-        val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
-        val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
-
-        val items = listOf(item1)
-        val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
-            ReconciliationPlan(listOf(plan1), listOf()), items, summary)
-
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun planModel(): PlanModel {
-                return configured
-            }
-        }
-
+    fun allInSyncDefaultsToShowInSync(@TempDir temporary: Path) {
+        val session = session(temporary, inSync = listOf("source1"))
         val app = HomeLightApp(session)
         assertTrue(app.showInSync)
         assertEquals(0, app.selectedIndex())
@@ -616,23 +546,8 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun canInspectDetailsWhenNoResolutionsAvailable() {
-        val rel1 = Relocation(Path.of("/source1"), Path.of("/target1"))
-        val plan1 = RelocationPlan(rel1, RelocationOutcome.CONVERGED, listOf(ReconciliationAction.NoOp(rel1.sourcePath)), listOf())
-        val obs = PathObservation(PathState.DIRECTORY, null, SymlinkTargetAvailability.NOT_A_SYMLINK, false)
-        val item1 = PlanRelocationItem(rel1, obs, obs, plan1, RelocationSourceState.DIRECTORY, listOf())
-
-        val items = listOf(item1)
-        val summary = PlanSummary.from(items)
-        val configured = PlanModel.Configured.of(Path.of("/config.json"), Path.of("/target"),
-            ReconciliationPlan(listOf(plan1), listOf()), items, summary)
-
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun planModel(): PlanModel {
-                return configured
-            }
-        }
-
+    fun canInspectDetailsWhenNoResolutionsAvailable(@TempDir temporary: Path) {
+        val session = session(temporary, inSync = listOf("source1"))
         val app = HomeLightApp(session)
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
@@ -687,7 +602,7 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // The item must stay selected and visible as SKIPPED
-        (app.planModel() as? PlanModel.Configured)?.let { configured ->
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation()).let { configured ->
             val visible = WorkspaceView.visibleItems(configured, app.showInSync)
             assertTrue(visible.size >= 2)
             val currentItem = visible[app.selectedIndex()]
@@ -717,7 +632,7 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
 
         // The second item must stay selected and have DISCARD badge
-        (app.planModel() as? PlanModel.Configured)?.let { configured ->
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation()).let { configured ->
             val visible = WorkspaceView.visibleItems(configured, app.showInSync)
             val currentItem = visible[app.selectedIndex()]
             assertEquals(source2, currentItem.relocation.sourcePath)
@@ -727,19 +642,31 @@ class HomeLightAppTest {
 
     @Test
     fun rendersAppElement() {
-        val unconfigured = PlanModel.Unconfigured(Path.of("/tmp/.homelight.json"))
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun planModel(): PlanModel {
-                return unconfigured
-            }
-        }
-
-        val app = HomeLightApp(session)
+        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.json")))
         val element = app.render()
         assertTrue(element.isFocusable)
     }
 
     private companion object {
+        /** A real session whose `inSync` sources already link to their targets and whose `conflicts` have both directories. */
+        fun session(temporary: Path, inSync: List<String> = listOf(), conflicts: List<String> = listOf()): HomeLightSession {
+            val root = temporary.toRealPath()
+            for (name in inSync) {
+                Files.createDirectories(root.resolve("home"))
+                Files.createSymbolicLink(root.resolve("home/$name"), Files.createDirectories(root.resolve("local/$name")))
+            }
+            for (name in conflicts) {
+                Files.createDirectories(root.resolve("home/$name"))
+                Files.createDirectories(root.resolve("local/$name"))
+            }
+            val relocations = (inSync + conflicts).joinToString(",\n") { name ->
+                "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
+            }
+            val config = Files.writeString(root.resolve("config.json"),
+                "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+            return HomeLightSession(config)
+        }
+
         fun type(app: HomeLightApp, value: String) {
             for (character in value.toCharArray()) app.handleKeyEvent(KeyEvent.ofChar(character, KEY_BINDINGS))
         }
