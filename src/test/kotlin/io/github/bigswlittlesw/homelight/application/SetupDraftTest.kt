@@ -72,7 +72,7 @@ class SetupDraftTest {
         val bytes = Files.readAllBytes(config)
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
-        val plan = session.planModel()
+        val plan = session.evaluation()
         val review = session.applyModel()
         val draft = draft(root, listOf(configured))
         worker().use { worker ->
@@ -100,9 +100,9 @@ class SetupDraftTest {
             assertEquals(2, checkNotNull(entry(draft, root.resolve(".cache/uv")).discovery).catalog.definitions.size)
             assertEquals(savedRows, draft.rows)
             assertArrayEquals(bytes, Files.readAllBytes(config))
-            assertSame(plan, session.planModel())
+            assertSame(plan, session.evaluation())
             assertEquals(review, session.applyModel())
-            assertSame((plan as PlanModel.Configured).plan,
+            assertSame((plan as ConfigurationEvaluation.Loaded).plan,
                     (session.applyModel() as ApplyModel.Confirmation).plan)
         }
     }

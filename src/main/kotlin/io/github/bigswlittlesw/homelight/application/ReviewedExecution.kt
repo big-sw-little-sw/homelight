@@ -139,7 +139,8 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
     }
 }
 
-private fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
+/** Every action of `plan`, not started: what Review shows before confirmation and what execution starts from. */
+internal fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
     plan.relocations.flatMap { relocation ->
         relocation.actions.map { action ->
             ApplyModel.Step(relocation, action, ApplyModel.StepStatus.PENDING, "Not started")

@@ -12,7 +12,6 @@ import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.application.PlanModel
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
@@ -28,7 +27,7 @@ import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
 
 /** Renders the workspace screen. The object names the screen; it holds no state. */
 internal object WorkspaceView {
-    fun visibleItems(model: PlanModel.Configured, showInSync: Boolean): List<PlanRelocationItem> {
+    fun visibleItems(model: ConfigurationEvaluation.Loaded, showInSync: Boolean): List<PlanRelocationItem> {
         if (showInSync) return model.items
         val active = model.items.filter { item -> item.badge() != PlanBadge.IN_SYNC }
         return if (active.isEmpty()) model.items else active
@@ -45,12 +44,14 @@ internal object WorkspaceView {
                 if (retained) "  [2: Results]" else if (session.isPlanReady()) "  [2: Review]" else "  [Review unavailable]",
             ).gray(),
         )
-        val model = session.planModel()
-        if (model !is PlanModel.Configured) {
-            val missing = session.evaluation() is ConfigurationEvaluation.Missing ||
-                session.evaluation() is ConfigurationEvaluation.Unconfigured
-            val message = if (model is PlanModel.Invalid) model.message
-            else "No configuration file found. Press i to create one manually; nothing is saved until you choose Save."
+        val model = session.evaluation()
+        if (model !is ConfigurationEvaluation.Loaded) {
+            val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
+            val message = when (model) {
+                is ConfigurationEvaluation.Missing -> model.message
+                is ConfigurationEvaluation.Invalid -> model.message
+                else -> "No configuration file found. Press i to create one manually; nothing is saved until you choose Save."
+            }
             return Toolkit.column(
                 header,
                 viewport.render(

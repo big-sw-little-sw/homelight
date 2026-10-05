@@ -6,9 +6,6 @@ import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanModel
-import io.github.bigswlittlesw.homelight.application.PlanSummary
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -114,13 +111,7 @@ class D3PolishTest {
     fun emptyWorkspaceAndUnresolvedWorkspaceHaveDifferentExplanations() {
         val config = Files.writeString(temporary.resolve("empty.json"),
             "{\"homelight\": {\"target-root\": \"" + temporary.resolve("target") + "\", \"relocations\": []}}\n")
-        val session = object : HomeLightSession(config) {
-            override fun planModel(): PlanModel =
-                PlanModel.Configured.of(config, temporary, ReconciliationPlan(listOf(), listOf()),
-                    listOf(), PlanSummary.from(listOf()))
-            override fun isPlanReady(): Boolean = true
-        }
-        val empty = WorkspaceViewTest.render(HomeLightApp(session).render(), 80, 24)
+        val empty = WorkspaceViewTest.render(HomeLightApp(HomeLightSession(config)).render(), 80, 24)
         assertTrue(empty.contains("No configured relocations."), empty)
         assertFalse(empty.contains("already in sync"), empty)
         assertFalse(empty.contains("in sync hidden"), empty)
