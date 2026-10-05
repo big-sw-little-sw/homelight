@@ -37,25 +37,25 @@ class CandidateSetupTest {
         val source = root.resolve("home/team-cache")
         val target = Files.createDirectories(root.resolve("local/team-cache"))
         Files.writeString(target.resolve("payload"), "target unchanged")
-        val app = HomeLightApp(HomeLightSession(root.resolve("config.json")))
-        key(app, 'i'); locations(app, root, root.resolve("shared.json"))
-        key(app, 'a'); type(app, "team-cache"); down(app); down(app)
-        repeat(3) { key(app, ' ') }
+        val ui = HeadlessTui(HomeLightSession(root.resolve("config.json")))
+        key(ui, 'i'); locations(ui, root, root.resolve("shared.json"))
+        key(ui, 'a'); type(ui, "team-cache"); down(ui); down(ui)
+        repeat(3) { key(ui, ' ') }
         for (width in listOf(80, 120, 80, 120)) {
             val height = if (width == 80) 24 else 30
-            val details = WorkspaceViewTest.render(app.render(), width, height)
+            val details = ui.screen(width, height)
             assertTrue(details.contains("❯ Both directories: Discard both"), details)
             val text = details.replace(Regex("[│█\\s]"), "")
             assertTrue(text.contains("Permanentlydeletebothsourceandtargetdirectorytrees.Createanemptytargetdirectoryandlinkthesourcetoit."), details)
             assertFalse(details.contains("Discard target") || details.contains("relocate source"), details)
-            escape(app)
-            val table = WorkspaceViewTest.render(app.render(), width, height)
+            escape(ui)
+            val table = ui.screen(width, height)
             assertTrue(table.contains("Policies") && table.contains("Discard both"), table)
             assertFalse(table.contains("Discard target"), table)
-            enter(app); down(app); down(app)
+            enter(ui); down(ui); down(ui)
         }
-        escape(app); key(app, 's')
-        val plan = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation())
+        escape(ui); key(ui, 's')
+        val plan = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation())
         assertEquals(listOf(
             ReconciliationAction.DeleteDirectory(source),
             ReconciliationAction.DeleteDirectory(target),
@@ -66,42 +66,42 @@ class CandidateSetupTest {
             plan.items.first().plan.actions)
         assertEquals("unchanged", Files.readString(source.resolve("payload")))
         assertEquals("target unchanged", Files.readString(target.resolve("payload")))
-        assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
+        assertInstanceOf(ApplyModel.Idle::class.java, ui.app.session.applyModel())
     }
 
     @Test fun browseAddEditRefreshRemovalAndSavePreserveChoices() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers)
-            locations(app, root, root.resolve("shared.json"))
-            key(app, 'b'); await(workers, app)
-            val list = render(app)
+            val ui = ui(root, workers)
+            locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val list = render(ui)
             assertTrue(list.contains("Maven (1)"), list)
             assertTrue(list.contains("Mixed advice"), list)
             assertTrue(list.contains("1 usually-unnecessary directory hidden"), list)
-            choose(app, "team-cache"); enter(app)
-            key(app, 'a')
-            assertTrue(render(app).contains("e: Edit draft row"))
-            key(app, 'e'); down(app); clear(app); type(app, "custom-target")
-            down(app); key(app, ' ') // Adopt target, no inferred source disposition.
-            escape(app); key(app, 'b')
+            choose(ui, "team-cache"); enter(ui)
+            key(ui, 'a')
+            assertTrue(render(ui).contains("e: Edit draft row"))
+            key(ui, 'e'); down(ui); clear(ui); type(ui, "custom-target")
+            down(ui); key(ui, ' ') // Adopt target, no inferred source disposition.
+            escape(ui); key(ui, 'b')
             Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
-            key(app, 'r'); await(workers, app)
+            key(ui, 'r'); await(workers, ui)
             // Refresh while inspecting does not leave details or erase the row; the dropped list entry is not recalled.
-            val details = all(app)
+            val details = all(ui)
             assertTrue(details.contains("No current catalog attribution."), details)
             assertTrue(details.contains("custom-target"), details)
-            key(app, 'e')
-            assertTrue(all(app).contains("Adopt target"))
-            escape(app); key(app, 's')
-            assertTrue(render(app).contains("[1: Workspace]"))
+            key(ui, 'e')
+            assertTrue(all(ui).contains("Adopt target"))
+            escape(ui); key(ui, 's')
+            assertTrue(render(ui).contains("[1: Workspace]"))
             val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(1, saved.relocations.size)
             assertEquals(root.resolve("local/custom-target"), saved.relocations.first().targetPath)
             assertEquals(root.resolve("shared.json"), saved.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("home/team-cache/payload")))
             assertFalse(Files.exists(root.resolve("local/custom-target")))
-            assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
+            assertInstanceOf(ApplyModel.Idle::class.java, ui.app.session.applyModel())
             assertNull(workers.workers.first().snapshot().request)
         }
     }
@@ -110,30 +110,30 @@ class CandidateSetupTest {
         val root = fixture()
         // Quit (q Q), setup commands (a b d e r u) and the former vim keys (h j k l g G x).
         val letters = "qQabderuhjklgGx"
-        val app = HomeLightApp(HomeLightSession(root.resolve("config.json")))
-        key(app, 'i'); clear(app); type(app, "/$letters")
-        down(app); type(app, letters); down(app); type(app, letters)
-        var screen = render(app)
+        val ui = HeadlessTui(HomeLightSession(root.resolve("config.json")))
+        key(ui, 'i'); clear(ui); type(ui, "/$letters")
+        down(ui); type(ui, letters); down(ui); type(ui, letters)
+        var screen = render(ui)
         assertTrue(screen.contains("  Source root: /$letters"), screen)
         assertTrue(screen.contains("  Target root: $letters"), screen)
         assertTrue(screen.contains("❯ Shared candidate list (optional): $letters"), screen)
         assertFalse(screen.contains("Discard setup draft?"), screen)
-        ctrl(app, 'd'); ctrl(app, 'k')
-        assertTrue(render(app).contains("❯ Shared candidate list (optional): $letters "), "Ctrl chords are not text")
-        ctrl(app, 'u')
-        assertTrue(render(app).contains("❯ Shared candidate list (optional):"))
-        assertFalse(render(app).contains("❯ Shared candidate list (optional): $letters"), "Ctrl+U still clears")
+        ctrl(ui, 'd'); ctrl(ui, 'k')
+        assertTrue(render(ui).contains("❯ Shared candidate list (optional): $letters "), "Ctrl chords are not text")
+        ctrl(ui, 'u')
+        assertTrue(render(ui).contains("❯ Shared candidate list (optional):"))
+        assertFalse(render(ui).contains("❯ Shared candidate list (optional): $letters"), "Ctrl+U still clears")
 
-        down(app); clear(app); type(app, root.resolve("home").toString())
-        down(app); clear(app); type(app, root.resolve("local").toString()); enter(app)
-        assertTrue(render(app).contains("No relocations yet"))
-        key(app, 'a'); type(app, letters)
-        screen = render(app)
+        down(ui); clear(ui); type(ui, root.resolve("home").toString())
+        down(ui); clear(ui); type(ui, root.resolve("local").toString()); enter(ui)
+        assertTrue(render(ui).contains("No relocations yet"))
+        key(ui, 'a'); type(ui, letters)
+        screen = render(ui)
         assertTrue(screen.contains("Edit relocation 1"), screen)
         assertTrue(screen.contains("❯ Source path: $letters"), screen)
         assertTrue(screen.contains("  Target path: $letters"), "The target follows the source")
-        down(app); key(app, 'x'); repeat(4) { down(app) }; type(app, "/$letters")
-        screen = render(app)
+        down(ui); key(ui, 'x'); repeat(4) { down(ui) }; type(ui, "/$letters")
+        screen = render(ui)
         assertTrue(screen.contains("  Target path: ${letters}x"), screen)
         assertTrue(screen.contains("❯ Archive root: /$letters"), screen)
         assertFalse(screen.contains("Discard setup draft?"), screen)
@@ -142,42 +142,42 @@ class CandidateSetupTest {
     @Test fun ctrlAndAltChordsDoNotActAsLetterCommands() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'a'); type(app, "manual"); escape(app)
-            ctrl(app, 'd'); ctrl(app, 'u'); alt(app, 'd')
-            val table = render(app)
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'a'); type(ui, "manual"); escape(ui)
+            ctrl(ui, 'd'); ctrl(ui, 'u'); alt(ui, 'd')
+            val table = render(ui)
             assertTrue(table.contains("❯ manual"), table)
             assertFalse(table.contains("Relocation removed"), table)
-            enter(app); down(app); down(app)
-            ctrl(app, 'd'); alt(app, 'd')
-            assertTrue(render(app).contains("Edit relocation 1"), "Ctrl+D and Alt+D on a policy do not remove the row")
-            escape(app); key(app, 'b'); await(workers, app)
-            ctrl(app, 'u'); alt(app, 'u'); ctrl(app, 'd')
-            val list = render(app)
+            enter(ui); down(ui); down(ui)
+            ctrl(ui, 'd'); alt(ui, 'd')
+            assertTrue(render(ui).contains("Edit relocation 1"), "Ctrl+D and Alt+D on a policy do not remove the row")
+            escape(ui); key(ui, 'b'); await(workers, ui)
+            ctrl(ui, 'u'); alt(ui, 'u'); ctrl(ui, 'd')
+            val list = render(ui)
             assertTrue(list.contains("1 usually-unnecessary directory hidden"), list)
             assertTrue(list.contains("1 in draft"), list)
-            key(app, 'u')
-            assertTrue(render(app).contains("1 usually-unnecessary directory revealed"))
-            escape(app)
-            assertTrue(render(app).contains("❯ manual"))
-            app.closeSetup()
+            key(ui, 'u')
+            assertTrue(render(ui).contains("1 usually-unnecessary directory revealed"))
+            escape(ui)
+            assertTrue(render(ui).contains("❯ manual"))
+            ui.app.closeSetup()
         }
     }
 
     @Test fun groupExpansionNeverSelectsAndAdviceCollapseKeepsAddedRowsVisible() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'b'); await(workers, app)
-            enter(app)
-            assertFalse(render(app).contains("[ ] .m2"))
-            enter(app)
-            key(app, 'u')
-            choose(app, ".cache/example"); enter(app); key(app, 'a'); escape(app)
-            key(app, 'u')
-            assertTrue(all(app).contains("[x] .cache/example"))
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            enter(ui)
+            assertFalse(render(ui).contains("[ ] .m2"))
+            enter(ui)
+            key(ui, 'u')
+            choose(ui, ".cache/example"); enter(ui); key(ui, 'a'); escape(ui)
+            key(ui, 'u')
+            assertTrue(all(ui).contains("[x] .cache/example"))
             // No action on a heading may create rows.
-            escape(app); key(app, 's')
+            escape(ui); key(ui, 's')
             val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(listOf(root.resolve("home/.cache/example")), saved.relocations.map(Relocation::sourcePath))
         }
@@ -186,32 +186,32 @@ class CandidateSetupTest {
     @Test fun checklistAddsInPlaceWithoutReorderingAndKeepsRejectedChoices() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'b'); await(workers, app)
-            key(app, ' '); key(app, 'a')
-            assertTrue(render(app).contains("0 in draft"), "App headings cannot add children")
-            choose(app, ".m2")
-            val before = render(app)
-            key(app, ' ')
-            val added = render(app)
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            key(ui, ' '); key(ui, 'a')
+            assertTrue(render(ui).contains("0 in draft"), "App headings cannot add children")
+            choose(ui, ".m2")
+            val before = render(ui)
+            key(ui, ' ')
+            val added = render(ui)
             assertTrue(added.contains("Browse candidates") && added.contains("❯   [x] .m2"), added)
             assertFalse(added.contains("Candidate details") || added.contains("Space/a: Add"), added)
             assertEquals(before.indexOf("Maven (1)"), added.indexOf("Maven (1)"))
-            key(app, ' '); key(app, 'a')
-            assertTrue(render(app).contains("1 in draft"))
-            choose(app, ".local/share/uv"); key(app, 'a')
-            choose(app, ".local/share/uv/tools"); key(app, ' ')
-            val rejected = render(app)
+            key(ui, ' '); key(ui, 'a')
+            assertTrue(render(ui).contains("1 in draft"))
+            choose(ui, ".local/share/uv"); key(ui, 'a')
+            choose(ui, ".local/share/uv/tools"); key(ui, ' ')
+            val rejected = render(ui)
             assertTrue(rejected.contains("Browse candidates") && rejected.contains("prior choices are unchanged"), rejected)
             assertTrue(rejected.contains("2 in draft"))
-            enter(app)
-            assertTrue(all(app).contains("paths overlap"))
-            escape(app)
-            choose(app, "absent-cache"); key(app, ' '); key(app, 'a')
-            assertTrue(render(app).contains("3 in draft"))
-            choose(app, ".m2"); key(app, 'e')
-            assertTrue(render(app).contains("Edit relocation 1"))
-            escape(app); key(app, 's')
+            enter(ui)
+            assertTrue(all(ui).contains("paths overlap"))
+            escape(ui)
+            choose(ui, "absent-cache"); key(ui, ' '); key(ui, 'a')
+            assertTrue(render(ui).contains("3 in draft"))
+            choose(ui, ".m2"); key(ui, 'e')
+            assertTrue(render(ui).contains("Edit relocation 1"))
+            escape(ui); key(ui, 's')
             assertEquals(3, ConfigurationLoader().load(root.resolve("config.json")).relocations.size)
         }
     }
@@ -219,57 +219,57 @@ class CandidateSetupTest {
     @Test fun missingCandidateCanBeAddedEditedRefreshedAndSavedBeforeTheAppCreatesIt() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'b'); await(workers, app); choose(app, "absent-cache")
-            assertTrue(render(app).contains("Space/a: Add"))
-            assertTrue(render(app).contains("[ ] absent-cache"))
-            assertFalse(render(app).contains("Missing") || render(app).contains("Not created yet"))
-            enter(app)
-            val details = all(app)
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui); choose(ui, "absent-cache")
+            assertTrue(render(ui).contains("Space/a: Add"))
+            assertTrue(render(ui).contains("[ ] absent-cache"))
+            assertFalse(render(ui).contains("Missing") || render(ui).contains("Not created yet"))
+            enter(ui)
+            val details = all(ui)
             assertTrue(details.contains("Metadata: Not created yet"), details)
             assertTrue(details.contains("Not found under the source root"), details)
             assertTrue(details.contains("source and target are both missing"), details)
             assertTrue(details.contains("If only the target exists"), details)
             assertTrue(details.contains("Save writes configuration only"), details)
-            escape(app); key(app, ' ')
-            assertTrue(render(app).contains("❯   [x] absent-cache"))
-            assertFalse(render(app).contains("Missing") || render(app).contains("Not created yet"))
-            key(app, 'e'); down(app); clear(app); type(app, "future-cache")
-            down(app); down(app); key(app, ' ')
-            escape(app); key(app, 'b'); key(app, 'r'); await(workers, app)
-            assertTrue(render(app).contains("❯   [x] absent-cache"))
-            enter(app)
-            assertTrue(all(app).contains("future-cache"))
-            escape(app); escape(app); key(app, 's')
-            assertTrue(render(app).contains("[1: Workspace]"))
+            escape(ui); key(ui, ' ')
+            assertTrue(render(ui).contains("❯   [x] absent-cache"))
+            assertFalse(render(ui).contains("Missing") || render(ui).contains("Not created yet"))
+            key(ui, 'e'); down(ui); clear(ui); type(ui, "future-cache")
+            down(ui); down(ui); key(ui, ' ')
+            escape(ui); key(ui, 'b'); key(ui, 'r'); await(workers, ui)
+            assertTrue(render(ui).contains("❯   [x] absent-cache"))
+            enter(ui)
+            assertTrue(all(ui).contains("future-cache"))
+            escape(ui); escape(ui); key(ui, 's')
+            assertTrue(render(ui).contains("[1: Workspace]"))
             val row = ConfigurationLoader().load(root.resolve("config.json")).relocations.first()
             assertEquals(root.resolve("home/absent-cache"), row.sourcePath)
             assertEquals(root.resolve("local/future-cache"), row.targetPath)
             assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, row.whenOnlyTargetExists)
             assertFalse(Files.exists(row.sourcePath))
             assertFalse(Files.exists(root.resolve("local")))
-            assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
+            assertInstanceOf(ApplyModel.Idle::class.java, ui.app.session.applyModel())
         }
     }
 
     @Test fun overlapRejectionAndManualMatchesDoNotLoseEarlierRows() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'a'); type(app, ".m2"); down(app); clear(app); type(app, "manual-target"); escape(app)
-            key(app, 'b'); await(workers, app); choose(app, ".m2"); enter(app)
-            assertTrue(render(app).contains("e: Edit draft row"))
-            assertFalse(render(app).contains("a: Add to draft"))
-            key(app, 'a'); escape(app)
-            choose(app, ".local/share/uv"); enter(app); key(app, 'a'); escape(app)
-            choose(app, ".local/share/uv/tools"); enter(app); key(app, 'a')
-            val error = all(app)
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'a'); type(ui, ".m2"); down(ui); clear(ui); type(ui, "manual-target"); escape(ui)
+            key(ui, 'b'); await(workers, ui); choose(ui, ".m2"); enter(ui)
+            assertTrue(render(ui).contains("e: Edit draft row"))
+            assertFalse(render(ui).contains("a: Add to draft"))
+            key(ui, 'a'); escape(ui)
+            choose(ui, ".local/share/uv"); enter(ui); key(ui, 'a'); escape(ui)
+            choose(ui, ".local/share/uv/tools"); enter(ui); key(ui, 'a')
+            val error = all(ui)
             // all() joins wrapped lines without the wrap-point space, and where the message wraps depends on the temp path length.
             val text = error.replace(Regex("\\s"), "")
             assertTrue(text.contains("Notadded."), error)
             assertTrue(text.contains("Priorchoicesareunchanged"), error)
             assertTrue(text.contains("pathsoverlap"), error)
-            escape(app); escape(app); key(app, 's')
+            escape(ui); escape(ui); key(ui, 's')
             val saved = ConfigurationLoader().load(root.resolve("config.json"))
             assertEquals(2, saved.relocations.size)
             assertEquals(root.resolve("local/manual-target"), saved.relocations.first().targetPath)
@@ -280,22 +280,22 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             assertTimeout(Duration.ofSeconds(1), Executable {
-                workers.expire(); render(app); key(app, 'r'); key(app, 'i')
-                assertTrue(all(app).contains("Previous read still pending"))
-                escape(app); escape(app); key(app, 'a'); type(app, "manual"); escape(app)
+                workers.expire(); render(ui); key(ui, 'r'); key(ui, 'i')
+                assertTrue(all(ui).contains("Previous read still pending"))
+                escape(ui); escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui)
                 Files.writeString(root.resolve("config.json"), "concurrent winner")
-                key(app, 's'); assertTrue(all(app).contains("Save failed"))
+                key(ui, 's'); assertTrue(all(ui).contains("Save failed"))
                 assertEquals("concurrent winner", Files.readString(root.resolve("config.json")))
             })
             Files.delete(root.resolve("config.json"))
-            assertTimeout(Duration.ofSeconds(1), Executable { key(app, 's') })
-            assertTrue(render(app).contains("[1: Workspace]"))
+            assertTimeout(Duration.ofSeconds(1), Executable { key(ui, 's') })
+            assertTrue(render(ui).contains("[1: Workspace]"))
             assertNull(workers.workers.first().snapshot().request)
             workers.release.countDown()
-            assertTrue(render(app).contains("[1: Workspace]"))
+            assertTrue(render(ui).contains("[1: Workspace]"))
             assertEquals(1, workers.reads.get())
             assertEquals(1, ConfigurationLoader().load(root.resolve("config.json")).relocations.size)
         }
@@ -305,24 +305,24 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
-            escape(app); key(app, 'a'); type(app, "manual"); escape(app)
-            key(app, 'q'); escape(app)
-            assertTrue(render(app).contains("manual"))
-            key(app, 'e'); clear(app); type(app, root.resolve("other-home").toString()); down(app); down(app); clear(app); enter(app)
-            key(app, 'b')
-            workers.release.countDown(); await(workers, app)
-            assertFalse(all(app).contains("team-cache"))
-            escape(app); key(app, 'q'); enter(app)
+            escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui)
+            key(ui, 'q'); escape(ui)
+            assertTrue(render(ui).contains("manual"))
+            key(ui, 'e'); clear(ui); type(ui, root.resolve("other-home").toString()); down(ui); down(ui); clear(ui); enter(ui)
+            key(ui, 'b')
+            workers.release.countDown(); await(workers, ui)
+            assertFalse(all(ui).contains("team-cache"))
+            escape(ui); key(ui, 'q'); key(ui, 'y')
             assertNull(workers.workers.first().snapshot().request)
-            key(app, 'i')
-            assertTrue(render(app).contains("Storage locations"))
-            assertFalse(render(app).contains("other-home"))
-            assertFalse(render(app).contains("shared.json"))
-            enter(app); assertTrue(render(app).contains("No relocations yet"))
+            key(ui, 'i')
+            assertTrue(render(ui).contains("Storage locations"))
+            assertFalse(render(ui).contains("other-home"))
+            assertFalse(render(ui).contains("shared.json"))
+            enter(ui); assertTrue(render(ui).contains("No relocations yet"))
             assertFalse(Files.exists(root.resolve("config.json")))
-            app.closeSetup()
+            ui.app.closeSetup()
         }
     }
 
@@ -332,11 +332,11 @@ class CandidateSetupTest {
             if (missing) Files.delete(root.resolve("shared.json"))
             else Files.writeString(root.resolve("shared.json"), "{\"apps\": [")
             SetupDiscoveryFixture().use { workers ->
-                val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b'); await(workers, app)
-                assertTrue(render(app).contains("Bundled: current · Shared: unavailable"))
-                key(app, 'i'); assertTrue(all(app).contains(if (missing) "NoSuchFileException" else "line"))
-                escape(app); escape(app); key(app, 'a'); type(app, "manual"); escape(app); key(app, 's')
-                assertTrue(render(app).contains("[1: Workspace]"))
+                val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b'); await(workers, ui)
+                assertTrue(render(ui).contains("Bundled: current · Shared: unavailable"))
+                key(ui, 'i'); assertTrue(all(ui).contains(if (missing) "NoSuchFileException" else "line"))
+                escape(ui); escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui); key(ui, 's')
+                assertTrue(render(ui).contains("[1: Workspace]"))
             }
         }
     }
@@ -398,21 +398,21 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
-            while (!render(app).contains("[ ] .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
-            choose(app, ".m2"); enter(app); key(app, 'a'); key(app, 'e')
-            down(app); clear(app); type(app, "unfinished-target")
-            workers.release.countDown(); await(workers, app)
-            val editing = render(app)
+            while (!render(ui).contains("[ ] .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
+            choose(ui, ".m2"); enter(ui); key(ui, 'a'); key(ui, 'e')
+            down(ui); clear(ui); type(ui, "unfinished-target")
+            workers.release.countDown(); await(workers, ui)
+            val editing = render(ui)
             assertTrue(editing.contains("❯ Target path: unfinished-target"), editing)
-            type(app, "-continued"); escape(app); key(app, 'b')
-            assertTrue(all(app).contains("unfinished-target-continued"))
-            assertTrue(render(app).contains("Candidate details"))
-            escape(app)
-            assertTrue(render(app).lines().any { line -> line.contains("❯   [x] .m2") })
-            app.closeSetup()
+            type(ui, "-continued"); escape(ui); key(ui, 'b')
+            assertTrue(all(ui).contains("unfinished-target-continued"))
+            assertTrue(render(ui).contains("Candidate details"))
+            escape(ui)
+            assertTrue(render(ui).lines().any { line -> line.contains("❯   [x] .m2") })
+            ui.app.closeSetup()
         }
     }
 
@@ -420,31 +420,31 @@ class CandidateSetupTest {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json")); key(app, 'b')
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
-            key(app, 'q'); enter(app)
+            key(ui, 'q'); key(ui, 'y')
             workers.release.countDown()
             repeat(20) {
-                assertFalse(render(app).contains("[Setup]"))
+                assertFalse(render(ui).contains("[Setup]"))
                 LockSupport.parkNanos(1_000_000)
             }
             assertNull(workers.workers.first().snapshot().request)
-            key(app, 'i'); enter(app)
-            assertTrue(render(app).contains("No relocations yet"))
+            key(ui, 'i'); enter(ui)
+            assertTrue(render(ui).contains("No relocations yet"))
             assertFalse(Files.exists(root.resolve("config.json")))
-            app.closeSetup()
+            ui.app.closeSetup()
         }
     }
 
     @Test fun explicitRootChangeRebasesRowsWithoutChangingTargetsOrPolicies() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
-            val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
-            key(app, 'a'); type(app, "manual"); down(app); clear(app); type(app, "chosen-target")
-            down(app); key(app, ' '); escape(app)
-            key(app, 'e'); clear(app); type(app, root.resolve("other-home").toString())
-            down(app); clear(app); type(app, root.resolve("other-target").toString())
-            down(app); clear(app); enter(app); key(app, 's')
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'a'); type(ui, "manual"); down(ui); clear(ui); type(ui, "chosen-target")
+            down(ui); key(ui, ' '); escape(ui)
+            key(ui, 'e'); clear(ui); type(ui, root.resolve("other-home").toString())
+            down(ui); clear(ui); type(ui, root.resolve("other-target").toString())
+            down(ui); clear(ui); enter(ui); key(ui, 's')
             val configuration = ConfigurationLoader().load(root.resolve("config.json"))
             val row = configuration.relocations.first()
             assertEquals(root.resolve("other-home/manual"), row.sourcePath)
@@ -463,53 +463,53 @@ class CandidateSetupTest {
     }
 
     private companion object {
-        fun app(root: Path, workers: SetupDiscoveryFixture): HomeLightApp {
-            val app = HomeLightApp(HomeLightSession(root.resolve("config.json")), discoveryFactory = workers::get); key(app, 'i'); return app
+        fun ui(root: Path, workers: SetupDiscoveryFixture): HeadlessTui {
+            val ui = HeadlessTui(HomeLightSession(root.resolve("config.json")), discoveryFactory = workers::get); key(ui, 'i'); return ui
         }
-        fun locations(app: HomeLightApp, root: Path, shared: Path) {
-            clear(app); type(app, root.resolve("home").toString()); down(app); type(app, root.resolve("local").toString())
-            down(app); type(app, shared.toString()); enter(app)
+        fun locations(ui: HeadlessTui, root: Path, shared: Path) {
+            clear(ui); type(ui, root.resolve("home").toString()); down(ui); type(ui, root.resolve("local").toString())
+            down(ui); type(ui, shared.toString()); enter(ui)
         }
-        fun await(workers: SetupDiscoveryFixture, app: HomeLightApp) {
+        fun await(workers: SetupDiscoveryFixture, ui: HeadlessTui) {
             pollUntil("Discovery did not settle") {
                 val result = workers.workers.last().snapshot()
                 result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
                     && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
             }
-            // Render exactly once after discovery settles: the app accepts snapshots only when rendering, and the
+            // Render exactly once after discovery settles: the ui accepts snapshots only when rendering, and the
             // next key acts on what it last rendered.
-            render(app)
+            render(ui)
         }
-        fun choose(app: HomeLightApp, relative: String) {
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.HOME, KEY_BINDINGS))
+        fun choose(ui: HeadlessTui, relative: String) {
+            ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(app).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
-                down(app)
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
+                down(ui)
             }
-            fail<Unit>("Could not focus " + relative + "\n" + render(app))
+            fail<Unit>("Could not focus " + relative + "\n" + render(ui))
         }
-        fun all(app: HomeLightApp): String {
+        fun all(ui: HeadlessTui): String {
             val screens = linkedSetOf<String>()
-            screens.add(render(app))
-            repeat(80) { key(app, ']'); screens.add(render(app)) }
-            repeat(80) { key(app, '[') }
+            screens.add(render(ui))
+            repeat(80) { key(ui, ']'); screens.add(render(ui)) }
+            repeat(80) { key(ui, '[') }
             // Kotlin's lines() adds a trailing empty line, which the border filter drops. The trimEnd is Java's
             // stripTrailing, which Kotlin hides.
             return screens.joinToString("\n") + screens.flatMap { it.lines() }
                 .filter { line -> line.startsWith("│") }.map { line -> line.substring(1).replace("│", "").replace("█", "").trimEnd { Character.isWhitespace(it) } }
                 .joinToString("")
         }
-        fun render(app: HomeLightApp): String {
-            try { return WorkspaceViewTest.render(app.render(), 120, 30) }
+        fun render(ui: HeadlessTui): String {
+            try { return ui.screen(120, 30) }
             catch (error: Exception) { throw AssertionError(error) }
         }
-        fun key(app: HomeLightApp, key: Char) { app.handleKeyEvent(KeyEvent.ofChar(key, KEY_BINDINGS)) }
-        fun type(app: HomeLightApp, value: String) { value.forEach { c -> key(app, c) } }
-        fun clear(app: HomeLightApp) { key(app, '\u0015') }
-        fun ctrl(app: HomeLightApp, key: Char) { app.handleKeyEvent(KeyEvent.ofChar(key, KeyModifiers.CTRL, KEY_BINDINGS)) }
-        fun alt(app: HomeLightApp, key: Char) { app.handleKeyEvent(KeyEvent.ofChar(key, KeyModifiers.ALT, KEY_BINDINGS)) }
-        fun down(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
-        fun enter(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS)) }
-        fun escape(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS)) }
+        fun key(ui: HeadlessTui, key: Char) { ui.press(key) }
+        fun type(ui: HeadlessTui, value: String) { value.forEach { c -> key(ui, c) } }
+        fun clear(ui: HeadlessTui) { key(ui, '\u0015') }
+        fun ctrl(ui: HeadlessTui, key: Char) { ui.ctrl(key) }
+        fun alt(ui: HeadlessTui, key: Char) { ui.alt(key) }
+        fun down(ui: HeadlessTui) { ui.press(KeyCode.DOWN) }
+        fun enter(ui: HeadlessTui) { ui.press(KeyCode.ENTER) }
+        fun escape(ui: HeadlessTui) { ui.press(KeyCode.ESCAPE) }
     }
 }

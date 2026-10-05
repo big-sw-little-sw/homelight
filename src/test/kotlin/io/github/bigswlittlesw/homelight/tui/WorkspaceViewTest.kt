@@ -38,19 +38,19 @@ class WorkspaceViewTest {
         assertTrue(summary.risks.contains("1 with warnings"), summary.toString())
         assertEquals(5, WorkspaceView.visibleItems(model, false).size)
         assertEquals(6, WorkspaceView.visibleItems(model, true).size)
-        val app = HomeLightApp(session)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
+        val ui = HeadlessTui(session)
+        ui.press(KeyCode.RIGHT)
+        ui.press(' ')
+        ui.press('2')
         session.confirmApply(Executor(Runnable::run)).join()
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(result.succeeded())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        ui.press(KeyCode.ENTER)
         val refreshed = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertEquals(listOf("✔ 5 in sync", "─ 1 unchanged"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
+        ui.press('2')
         assertSame(result, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
+        ui.press('r')
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         assertFalse(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan.hasChanges())
     }
@@ -58,15 +58,15 @@ class WorkspaceViewTest {
     @Test
     fun everyChoiceAndConsequenceStaysAccessibleAcrossResizeAndCancel() {
         val session = HomeLightSession(fixture(temporary))
-        val app = HomeLightApp(session)
+        val ui = HeadlessTui(session)
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val source = model.items.first().relocation.sourcePath
         val choices = model.items.first().availableResolutions
         assertEquals(4, choices.size)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
+        ui.press(KeyCode.RIGHT)
         for (choice in 0 until choices.size) {
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
-                val screen = render(app.render(), size[0], size[1])
+                val screen = ui.screen(size[0], size[1])
                 assertTrue(screen.contains("Details"), screen)
                 assertTrue(screen.contains("❯ (○)"), screen)
                 assertTrue(screen.contains("Review unavailable"), screen)
@@ -76,20 +76,20 @@ class WorkspaceViewTest {
                 assertTrue(details.contains(choices[choice].label), details)
                 assertTrue(details.replace(" ", "").contains(choices[choice].description.replace(" ", "")), screen)
             }
-            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
+            if (choice < choices.size - 1) ui.press(KeyCode.DOWN)
         }
-        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
+        ui.press(' ')
         val loaded = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val draft = loaded.draft
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
+        ui.press('2')
         assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        ui.press(KeyCode.ENTER)
         assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel())
-        app.handleKeyEvent(KeyEvent.ofChar('n', KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(3, app.detailSelectedIndex)
-        val visible = WorkspaceView.visibleItems(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()), app.showInSync)
-        assertEquals(source, visible[app.selectedIndex()].relocation.sourcePath)
+        ui.press('n')
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
+        assertEquals(3, ui.app.detailSelectedIndex)
+        val visible = WorkspaceView.visibleItems(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()), ui.app.showInSync)
+        assertEquals(source, visible[ui.app.selectedIndex()].relocation.sourcePath)
         assertEquals(draft, assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).draft)
         assertFalse(Files.isSymbolicLink(source))
     }
@@ -102,7 +102,7 @@ class WorkspaceViewTest {
             val viewport = DetailViewport()
             val all = StringBuilder()
             repeat(160) {
-                all.append(rightPane(render(WorkspaceView.render(session, 0, false, PaneFocus.DETAIL, 0, viewport), size[0], size[1]), size[0]))
+                all.append(rightPane(render(WorkspaceView.render(session, WorkspaceView.list(), false, WORKSPACE_DETAILS, true, 0, viewport), size[0], size[1]), size[0]))
                 viewport.scroll(1)
             }
             val item = model.items.first()
@@ -165,7 +165,7 @@ class WorkspaceViewTest {
         val session = HomeLightSession(fixture(temporary))
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
-        val screen = render(WorkspaceView.render(session, index, false, PaneFocus.DETAIL, 0, DetailViewport()), 200, 50)
+        val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
         assertTrue(screen.contains("[Unchanged] "), screen)
         assertTrue(screen.contains("Saved policy: Leave unchanged."), screen)
         assertTrue(screen.contains("Expected outcome: No changes; source and target left unchanged by choice."), screen)

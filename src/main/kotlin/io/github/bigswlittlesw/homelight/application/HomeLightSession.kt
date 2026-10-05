@@ -6,10 +6,8 @@ import java.util.concurrent.Executor
 
 /**
  * Presentation-neutral session holding active workflow state, typed draft decisions, and evaluated plans.
- *
- * Open only for the members TUI tests override to stub session state.
  */
-open class HomeLightSession(
+class HomeLightSession(
     val configPath: Path,
     private val debugStepDelayMillis: Long = 0,
     private val evaluator: ConfigurationEvaluation = ConfigurationEvaluation(),
@@ -58,14 +56,14 @@ open class HomeLightSession(
     }
 
     @Synchronized
-    open fun applyModel(): ApplyModel = reviewedExecution?.snapshot() ?: ApplyModel.Idle
+    fun applyModel(): ApplyModel = reviewedExecution?.snapshot() ?: ApplyModel.Idle
 
     @Synchronized
     fun isApplying(): Boolean = applyModel() is ApplyModel.Running
 
     /** Includes post-execution refresh and exceptional settlement, not just result publication. */
     @Synchronized
-    open fun executionSettled(): Boolean = execution.isDone
+    fun executionSettled(): Boolean = execution.isDone
 
     /** Captures the current plan without reloading it or touching the filesystem. */
     @Synchronized
@@ -105,7 +103,7 @@ open class HomeLightSession(
     }
 
     /** Terminal shutdown waits for an active mutation sequence rather than interrupting it mid-action. */
-    open fun awaitExecution() {
+    fun awaitExecution() {
         val pending = synchronized(this) { execution }
         pending.join()
     }

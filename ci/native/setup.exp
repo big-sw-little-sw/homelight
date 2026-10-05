@@ -46,8 +46,8 @@ step relocations {No relocations yet}
 send "b"
 step discovery {Maven}
 send_log "\n@@QUIT@@\n"
-# Back to Relocations, discard the draft (q, then Enter to confirm), quit the workspace.
-foreach key {"\033" q "\r" q} {
+# Back to Relocations, discard the draft (q, then y to confirm), quit the workspace.
+foreach key {"\033" q y q} {
   send $key
   after 300
 }

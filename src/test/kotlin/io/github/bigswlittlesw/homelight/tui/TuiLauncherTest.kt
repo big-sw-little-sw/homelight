@@ -8,6 +8,7 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.homelight.pollUntil
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -39,10 +40,9 @@ class TuiLauncherTest {
 
     @Test
     fun runnerReadsKeysWithVimBindingsEvenWithACustomConfig() {
-        val session = HomeLightSession(HomeLightExitTest.configuration(temporary))
-        assertSame(KEY_BINDINGS, HomeLightApp(session).configure().bindings())
+        assertSame(KEY_BINDINGS, tuiConfig().bindings())
         val backend = LifecycleBackend()
-        val custom = HomeLightApp(session, config(backend)).configure()
+        val custom = tuiConfig(config(backend))
         assertSame(KEY_BINDINGS, custom.bindings())
         assertSame(backend, custom.backend())
     }
@@ -56,13 +56,11 @@ class TuiLauncherTest {
             val completion = session.confirmApply(Executor(Runnable::run))
             val result = session.applyModel()
             if (exceptional) completion.obtrudeException(IllegalStateException("settlement failed"))
-            val backend = LifecycleBackend()
-            val app = HomeLightApp(session, config(backend))
-            app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
+            val backend = LifecycleBackend("q")
             if (exceptional) {
-                assertThrows<CompletionException> { app.run() }
+                assertThrows<CompletionException> { runTui(session, config(backend)) }
             } else {
-                app.run()
+                runTui(session, config(backend))
             }
             assertSame(result, session.applyModel())
             assertEquals(listOf("raw", "alternate", "hide", "hide", "show", "leave", "close"), backend.lifecycle)
@@ -71,30 +69,17 @@ class TuiLauncherTest {
     }
 
     @Test
-    fun renderingFailureWaitsForActiveWorkBeforeRestoringTerminal() {
-        val failRendering = AtomicBoolean()
-        val waiting = CountDownLatch(1)
-        val session = object : HomeLightSession(HomeLightExitTest.configuration(temporary)) {
-            @Synchronized override fun applyModel(): ApplyModel {
-                if (failRendering.get()) throw IllegalStateException("render fixture failure")
-                return super.applyModel()
-            }
-            override fun awaitExecution() {
-                waiting.countDown()
-                super.awaitExecution()
-            }
-        }
+    fun aFailedFrameWaitsForActiveWorkBeforeRestoringTerminal() {
+        val session = HomeLightSession(HomeLightExitTest.configuration(temporary))
         session.requestApply()
         val tasks = mutableListOf<Runnable>()
         val completion = session.confirmApply(Executor { tasks.add(it) })
-        val backend = LifecycleBackend()
-        val app = HomeLightApp(session, config(backend))
-        failRendering.set(true)
+        val backend = LifecycleBackend(failFlush = IllegalStateException("render fixture failure"))
         val thrown = AtomicReference<Throwable>()
         val stopped = CountDownLatch(1)
         val ui = Thread.ofPlatform().start {
             try {
-                app.run()
+                runTui(session, config(backend))
             } catch (failure: Throwable) {
                 thrown.set(failure)
             } finally {
@@ -102,18 +87,18 @@ class TuiLauncherTest {
             }
         }
         try {
-            assertTrue(waiting.await(5, TimeUnit.SECONDS))
-            assertEquals(listOf("raw", "alternate", "hide"), backend.lifecycle)
+            // Parked in awaitExecution: the UI thread's only untimed wait.
+            pollUntil("the UI thread waits for the apply") { ui.state == Thread.State.WAITING }
+            assertEquals(listOf("raw", "alternate", "hide", "hide"), backend.lifecycle)
             assertFalse(completion.isDone)
             assertTrue(ui.isAlive)
         } finally {
-            failRendering.set(false)
             tasks.first().run()
         }
         assertTrue(stopped.await(5, TimeUnit.SECONDS))
         // The failure itself propagates, so the CLI can name its type and message.
         assertEquals("render fixture failure", assertInstanceOf(IllegalStateException::class.java, thrown.get()).message)
-        assertEquals(listOf("raw", "alternate", "hide", "show", "leave", "close"), backend.lifecycle)
+        assertEquals(listOf("raw", "alternate", "hide", "hide", "show", "leave", "close"), backend.lifecycle)
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
         assertFalse(completion.isCancelled)
         assertTrue(Files.isSymbolicLink(temporary.resolve("source")))
@@ -131,7 +116,7 @@ class TuiLauncherTest {
         val backend = LifecycleBackend("r")
         failing.set(true)
 
-        val thrown = assertThrows<IllegalStateException> { HomeLightApp(session, config(backend)).run() }
+        val thrown = assertThrows<IllegalStateException> { runTui(session, config(backend)) }
         assertEquals("injected planner bug", thrown.message)
         assertEquals(listOf("show", "leave", "close"), backend.lifecycle.takeLast(3))
     }
@@ -142,32 +127,31 @@ class TuiLauncherTest {
         // A plan without its review snapshot makes the executor's preflight fail a `require`: a bug.
         val evaluator = ConfigurationEvaluation(plan = { states -> planner.plan(states).copy(expectedStates = listOf()) })
         val session = HomeLightSession(HomeLightExitTest.configuration(temporary), evaluator = evaluator)
-        val backend = LifecycleBackend()
-        val app = HomeLightApp(session, config(backend))
-        app.switchScreen(Screen.APPLY)
+        val ui = HeadlessTui(session)
+        ui.app.switchScreen(Screen.APPLY)
         session.confirmApply(Executor(Runnable::run))
 
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         val line = "Internal error (please report): IllegalArgumentException: Plan has no complete review snapshot"
         assertEquals(listOf(line), result.diagnostics)
         for ((width, height) in listOf(80 to 24, 120 to 30)) {
-            val screen = HomeLightExitTest.render(app, width, height)
+            val screen = ui.screen(width, height)
             assertTrue(screen.contains("Internal error (please report)"), screen)
             assertTrue(screen.contains("Worker stopped unexpectedly"), screen)
         }
-        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
-        val thrown = assertThrows<CompletionException> { app.run() }
+        val backend = LifecycleBackend("q")
+        val thrown = assertThrows<CompletionException> { runTui(session, config(backend)) }
         assertInstanceOf(IllegalArgumentException::class.java, thrown.cause)
         assertEquals(listOf("show", "leave", "close"), backend.lifecycle.takeLast(3))
         assertFalse(Files.exists(temporary.resolve("source")))
     }
 
-    /** Reads [input] one character at a time, then nothing. */
-    private class LifecycleBackend(input: String = "") : AbstractBackend() {
+    /** Reads [input] one character at a time, then nothing. Every flush throws [failFlush] when one is given. */
+    private class LifecycleBackend(input: String = "", private val failFlush: RuntimeException? = null) : AbstractBackend() {
         val lifecycle: MutableList<String> = CopyOnWriteArrayList()
         private val input = ConcurrentLinkedQueue(input.toList())
 
-        override fun flush() { }
+        override fun flush() { failFlush?.let { throw it } }
         override fun clear() { }
         override fun size(): Size = Size(80, 24)
         override fun showCursor() { lifecycle.add("show") }

@@ -6,9 +6,11 @@ import dev.tamboui.error.TerminalIOException
 import dev.tamboui.terminal.Backend
 import dev.tamboui.toolkit.app.ToolkitRunner
 import dev.tamboui.toolkit.element.Element
+import dev.tamboui.tui.TuiConfig
 import dev.tamboui.tui.error.RenderErrorHandler
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import org.jline.terminal.Terminal
 import java.io.IOException
 import java.io.PrintWriter
@@ -33,7 +35,7 @@ internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput
         return 2
     }
     try {
-        HomeLightApp(HomeLightSession(configPath, debugStepDelayMillis), startSetup = startSetup).run()
+        runTui(HomeLightSession(configPath, debugStepDelayMillis), startSetup = startSetup)
         return 0
     } catch (_: DumbTerminalException) {
         errorOutput.println(DUMB_TERMINAL)
@@ -65,8 +67,15 @@ internal fun terminalRefusal(interactive: Boolean, term: String?): String? = whe
     else -> null
 }
 
-internal fun runTui(app: HomeLightApp) {
-    val configured = app.configure()
+// The key handlers depend on KEY_BINDINGS, so a custom configuration gets them too.
+internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig = custom.toBuilder().bindings(KEY_BINDINGS).build()
+
+/** Runs the TUI on [config]'s backend, or the system terminal when it has none, until the user exits. */
+internal fun runTui(
+    session: HomeLightSession, config: TuiConfig = TuiConfig.defaults(), startSetup: Boolean = false,
+    discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
+) {
+    val configured = tuiConfig(config)
     // Propagate render and key-handling failures unchanged through the same waiting/cleanup boundary, so a bug
     // is reported by its own type and message. The toolkit's default error screen intercepts Escape before
     // application navigation can handle it.
@@ -75,6 +84,8 @@ internal fun runTui(app: HomeLightApp) {
         builder.backend(systemBackend())
     }
     ToolkitRunner.create(builder.build()).use { runner ->
+        val app = HomeLightApp(session, runner.focusManager(), startSetup, discoveryFactory)
+        runner.eventRouter().addGlobalHandler(app.keyHandler)
         try {
             runner.run(Supplier<Element> {
                 val view = app.render()
@@ -85,7 +96,7 @@ internal fun runTui(app: HomeLightApp) {
             })
         } finally {
             app.closeSetup()
-            app.session.awaitExecution()
+            session.awaitExecution()
         }
     }
 }

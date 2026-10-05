@@ -1,13 +1,8 @@
 package io.github.bigswlittlesw.homelight.tui
 
-import dev.tamboui.buffer.Buffer
-import dev.tamboui.layout.Rect
 import dev.tamboui.style.AnsiColor
 import dev.tamboui.style.Color
-import dev.tamboui.terminal.Frame
-import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.tui.event.KeyCode
-import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -16,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.Executor
 
 class PaletteTest {
     @TempDir lateinit var temporary: Path
@@ -42,12 +38,18 @@ class PaletteTest {
     @Test
     fun everyCellUsesTheBackgroundAndOnlyPaletteColors() {
         val session = HomeLightSession(WorkspaceViewTest.fixture(temporary))
-        val app = HomeLightApp(session)
+        val ui = HeadlessTui(session)
         val colors = roles(palette).values.toSet()
-        for (step in listOf<KeyCode?>(null, KeyCode.TAB)) {
-            step?.let { app.handleKeyEvent(KeyEvent.ofKey(it, KEY_BINDINGS)) }
+        val steps = listOf(
+            {},
+            { ui.press(KeyCode.TAB) },
+            // The quit dialog during an apply that never runs.
+            { ui.press(' '); ui.press('a'); session.confirmApply(Executor { }); ui.press('q') },
+        )
+        for (step in steps) {
+            step()
             for ((width, height) in listOf(80 to 24, 120 to 30)) {
-                val buffer = render(app, width, height)
+                val buffer = ui.frame(width, height)
                 for (y in 0 until height) for (x in 0 until width) {
                     // The terminal draws a wide glyph's second cell with the first cell's style.
                     if (buffer.get(x, y).isContinuation) continue
@@ -65,16 +67,4 @@ class PaletteTest {
         "focus" to palette.focus, "ok" to palette.ok, "change" to palette.change, "warn" to palette.warn,
         "error" to palette.error, "dialog" to palette.dialog, "dim" to palette.dim,
     )
-
-    private fun render(app: HomeLightApp, width: Int, height: Int): Buffer {
-        val renderThread = Class.forName("dev.tamboui.tui.RenderThread")
-        val marker = renderThread.getDeclaredMethod("markAsRenderThread").apply { isAccessible = true }
-        val clear = renderThread.getDeclaredMethod("clearRenderThread").apply { isAccessible = true }
-        marker.invoke(null)
-        try {
-            val buffer = Buffer.empty(Rect.of(width, height))
-            app.render().render(Frame.forTesting(buffer), Rect.of(width, height), RenderContext.empty())
-            return buffer
-        } finally { clear.invoke(null) }
-    }
 }

@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.tui
 import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
+import dev.tamboui.tui.event.KeyModifiers
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
@@ -17,6 +18,7 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -24,7 +26,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
-import java.util.concurrent.atomic.AtomicReference
 
 class HomeLightAppTest {
 
@@ -32,21 +33,21 @@ class HomeLightAppTest {
     fun createsRootRelativeRowsWithDefaultPolicies(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val config = root.resolve("new/config.json")
-        val app = HomeLightApp(HomeLightSession(config))
-        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
-        type(app, root.resolve("home").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
-        type(app, root.resolve("local").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-        type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('v', KEY_BINDINGS))
-        val validation = WorkspaceViewTest.render(app.render(), 120, 30)
+        val ui = HeadlessTui(HomeLightSession(config))
+        ui.press('i')
+        ui.press('\u0015')
+        type(ui, root.resolve("home").toString())
+        ui.press(KeyCode.DOWN)
+        ui.press('\u0015')
+        type(ui, root.resolve("local").toString())
+        ui.press(KeyCode.ENTER)
+        ui.press('a')
+        type(ui, ".cache/tool")
+        ui.press(KeyCode.ESCAPE)
+        ui.press('v')
+        val validation = ui.screen(120, 30)
         assertTrue(validation.contains("Validation: valid"), validation)
-        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
+        ui.press('s')
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath)
@@ -57,43 +58,54 @@ class HomeLightAppTest {
 
     @Test
     fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@TempDir temporary: Path) {
-        val app = HomeLightApp(HomeLightSession(temporary.resolve("config.json")))
-        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-        type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+        val ui = HeadlessTui(HomeLightSession(temporary.resolve("config.json")))
+        ui.press('i')
+        ui.press(KeyCode.ENTER)
+        ui.press('a')
+        type(ui, ".cache/tool")
+        ui.press(KeyCode.ESCAPE)
 
-        var table = WorkspaceViewTest.render(app.render(), 80, 24)
+        var table = ui.screen(80, 24)
         assertTrue(table.contains("Source (relative)"), table)
         assertTrue(table.contains(".cache/tool"), table)
 
-        app.handleKeyEvent(KeyEvent.ofChar('d', KEY_BINDINGS))
-        table = WorkspaceViewTest.render(app.render(), 80, 24)
+        ui.press('d')
+        table = ui.screen(80, 24)
         assertTrue(table.contains("No relocations yet"), table)
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-        type(app, ".cache/tool")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+        ui.press('a')
+        type(ui, ".cache/tool")
+        ui.press(KeyCode.ESCAPE)
 
-        app.handleKeyEvent(KeyEvent.ofChar('e', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-        type(app, "/target")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        table = WorkspaceViewTest.render(app.render(), 80, 24)
+        ui.press('e')
+        ui.press(KeyCode.DOWN)
+        type(ui, "/target")
+        ui.press(KeyCode.ENTER)
+        table = ui.screen(80, 24)
         assertTrue(table.contains(".cache/tool"), table)
         assertTrue(table.contains("Validation: not run"), table)
 
-        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
-        assertTrue(WorkspaceViewTest.render(app.render(), 80, 24).contains("Discard setup draft?"))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-        table = WorkspaceViewTest.render(app.render(), 80, 24)
+        ui.press('q')
+        val dialog = ui.screen(80, 24)
+        assertTrue(dialog.contains("╔Discard setup draft?"), dialog)
+        assertTrue(dialog.contains("y: Discard draft · n/Esc: Keep editing"), dialog)
+        assertEquals(DIALOG, ui.focused())
+        ui.press(KeyCode.ESCAPE)
+        table = ui.screen(80, 24)
         assertTrue(table.contains(".cache/tool"), table)
         assertFalse(Files.exists(temporary.resolve("config.json")))
 
-        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
-        val fresh = WorkspaceViewTest.render(app.render(), 80, 24)
+        ui.press('q')
+        // Only `y` discards; every other key, Enter included, leaves the dialog open.
+        for (key in listOf(KeyCode.ENTER, KeyCode.TAB, KeyCode.DOWN)) ui.press(key)
+        ui.press('d')
+        assertEquals(dialog, ui.screen(80, 24))
+        ui.press('n')
+        assertTrue(ui.screen(80, 24).contains(".cache/tool"))
+        ui.press('q')
+        ui.press('y')
+        assertEquals(WORKSPACE_DETAILS, ui.focused(), "the workspace without a configuration has only its details pane")
+        ui.press('i')
+        val fresh = ui.screen(80, 24)
         assertTrue(fresh.contains("Target root: "), fresh)
         assertTrue(fresh.contains("Validation: not run"), fresh)
         assertFalse(fresh.contains(".cache/tool"), fresh)
@@ -103,16 +115,16 @@ class HomeLightAppTest {
     fun rejectsUnsafeRelativeRowsUntilCorrected(@TempDir temporary: Path) {
         for (invalid in listOf("", ".", "..")) {
             val config = temporary.resolve("config-" + (if (invalid.isEmpty()) "blank" else invalid.replace('.', 'd')) + ".json")
-            val app = setupWithEmptyRow(config, temporary)
-            type(app, invalid)
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+            val ui = setupWithEmptyRow(config, temporary)
+            type(ui, invalid)
+            ui.press(KeyCode.ESCAPE)
 
-            assertInvalidAndUnpublished(app, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
-            type(app, "nested/cache")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
+            assertInvalidAndUnpublished(ui, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
+            ui.press(KeyCode.ENTER)
+            repeat(invalid.length) { ui.press(KeyCode.BACKSPACE) }
+            type(ui, "nested/cache")
+            ui.press(KeyCode.ESCAPE)
+            ui.press('s')
             assertTrue(Files.exists(config), invalid)
             val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/nested/cache"), relocation.sourcePath)
@@ -125,19 +137,19 @@ class HomeLightAppTest {
         var index = 0
         for (invalid in listOf("", ".", "../escape")) {
             val config = temporary.resolve("invalid-target-" + index++ + ".json")
-            val app = setupWithEmptyRow(config, temporary)
-            type(app, "valid/source")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-            repeat("valid/source".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
-            type(app, invalid)
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-            assertInvalidAndUnpublished(app, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-            repeat(invalid.length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
-            type(app, "valid/target")
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
+            val ui = setupWithEmptyRow(config, temporary)
+            type(ui, "valid/source")
+            ui.press(KeyCode.DOWN)
+            repeat("valid/source".length) { ui.press(KeyCode.BACKSPACE) }
+            type(ui, invalid)
+            ui.press(KeyCode.ESCAPE)
+            assertInvalidAndUnpublished(ui, config, if (invalid.isEmpty()) "cannot be blank" else "nested below their root")
+            ui.press(KeyCode.ENTER)
+            ui.press(KeyCode.DOWN)
+            repeat(invalid.length) { ui.press(KeyCode.BACKSPACE) }
+            type(ui, "valid/target")
+            ui.press(KeyCode.ESCAPE)
+            ui.press('s')
             val relocation = ConfigurationLoader().load(config).relocations.first()
             assertEquals(temporary.resolve("home/valid/source"), relocation.sourcePath)
             assertEquals(temporary.resolve("local/valid/target"), relocation.targetPath)
@@ -147,19 +159,19 @@ class HomeLightAppTest {
     @Test
     fun rejectsRelativeArchiveRootUntilCorrected(@TempDir temporary: Path) {
         val config = temporary.resolve("archive.json")
-        val app = setupWithEmptyRow(config, temporary)
-        type(app, "nested/cache")
-        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
-        type(app, "archive")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
+        val ui = setupWithEmptyRow(config, temporary)
+        type(ui, "nested/cache")
+        repeat(5) { ui.press(KeyCode.DOWN) }
+        type(ui, "archive")
+        ui.press(KeyCode.ESCAPE)
 
-        assertInvalidAndUnpublished(app, config, "Archive root must be an absolute path")
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        repeat(5) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
-        repeat("archive".length) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.BACKSPACE, KEY_BINDINGS)) }
-        type(app, temporary.resolve("archive").toString())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
+        assertInvalidAndUnpublished(ui, config, "Archive root must be an absolute path")
+        ui.press(KeyCode.ENTER)
+        repeat(5) { ui.press(KeyCode.DOWN) }
+        repeat("archive".length) { ui.press(KeyCode.BACKSPACE) }
+        type(ui, temporary.resolve("archive").toString())
+        ui.press(KeyCode.ESCAPE)
+        ui.press('s')
 
         val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(temporary.resolve("archive"), relocation.archiveRoot)
@@ -168,40 +180,17 @@ class HomeLightAppTest {
 
     @Test
     fun followsExecutionAcrossRelocationsWithoutOverridingManualInspectionBetweenActions() {
-        val first = Relocation(Path.of("/home/first"), Path.of("/local/first"))
-        val second = Relocation(Path.of("/home/second"), Path.of("/local/second"))
-        val firstPlan = RelocationPlan(first, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.CreateDirectory(first.targetPath),
-                ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf())
-        val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
-        val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
-        val progress = AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun applyModel(): ApplyModel {
-                return progress.get()
-            }
-        }
-        val app = HomeLightApp(session)
-        app.switchScreen(Screen.APPLY)
-        app.render()
-
+        val (plan, firstPlan, secondPlan) = twoRelocations(Path.of("/home/second"), Path.of("/local/second"))
+        val follower = ProgressFollower()
+        assertNull(follower.jump(ApplyModel.Confirmation(plan)))
         for (active in 0 until 3) {
-            val steps = mutableListOf<ApplyModel.Step>()
-            for (relocation in plan.relocations) {
-                for (action in relocation.actions) {
-                    val status = if (steps.size < active) ApplyModel.StepStatus.COMPLETED
-                    else if (steps.size == active) ApplyModel.StepStatus.RUNNING else ApplyModel.StepStatus.PENDING
-                    steps.add(ApplyModel.Step(relocation, action, status, status.toString()))
-                }
-            }
-            progress.set(ApplyModel.Running.of(plan, steps))
-            app.render()
-            assertEquals(active, app.selectedIndex())
-            app.handleKeyEvent(KeyEvent.ofKey(if (active == 0) KeyCode.DOWN else KeyCode.UP, KEY_BINDINGS))
-            val inspected: Int = app.selectedIndex()
-            app.render()
-            assertEquals(inspected, app.selectedIndex())
+            fun running(): ApplyModel = ApplyModel.Running.of(plan, steps(plan) { i ->
+                if (i < active) ApplyModel.StepStatus.COMPLETED
+                else if (i == active) ApplyModel.StepStatus.RUNNING else ApplyModel.StepStatus.PENDING
+            })
+            assertEquals(active, follower.jump(running()))
+            // Until the running step changes, the user's own selection stands.
+            assertNull(follower.jump(running()))
         }
 
         val result = ApplyModel.Result.of(plan, listOf(
@@ -209,60 +198,58 @@ class HomeLightAppTest {
             ApplyModel.Step(firstPlan, firstPlan.actions.last(), ApplyModel.StepStatus.FAILED, "source changed"),
             ApplyModel.Step(secondPlan, secondPlan.actions.first(), ApplyModel.StepStatus.PENDING, "not run")),
             null, listOf(), true)
-        progress.set(result)
-        app.render()
-        assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
-        app.render()
-        assertEquals(0, app.selectedIndex())
+        assertEquals(1, follower.jump(result))
+        assertNull(follower.jump(result))
 
         val completed = result.steps.map { step -> ApplyModel.Step(step.relocation, step.action,
             ApplyModel.StepStatus.COMPLETED, "completed") }
-        progress.set(ApplyModel.Result.of(plan, completed, null, listOf(), false))
-        app.render()
-        assertEquals(2, app.selectedIndex())
+        assertEquals(2, follower.jump(ApplyModel.Result.of(plan, completed, null, listOf(), false)))
     }
 
     @Test
     fun followsTheFirstRunningStepWhenRelocationsRunConcurrently() {
-        val first = Relocation(Path.of("/home/first"), Path.of("/local/first"))
-        val second = Relocation(Path.of("/opt/second"), Path.of("/srv/second"))
-        val firstPlan = RelocationPlan(first, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.CreateDirectory(first.targetPath),
-                ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf())
-        val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
-            listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
-        val plan = ReconciliationPlan(listOf(firstPlan, secondPlan), listOf())
-        val progress = AtomicReference<ApplyModel>(ApplyModel.Confirmation(plan))
-        val session = object : HomeLightSession(Path.of("/nonexistent/config.json")) {
-            override fun applyModel(): ApplyModel = progress.get()
-        }
-        val app = HomeLightApp(session)
-        app.switchScreen(Screen.APPLY)
-        app.render()
-        fun running(vararg statuses: ApplyModel.StepStatus) {
-            val steps = plan.relocations.flatMap { relocation -> relocation.actions.map { relocation to it } }
-                .zip(statuses) { (relocation, action), status -> ApplyModel.Step(relocation, action, status, status.toString()) }
-            progress.set(ApplyModel.Running.of(plan, steps))
-            app.render()
-        }
-        val (pending, runningStep, completed) =
+        val (plan) = twoRelocations(Path.of("/opt/second"), Path.of("/srv/second"))
+        val follower = ProgressFollower()
+        val (pending, running, completed) =
             listOf(ApplyModel.StepStatus.PENDING, ApplyModel.StepStatus.RUNNING, ApplyModel.StepStatus.COMPLETED)
+        fun model(vararg statuses: ApplyModel.StepStatus) = ApplyModel.Running.of(plan, steps(plan) { statuses[it] })
 
-        running(runningStep, pending, runningStep)
-        assertEquals(0, app.selectedIndex())
+        assertEquals(0, follower.jump(model(running, pending, running)))
         // Repeated frames with two running steps keep following the first, rather than alternating.
-        app.render()
-        assertEquals(0, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        app.render()
-        assertEquals(2, app.selectedIndex())
+        assertNull(follower.jump(model(running, pending, running)))
+        assertEquals(1, follower.jump(model(completed, running, running)))
+        assertEquals(2, follower.jump(model(completed, completed, running)))
+    }
 
-        running(completed, runningStep, runningStep)
-        assertEquals(1, app.selectedIndex())
-        running(completed, completed, runningStep)
-        assertEquals(2, app.selectedIndex())
+    @Test
+    fun reviewSelectionMovesWithTheListAndKeepsActionsSelectable(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val names = listOf("one", "two")
+        val relocations = names.joinToString(",\n") { name ->
+            "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
+        }
+        Files.createDirectories(root.resolve("home"))
+        val config = Files.writeString(root.resolve("config.json"),
+            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+        val ui = HeadlessTui(HomeLightSession(config))
+        ui.press('a')
+        val steps = ApplyView.steps(ui.app.session.applyModel())
+        assertEquals(REVIEW_LIST, ui.focused())
+        assertEquals(0, ui.app.selectedIndex())
+        // Each relocation's line rides on its first action, so every row the list selects is an action.
+        for (i in 1 until steps.size) {
+            ui.press(KeyCode.DOWN)
+            assertEquals(i, ui.app.selectedIndex())
+        }
+        ui.press(KeyCode.DOWN)
+        assertEquals(steps.size - 1, ui.app.selectedIndex())
+        ui.press(KeyCode.HOME)
+        assertEquals(0, ui.app.selectedIndex())
+        ui.press(KeyCode.END)
+        assertEquals(steps.size - 1, ui.app.selectedIndex())
+        val screen = ui.screen(120, 30)
+        assertTrue(screen.contains("❯ ○ Create source link"), screen)
+        for (name in names) assertTrue(screen.contains("home/$name │"), screen)
     }
 
     @Test
@@ -278,35 +265,35 @@ class HomeLightAppTest {
                   ]
                 }}
                 """.trimIndent() + "\n").format(root, source, target))
-        val app = HomeLightApp(HomeLightSession(config))
+        val ui = HeadlessTui(HomeLightSession(config))
 
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertEquals(Screen.APPLY, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
+        ui.press('2')
+        assertEquals(Screen.APPLY, ui.app.activeScreen)
+        ui.press(KeyCode.ENTER)
+        assertTrue(ui.app.session.applyModel() is ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
-        app.handleKeyEvent(KeyEvent.ofChar('n', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('y', KEY_BINDINGS))
-        app.session.awaitExecution()
+        ui.press('n')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
+        ui.press('a')
+        ui.press('y')
+        ui.app.session.awaitExecution()
         assertTrue(Files.isSymbolicLink(source))
-        assertTrue(app.session.applyModel() is ApplyModel.Result)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
-        assertEquals(1, (app.session.evaluation() as ConfigurationEvaluation.Loaded).items.count { it.badge() == PlanBadge.IN_SYNC })
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertTrue(app.session.applyModel() is ApplyModel.Result)
-        app.handleKeyEvent(KeyEvent.ofChar('r', KEY_BINDINGS))
-        assertTrue(app.session.isPlanReady())
-        assertFalse((app.session.evaluation() as ConfigurationEvaluation.Loaded).plan.actions().any(ReconciliationAction::mutatesFilesystem))
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-        val unchanged = app.session.applyModel()
-        app.handleKeyEvent(KeyEvent.ofChar('y', KEY_BINDINGS))
-        assertSame(unchanged, app.session.applyModel())
-        assertFalse(app.session.isApplying())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        assertTrue(ui.app.session.applyModel() is ApplyModel.Result)
+        ui.press(KeyCode.ENTER)
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
+        assertEquals(1, (ui.app.session.evaluation() as ConfigurationEvaluation.Loaded).items.count { it.badge() == PlanBadge.IN_SYNC })
+        ui.press('2')
+        assertTrue(ui.app.session.applyModel() is ApplyModel.Result)
+        ui.press('r')
+        assertTrue(ui.app.session.isPlanReady())
+        assertFalse((ui.app.session.evaluation() as ConfigurationEvaluation.Loaded).plan.actions().any(ReconciliationAction::mutatesFilesystem))
+        ui.press('a')
+        val unchanged = ui.app.session.applyModel()
+        ui.press('y')
+        assertSame(unchanged, ui.app.session.applyModel())
+        assertFalse(ui.app.session.isApplying())
+        ui.press(KeyCode.ENTER)
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
     }
 
     @Test
@@ -320,15 +307,15 @@ class HomeLightAppTest {
                   ]
                 }}
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
-        val app = HomeLightApp(HomeLightSession(config))
-        app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
+        val ui = HeadlessTui(HomeLightSession(config))
+        ui.press('a')
         val tasks = mutableListOf<Runnable>()
-        app.session.confirmApply(Executor { tasks.add(it) })
-        val running = app.session.applyModel()
+        ui.app.session.confirmApply(Executor { tasks.add(it) })
+        val running = ui.app.session.applyModel()
         for (key in charArrayOf('r', 'y', 'a', '1', '2', 'q')) {
-            assertEquals(EventResult.HANDLED, app.handleKeyEvent(KeyEvent.ofChar(key, KEY_BINDINGS)))
-            assertEquals(Screen.APPLY, app.activeScreen)
-            assertSame(running, app.session.applyModel())
+            assertEquals(EventResult.HANDLED, ui.app.keyHandler.handle(KeyEvent.ofChar(key, KEY_BINDINGS)))
+            assertEquals(Screen.APPLY, ui.app.activeScreen)
+            assertSame(running, ui.app.session.applyModel())
         }
         tasks.first().run()
         assertTrue(Files.isSymbolicLink(root.resolve("source")))
@@ -337,100 +324,109 @@ class HomeLightAppTest {
     @Test
     fun handlesNavigationKeys(@TempDir temporary: Path) {
         val session = session(temporary, inSync = listOf("source1", "source2", "source3"))
-        val app = HomeLightApp(session)
+        val ui = HeadlessTui(session)
 
-        assertEquals(0, app.selectedIndex())
+        assertEquals(0, ui.app.selectedIndex())
 
         // Move down
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(1, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(1, ui.app.selectedIndex())
 
         // Move down with DOWN key
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(2, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(2, ui.app.selectedIndex())
 
         // Cannot move past the end
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(2, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(2, ui.app.selectedIndex())
 
         // Move up
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
-        assertEquals(1, app.selectedIndex())
+        ui.press(KeyCode.UP)
+        assertEquals(1, ui.app.selectedIndex())
 
         // Jump to end
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.END, KEY_BINDINGS))
-        assertEquals(2, app.selectedIndex())
+        ui.press(KeyCode.END)
+        assertEquals(2, ui.app.selectedIndex())
 
         // Jump to start
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.HOME, KEY_BINDINGS))
-        assertEquals(0, app.selectedIndex())
+        ui.press(KeyCode.HOME)
+        assertEquals(0, ui.app.selectedIndex())
+
+        // TamboUI's list pages too
+        ui.press(KeyCode.PAGE_DOWN)
+        assertEquals(2, ui.app.selectedIndex())
+        ui.press(KeyCode.PAGE_UP)
+        assertEquals(0, ui.app.selectedIndex())
 
         // Cannot move before 0
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
-        assertEquals(0, app.selectedIndex())
+        ui.press(KeyCode.UP)
+        assertEquals(0, ui.app.selectedIndex())
 
         // The former vim keys are not navigation
-        for (letter in "jJGlL") app.handleKeyEvent(KeyEvent.ofChar(letter, KEY_BINDINGS))
-        assertEquals(0, app.selectedIndex())
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        for (letter in "jJGlL") ui.press(letter)
+        assertEquals(0, ui.app.selectedIndex())
+        assertEquals(WORKSPACE_LIST, ui.focused())
     }
 
     @Test
     fun handlesConvergedFilterAndToggle(@TempDir temporary: Path) {
         val session = session(temporary, inSync = listOf("source2", "source3"), conflicts = listOf("source1"))
-        val app = HomeLightApp(session)
+        val ui = HeadlessTui(session)
 
         // When there is an unresolved item, showInSync defaults to false
-        assertFalse(app.showInSync)
-        assertEquals(0, app.selectedIndex())
+        assertFalse(ui.app.showInSync)
+        assertEquals(0, ui.app.selectedIndex())
+        // The count is in the list's title, where the selection cannot land
+        val screen = ui.screen(80, 24)
+        assertTrue(screen.contains("┌Relocations · 2 in sync hidden"), screen)
 
         // Moving down stays at 0 because only 1 active item is visible
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(0, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(0, ui.app.selectedIndex())
 
         // Press 'c' to toggle showInSync to true
-        app.handleKeyEvent(KeyEvent.ofChar('c', KEY_BINDINGS))
-        assertTrue(app.showInSync)
+        ui.press('c')
+        assertTrue(ui.app.showInSync)
 
         // Now all 3 items are navigable
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(2, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(1, ui.app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(2, ui.app.selectedIndex())
 
         // Press SPACE to toggle showInSync back to false
-        app.handleKeyEvent(KeyEvent.ofChar('c', KEY_BINDINGS))
-        assertFalse(app.showInSync)
-        assertEquals(0, app.selectedIndex())
+        ui.press('c')
+        assertFalse(ui.app.showInSync)
+        assertEquals(0, ui.app.selectedIndex())
     }
 
     @Test
     fun allInSyncDefaultsToShowInSync(@TempDir temporary: Path) {
         val session = session(temporary, inSync = listOf("source1"))
-        val app = HomeLightApp(session)
-        assertTrue(app.showInSync)
-        assertEquals(0, app.selectedIndex())
+        val ui = HeadlessTui(session)
+        assertTrue(ui.app.showInSync)
+        assertEquals(0, ui.app.selectedIndex())
     }
 
     @Test
     fun switchesScreensViaKeys() {
-        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.json")))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        val ui = HeadlessTui(HomeLightSession(Path.of("/nonexistent/config.json")))
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        ui.press('2')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        ui.press('2')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('1', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        ui.press('1')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('p', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        ui.press('p')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
-        app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
+        ui.press('s')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
     }
 
     @Test
@@ -450,29 +446,29 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val app = HomeLightApp(HomeLightSession(config))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
-        assertTrue(app.session.hasConflicts())
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        val ui = HeadlessTui(HomeLightSession(config))
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
+        assertTrue(ui.app.session.hasConflicts())
+        assertEquals(WORKSPACE_LIST, ui.focused())
 
         // Press TAB to focus detail pane
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex)
+        ui.press(KeyCode.TAB)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
+        assertEquals(0, ui.app.detailSelectedIndex)
 
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertEquals(Screen.WORKSPACE, app.activeScreen)
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press('2')
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
         // Press SPACE in detail pane to resolve highlighted decision
-        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
-        assertFalse(app.session.hasConflicts())
-        assertTrue(app.session.isPlanReady())
+        ui.press(' ')
+        assertFalse(ui.app.session.hasConflicts())
+        assertTrue(ui.app.session.isPlanReady())
 
-        app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
-        assertEquals(Screen.APPLY, app.activeScreen)
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
-        assertTrue(app.session.applyModel() is ApplyModel.Confirmation)
+        ui.press('2')
+        assertEquals(Screen.APPLY, ui.app.activeScreen)
+        assertEquals(REVIEW_LIST, ui.focused())
+        assertTrue(ui.app.session.applyModel() is ApplyModel.Confirmation)
         assertFalse(Files.exists(source))
     }
 
@@ -500,68 +496,68 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val app = HomeLightApp(HomeLightSession(config))
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
-        assertEquals(0, app.selectedIndex())
+        val ui = HeadlessTui(HomeLightSession(config))
+        assertEquals(WORKSPACE_LIST, ui.focused())
+        assertEquals(0, ui.app.selectedIndex())
 
         // Right moves focus to the DETAIL pane
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex)
+        ui.press(KeyCode.RIGHT)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
+        assertEquals(0, ui.app.detailSelectedIndex)
 
         // Down moves through the resolution options
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(1, app.detailSelectedIndex)
+        ui.press(KeyCode.DOWN)
+        assertEquals(1, ui.app.detailSelectedIndex)
 
         // Down again
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(2, app.detailSelectedIndex)
+        ui.press(KeyCode.DOWN)
+        assertEquals(2, ui.app.detailSelectedIndex)
 
         // Up moves back
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
-        assertEquals(1, app.detailSelectedIndex)
+        ui.press(KeyCode.UP)
+        assertEquals(1, ui.app.detailSelectedIndex)
 
         // Left returns to the MASTER pane
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        ui.press(KeyCode.LEFT)
+        assertEquals(WORKSPACE_LIST, ui.focused())
 
         // In MASTER pane, move down to second relocation
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(1, app.selectedIndex())
+        ui.press(KeyCode.DOWN)
+        assertEquals(1, ui.app.selectedIndex())
 
         // Focus DETAIL pane with RIGHT arrow
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(KeyCode.RIGHT)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
         // Select resolution (Enter) on second item
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(KeyCode.ENTER)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
         // Return to master with LEFT arrow
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        ui.press(KeyCode.LEFT)
+        assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // Enter detail pane using raw TAB character '\t'
-        app.handleKeyEvent(KeyEvent.ofChar('\t', KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        // Tab moves focus to the details pane
+        ui.press(KeyCode.TAB)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // Return to master using TAB in detail pane
-        app.handleKeyEvent(KeyEvent.ofChar('\t', KEY_BINDINGS))
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        // Shift-Tab moves it back to the list
+        ui.press(KeyEvent.ofKey(KeyCode.TAB, KeyModifiers.SHIFT, KEY_BINDINGS))
+        assertEquals(WORKSPACE_LIST, ui.focused())
     }
 
     @Test
     fun canInspectDetailsWhenNoResolutionsAvailable(@TempDir temporary: Path) {
         val session = session(temporary, inSync = listOf("source1"))
-        val app = HomeLightApp(session)
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        val ui = HeadlessTui(session)
+        assertEquals(WORKSPACE_LIST, ui.focused())
 
         // Read-only details remain accessible without choices.
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(KeyCode.TAB)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(KeyCode.RIGHT)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
     }
 
     @Test
@@ -588,71 +584,80 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val app = HomeLightApp(HomeLightSession(config))
-        assertEquals(0, app.selectedIndex())
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
+        val ui = HeadlessTui(HomeLightSession(config))
+        assertEquals(0, ui.app.selectedIndex())
+        assertEquals(WORKSPACE_LIST, ui.focused())
 
         // Focus the detail pane with Right
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
-        assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
+        ui.press(KeyCode.RIGHT)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
+        assertEquals(0, ui.app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
         // Move past ADOPT_AND_ARCHIVE_SOURCE to choice 2: LEAVE_UNCHANGED (Unchanged)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(2, app.detailSelectedIndex)
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.DOWN)
+        assertEquals(2, ui.app.detailSelectedIndex)
 
         // Select it (Space)
-        app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(' ')
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
         // The item must stay selected and visible as SKIPPED
-        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation()).let { configured ->
-            val visible = WorkspaceView.visibleItems(configured, app.showInSync)
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation()).let { configured ->
+            val visible = WorkspaceView.visibleItems(configured, ui.app.showInSync)
             assertTrue(visible.size >= 2)
-            val currentItem = visible[app.selectedIndex()]
+            val currentItem = visible[ui.app.selectedIndex()]
             assertEquals(source1, currentItem.relocation.sourcePath)
             assertEquals(PlanBadge.SKIPPED, currentItem.badge())
-            assertEquals(2, app.detailSelectedIndex)
+            assertEquals(2, ui.app.detailSelectedIndex)
         }
 
         // Return to the master list with Left
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
-        assertEquals(PaneFocus.MASTER, app.paneFocus())
-        assertEquals(1, app.selectedIndex())
+        ui.press(KeyCode.LEFT)
+        assertEquals(WORKSPACE_LIST, ui.focused())
+        assertEquals(1, ui.app.selectedIndex())
 
         // Move up to unresolved conflict item (source2 is at index 0)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
-        assertEquals(0, app.selectedIndex())
+        ui.press(KeyCode.UP)
+        assertEquals(0, ui.app.selectedIndex())
 
         // Move into the detail pane with Right
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
-        assertEquals(PaneFocus.DETAIL, app.paneFocus())
+        ui.press(KeyCode.RIGHT)
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
 
         // Select choice 3: DISCARD_BOTH (index 3)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
-        assertEquals(3, app.detailSelectedIndex)
-        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.DOWN)
+        assertEquals(3, ui.app.detailSelectedIndex)
+        ui.press(KeyCode.ENTER)
 
         // The second item must stay selected and have DISCARD badge
-        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, app.session.evaluation()).let { configured ->
-            val visible = WorkspaceView.visibleItems(configured, app.showInSync)
-            val currentItem = visible[app.selectedIndex()]
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation()).let { configured ->
+            val visible = WorkspaceView.visibleItems(configured, ui.app.showInSync)
+            val currentItem = visible[ui.app.selectedIndex()]
             assertEquals(source2, currentItem.relocation.sourcePath)
             assertEquals(PlanBadge.DISCARD, currentItem.badge())
         }
     }
 
-    @Test
-    fun rendersAppElement() {
-        val app = HomeLightApp(HomeLightSession(Path.of("/nonexistent/config.json")))
-        val element = app.render()
-        assertTrue(element.isFocusable)
-    }
-
     private companion object {
+        /** A plan of two relocations, `/home/first` with two actions and [source] with one, and its relocation plans. */
+        fun twoRelocations(source: Path, target: Path): Triple<ReconciliationPlan, RelocationPlan, RelocationPlan> {
+            val first = Relocation(Path.of("/home/first"), Path.of("/local/first"))
+            val second = Relocation(source, target)
+            val firstPlan = RelocationPlan(first, RelocationOutcome.CONVERGED,
+                listOf(ReconciliationAction.CreateDirectory(first.targetPath),
+                    ReconciliationAction.CreateSymlink(first.sourcePath, first.targetPath)), listOf())
+            val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
+                listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
+            return Triple(ReconciliationPlan(listOf(firstPlan, secondPlan), listOf()), firstPlan, secondPlan)
+        }
+
+        fun steps(plan: ReconciliationPlan, status: (Int) -> ApplyModel.StepStatus): List<ApplyModel.Step> =
+            plan.relocations.flatMap { relocation -> relocation.actions.map { relocation to it } }
+                .mapIndexed { i, (relocation, action) -> ApplyModel.Step(relocation, action, status(i), status(i).toString()) }
+
         /** A real session whose `inSync` sources already link to their targets and whose `conflicts` have both directories. */
         fun session(temporary: Path, inSync: List<String> = listOf(), conflicts: List<String> = listOf()): HomeLightSession {
             val root = temporary.toRealPath()
@@ -672,28 +677,28 @@ class HomeLightAppTest {
             return HomeLightSession(config)
         }
 
-        fun type(app: HomeLightApp, value: String) {
-            for (character in value.toCharArray()) app.handleKeyEvent(KeyEvent.ofChar(character, KEY_BINDINGS))
+        fun type(ui: HeadlessTui, value: String) {
+            for (character in value.toCharArray()) ui.press(character)
         }
 
-        fun setupWithEmptyRow(config: Path, temporary: Path): HomeLightApp {
-            val app = HomeLightApp(HomeLightSession(config))
-            app.handleKeyEvent(KeyEvent.ofChar('i', KEY_BINDINGS))
-            app.handleKeyEvent(KeyEvent.ofChar('\u0015', KEY_BINDINGS))
-            type(app, temporary.resolve("home").toString())
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.TAB, KEY_BINDINGS))
-            type(app, temporary.resolve("local").toString())
-            app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
-            app.handleKeyEvent(KeyEvent.ofChar('a', KEY_BINDINGS))
-            return app
+        fun setupWithEmptyRow(config: Path, temporary: Path): HeadlessTui {
+            val ui = HeadlessTui(HomeLightSession(config))
+            ui.press('i')
+            ui.press('\u0015')
+            type(ui, temporary.resolve("home").toString())
+            ui.press(KeyCode.DOWN)
+            type(ui, temporary.resolve("local").toString())
+            ui.press(KeyCode.ENTER)
+            ui.press('a')
+            return ui
         }
 
-        fun assertInvalidAndUnpublished(app: HomeLightApp, config: Path, message: String) {
-            app.handleKeyEvent(KeyEvent.ofChar('v', KEY_BINDINGS))
-            val validation = WorkspaceViewTest.render(app.render(), 120, 30)
+        fun assertInvalidAndUnpublished(ui: HeadlessTui, config: Path, message: String) {
+            ui.press('v')
+            val validation = ui.screen(120, 30)
             assertTrue(validation.contains(message), validation)
-            app.handleKeyEvent(KeyEvent.ofChar('s', KEY_BINDINGS))
-            val save = WorkspaceViewTest.render(app.render(), 120, 30)
+            ui.press('s')
+            val save = ui.screen(120, 30)
             assertTrue(save.contains(message), save)
             assertFalse(Files.exists(config))
         }

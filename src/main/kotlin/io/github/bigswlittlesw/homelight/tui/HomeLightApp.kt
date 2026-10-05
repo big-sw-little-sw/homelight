@@ -1,13 +1,11 @@
 package io.github.bigswlittlesw.homelight.tui
 
-import dev.tamboui.style.Style
-import dev.tamboui.text.Line
-import dev.tamboui.text.Span
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.Column
 import dev.tamboui.toolkit.event.EventResult
-import dev.tamboui.tui.TuiConfig
+import dev.tamboui.toolkit.event.GlobalEventHandler
+import dev.tamboui.toolkit.focus.FocusManager
 import dev.tamboui.tui.bindings.BindingSets
 import dev.tamboui.tui.bindings.Bindings
 import dev.tamboui.tui.event.KeyCode
@@ -29,223 +27,240 @@ import java.nio.file.Path
  */
 internal val KEY_BINDINGS: Bindings = BindingSets.standard()
 
+// Fixed focus ids: TamboUI's FocusManager tracks focus by id, and an element without one gets a new id every frame.
+internal const val WORKSPACE_LIST = "workspace-list"
+internal const val WORKSPACE_DETAILS = "workspace-details"
+internal const val REVIEW_LIST = "review-list"
+internal const val REVIEW_DETAILS = "review-details"
+internal const val SETUP_SCREEN = "setup"
+internal const val DIALOG = "dialog"
+
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.
  *
- * `discoveryFactory` gives each reopened setup its own discovery lifetime.
+ * Focus is TamboUI's: the focused element takes its own keys first (a list moves its selection, a dialog answers),
+ * and [keyHandler] gets every key it leaves. `discoveryFactory` gives each reopened setup its own discovery lifetime.
  */
 internal class HomeLightApp(
     val session: HomeLightSession,
-    private val customTuiConfig: TuiConfig? = null,
+    private val focus: FocusManager,
     startSetup: Boolean = false,
     private val discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
 ) {
     internal var activeScreen = Screen.WORKSPACE
         private set
-    private var selectedIndex = 0
-    private var actionIndex = 0
+    private val workspaceList = WorkspaceView.list()
+    private val reviewList = ApplyView.list()
     private var reviewedSource: Path? = null
-    private var paneFocus = PaneFocus.MASTER
-    private var actionFocus = PaneFocus.MASTER
     var detailSelectedIndex = 0
         private set
     var showInSync = false
         private set
     private var userShowInSync: Boolean? = null
     private var spinnerFrame = 0
-    private var followedAction: ReconciliationAction? = null
-    private var displayedResult: ApplyModel.Result? = null
+    private val progress = ProgressFollower()
+    // What the details panes show. The lists move their selection themselves, so a frame compares against these.
+    private var detailsSource: Path? = null
+    private var detailsStep = 0
+    private var detailsWereFocused = false
+    // Where the user was on Workspace, restored when Review or Results returns there.
+    private var workspaceFocus: String? = null
     private val workspaceDetails = DetailViewport()
     private val actionDetails = DetailViewport()
     private var exitIntent = ExitIntent.STAY
+    private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
 
-    private enum class ExitIntent { STAY, CONFIRM_KEEP, CONFIRM_EXIT, AFTER_EXECUTION, EXIT }
+    private enum class ExitIntent { STAY, CONFIRM, AFTER_EXECUTION, EXIT }
 
     init {
         syncInSyncSetting()
+        // Set on every screen change rather than left to the runner, which focuses the first focusable only after a
+        // frame has rendered without focus.
+        focus.setFocus(if (startSetup) SETUP_SCREEN else WORKSPACE_LIST)
     }
 
-    // The key handlers depend on KEY_BINDINGS, so a custom configuration gets them too.
-    internal fun configure(): TuiConfig =
-        (customTuiConfig ?: TuiConfig.defaults()).toBuilder().bindings(KEY_BINDINGS).build()
-
-    fun run() { runTui(this) }
+    /**
+     * Handles every key the focused element leaves, keyed by the focused id, and always reports it handled.
+     * Otherwise TamboUI would offer it to unfocused lists, which move their selection, clear focus on Escape and
+     * quit on `q`.
+     */
+    val keyHandler = GlobalEventHandler { event ->
+        if (event !is KeyEvent) return@GlobalEventHandler EventResult.UNHANDLED
+        handleKey(event)
+        EventResult.HANDLED
+    }
 
     internal fun exitRequested(): Boolean = exitIntent == ExitIntent.EXIT
 
     internal fun render(): Element {
         settleDeferredExit()
-        val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply()
-        else WorkspaceView.render(session, selectedIndex, showInSync, paneFocus, detailSelectedIndex, workspaceDetails)
+        // The discard dialog closes setup without a key reaching handleKey.
+        dropClosedSetup()
+        val dialog = setup?.dialog() ?: if (exitIntent == ExitIntent.CONFIRM) quitDialog() else null
+        val interactive = dialog == null
+        val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
-        if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) {
-            content = Toolkit.column(
-                content,
-                Toolkit.panel(
-                    Toolkit.column(
-                        Toolkit.text("Filesystem operations will finish, including on failure."),
-                        Toolkit.text("Results are session-local and won't remain available after exit."),
-                        Toolkit.text((if (exitIntent == ExitIntent.CONFIRM_KEEP) "❯ " else "  ") + "Keep running"),
-                        Toolkit.text((if (exitIntent == ExitIntent.CONFIRM_EXIT) "❯ " else "  ") + "Exit when execution finishes"),
-                        Toolkit.text("↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel").fg(palette.dim),
-                    ),
-                ).title(Line.from(Span.styled("Quit HomeLight?", Style.EMPTY.fg(palette.dialog))))
-                    .borderColor(palette.dialog).length(7),
-            )
-        } else if (exitIntent == ExitIntent.AFTER_EXECUTION) {
+        if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
                 content, Toolkit.text("Will exit after execution settles, including failure.").fg(palette.warn),
                 Toolkit.text("Session-local results won't remain available after exit.").fg(palette.dim),
             )
         }
         // Every element inherits the root's colors, and the root fills the whole screen with the background.
-        return content.id("homelight-screen").bg(palette.background).fg(palette.text)
-            .onKeyEvent(this::handleKeyEvent).focusable()
+        return Toolkit.stack(*listOfNotNull(content, dialog).toTypedArray()).bg(palette.background).fg(palette.text)
     }
 
-    private fun renderApply(): Element {
+    private fun quitDialog(): Element = confirmDialog(
+        "Quit HomeLight?",
+        listOf(
+            "Filesystem operations will finish, including on failure.",
+            "Results are session-local and won't remain available after exit.",
+        ),
+        "y: Exit when execution finishes · n/Esc: Keep running",
+        onYes = { closeQuitDialog(ExitIntent.AFTER_EXECUTION) },
+        onNo = { closeQuitDialog(ExitIntent.STAY) },
+    )
+
+    private fun renderWorkspace(interactive: Boolean): Element {
+        val source = selectedPlanItem()?.relocation?.sourcePath
+        if (source != detailsSource) {
+            detailsSource = source
+            resetDetailSelection()
+        }
+        // However focus arrives (Tab, → or Enter), the details show the choice.
+        val detailsFocused = focus.focusedId() == WORKSPACE_DETAILS
+        if (detailsFocused && !detailsWereFocused) workspaceDetails.followChoice()
+        detailsWereFocused = detailsFocused
+        return WorkspaceView.render(
+            session, workspaceList, showInSync, focus.focusedId(), interactive, detailSelectedIndex, workspaceDetails,
+        )
+    }
+
+    private fun renderApply(interactive: Boolean): Element {
         val model = session.applyModel()
-        when (model) {
-            is ApplyModel.Running -> {
-                // Independent relocations can run at once; follow the first running step in plan order.
-                val running = model.steps.indexOfFirst { step -> step.status == ApplyModel.StepStatus.RUNNING }
-                if (running >= 0 && model.steps[running].action !== followedAction) {
-                    // Manual inspection lasts until the followed step changes.
-                    actionIndex = running
-                    actionDetails.reset()
-                    followedAction = model.steps[running].action
-                }
-            }
-            is ApplyModel.Result -> {
-                if (model !== displayedResult) {
-                    for ((i, step) in model.steps.withIndex()) {
-                        if (step.status == ApplyModel.StepStatus.COMPLETED || step.status == ApplyModel.StepStatus.FAILED) actionIndex = i
-                        if (step.status == ApplyModel.StepStatus.FAILED) break
-                    }
-                    actionDetails.reset()
-                    displayedResult = model
-                }
-            }
-            is ApplyModel.Idle, is ApplyModel.Confirmation -> {
-                followedAction = null
-                displayedResult = null
-            }
+        progress.jump(model)?.let(reviewList::selected)
+        if (reviewList.selected() != detailsStep) {
+            detailsStep = reviewList.selected()
+            actionDetails.reset()
         }
-        return ApplyView.render(session.configPath, model, actionIndex, spinnerFrame++, actionFocus, actionDetails)
+        return ApplyView.render(
+            session.configPath, model, reviewList, spinnerFrame++, focus.focusedId(), interactive, actionDetails,
+        )
     }
 
-    fun handleKeyEvent(key: KeyEvent): EventResult {
-        if (exitIntent == ExitIntent.CONFIRM_KEEP || exitIntent == ExitIntent.CONFIRM_EXIT) return handleExitDialog(key)
-        val currentSetup = setup
-        if (currentSetup != null) {
-            currentSetup.key(key)
-            if (currentSetup.closed) { setup = null; workspaceDetails.reset(); syncInSyncSetting() }
-            return EventResult.HANDLED
+    private fun handleKey(key: KeyEvent) {
+        setup?.let { current ->
+            current.key(key)
+            dropClosedSetup()
+            return
         }
-        if (key.isKey(KeyCode.ESCAPE)) {
-            if (activeScreen == Screen.APPLY && session.applyModel() is ApplyModel.Confirmation) {
-                session.cancelApply()
-                activeScreen = Screen.WORKSPACE
-            } else if (activeScreen == Screen.APPLY) actionFocus = PaneFocus.MASTER
-            else paneFocus = PaneFocus.MASTER
-            return EventResult.HANDLED
-        }
-        if (key.isQuit()) {
-            if (exitIntent == ExitIntent.STAY) exitIntent = if (session.isApplying() || !session.executionSettled())
-                ExitIntent.CONFIRM_KEEP else ExitIntent.EXIT
-            return EventResult.HANDLED
-        }
-        if (exitIntent == ExitIntent.EXIT) return EventResult.HANDLED
+        if (key.isKey(KeyCode.ESCAPE)) { back(); return }
+        if (key.isQuit()) { requestQuit(); return }
+        if (exitIntent == ExitIntent.EXIT) return
         if (key.isCharIgnoreCase('i') && (session.evaluation() is ConfigurationEvaluation.Missing ||
                 session.evaluation() is ConfigurationEvaluation.Unconfigured)
         ) {
             setup = SetupView(session, discoveryFactory)
-            return EventResult.HANDLED
+            focus.setFocus(SETUP_SCREEN)
+            return
         }
-        if (key.isChar('1')) { switchScreen(Screen.WORKSPACE); return EventResult.HANDLED }
-        if (key.isChar('2')) { switchScreen(Screen.APPLY); return EventResult.HANDLED }
-        if (activeScreen == Screen.APPLY) return handleApplyKeyEvent(key)
-        if (key.isCharIgnoreCase('r')) { refresh(); return EventResult.HANDLED }
-        if (key.isCharIgnoreCase('a')) { switchScreen(Screen.APPLY); return EventResult.HANDLED }
-        if (key.isCharIgnoreCase('c')) { toggleInSync(); return EventResult.HANDLED }
-        if (key.isChar('[') || key.isChar(']')) {
-            workspaceDetails.scroll(if (key.isChar(']')) 1 else -1)
-            return EventResult.HANDLED
+        if (key.isChar('1')) { switchScreen(Screen.WORKSPACE); return }
+        if (key.isChar('2')) { switchScreen(Screen.APPLY); return }
+        if (activeScreen == Screen.APPLY) applyKey(key) else workspaceKey(key)
+    }
+
+    /** Esc goes back one level and never exits. */
+    private fun back() {
+        when {
+            // Returning to Workspace cancels the review.
+            activeScreen == Screen.APPLY && session.applyModel() is ApplyModel.Confirmation -> switchScreen(Screen.WORKSPACE)
+            focus.focusedId() == WORKSPACE_DETAILS -> focus.setFocus(WORKSPACE_LIST)
+            focus.focusedId() == REVIEW_DETAILS -> focus.setFocus(REVIEW_LIST)
         }
-        if (isTab(key) || key.isRight()) {
-            paneFocus = if (isTab(key) && paneFocus == PaneFocus.DETAIL) PaneFocus.MASTER else PaneFocus.DETAIL
-            if (paneFocus == PaneFocus.DETAIL) workspaceDetails.followChoice()
-            return EventResult.HANDLED
+    }
+
+    private fun workspaceKey(key: KeyEvent) {
+        when {
+            key.isCharIgnoreCase('r') -> refresh()
+            key.isCharIgnoreCase('a') -> switchScreen(Screen.APPLY)
+            key.isCharIgnoreCase('c') -> toggleInSync()
+            key.isChar('[') || key.isChar(']') -> workspaceDetails.scroll(if (key.isChar(']')) 1 else -1)
+            focus.focusedId() == WORKSPACE_LIST && (key.isRight() || key.isSelect()) -> focus.setFocus(WORKSPACE_DETAILS)
+            focus.focusedId() == WORKSPACE_DETAILS -> detailsKey(key)
         }
-        if (key.isLeft()) { paneFocus = PaneFocus.MASTER; return EventResult.HANDLED }
+    }
+
+    private fun detailsKey(key: KeyEvent) {
         val item = selectedPlanItem()
-        val choices = paneFocus == PaneFocus.DETAIL && item != null && item.availableResolutions.isNotEmpty() &&
-            session.applyModel() !is ApplyModel.Result
-        if (key.isUp() || key.isDown()) {
-            val delta = if (key.isUp()) -1 else 1
-            if (choices) {
-                detailSelectedIndex = (detailSelectedIndex + delta).coerceIn(0, item.availableResolutions.size - 1)
-                workspaceDetails.followChoice()
-            } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(delta)
-            else if (delta < 0) selectPrevious() else selectNext()
-        } else if (key.isHome() || key.isEnd()) {
-            val end = key.isEnd()
-            if (choices) {
-                detailSelectedIndex = if (end) item.availableResolutions.size - 1 else 0
-                workspaceDetails.followChoice()
-            } else if (paneFocus == PaneFocus.DETAIL) workspaceDetails.scroll(if (end) Int.MAX_VALUE else -Int.MAX_VALUE)
-            else if (end) selectLast() else selectFirst()
-        } else if (key.isSelect()) {
-            if (choices) resolveSelected(item.availableResolutions[detailSelectedIndex])
-            else { paneFocus = PaneFocus.DETAIL; workspaceDetails.followChoice() }
+        val choices = item != null && item.availableResolutions.isNotEmpty() && session.applyModel() !is ApplyModel.Result
+        val last = if (item == null) 0 else item.availableResolutions.size - 1
+        when {
+            key.isLeft() -> focus.setFocus(WORKSPACE_LIST)
+            key.isUp() || key.isDown() -> {
+                val delta = if (key.isUp()) -1 else 1
+                if (choices) chooseIndex(detailSelectedIndex + delta, last)
+                else workspaceDetails.scroll(delta)
+            }
+            key.isHome() || key.isEnd() -> {
+                if (choices) chooseIndex(if (key.isEnd()) last else 0, last)
+                else workspaceDetails.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
+            }
+            key.isSelect() && choices -> resolveSelected(item.availableResolutions[detailSelectedIndex])
         }
-        return EventResult.HANDLED
+    }
+
+    private fun chooseIndex(index: Int, last: Int) {
+        detailSelectedIndex = index.coerceIn(0, last)
+        workspaceDetails.followChoice()
+    }
+
+    private fun applyKey(key: KeyEvent) {
+        val model = session.applyModel()
+        val details = focus.focusedId() == REVIEW_DETAILS
+        if (!details && key.isRight()) focus.setFocus(REVIEW_DETAILS)
+        else if (details && key.isLeft()) focus.setFocus(REVIEW_LIST)
+        else if (key.isChar('[') || key.isChar(']')) actionDetails.scroll(if (key.isChar(']')) 1 else -1)
+        else if (details && (key.isUp() || key.isDown())) actionDetails.scroll(if (key.isUp()) -1 else 1)
+        else if (model is ApplyModel.Running || exitIntent == ExitIntent.AFTER_EXECUTION) return
+        else if (model is ApplyModel.Confirmation) {
+            if (key.isChar('y') && model.plan.hasChanges()) session.confirmApply()
+            else if (key.isCharIgnoreCase('n') || !model.plan.hasChanges() && key.isKey(KeyCode.ENTER)) {
+                switchScreen(Screen.WORKSPACE)
+            }
+        } else if (model is ApplyModel.Result) {
+            if (key.isKey(KeyCode.ENTER)) switchScreen(Screen.WORKSPACE)
+            else if (key.isCharIgnoreCase('r')) refresh()
+        }
+    }
+
+    private fun requestQuit() {
+        if (exitIntent != ExitIntent.STAY) return
+        if (session.isApplying() || !session.executionSettled()) {
+            // The dialog is the only focusable while it is open, so the next frame focuses it.
+            focusBeforeDialog = focus.focusedId()
+            exitIntent = ExitIntent.CONFIRM
+        } else exitIntent = ExitIntent.EXIT
+    }
+
+    private fun closeQuitDialog(intent: ExitIntent) {
+        exitIntent = intent
+        focus.setFocus(focusBeforeDialog)
+        settleDeferredExit()
+    }
+
+    private fun dropClosedSetup() {
+        if (setup?.closed != true) return
+        setup = null
+        workspaceDetails.reset()
+        syncInSyncSetting()
+        focus.setFocus(WORKSPACE_LIST)
     }
 
     internal fun closeSetup() {
         setup?.close()
         setup = null
     }
-
-    private fun handleApplyKeyEvent(key: KeyEvent): EventResult {
-        val model = session.applyModel()
-        if (isTab(key) || key.isRight()) {
-            actionFocus = if (isTab(key) && actionFocus == PaneFocus.DETAIL) PaneFocus.MASTER else PaneFocus.DETAIL
-        } else if (key.isLeft()) actionFocus = PaneFocus.MASTER
-        else if (key.isChar('[') || key.isChar(']')) actionDetails.scroll(if (key.isChar(']')) 1 else -1)
-        else if (key.isUp()) {
-            if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(-1) else selectPrevious()
-        } else if (key.isDown()) {
-            if (actionFocus == PaneFocus.DETAIL) actionDetails.scroll(1) else selectNext()
-        } else if (model is ApplyModel.Running || exitIntent == ExitIntent.AFTER_EXECUTION) return EventResult.HANDLED
-        else if (model is ApplyModel.Confirmation) {
-            if (key.isChar('y') && model.plan.hasChanges()) session.confirmApply()
-            else if (key.isCharIgnoreCase('n') || !model.plan.hasChanges() && key.isKey(KeyCode.ENTER)) {
-                session.cancelApply()
-                activeScreen = Screen.WORKSPACE
-            }
-        } else if (model is ApplyModel.Result) {
-            if (key.isKey(KeyCode.ENTER) || key.isChar('1')) switchScreen(Screen.WORKSPACE)
-            else if (key.isCharIgnoreCase('r')) refresh()
-        }
-        return EventResult.HANDLED
-    }
-
-    private fun handleExitDialog(key: KeyEvent): EventResult {
-        if (key.isKey(KeyCode.ESCAPE)) exitIntent = ExitIntent.STAY
-        else if (key.isUp()) exitIntent = ExitIntent.CONFIRM_KEEP
-        else if (key.isDown()) exitIntent = ExitIntent.CONFIRM_EXIT
-        else if (isTab(key)) exitIntent = if (exitIntent == ExitIntent.CONFIRM_KEEP) ExitIntent.CONFIRM_EXIT else ExitIntent.CONFIRM_KEEP
-        else if (key.isKey(KeyCode.ENTER)) {
-            exitIntent = if (exitIntent == ExitIntent.CONFIRM_KEEP) ExitIntent.STAY else ExitIntent.AFTER_EXECUTION
-            settleDeferredExit()
-        }
-        return EventResult.HANDLED
-    }
-
-    private fun isTab(key: KeyEvent): Boolean =
-        key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isFocusNext() || key.isFocusPrevious()
 
     private fun settleDeferredExit() {
         // Result publication alone does not imply that post-execution refresh has settled.
@@ -257,13 +272,18 @@ internal class HomeLightApp(
         if (screen == activeScreen) return
         if (screen == Screen.APPLY) {
             if (session.applyModel() is ApplyModel.Idle && !session.requestApply()) return
-            if (activeScreen == Screen.WORKSPACE) selectedPlanItem()?.let { reviewedSource = it.relocation.sourcePath }
-            if (activeScreen != Screen.APPLY && session.applyModel() is ApplyModel.Confirmation) {
-                actionIndex = 0
-                actionFocus = PaneFocus.MASTER
+            selectedPlanItem()?.let { reviewedSource = it.relocation.sourcePath }
+            workspaceFocus = focus.focusedId()
+            if (session.applyModel() is ApplyModel.Confirmation) {
+                reviewList.selected(0)
                 actionDetails.reset()
             }
-        } else { session.cancelApply(); restoreSelection(reviewedSource) }
+            focus.setFocus(REVIEW_LIST)
+        } else {
+            session.cancelApply()
+            restoreSelection(reviewedSource)
+            focus.setFocus(workspaceFocus)
+        }
         activeScreen = screen
     }
 
@@ -271,6 +291,7 @@ internal class HomeLightApp(
         if (session.isApplying() || !session.executionSettled()) return
         val source = selectedPlanItem()?.relocation?.sourcePath
         session.refresh()
+        if (activeScreen != Screen.WORKSPACE) focus.setFocus(workspaceFocus)
         activeScreen = Screen.WORKSPACE
         syncInSyncSetting()
         restoreSelection(source)
@@ -292,32 +313,16 @@ internal class HomeLightApp(
         return if (model is ConfigurationEvaluation.Loaded) WorkspaceView.visibleItems(model, showInSync) else listOf()
     }
 
-    private fun selectedPlanItem(): PlanRelocationItem? {
-        val items = visibleItems()
-        return if (items.isEmpty()) null else items[selectedIndex.coerceIn(0, items.size - 1)]
-    }
+    private fun selectedPlanItem(): PlanRelocationItem? = visibleItems().let { items -> items.getOrNull(workspaceSelection(items)) }
+
+    private fun workspaceSelection(items: List<PlanRelocationItem>): Int =
+        workspaceList.selected().coerceIn(0, maxOf(0, items.size - 1))
 
     private fun toggleInSync() {
         val source = selectedPlanItem()?.relocation?.sourcePath
         showInSync = !showInSync
         userShowInSync = showInSync
         restoreSelection(source)
-    }
-
-    private fun selectPrevious() { select(-1, false) }
-    private fun selectNext() { select(1, false) }
-    private fun selectFirst() { select(0, true) }
-    private fun selectLast() { select(Int.MAX_VALUE, true) }
-
-    private fun select(value: Int, absolute: Boolean) {
-        if (activeScreen == Screen.APPLY) {
-            val last = maxOf(0, ApplyView.steps(session.applyModel()).size - 1)
-            actionIndex = (if (absolute) value else actionIndex + value).coerceIn(0, last)
-            actionDetails.reset()
-        } else {
-            selectedIndex = (if (absolute) value else selectedIndex + value).coerceIn(0, maxOf(0, visibleItems().size - 1))
-            resetDetailSelection()
-        }
     }
 
     private fun resetDetailSelection() {
@@ -327,22 +332,49 @@ internal class HomeLightApp(
     }
 
     private fun restoreSelection(source: Path?) {
-        val index = visibleItems().indexOfFirst { it.relocation.sourcePath == source }
-        if (index >= 0) selectedIndex = index else clampSelection()
-    }
-
-    private fun clampSelection() {
-        selectedIndex = selectedIndex.coerceIn(0, maxOf(0, visibleItems().size - 1))
+        val items = visibleItems()
+        val index = items.indexOfFirst { it.relocation.sourcePath == source }
+        workspaceList.selected(if (index >= 0) index else workspaceSelection(items))
     }
 
     private fun syncInSyncSetting() {
         showInSync = userShowInSync ?: session.evaluation().let { model ->
             model is ConfigurationEvaluation.Loaded && model.items.all { it.badge() == PlanBadge.IN_SYNC }
         }
-        clampSelection()
+        workspaceList.selected(workspaceSelection(visibleItems()))
     }
 
     // Read only by tests.
-    internal fun selectedIndex(): Int = if (activeScreen == Screen.APPLY) actionIndex else selectedIndex
-    internal fun paneFocus(): PaneFocus = if (activeScreen == Screen.APPLY) actionFocus else paneFocus
+    internal fun selectedIndex(): Int =
+        if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(visibleItems())
+}
+
+/**
+ * Where Review's selection jumps while an apply runs: to the first running step in plan order whenever that step
+ * changes (independent relocations can run at once), and once to the first failure, or else the last finished
+ * step, when the result arrives. Between jumps the user's own selection stands.
+ */
+internal class ProgressFollower {
+    private var followedAction: ReconciliationAction? = null
+    private var displayedResult: ApplyModel.Result? = null
+
+    /** The step to select for this model, or `null` to keep the current selection. */
+    fun jump(model: ApplyModel): Int? = when (model) {
+        is ApplyModel.Running -> {
+            val running = model.steps.indexOfFirst { step -> step.status == ApplyModel.StepStatus.RUNNING }
+            if (running < 0 || model.steps[running].action === followedAction) null
+            else running.also { followedAction = model.steps[running].action }
+        }
+        is ApplyModel.Result -> if (model === displayedResult) null else {
+            displayedResult = model
+            val failed = model.steps.indexOfFirst { it.status == ApplyModel.StepStatus.FAILED }
+            if (failed >= 0) failed
+            else model.steps.indexOfLast { it.status == ApplyModel.StepStatus.COMPLETED }.takeIf { it >= 0 }
+        }
+        is ApplyModel.Idle, is ApplyModel.Confirmation -> {
+            followedAction = null
+            displayedResult = null
+            null
+        }
+    }
 }
