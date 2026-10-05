@@ -86,26 +86,19 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun sourceFailureRetainsStaleDefinitionsAndObservationsOnlyForSameRequest() {
+    @Test fun failedSourceReadDropsItsCandidatesForTheSameRequest() {
         val input = AtomicReference(bytes("{\"directories\": [{\"path\": \"team-cache\"}]}"))
         Files.createDirectory(temporary.resolve("team-cache"))
         val location = temporary.resolve("shared")
         discovery(Workers(), AtomicLong(), { ignored -> input.get() }, "cache", CandidateMetadata()).use { discovery ->
-            val original = discovery.refresh(temporary, location)
-            val first = awaitResult(discovery, ::finished)
-            val originalRow = row(first, temporary.resolve("team-cache"))
+            discovery.refresh(temporary, location)
+            row(awaitResult(discovery, ::finished), temporary.resolve("team-cache"))
             input.set(bytes("{\"directories\": ["))
             discovery.refresh(temporary, location)
             val failed = awaitResult(discovery, ::finished)
-            assertEquals(SourceStatus.STALE, shared(failed).status)
-            val retained = row(failed, temporary.resolve("team-cache"))
-            assertTrue(retained.observation.stale)
-            assertEquals(original, retained.observation.generation)
-            assertEquals(originalRow.catalog, retained.catalog)
-            discovery.refresh(temporary, temporary.resolve("other-location"))
-            val changed = awaitResult(discovery, ::finished)
-            assertEquals(SourceStatus.FAILED, shared(changed).status)
-            assertFalse(changed.candidates.any { c -> c.catalog.sourcePath.endsWith("team-cache") })
+            assertEquals(SourceStatus.FAILED, shared(failed).status)
+            assertNull(shared(failed).catalog)
+            assertFalse(failed.candidates.any { c -> c.catalog.sourcePath.endsWith("team-cache") })
         }
     }
 
@@ -223,7 +216,7 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun failedCandidateRefreshRetainsOldStateMarkedStaleWithNewDiagnostic() {
+    @Test fun failedCandidateRefreshReportsOnlyTheNewFailure() {
         Files.createDirectory(temporary.resolve("cache"))
         Files.write(temporary.resolve("cache/a"), ByteArray(17))
         val fail = AtomicInteger()
@@ -234,16 +227,15 @@ class CandidateDiscoveryTest {
             }
         })
         discovery(Workers(), AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
-            val first = discovery.refresh(temporary, null)
+            discovery.refresh(temporary, null)
             awaitResult(discovery, ::finished)
             fail.set(1)
-            discovery.refresh(temporary, null)
+            val second = discovery.refresh(temporary, null)
             val result = awaitResult(discovery) { r -> !r.candidates.isEmpty() && r.candidates.first()
                     .observation.diagnostics.any { d -> d.reason == Reason.ACCESS_DENIED } }
-            val retained = result.candidates.first().observation
-            assertTrue(retained.stale)
-            assertEquals(Kind.DIRECTORY, retained.kind)
-            assertEquals(first, retained.generation)
+            val observation = result.candidates.first().observation
+            assertEquals(Kind.INACCESSIBLE, observation.kind)
+            assertEquals(second, observation.generation)
         }
     }
 
@@ -272,21 +264,20 @@ class CandidateDiscoveryTest {
             discovery.refresh(temporary, null)
             await { inspected.size == 2 }
             val waiting = discovery.snapshot()
-            assertTrue(waiting.candidates.all { c -> c.observation.kind == Kind.PENDING })
-            assertEquals(listOf("cache2", "cache3", "cache4", "cache5"), waiting.candidates
-                    .filter { c -> c.observation.diagnostics.any { d -> d.reason == Reason.CAPACITY } }
-                    .map { c -> c.catalog.sourcePath.fileName.toString() })
+            // Queued and running rows read the same.
+            assertTrue(waiting.candidates.all { c -> c.observation.kind == Kind.PENDING && c.observation.diagnostics.isEmpty() })
             clock.set(METADATA_NANOS)
             val timed = discovery.snapshot()
             assertEquals(2, timed.candidates.count { c -> c.observation.kind == Kind.UNKNOWN
                     && c.observation.diagnostics.any { d -> d.reason == Reason.DEADLINE } })
             assertEquals(4, timed.candidates.count { c -> c.observation.kind == Kind.PENDING })
-            // Each refresh replaces the run; none adds inspections while the earlier ones are stuck.
+            // Each refresh replaces the run, so every row is pending again; none adds inspections while the
+            // earlier ones are stuck.
             for (i in 0 until 20) {
                 assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary, null) })
                 val replaced = discovery.snapshot()
                 assertNull(replaced.rootFailure)
-                assertEquals(4, replaced.candidates.count { c -> c.observation.kind == Kind.PENDING })
+                assertTrue(replaced.candidates.all { c -> c.observation.kind == Kind.PENDING })
             }
             assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
             discovery(workers, clock, { p -> bytes("{\"directories\": []}") },
@@ -331,7 +322,7 @@ class CandidateDiscoveryTest {
             assertTrue(finished(result), "Work depended on snapshot polling")
             assertEquals(names, result.candidates.map { c -> c.catalog.sourcePath.fileName.toString() })
             assertTrue(result.candidates.all { c -> c.observation.kind == Kind.DIRECTORY
-                    && c.observation.generation == generation && !c.observation.stale })
+                    && c.observation.generation == generation })
         }
         assertEquals(3, most.get())
     }
@@ -345,9 +336,7 @@ class CandidateDiscoveryTest {
             val generation = discovery.refresh(temporary, null)
             awaitResult(discovery) { r ->
                 assertEquals(generation, r.generation)
-                // Rows are either this generation's evidence or retained evidence marked stale.
-                assertTrue(r.candidates.all { c -> c.observation.generation == generation
-                        || (c.observation.stale && c.observation.generation < generation) }, r.toString())
+                assertTrue(r.candidates.all { c -> c.observation.generation == generation }, r.toString())
                 finished(r)
             }
         }
@@ -373,7 +362,7 @@ class CandidateDiscoveryTest {
                 // The new run waits for the stuck one; its row is queued, not failed.
                 val waiting = discovery.snapshot().candidates.first().observation
                 assertEquals(Kind.PENDING, waiting.kind)
-                assertEquals(Reason.CAPACITY, waiting.diagnostics.first().reason)
+                assertTrue(waiting.diagnostics.isEmpty())
                 gate.release.countDown()
                 val result = awaitResult(discovery, ::finished)
                 val observation = result.candidates.first().observation
@@ -515,7 +504,7 @@ class CandidateDiscoveryTest {
         }
     }
 
-    @Test fun lateMetadataCompletionIsUnknownAndCannotOverwriteRetainedState() {
+    @Test fun lateMetadataCompletionAfterRefreshIsUnknown() {
         val gate = Gate()
         val clock = AtomicLong()
         val workers = Workers()
@@ -529,25 +518,24 @@ class CandidateDiscoveryTest {
         })
         try {
             discovery(workers, clock, { p -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
-                val original = discovery.refresh(temporary, null)
+                discovery.refresh(temporary, null)
                 awaitResult(discovery, ::finished)
                 block.set(1)
-                discovery.refresh(temporary, null)
+                val second = discovery.refresh(temporary, null)
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(METADATA_NANOS)
                 // No snapshot until the late completion has been recorded.
                 gate.release.countDown()
                 drain(workers)
                 val observation = discovery.snapshot().candidates.first().observation
-                assertEquals(Kind.DIRECTORY, observation.kind)
-                assertTrue(observation.stale)
-                assertEquals(original, observation.generation)
+                assertEquals(Kind.UNKNOWN, observation.kind)
+                assertEquals(second, observation.generation)
                 assertTrue(observation.diagnostics.any { d -> d.reason == Reason.DEADLINE })
             }
         } finally { gate.release.countDown() }
     }
 
-    @Test fun sharedTimeoutRetainsStaleSnapshotAndSuccessfulRefreshRemovesOldEntries() {
+    @Test fun sharedTimeoutDropsItsCandidatesUntilAReadSucceeds() {
         val gate = Gate()
         val workers = Workers()
         val clock = AtomicLong()
@@ -559,25 +547,23 @@ class CandidateDiscoveryTest {
                 contents.get()
             }, "cache", CandidateMetadata()).use { discovery ->
                 val location = temporary.resolve("shared")
-                val original = discovery.refresh(temporary, location)
-                awaitResult(discovery, ::finished)
+                discovery.refresh(temporary, location)
+                row(awaitResult(discovery, ::finished), temporary.resolve("team"))
                 block.set(1)
                 discovery.refresh(temporary, location)
                 assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
                 clock.set(5_000_000_000L)
                 val timed = discovery.snapshot()
-                assertEquals(SourceStatus.STALE, shared(timed).status)
-                val old = row(timed, temporary.resolve("team"))
-                assertTrue(old.observation.stale)
-                assertEquals(original, old.observation.generation)
+                assertEquals(SourceStatus.FAILED, shared(timed).status)
+                assertProblem(timed, SourceProblem.Kind.DEADLINE)
+                assertTrue(timed.candidates.none { c -> c.catalog.sourcePath.endsWith("team") })
                 gate.release.countDown()
                 await { !workers.sharedRead.get() }
                 block.set(0)
-                contents.set(bytes("{\"directories\": []}"))
                 discovery.refresh(temporary, location)
                 val refreshed = awaitResult(discovery, ::finished)
                 assertEquals(SourceStatus.CURRENT, shared(refreshed).status)
-                assertTrue(refreshed.candidates.none { c -> c.catalog.sourcePath.endsWith("team") })
+                row(refreshed, temporary.resolve("team"))
             }
         } finally { gate.release.countDown() }
     }
