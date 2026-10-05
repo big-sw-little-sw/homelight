@@ -413,10 +413,9 @@ class StagedPermissionTest {
     }
 
     private fun posixRoot(): Path {
-        val root = temporary.toRealPath()
-        assumeTrue(Files.getFileStore(root).supportsFileAttributeView(PosixFileAttributeView::class.java),
+        assumeTrue(Files.getFileStore(temporary).supportsFileAttributeView(PosixFileAttributeView::class.java),
                 "requires a POSIX filesystem")
-        return root
+        return temporary
     }
 
     companion object {

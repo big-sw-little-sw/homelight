@@ -5,6 +5,7 @@ import io.github.bigswlittlesw.homelight.concurrent.Outcome
 import io.github.bigswlittlesw.homelight.concurrent.mapBounded
 import io.github.bigswlittlesw.homelight.config.intersects
 import io.github.bigswlittlesw.homelight.config.isJavaBlank
+import io.github.bigswlittlesw.homelight.config.realSpelling
 import io.github.bigswlittlesw.homelight.config.relocationProblem
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathObservation
@@ -188,15 +189,9 @@ class ReconciliationExecutor internal constructor(
         Files.createDirectory(action.path)
     }
 
+    /** The path is always the parent of a source, target or archive path, so it may be a symlinked ancestor. */
     private fun ensureDirectory(action: ReconciliationAction.EnsureDirectory) {
-        val state = inspector.inspect(action.path).state
-        if (state == PathState.ABSENT) {
-            Files.createDirectories(action.path)
-        } else if (state != PathState.DIRECTORY) {
-            throw StateDriftException(
-                "expected absent or directory at ${action.path} but found ${state.name.lowercase(Locale.ROOT)}",
-            )
-        }
+        ensureDirectories(action.path)
     }
 
     private fun migrateDirectoryForPublication(action: ReconciliationAction.MigrateDirectoryForPublication): String {
@@ -209,8 +204,8 @@ class ReconciliationExecutor internal constructor(
         if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
             throw EnvironmentException("staging root is not on the target filesystem: $stagingRoot")
         }
-        ensureRealDirectories(targetParent)
-        ensureRealDirectories(stagingRoot)
+        ensureDirectories(targetParent)
+        ensureRealDirectory(stagingRoot)
         cleanStaleStaging(stagingRoot)
         probeAtomicMove(stagingRoot)
 
@@ -426,12 +421,15 @@ private fun notRun(action: ReconciliationAction) =
  * Two relocations are independent when no path one claims overlaps a path the other claims, by the same
  * [intersects] rule that [relocationProblem] applies to sources and targets. A relocation claims its source and
  * target, every action destination (such as an archive path) and each migration's staging root. It also claims the
- * parent of each of these that is not yet a real directory, since its actions may create it. Relocations not proven
+ * parent of each of these that is not yet a directory, since its actions may create it. Relocations not proven
  * independent share a group, so a relocation that depends on two groups merges them. Siblings under an existing
  * parent can therefore run together; siblings whose parent is missing share a group.
  *
  * Parents are checked here, when [ReconciliationExecutor.execute] starts, not at plan time: the review snapshot does
  * not observe parents, and this is the latest state before any action runs.
+ *
+ * Claims are compared by [realSpelling], because an existing ancestor may be a symlink: `/home/u/x` and
+ * `/var/home/u/x` can be one place. They are resolved here for the same reasons as parents.
  *
  * Relocations may share a staging root where [stagingLocksWork] confirms that file locks work, because stale cleanup
  * then never touches another relocation's operation (see [claimedOperations]). A shared root still overlaps every
@@ -464,18 +462,18 @@ private data class Claim(val path: Path, val shareable: Boolean = false) {
 
 private fun stagingRoots(relocation: RelocationPlan): List<Path> =
     relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
-        (migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME)).toAbsolutePath().normalize()
+        realSpelling(migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME))
     }
 
 private fun claimedPaths(relocation: RelocationPlan, stagingRoots: List<Path>, shareable: Set<Path>): List<Claim> {
-    val own = listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
-        relocation.actions.mapNotNull { action -> action.destination }
+    val own = (listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
+        relocation.actions.mapNotNull { action -> action.destination }).map(::realSpelling)
     // An existing parent is not claimed. On POSIX, creating, renaming, linking or deleting different names in one
     // directory is safe, and each action's guards check only its own paths. A parent another relocation changes is
     // inside one of that relocation's paths, so this relocation's path overlaps it anyway. A missing parent stays
-    // claimed. Its missing ancestors may still be created concurrently, which `ensureRealDirectories` and
-    // `Files.createDirectories` tolerate before checking for a real directory.
-    val parents = (own + stagingRoots).mapNotNull { path -> path.toAbsolutePath().normalize().parent }
+    // claimed. Its missing ancestors may still be created concurrently, which `ensureDirectories` tolerates before
+    // checking for a real directory. Paths are real spellings, so an existing parent is a real directory here.
+    val parents = (own + stagingRoots).mapNotNull { path -> path.parent }
         .filterNot { parent -> Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) }
     return (own + parents).map(::Claim) + stagingRoots.map { root -> Claim(root, root in shareable) }
 }
@@ -581,21 +579,42 @@ private fun restoreOwnerAccess(root: Path) {
         .forEach(::restoreOwnerAccess)
 }
 
-private fun ensureRealDirectories(path: Path) {
+/**
+ * Makes [path] a directory, creating its missing components.
+ *
+ * The symlink rule: an existing ancestor of a path that an action works on may be a symlink to a directory, as
+ * `/var` is on macOS and `/home` on Fedora Atomic, so existing components here are followed. Every directory
+ * HomeLight creates must be real, and so must the paths that actions work on (source, target, staging root): their
+ * guards and [ensureRealDirectory] do not follow links. Once a component is missing, the rest are created too, so a
+ * symlink that appears there meanwhile is refused.
+ */
+private fun ensureDirectories(path: Path) {
     val absolute = path.toAbsolutePath().normalize()
     var current = absolute.root
+    var creating = false
     for (name in absolute) {
         current = current.resolve(name)
-        if (Files.notExists(current, LinkOption.NOFOLLOW_LINKS)) {
-            try {
-                Files.createDirectory(current)
-            } catch (_: FileAlreadyExistsException) {
-                // An independent relocation running concurrently may create a shared ancestor first.
-            }
+        if (creating || !Files.isDirectory(current)) {
+            creating = true
+            createRealDirectory(current)
         }
-        if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw StateDriftException("expected real directory at $current")
-        }
+    }
+}
+
+/** Makes [path] a real directory, not a link to one, after [ensureDirectories] for its parent. */
+private fun ensureRealDirectory(path: Path) {
+    path.toAbsolutePath().normalize().parent?.let(::ensureDirectories)
+    createRealDirectory(path)
+}
+
+private fun createRealDirectory(path: Path) {
+    try {
+        Files.createDirectory(path)
+    } catch (_: FileAlreadyExistsException) {
+        // An independent relocation running concurrently may create a shared ancestor first.
+    }
+    if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+        throw StateDriftException("expected real directory at $path")
     }
 }
 
@@ -744,11 +763,12 @@ private fun sameFileStore(left: Path, right: Path): Boolean =
         false
     }
 
+/** Follows a symlink at the nearest existing component, as [ensureDirectories] would. */
 private fun fileStoreOfExistingAncestor(path: Path): FileStore {
     var current: Path? = path.toAbsolutePath().normalize()
     while (current != null) {
         if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            if (!Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            if (!Files.isDirectory(current)) {
                 throw StateDriftException("expected real directory at $current")
             }
             return Files.getFileStore(current)

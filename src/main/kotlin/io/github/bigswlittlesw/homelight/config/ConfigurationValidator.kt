@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.homelight.config
 
+import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 
 /** Rejects a draft with no relocations or whose relocations are unsafe together; see [relocationProblem]. */
@@ -49,3 +51,36 @@ internal fun intersects(left: Path, right: Path): Boolean {
 }
 
 private fun normalized(path: Path): Path = path.toAbsolutePath().normalize()
+
+/**
+ * The overlap that [relocationProblem] finds only after [realSpelling], such as `/home/u/x` and `/var/home/u/x`
+ * where `/home` links to `/var/home`, or null.
+ *
+ * It reads the filesystem, so the loader checks it and the planner, which is pure, does not. Overlap visible in the
+ * paths as written is left to the planner, which reports it in the plan as before.
+ */
+internal fun aliasedRelocationProblem(relocations: List<Relocation>): RelocationProblem? {
+    if (relocationProblem(relocations) != null) return null
+    val real = relocations.map { relocation ->
+        relocation.copy(sourcePath = realSpelling(relocation.sourcePath), targetPath = realSpelling(relocation.targetPath))
+    }
+    return relocationProblem(real)?.let { problem -> problem.copy(message = "${problem.message} (through a symlink)") }
+}
+
+/**
+ * [path], absolute and normalized, with its longest existing ancestor replaced by that ancestor's real path, so that
+ * different spellings of one place compare equal. The path itself is never followed: a source may be the link that
+ * HomeLight created. Components that do not exist yet, and an ancestor that cannot be resolved, stay as written.
+ */
+internal fun realSpelling(path: Path): Path {
+    val absolute = normalized(path)
+    var existing = absolute.parent ?: return absolute
+    while (!Files.exists(existing)) {
+        existing = existing.parent ?: return absolute
+    }
+    return try {
+        existing.toRealPath().resolve(existing.relativize(absolute))
+    } catch (_: IOException) {
+        absolute
+    }
+}
