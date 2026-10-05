@@ -12,9 +12,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -252,7 +254,7 @@ class ConcurrentExecutionTest {
                 if (action !is ReconciliationAction.MigrateDirectoryForPublication) return
                 if (relocation === first) {
                     assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
-                    throw IllegalStateException("injected failure")
+                    throw IOException("injected failure")
                 }
                 if (relocation === second) {
                     secondStarted.countDown()
@@ -273,6 +275,38 @@ class ConcurrentExecutionTest {
         assertEquals(ExecutionOutcome.CONVERGED, finished.outcome())
         assertTrue(Files.isSymbolicLink(relocations[1].sourcePath))
         assertTrue(notStarted.actions.all { it.status == ActionStatus.PENDING && it.message == "not run after a previous failure" })
+        assertTrue(Files.isDirectory(relocations[2].sourcePath) && !Files.isSymbolicLink(relocations[2].sourcePath))
+        assertTrue(Files.notExists(relocations[2].targetPath))
+    }
+
+    @Test
+    fun aBugPropagatesOnceRunningRelocationsFinish() {
+        val relocations = (1..3).map { n -> migration("s$n/data", "t$n/data", files = 5) }
+        val plan = plan(relocations)
+        val (first, second) = plan.relocations
+        val secondStarted = CountDownLatch(1)
+        val firstThrew = CountDownLatch(1)
+
+        val bug = assertThrows<IllegalStateException> {
+            ReconciliationExecutor().execute(plan, object : ReconciliationExecutor.ProgressListener {
+                override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
+                    if (action !is ReconciliationAction.MigrateDirectoryForPublication) return
+                    if (relocation === first) {
+                        assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
+                        firstThrew.countDown()
+                        error("injected bug")
+                    }
+                    if (relocation === second) {
+                        secondStarted.countDown()
+                        assertTrue(firstThrew.await(5, TimeUnit.SECONDS))
+                    }
+                }
+            })
+        }
+
+        assertEquals("injected bug", bug.message)
+        assertTrue(Files.isDirectory(relocations[0].sourcePath) && !Files.isSymbolicLink(relocations[0].sourcePath))
+        assertTrue(Files.isSymbolicLink(relocations[1].sourcePath), "the running relocation finished first")
         assertTrue(Files.isDirectory(relocations[2].sourcePath) && !Files.isSymbolicLink(relocations[2].sourcePath))
         assertTrue(Files.notExists(relocations[2].targetPath))
     }

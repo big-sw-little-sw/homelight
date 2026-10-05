@@ -372,11 +372,34 @@ class StagedPermissionTest {
 
             assertUnpublishedFailure(result, source, target)
             val failure = result.relocations.first().actions.first()
-            assertTrue(failure.message.startsWith("cannot preserve directory permissions"), failure.message)
+            assertEquals("cannot preserve directory permissions: no POSIX permission support at /local", failure.message)
             assertFalse(failure.stateDrift)
             assertTrue(Files.notExists(zip.getPath("/local")), "nothing is created on the refused filesystem")
             assertMode(source, "rwx------")
             assertEquals("keep", Files.readString(source.resolve("entry")))
+        }
+    }
+
+    @Test
+    fun stagingRootOnAnotherFilesystemIsRefusedBeforeAnythingIsStaged() {
+        val root = posixRoot()
+        val source = Files.createDirectory(root.resolve("source"))
+        Files.writeString(source.resolve("entry"), "keep")
+        val target = root.resolve("local/target")
+        FileSystems.newFileSystem(temporary.resolve("staging.zip"), mapOf("create" to "true")).use { zip ->
+            val staging = zip.getPath("/staging")
+            val inspector = PathInspector()
+            val planned = ReconciliationPlanner().plan(listOf(RelocationState(Relocation(source, target, stagingRoot = staging),
+                    inspector.inspect(source), inspector.inspect(target))))
+
+            val result = ReconciliationExecutor().execute(planned)
+
+            assertUnpublishedFailure(result, source, target)
+            val failure = result.relocations.first().actions.first()
+            assertEquals("staging root is not on the target filesystem: /staging", failure.message)
+            assertFalse(failure.stateDrift)
+            assertTrue(Files.notExists(staging))
+            assertTrue(Files.notExists(target.parent), "nothing is created before the refusal")
         }
     }
 

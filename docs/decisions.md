@@ -314,6 +314,12 @@ Rejected: following the first running step (pulls the selection away while readi
 
 - `[skipped: 200x50 checks, add when a wide-terminal layout bug appears]`
 
+## 2026-10-04: Only environment failures fail an action
+
+The executor reports an action as failed only for an I/O failure or an expected environment failure: state drift, a staging root on another filesystem, or a filesystem without POSIX permissions. Any other exception is a bug and propagates out of `execute`, after staging cleanup and once running relocations finish. Apply then shows the exception's message as a diagnostic, beside the step that was running. Executing a `Blocked` action is a bug, because `execute` refuses plans that contain one.
+
+- `[skipped: a stack trace for a bug that escapes execute, add when a bug report needs more than its message]`
+
 ## How to add decisions
 
 Use this format:

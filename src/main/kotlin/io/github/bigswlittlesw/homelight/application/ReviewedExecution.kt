@@ -4,6 +4,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
+import java.io.InterruptedIOException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
@@ -109,7 +110,8 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
             Thread.sleep(debugStepDelayMillis)
         } catch (exception: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw IllegalStateException("Interrupted during visual-test delay", exception)
+            // An I/O failure, so the executor reports it as the running action's failure rather than a bug.
+            throw InterruptedIOException("Interrupted during visual-test delay").apply { initCause(exception) }
         }
     }
 
