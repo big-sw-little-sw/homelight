@@ -96,10 +96,9 @@ class DefaultConfigurationClassificationTest {
                     }
                 }
                 if (args[0].equals("default-directory")) {
-                    val retained = evaluator.load(config)
                     Files.delete(config)
                     Files.writeString(config, "{\"homelight\": [")
-                    assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.replan(retained).evaluation)
+                    assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
                 }
             }
 

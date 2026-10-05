@@ -2,7 +2,6 @@ package io.github.bigswlittlesw.homelight.application
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.HomeLightConfiguration
-import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
@@ -14,6 +13,7 @@ import java.nio.file.Path
 
 /**
  * Loads and inspects once; draft choices replan solely from the retained observations.
+ * A draft lives only in one [Loaded]: any fresh [load] starts without one.
  * This bounded inspection pass is not an atomic filesystem snapshot.
  */
 class ConfigurationEvaluation(
@@ -70,12 +70,6 @@ class ConfigurationEvaluation(
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
     }
 
-    enum class DiscardReason { REMOVED, DEFINITION_CHANGED, UNAVAILABLE, CONFIGURATION_UNAVAILABLE }
-
-    data class DiscardedChoice(val sourcePath: Path, val choice: DecisionChoice, val reason: DiscardReason)
-
-    data class Replanned(val evaluation: Evaluation, val discardedChoices: List<DiscardedChoice>)
-
     fun load(configPath: Path): Evaluation {
         if (isUnconfiguredDefault(configPath)) {
             return Unconfigured(configPath)
@@ -118,37 +112,6 @@ class ConfigurationEvaluation(
         return withDraft(current, current.draft + (source to choice))
     }
 
-    /** Retention compares complete resolved definitions, never positions in the configuration list. */
-    fun replan(previous: Evaluation): Replanned {
-        val next = load(previous.configPath)
-        if (previous !is Loaded) {
-            return Replanned(next, listOf())
-        }
-        if (next !is Loaded) {
-            return Replanned(
-                next,
-                previous.draft.map { (source, choice) ->
-                    DiscardedChoice(source, choice, DiscardReason.CONFIGURATION_UNAVAILABLE)
-                },
-            )
-        }
-        val oldDefinitions = definitions(previous)
-        val newDefinitions = definitions(next)
-        val discarded = ArrayList<DiscardedChoice>()
-        val retained = LinkedHashMap<Path, DecisionChoice>()
-        previous.draft.forEach { (source, choice) ->
-            val reason = when {
-                source !in newDefinitions -> DiscardReason.REMOVED
-                oldDefinitions[source] != newDefinitions[source] -> DiscardReason.DEFINITION_CHANGED
-                // Every configured source has an entry, even if it is an empty list.
-                choice !in next.availableChoices.getValue(source) -> DiscardReason.UNAVAILABLE
-                else -> null
-            }
-            if (reason == null) retained[source] = choice else discarded.add(DiscardedChoice(source, choice, reason))
-        }
-        return Replanned(withDraft(next, retained), discarded)
-    }
-
     private fun withDraft(current: Loaded, draft: Map<Path, DecisionChoice>): Loaded {
         val effective = current.observations.map { state ->
             val choice = draft[normalize(state.relocation.sourcePath)]
@@ -164,9 +127,6 @@ class ConfigurationEvaluation(
 /** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
 fun isUnconfiguredDefault(configPath: Path): Boolean =
     normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
-
-private fun definitions(evaluation: ConfigurationEvaluation.Loaded): Map<Path, Relocation> =
-    evaluation.savedConfiguration.relocations.associateBy { normalize(it.sourcePath) }
 
 private fun availableChoices(state: RelocationState, plan: RelocationPlan): List<DecisionChoice> {
     if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {

@@ -97,12 +97,6 @@ internal object WorkspaceView {
             add(wrappedText("Config: " + session.configPath, Color.GRAY))
             add(summaryElement(summary.counts))
             if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, Color.YELLOW))
-            if (session.discardedChoices().isNotEmpty()) add(
-                wrappedText(
-                    "${session.discardedChoices().size} draft choices discarded after re-plan; inspect current decisions.",
-                    Color.YELLOW,
-                ),
-            )
             add(Toolkit.row(master.percent(45), viewport.render("Details", lines, focus == PaneFocus.DETAIL, anchor)).fill())
             if (!session.isPlanReady() && !retained) add(
                 wrappedText(
