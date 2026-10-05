@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -131,6 +133,26 @@ class ReconciliationExecutorTest {
         assertTrue(actions.get(1).stateDrift)
         assertEquals(ReconciliationExecutor.ActionStatus.PENDING, actions.get(2).status)
         assertTrue(Files.notExists(source))
+    }
+
+    /** A failed internal precondition is a bug: it propagates, and staging is cleaned up as on an I/O failure. */
+    @ParameterizedTest
+    @EnumSource(ReconciliationExecutor.StagingStep::class, names = ["CREATED", "LOCKED", "MARKED", "COPIED"])
+    internal fun aFailedPreconditionPropagatesAfterStagingCleanup(step: ReconciliationExecutor.StagingStep, @TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val plan = plan(Relocation(source, target))
+        val executor = ReconciliationExecutor(1) { at, _ -> check(at != step) { "injected bug" } }
+
+        val bug = assertThrows<IllegalStateException> { executor.execute(plan) }
+
+        assertEquals("injected bug", bug.message)
+        assertEquals("source", Files.readString(source.resolve("entry")))
+        assertTrue(Files.notExists(target))
+        Files.list(target.resolveSibling(".homelight-staging")).use { entries -> assertEquals(listOf<Path>(), entries.toList()) }
+        assertTrue(ReconciliationExecutor().execute(plan).succeeded())
     }
 
     companion object {

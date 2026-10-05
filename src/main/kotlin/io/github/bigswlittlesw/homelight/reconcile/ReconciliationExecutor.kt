@@ -152,7 +152,8 @@ class ReconciliationExecutor internal constructor(
                 failed = true
                 progress.finished(relocation, execution)
             }
-            // Only I/O and state failures halt the plan; anything else propagates.
+            // Only I/O and environment failures fail the action and halt the plan. Anything else is a bug: it
+            // propagates, after `finally` blocks have cleaned up staging.
             try {
                 progress.started(relocation, action)
                 val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
@@ -160,7 +161,7 @@ class ReconciliationExecutor internal constructor(
                 progress.finished(relocation, execution)
             } catch (exception: IOException) {
                 fail(exception)
-            } catch (exception: IllegalStateException) {
+            } catch (exception: EnvironmentException) {
                 fail(exception)
             }
         }
@@ -178,7 +179,8 @@ class ReconciliationExecutor internal constructor(
         is ReconciliationAction.ReplaceSymlink -> { replaceSymlink(action); "completed" }
         is ReconciliationAction.NoOp -> "completed"
         is ReconciliationAction.LeaveUnchanged -> "completed"
-        is ReconciliationAction.Blocked -> error(action.reason)
+        // Unreachable: execute refuses plans with blocked actions.
+        is ReconciliationAction.Blocked -> error("blocked action reached execution: ${action.reason}")
     }
 
     private fun createDirectory(action: ReconciliationAction.CreateDirectory) {
@@ -204,8 +206,8 @@ class ReconciliationExecutor internal constructor(
         val stagingRoot = action.stagingRoot ?: targetParent.resolve(DEFAULT_STAGING_NAME)
         requirePosixPermissions(action.path)
         requirePosixPermissions(targetParent)
-        check(fileStoreOfExistingAncestor(stagingRoot) == fileStoreOfExistingAncestor(targetParent)) {
-            "staging root is not on the target filesystem: $stagingRoot"
+        if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
+            throw EnvironmentException("staging root is not on the target filesystem: $stagingRoot")
         }
         ensureRealDirectories(targetParent)
         ensureRealDirectories(stagingRoot)
@@ -405,7 +407,14 @@ class ReconciliationExecutor internal constructor(
     }
 }
 
-private class StateDriftException(message: String) : IllegalStateException(message)
+/**
+ * An expected failure of the environment an action runs in, which [ReconciliationExecutor.execute] reports, like an
+ * [IOException], as a failed action. Every other exception from an action is a bug and propagates.
+ */
+private open class EnvironmentException(message: String) : Exception(message)
+
+/** The filesystem no longer matches an action's guard; reported as [ReconciliationExecutor.ActionExecution.stateDrift]. */
+private class StateDriftException(message: String) : EnvironmentException(message)
 
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
@@ -534,8 +543,8 @@ private val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(OWNER_AC
  * the bits is caught later by [verifyCopy].
  */
 private fun requirePosixPermissions(path: Path) {
-    check(fileStoreOfExistingAncestor(path).supportsFileAttributeView(PosixFileAttributeView::class.java)) {
-        "cannot preserve directory permissions: no POSIX permission support at $path"
+    if (!fileStoreOfExistingAncestor(path).supportsFileAttributeView(PosixFileAttributeView::class.java)) {
+        throw EnvironmentException("cannot preserve directory permissions: no POSIX permission support at $path")
     }
 }
 
