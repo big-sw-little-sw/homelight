@@ -6,7 +6,7 @@ import java.nio.file.Path
  * A source location, storage destination, and state-specific reconciliation rules. A rule left unset is
  * [WhenSourceAndTargetDirectoriesExist.PROMPT] (or its peer): the user decides each time.
  *
- * `archiveRoot` is where archive-source moves the source; the source keeps its full path below it.
+ * `archiveRoot` is where archive-source moves the source, under the source's name (see `inspectArchiveDestinations`).
  */
 data class Relocation(
     val sourcePath: Path,

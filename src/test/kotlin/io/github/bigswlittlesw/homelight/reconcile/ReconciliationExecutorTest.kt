@@ -54,8 +54,7 @@ class ReconciliationExecutorTest {
 
         assertTrue(result.succeeded())
         assertTrue(Files.isSymbolicLink(source))
-        assertTrue(Files.exists(archiveRoot.resolve(source.toAbsolutePath().root.relativize(source.toAbsolutePath()))
-                .resolve("entry")))
+        assertEquals("source", Files.readString(archiveRoot.resolve("cache/entry")))
     }
 
     @Test
@@ -307,9 +306,7 @@ class ReconciliationExecutorTest {
     companion object {
         private fun plan(relocation: Relocation): ReconciliationPlan {
             val inspector = PathInspector()
-            val source = relocation.sourcePath.toAbsolutePath()
-            val path = relocation.archiveRoot.resolve(source.root.relativize(source))
-            val archive = RelocationState.ArchiveDestination(path, inspector.inspect(path))
+            val archive = inspectArchiveDestinations(listOf(relocation), inspector::inspect).single()
             return ReconciliationPlanner().plan(listOf(RelocationState(relocation,
                     inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath), archive)))
         }

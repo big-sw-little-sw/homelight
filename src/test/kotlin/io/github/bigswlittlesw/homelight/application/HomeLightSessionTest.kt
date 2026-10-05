@@ -178,7 +178,7 @@ class HomeLightSessionTest {
             " \"when-adopting-target\": \"archive-source\", \"archive-root\": \"${root.resolve("archive")}\", ")
         val session = HomeLightSession(config)
         assertTrue(session.requestApply())
-        val archive = root.resolve("archive").resolve(source.root.relativize(source))
+        val archive = root.resolve("archive/cache")
         Files.createDirectories(archive)
         Files.writeString(archive.resolve("entry"), "external archive")
         session.confirmApply(Runnable::run).join()
