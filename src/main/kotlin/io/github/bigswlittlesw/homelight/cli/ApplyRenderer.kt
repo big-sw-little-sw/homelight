@@ -43,14 +43,15 @@ private fun encodeApplyJson(
             },
         )
     }
-    val result = if (diagnostics.isEmpty()) ApplyJson(succeeded, relocationsJson)
-    else ApplyJson(succeeded, relocationsJson, stale, diagnostics)
+    val result = if (diagnostics.isEmpty()) ApplyJson(JSON_SCHEMA, succeeded, relocationsJson)
+    else ApplyJson(JSON_SCHEMA, succeeded, relocationsJson, stale, diagnostics)
     return encodeJson(ApplyJson.serializer(), result)
 }
 
 /** `stale` and `diagnostics` appear only together, when there are diagnostics. */
 @Serializable
 private data class ApplyJson(
+    val schema: Int,
     val succeeded: Boolean,
     val relocations: List<RelocationResultJson>,
     val stale: Boolean? = null,

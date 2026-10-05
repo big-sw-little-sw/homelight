@@ -2,7 +2,6 @@ package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import java.io.PrintWriter
 import java.nio.file.Path
 import java.util.Locale
@@ -14,11 +13,11 @@ internal fun renderStatusJson(snapshots: List<StatusSnapshot>, output: PrintWrit
             snapshot.state.name.lowercase(Locale.ROOT),
         )
     }
-    output.println(encodeJson(ListSerializer(StatusJson.serializer()), relocations))
+    output.println(encodeJson(ConfiguredStatusJson.serializer(), ConfiguredStatusJson(JSON_SCHEMA, relocations)))
 }
 
 internal fun renderUnconfiguredStatusJson(config: Path, output: PrintWriter) {
-    val status = UnconfiguredStatusJson(false, config.toAbsolutePath().normalize().toString(), listOf())
+    val status = UnconfiguredStatusJson(JSON_SCHEMA, false, config.toAbsolutePath().normalize().toString(), listOf())
     output.println(encodeJson(UnconfiguredStatusJson.serializer(), status))
 }
 
@@ -28,6 +27,9 @@ internal data class StatusSnapshot(val sourcePath: Path, val targetPath: Path, v
 private data class StatusJson(val sourcePath: String, val targetPath: String, val state: String)
 
 @Serializable
+private data class ConfiguredStatusJson(val schema: Int, val relocations: List<StatusJson>)
+
+@Serializable
 private data class UnconfiguredStatusJson(
-    val configured: Boolean, val configPath: String, val relocations: List<StatusJson>,
+    val schema: Int, val configured: Boolean, val configPath: String, val relocations: List<StatusJson>,
 )

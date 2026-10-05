@@ -401,6 +401,21 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 - `[skipped: "or s to always do this" in the quit dialog, add with #116]`
 - `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
 
+## 2026-10-05: Scripting keeps today's JSON commands, versioned
+
+#19 is trimmed (user decision). The JSON commands already share evaluation, planning and `ReviewedExecution` with the TUI, and CI's native comparison depends on them, so they stay. Most of the original scope is not needed now. What remains: `plan --no-color`, parsed but never read, is removed; `status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; the README documents the three commands, `--yes` and exit codes 0, 1, 2 and 70. Configured `status --json` becomes an object, `{"schema": 1, "relocations": [...]}`, instead of a bare array, because an array has no first field.
+
+- `[skipped: one shared envelope for every outcome across commands, add when someone scripts against HomeLight and needs it]`
+- `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`
+- `[skipped: config validate --json, add when a script needs validation without planning]`
+- `[skipped: redirected-I/O/terminal-isolation and source-audit test suites beyond what exists]`
+
+## 2026-10-05: B6 is left as is
+
+A crash between publishing the target and setting the source aside leaves two whole directories, so the next plan reports "both exist". The reorder alternative needs recovery that relies on naming conventions, which is brittle (user).
+
+- `[skipped: crash recovery between copying and linking, add when users report "both exist" after an interrupted apply]`
+
 ## How to add decisions
 
 Use this format:

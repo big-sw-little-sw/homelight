@@ -22,9 +22,6 @@ internal class PlanCommand : Callable<Int> {
     @Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false
 
-    @Option(names = ["--no-color"], description = ["Disable terminal color."])
-    private var noColor = false
-
     @Option(names = ["--source-path"], description = ["Override the source path for the first relocation."])
     private var sourcePath: Path? = null
 

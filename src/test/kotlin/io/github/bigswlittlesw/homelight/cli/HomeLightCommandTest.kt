@@ -207,6 +207,26 @@ class HomeLightCommandTest {
     }
 
     @Test
+    fun everyJsonResponseStartsWithTheSchemaVersion(@TempDir root: Path) {
+        val sourcePath = root.resolve("home/cache")
+        Files.createDirectories(sourcePath)
+        val config = root.resolve("config.json")
+        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root/local\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$root/local/cache\"}]}}\n")
+
+        for (arguments in listOf(arrayOf("status", "--json"), arrayOf("plan", "--json"), arrayOf("apply", "--json", "--yes"))) {
+            val result = execute("-c", config.toString(), *arguments)
+
+            assertEquals(0, result.exitCode, result.errorOutput)
+            assertTrue(result.output.startsWith("{\"schema\":1,"), result.output)
+        }
+    }
+
+    @Test
+    fun planNoLongerAcceptsNoColor() {
+        assertEquals(2, execute("plan", "--no-color").exitCode)
+    }
+
+    @Test
     fun statusReportsJsonFilesystemStateWithShortConfigOption(@TempDir root: Path) {
         val sourcePath = root.resolve("home")
         val targetPath = root.resolve("local")
