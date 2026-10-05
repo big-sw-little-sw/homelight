@@ -61,7 +61,11 @@ sealed interface ReconciliationAction {
      * A null `stagingRoot` stages beside the target.
      */
     data class MigrateDirectoryForPublication(override val path: Path, val target: Path, val stagingRoot: Path? = null) :
-        ReconciliationAction
+        ReconciliationAction {
+        /** The staging root this migration uses: [stagingRoot], or `.homelight-staging` beside [target]. */
+        val effectiveStagingRoot: Path
+            get() = stagingRoot ?: target.resolveSibling(DEFAULT_STAGING_NAME)
+    }
 
     /** Moves a source directory into an unoccupied deterministic archive location. */
     data class ArchiveDirectory(override val path: Path, val target: Path) : ReconciliationAction
@@ -84,3 +88,5 @@ sealed interface ReconciliationAction {
 
     data class Blocked(override val path: Path, val reason: String) : ReconciliationAction
 }
+
+private const val DEFAULT_STAGING_NAME = ".homelight-staging"

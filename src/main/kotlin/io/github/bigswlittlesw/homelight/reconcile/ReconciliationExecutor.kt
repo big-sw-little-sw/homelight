@@ -198,7 +198,7 @@ class ReconciliationExecutor internal constructor(
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = checkNotNull(action.target.parent) { "target has no parent directory: ${action.target}" }
-        val stagingRoot = action.stagingRoot ?: targetParent.resolve(DEFAULT_STAGING_NAME)
+        val stagingRoot = action.effectiveStagingRoot
         requirePosixPermissions(action.path, fileStoreOfExistingAncestor(action.path))
         val targetStore = fileStoreOfExistingAncestor(targetParent)
         requirePosixPermissions(targetParent, targetStore)
@@ -469,9 +469,8 @@ private data class Claim(val path: Path, val shareable: Boolean = false) {
 }
 
 private fun stagingRoots(relocation: RelocationPlan): List<Path> =
-    relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
-        realSpelling(migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME))
-    }
+    relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>()
+        .map { migration -> realSpelling(migration.effectiveStagingRoot) }
 
 private fun claimedPaths(relocation: RelocationPlan, stagingRoots: List<Path>, shareable: Set<Path>): List<Claim> {
     val own = (listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
@@ -510,7 +509,6 @@ internal fun stagingLocksWork(stagingRoot: Path): Boolean {
     }
 }
 
-private const val DEFAULT_STAGING_NAME = ".homelight-staging"
 private const val OPERATION_PREFIX = "operation-"
 private const val MARKER_HEADER = "homelight-staging-v1\n"
 
