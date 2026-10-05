@@ -226,12 +226,33 @@ class ConfigurationLoaderTest {
         assertNull(load("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": ""}}}""").sharedList)
     }
 
-    @Test fun expandsUserAndRequiresAnExplicitTargetOutsideHome() {
+    @Test fun expandsUserAndRequiresAnExplicitTargetOutsideTheDefaultSourceRoot() {
+        val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val user = System.getenv().getOrDefault("USER", "")
         assertEquals(Path.of("/local/$user"), load("""{"homelight": {"target-root": "/local/${'$'}{USER}"}}""").targetRoot)
-        assertEquals("A source outside \$HOME requires an explicit target-path: /outside/cache", failure("""
+        assertEquals("A source outside source-root $home requires an explicit target-path: /outside/cache", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/outside/cache"}]}}
             """))
+    }
+
+    @Test fun derivesTargetsUnderACustomSourceRoot() {
+        val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
+        val relocations = load("""
+            {"homelight": {"source-root": "/data", "target-root": "/local", "relocations": [
+              {"source-path": "/data/cache/a"},
+              {"source-path": "/elsewhere/b", "target-path": "/local/b"}]}}
+            """).relocations
+        assertEquals(Path.of("/local/cache/a"), relocations[0].targetPath)
+        assertEquals(Path.of("/local/b"), relocations[1].targetPath)
+        // `~` expands in the root, and a source under the home directory but outside the root has no derived target.
+        assertEquals(Path.of("/local/x"), load("""
+            {"homelight": {"source-root": "~/work", "target-root": "/local", "relocations": [{"source-path": "~/work/x"}]}}
+            """).relocations.single().targetPath)
+        assertEquals("A source outside source-root /data requires an explicit target-path: $home/cache", failure("""
+            {"homelight": {"source-root": "/data", "target-root": "/local", "relocations": [{"source-path": "~/cache"}]}}
+            """))
+        assertEquals("homelight.source-root must not be blank",
+            failure("""{"homelight": {"source-root": " ", "target-root": "/local"}}"""))
     }
 
     @Test fun pathOverrideReplacesOnlyTheFirstRelocationPaths() {
@@ -282,8 +303,34 @@ class ConfigurationLoaderTest {
         assertTrue(encoded.contains("\"archive-root\": \"~/archive\""), encoded)
     }
 
+    @Test fun roundTripsTheSourceRootAndOmitsTheDefault() {
+        val set = encodeConfiguration(decodeJson(ConfigurationFile.serializer(),
+            """{"homelight": {"source-root": "~/work", "target-root": "/local"}}"""))
+        assertTrue(set.contains("\"source-root\": \"~/work\""), set)
+        assertEquals("~/work", decodeJson(ConfigurationFile.serializer(), set).homelight.sourceRoot)
+        // Absent and an explicit `~` are the same setting, and neither is written.
+        for (text in listOf("""{"homelight": {"target-root": "/local"}}""",
+                """{"homelight": {"source-root": "~", "target-root": "/local"}}""")) {
+            val decoded = decodeJson(ConfigurationFile.serializer(), text)
+            assertEquals(DEFAULT_SOURCE_ROOT, decoded.homelight.sourceRoot)
+            assertFalse(encodeConfiguration(decoded).contains("source-root"), text)
+        }
+    }
+
+    @Test fun thePublisherWritesASourceRootOnlyWhenItIsNotTheHomeDirectory() {
+        val relocation = Relocation(temporary.resolve("work/cache"), temporary.resolve("local/cache"))
+        val home = Path.of(System.getProperty("user.home"))
+        for (sourceRoot in listOf(home, temporary.resolve("work"))) {
+            val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), sourceRoot = sourceRoot)
+            val written = configurationFile(draft).homelight.sourceRoot
+            assertEquals(if (sourceRoot == home) DEFAULT_SOURCE_ROOT else sourceRoot.toString(), written)
+            val reloaded = decodeJson(ConfigurationFile.serializer(), encodeConfiguration(configurationFile(draft)))
+            assertEquals(written, reloaded.homelight.sourceRoot)
+        }
+    }
+
     @Test fun writesOnlyTheSettingsThatAreSet() {
-        val file = ConfigurationFile(HomeLightFile("/local", relocations = listOf(
+        val file = ConfigurationFile(HomeLightFile(targetRoot = "/local", relocations = listOf(
             RelocationFile("/home/cache", whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE),
         )))
         assertEquals("""
@@ -316,6 +363,16 @@ class ConfigurationLoaderTest {
                 assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
             }
         }
+    }
+
+    @Test fun reportsRejectedPathValuesAgainstTheirKey() {
+        assertEquals("homelight.discovery.shared-list: Shared list must be an absolute filesystem path",
+            failure("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": "relative.json"}}}"""))
+        assertEquals("homelight.source-root: Nul character not allowed",
+            failure("""{"homelight": {"source-root": "/a\u0000b", "target-root": "/local"}}"""))
+        assertEquals("homelight.relocations[0].source-path: Nul character not allowed", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a\u0000b", "target-path": "/local/b"}]}}
+            """))
     }
 
     @Test fun reportsAMissingFile() {

@@ -31,9 +31,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * The shared read and each root or candidate inspection have five seconds, measured from the start of its I/O. A
  * result that arrives later is rejected even if no snapshot was taken at the deadline.
  *
- * A refresh replaces the request generation: older work stops before its next item and its results are dropped.
- * Only an unchanged root and shared location retain stale evidence. Cancellation and closure discard all session
- * data. Thread bounds are process-wide, including across closed sessions; see [Workers].
+ * A refresh replaces the request generation: older work stops before its next item and its results are dropped,
+ * so rows read pending until this generation inspects them. A failed list read contributes no candidates.
+ * Cancellation and closure discard all session data. Thread bounds are process-wide, including across closed
+ * sessions; see [Workers].
  */
 class CandidateDiscovery internal constructor(
     private val workers: Workers,
@@ -53,8 +54,6 @@ class CandidateDiscovery internal constructor(
     private val inspections = HashMap<Path, Attempt<CandidateObservation>>()
     // Paths handed to a batch in this generation, so a path both lists name is inspected once.
     private val scheduled = HashSet<Path>()
-    // Evidence from earlier generations of the same request, already marked stale.
-    private var retained: Map<Path, CandidateObservation> = mapOf()
 
     constructor() : this(PROCESS_WORKERS, System::nanoTime, ::readShared, CandidateCatalog::bundled, CandidateMetadata())
 
@@ -63,17 +62,14 @@ class CandidateDiscovery internal constructor(
     fun refresh(root: Path, sharedLocation: Path?): Long {
         check(!closed) { "Discovery is closed" }
         val next = Request.of(root, sharedLocation)
-        val kept = if (next == request) currentSources() else listOf()
-        val evidence = if (next == request) currentObservations(kept) else mapOf()
         cancel()
         request = next
-        retained = evidence
         val generation = generation
-        val bundled = resolved(pending(CandidateCatalog.BUNDLED, kept), catching { bundledReader(next.root) })
+        val bundled = resolved(CandidateCatalog.BUNDLED, catching { bundledReader(next.root) })
         sources[bundled.source] = bundled
         val paths = schedule(bundled)
         workers.chain { run(generation, next.root, paths) }
-        next.sharedLocation?.let { startShared(generation, next.root, it, kept) }
+        next.sharedLocation?.let { startShared(generation, next.root, it) }
         return generation
     }
 
@@ -85,15 +81,13 @@ class CandidateDiscovery internal constructor(
     fun snapshot(): Result {
         val request = this.request ?: return Result(generation, null, listOf(), listOf(), null)
         val sources = currentSources()
-        val unsettled = sources.filter { it.status != SourceStatus.CURRENT }.mapTo(HashSet()) { it.source }
         val rootFailure = rootFailure(request.root)
         val candidates = CandidateCatalog.merge(sources.mapNotNull { it.catalog }).candidates
         val identities = candidates.mapTo(HashSet()) { it.sourcePath }
         val rows = candidates.map { candidate ->
             val path = candidate.sourcePath
-            var observation = rootFailure?.let { failedObservation(path, it.reason, it.detail) }
-                ?: observe(path) ?: placeholder(path)
-            if (candidate.definitions.any { it.source in unsettled }) observation = observation.retained()
+            val observation = rootFailure?.let { CandidateObservation.unknown(path, generation, it.reason, it.detail) }
+                ?: observe(path) ?: pending(path)
             val ancestors = generateSequence(path.parent) { it.parent }
                 .takeWhile { it.startsWith(request.root) }
                 .filter { it in identities }
@@ -112,7 +106,6 @@ class CandidateDiscovery internal constructor(
         anchor = null
         inspections.clear()
         scheduled.clear()
-        retained = mapOf()
     }
 
     @Synchronized
@@ -122,17 +115,16 @@ class CandidateDiscovery internal constructor(
         closed = true
     }
 
-    private fun startShared(generation: Long, root: Path, location: Path, kept: List<SourceOutcome>) {
+    private fun startShared(generation: Long, root: Path, location: Path) {
         val source = CandidateSource(CandidateSource.Kind.SHARED, location.toString())
-        val pending = pending(source, kept)
         if (!workers.sharedRead.compareAndSet(false, true)) {
             sources[source] = failed(
-                pending, listOf(),
+                source, listOf(),
                 SourceProblem(SourceProblem.Kind.PREVIOUS_PENDING, "Previous read still pending; manual setup remains available"),
             )
             return
         }
-        sources[source] = pending
+        sources[source] = SourceOutcome(source, null, SourceStatus.PENDING, listOf(), listOf())
         val started = clock()
         sharedRead = Attempt.Running(started)
         Thread.ofVirtual().name("homelight-shared-list").start {
@@ -196,43 +188,30 @@ class CandidateDiscovery internal constructor(
     private fun sharedOutcome(pending: SourceOutcome, attempt: Attempt<CandidateCatalog.Snapshot>?): SourceOutcome {
         if (attempt == null) return pending
         if (expired(attempt, SOURCE_NANOS)) {
-            return failed(pending, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"))
+            return failed(pending.source, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"))
         }
         return when (attempt) {
             is Attempt.Running -> pending
-            is Attempt.Done -> resolved(pending, attempt.result)
+            is Attempt.Done -> resolved(pending.source, attempt.result)
         }
     }
 
-    private fun currentObservations(sources: List<SourceOutcome>): Map<Path, CandidateObservation> =
-        CandidateCatalog.merge(sources.mapNotNull { it.catalog }).candidates
-            .mapNotNull { candidate -> observe(candidate.sourcePath)?.let { candidate.sourcePath to it.retained() } }
-            .toMap()
-
-    /** This generation's evidence for [path], else retained evidence; `null` while there is none. */
+    /** This generation's evidence for [path]; `null` while queued or running. */
     private fun observe(path: Path): CandidateObservation? {
-        val prior = retained[path]
-        val attempt = inspections[path] ?: return prior
+        val attempt = inspections[path] ?: return null
         if (expired(attempt, METADATA_NANOS)) {
-            return failedObservation(path, Reason.DEADLINE, "Inspection response deadline exceeded")
+            return CandidateObservation.unknown(path, generation, Reason.DEADLINE, "Inspection response deadline exceeded")
         }
         return when (attempt) {
-            is Attempt.Running -> prior
-            is Attempt.Done -> attempt.result.fold(
-                { value ->
-                    if ((value.kind == Kind.INACCESSIBLE || value.kind == Kind.UNKNOWN) && prior != null) {
-                        retainedFailure(prior, value.diagnostics)
-                    } else value
-                },
-                { failedObservation(path, Reason.IO_ERROR, it.toString()) },
-            )
+            is Attempt.Running -> null
+            is Attempt.Done -> attempt.result.getOrElse {
+                CandidateObservation.unknown(path, generation, Reason.IO_ERROR, it.toString())
+            }
         }
     }
 
-    private fun placeholder(path: Path): CandidateObservation = CandidateObservation(
-        path, Kind.PENDING, null, generation, Instant.now(), false,
-        if (path in inspections) listOf() else listOf(Diagnostic(path, Reason.CAPACITY, "Waiting for an inspection slot")),
-    )
+    private fun pending(path: Path): CandidateObservation =
+        CandidateObservation(path, Kind.PENDING, null, generation, Instant.now(), listOf())
 
     private fun rootFailure(root: Path): Diagnostic? {
         val attempt = anchor ?: return null
@@ -240,11 +219,6 @@ class CandidateDiscovery internal constructor(
         val failure = (attempt as? Attempt.Done)?.result?.exceptionOrNull() ?: return null
         val reason = if (failure is AccessDeniedException) Reason.ACCESS_DENIED else Reason.IO_ERROR
         return Diagnostic(root, reason, failure.toString())
-    }
-
-    private fun failedObservation(path: Path, reason: Reason, detail: String): CandidateObservation {
-        val previous = retained[path] ?: return CandidateObservation.unknown(path, generation, reason, detail)
-        return retainedFailure(previous, listOf(Diagnostic(path, reason, detail)))
     }
 
     private fun expired(attempt: Attempt<*>, limit: Long): Boolean = when (attempt) {
@@ -261,7 +235,7 @@ class CandidateDiscovery internal constructor(
         }
     }
 
-    enum class SourceStatus { PENDING, CURRENT, STALE, FAILED }
+    enum class SourceStatus { PENDING, CURRENT, FAILED }
 
     data class SourceProblem(val kind: Kind, val detail: String) {
         enum class Kind { MISSING, UNREADABLE, NOT_REGULAR, IO_ERROR, DEADLINE, PREVIOUS_PENDING }
@@ -340,24 +314,17 @@ private inline fun <T> catching(work: () -> T): Result<T> =
         Result.failure(e)
     }
 
-private fun pending(source: CandidateSource, kept: List<SourceOutcome>): SourceOutcome =
-    SourceOutcome(source, kept.find { it.source == source }?.catalog, SourceStatus.PENDING, listOf(), listOf())
-
-private fun resolved(pending: SourceOutcome, result: Result<CandidateCatalog.Snapshot>): SourceOutcome =
+private fun resolved(source: CandidateSource, result: Result<CandidateCatalog.Snapshot>): SourceOutcome =
     result.fold(
         { catalog ->
-            if (catalog.accepted()) SourceOutcome(pending.source, catalog, SourceStatus.CURRENT, listOf(), listOf())
-            else failed(pending, catalog.diagnostics, null)
+            if (catalog.accepted()) SourceOutcome(source, catalog, SourceStatus.CURRENT, listOf(), listOf())
+            else failed(source, catalog.diagnostics, null)
         },
-        { failed(pending, listOf(), sourceProblem(it)) },
+        { failed(source, listOf(), sourceProblem(it)) },
     )
 
-// A failed read keeps the earlier catalog, if any, as stale evidence.
-private fun failed(pending: SourceOutcome, diagnostics: List<CandidateDiagnostic>, problem: SourceProblem?): SourceOutcome =
-    SourceOutcome(
-        pending.source, pending.catalog, if (pending.catalog != null) SourceStatus.STALE else SourceStatus.FAILED,
-        diagnostics, listOfNotNull(problem),
-    )
+private fun failed(source: CandidateSource, diagnostics: List<CandidateDiagnostic>, problem: SourceProblem?): SourceOutcome =
+    SourceOutcome(source, null, SourceStatus.FAILED, diagnostics, listOfNotNull(problem))
 
 private fun sourceProblem(failure: Throwable): SourceProblem {
     val kind = when (failure) {
@@ -372,10 +339,4 @@ private fun sourceProblem(failure: Throwable): SourceProblem {
 private fun normalized(path: Path): Path {
     require(path.isAbsolute) { "Absolute path required" }
     return path.normalize()
-}
-
-private fun retainedFailure(previous: CandidateObservation, failures: List<Diagnostic>): CandidateObservation {
-    val diagnostics = previous.diagnostics.toMutableList()
-    for (failure in failures) if (failure !in diagnostics) diagnostics.add(failure)
-    return previous.copy(stale = true, diagnostics = diagnostics)
 }

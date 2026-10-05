@@ -18,7 +18,6 @@ import io.github.bigswlittlesw.homelight.pollUntil
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -86,7 +85,8 @@ class SetupDraftTest {
             val savedRows = draft.rows
             Files.writeString(shared(), "{\"directories\": [")
             refresh(draft, worker)
-            assertTrue(checkNotNull(entry(draft, root.resolve("team-cache")).discovery).observation.stale)
+            // A failed list read drops its candidates; the draft row stays.
+            assertNull(entry(draft, root.resolve("team-cache")).discovery)
             assertEquals(savedRows, draft.rows)
             Files.copy(fixture("shared-refreshed"), shared(), StandardCopyOption.REPLACE_EXISTING)
             Files.delete(root.resolve(".cache/uv"))
@@ -94,7 +94,6 @@ class SetupDraftTest {
             assertSame(edited, draft.rows.first())
             val removed = entry(draft, root.resolve("team-cache"))
             assertNull(removed.discovery)
-            assertFalse(removed.lastKnownDefinitions.isEmpty())
             assertNull(entry(draft, root.resolve("new-cache")).draft)
             assertEquals(CandidateObservation.Kind.MISSING,
                     checkNotNull(entry(draft, root.resolve(".cache/uv")).discovery).observation.kind)
@@ -109,7 +108,7 @@ class SetupDraftTest {
         }
     }
 
-    @Test fun staleSourceAdviceDoesNotPreventAddAfterFreshMetadataButOldMetadataDoes() {
+    @Test fun failedSharedReadDropsItsCandidatesButBundledOnesStayAddable() {
         val root = Files.createDirectory(temporary.resolve("home"))
         Files.createDirectories(root.resolve("team-cache"))
         Files.createDirectories(root.resolve(".cache/uv"))
@@ -208,7 +207,6 @@ class SetupDraftTest {
             assertFalse(draft.accept(old))
             assertEquals(rows, draft.rows)
             assertNull(draft.validate().sharedList)
-            assertFalse(draft.entries().first().lastKnownDefinitions.isEmpty())
         }
     }
 
@@ -295,6 +293,7 @@ class SetupDraftTest {
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
             assertFalse(Files.exists(temporary.resolve("target")))
             val json = Files.readString(path)
+            assertTrue(json.contains("\"source-root\": \"$root\""), json)
             for (forbidden in listOf("advice", "usually-unnecessary", "Example IDE", "observations", "provenance", "datasets")) {
                 assertFalse(json.contains(forbidden), json)
             }
@@ -306,7 +305,7 @@ class SetupDraftTest {
         return SetupDraft(root, temporary.resolve("target"), shared(), configured)
     }
 
-    @Test fun onlyCurrentDirectoryOrMissingObservationsAllowAddition() {
+    @Test fun onlyDirectoryOrMissingObservationsAllowAddition() {
         val root = Files.createDirectory(temporary.resolve("home"))
         val draft = draft(root, listOf())
         val path = root.resolve("absent-cache")
@@ -314,13 +313,12 @@ class SetupDraftTest {
             val result = refresh(draft, worker)
             val candidate = checkNotNull(entry(draft, path).discovery)
             assertEquals(CandidateObservation.Kind.MISSING, candidate.observation.kind)
-            for (kind in CandidateObservation.Kind.values()) for (current in listOf(true, false)) {
-                val observation = CandidateObservation(path, kind, null,
-                        result.generation - (if (current) 0 else 1), Instant.now(), !current, listOf())
+            for (kind in CandidateObservation.Kind.entries) {
+                val observation = CandidateObservation(path, kind, null, result.generation, Instant.now(), listOf())
                 assertTrue(draft.accept(CandidateDiscovery.Result(result.generation, result.request, result.sources,
                         listOf(CandidateDiscovery.Candidate(candidate.catalog, observation, candidate.ancestors)), result.rootFailure)))
-                val eligible = current && (kind == CandidateObservation.Kind.DIRECTORY || kind == CandidateObservation.Kind.MISSING)
-                assertEquals(eligible, draft.canAdd(entry(draft, path)), "$kind current=$current")
+                val eligible = kind == CandidateObservation.Kind.DIRECTORY || kind == CandidateObservation.Kind.MISSING
+                assertEquals(eligible, draft.canAdd(entry(draft, path)), kind.toString())
                 if (eligible) {
                     draft.add(path)
                     assertFalse(draft.canAdd(entry(draft, path)))
@@ -331,10 +329,9 @@ class SetupDraftTest {
                 assertTrue(draft.rows.isEmpty())
             }
             assertTrue(draft.accept(result))
-            val oldEntry = entry(draft, path)
             draft.roots(root, temporary.resolve("target"))
             assertFalse(draft.accept(result))
-            assertFalse(draft.canAdd(oldEntry))
+            assertThrows<IllegalArgumentException> { draft.add(path) }
         }
     }
 
@@ -351,98 +348,17 @@ class SetupDraftTest {
         }
     }
 
-    @Test fun duplicateOccurrencesKeepHistoryWhenEitherIsEditedOrRemoved() {
+    @Test fun duplicateRowsAreRejectedUntilEitherIsEditedOrRemoved() {
         val root = Files.createDirectory(temporary.resolve("home"))
-        for (sameObject in listOf(false, true)) for (index in 0 until 2) {
-            for (remove in listOf(false, true)) {
-                Files.copy(fixture("shared"), shared(), StandardCopyOption.REPLACE_EXISTING)
-                val draft = draft(root, listOf())
-                val row = SetupDraft.Row("team-cache", "team-cache")
-                draft.append(row)
-                draft.append(if (sameObject) row else SetupDraft.Row("team-cache", "team-cache"))
-                worker().use { worker ->
-                    refresh(draft, worker)
-                    val history = draft.entries().first().lastKnownDefinitions
-                    assertFalse(history.isEmpty())
-                    Files.writeString(shared(), "{\"directories\": []}")
-                    refresh(draft, worker)
-                    assertNull(draft.entries().get(0).discovery)
-                    assertNull(draft.entries().get(1).discovery)
-                    assertThrows<IllegalArgumentException> { draft.validate() }
-                    val config = temporary.resolve("duplicates.json")
-                    assertThrows<IllegalArgumentException> {
-                        ConfigurationPublisher().saveNew(config, draft.validate()) }
-                    assertFalse(Files.exists(config))
-                    val before = draft.entries()
-                    if (remove) draft.remove(index)
-                    else draft.edit(index, SetupDraft.Row("edited", "edited"))
-                    refresh(draft, worker)
-                    val selected = draft.entries().filter { entry -> entry.draft != null }
-                    assertEquals(if (remove) 1 else 2, selected.size)
-                    selected.forEach { entry -> assertEquals(history, entry.lastKnownDefinitions) }
-                    assertEquals(history, before.get(0).lastKnownDefinitions)
-                    assertEquals(history, before.get(1).lastKnownDefinitions)
-                    assertEquals(if (remove) 1 else 2, draft.validate().relocations.size)
-                }
-            }
-        }
-    }
-
-    @Test fun appendingAnEqualRowAfterCandidateRemovalDoesNotInheritHistory() {
-        val root = Files.createDirectory(temporary.resolve("home"))
-        for (sameObject in listOf(false, true)) for (index in 0 until 2) {
-            Files.copy(fixture("shared"), shared(), StandardCopyOption.REPLACE_EXISTING)
+        for (sameObject in listOf(false, true)) for (index in 0 until 2) for (remove in listOf(false, true)) {
             val draft = draft(root, listOf())
             val row = SetupDraft.Row("team-cache", "team-cache")
-            worker().use { worker ->
-                refresh(draft, worker)
-                draft.append(row)
-                val history = draft.entries().first().lastKnownDefinitions
-                assertFalse(history.isEmpty())
-                Files.writeString(shared(), "{\"directories\": []}")
-                refresh(draft, worker)
-                draft.append(if (sameObject) row else SetupDraft.Row("team-cache", "team-cache"))
-                assertEquals(history, draft.entries().get(0).lastKnownDefinitions)
-                assertTrue(draft.entries().get(1).lastKnownDefinitions.isEmpty())
-                assertThrows<IllegalArgumentException> { draft.validate() }
-                draft.edit(index, SetupDraft.Row("edited", "edited"))
-                refresh(draft, worker)
-                assertEquals(history, draft.entries().get(0).lastKnownDefinitions)
-                assertTrue(draft.entries().get(1).lastKnownDefinitions.isEmpty())
-                draft.remove(index)
-                assertEquals(if (index == 0) listOf() else history, draft.entries().first().lastKnownDefinitions)
-            }
-        }
-    }
-
-    @Test fun editingIntoAnotherRowsValuePreservesBothDistinctHistories() {
-        val root = Files.createDirectory(temporary.resolve("home"))
-        for (index in 0 until 2) {
-            Files.writeString(shared(), "{\"directories\": [{\"path\": \"first-cache\"}, {\"path\": \"second-cache\"}]}")
-            val draft = draft(root, listOf())
-            draft.append(SetupDraft.Row("first-cache", "first-cache"))
-            draft.append(SetupDraft.Row("second-cache", "second-cache"))
-            worker().use { worker ->
-                refresh(draft, worker)
-                val first = draft.entries().get(0).lastKnownDefinitions
-                val second = draft.entries().get(1).lastKnownDefinitions
-                assertFalse(first.isEmpty())
-                assertFalse(second.isEmpty())
-                assertNotEquals(first, second)
-                Files.writeString(shared(), "{\"directories\": []}")
-                refresh(draft, worker)
-                assertNull(draft.entries().get(0).discovery)
-                assertNull(draft.entries().get(1).discovery)
-                draft.edit(index, draft.rows.get(1 - index))
-                assertSame(draft.rows.get(0), draft.rows.get(1))
-                assertThrows<IllegalArgumentException> { draft.validate() }
-                refresh(draft, worker)
-                assertEquals(first, draft.entries().get(0).lastKnownDefinitions)
-                assertEquals(second, draft.entries().get(1).lastKnownDefinitions)
-                draft.remove(index)
-                assertEquals(if (index == 0) second else first, draft.entries().first().lastKnownDefinitions)
-                assertEquals(1, draft.validate().relocations.size)
-            }
+            draft.append(row)
+            draft.append(if (sameObject) row else SetupDraft.Row("team-cache", "team-cache"))
+            assertThrows<IllegalArgumentException> { draft.validate() }
+            if (remove) draft.remove(index) else draft.edit(index, SetupDraft.Row("edited", "edited"))
+            assertEquals(if (remove) 1 else 2, draft.validate().relocations.size)
+            if (!remove) assertEquals(SetupDraft.Row("edited", "edited"), draft.rows[index])
         }
     }
 
@@ -468,15 +384,8 @@ class SetupDraftTest {
             return result
         }
 
-        private fun settled(result: CandidateDiscovery.Result): Boolean {
-            val currentSources = result.sources
-                    .filter { source -> source.status == CandidateDiscovery.SourceStatus.CURRENT }
-                    .map(CandidateDiscovery.SourceOutcome::source)
-            return result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
-                    && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
-                    && result.candidates.filter { c -> c.catalog.definitions
-                            .any { definition -> currentSources.contains(definition.source) } }
-                            .all { c -> c.observation.generation == result.generation }
-        }
+        private fun settled(result: CandidateDiscovery.Result): Boolean =
+            result.sources.none { s -> s.status == CandidateDiscovery.SourceStatus.PENDING }
+                && result.candidates.none { c -> c.observation.kind == CandidateObservation.Kind.PENDING }
     }
 }

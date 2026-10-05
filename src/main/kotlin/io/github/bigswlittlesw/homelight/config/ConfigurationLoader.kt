@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
 /**
@@ -11,7 +12,8 @@ import java.nio.file.Path
  *
  * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
  * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
- * missing target derives from `$HOME`; a missing archive root is [defaultArchiveRoot]; staging-root must be under target-root. Environment variables and
+ * missing target is the source's path under `source-root` (default `~`) placed under `target-root`; a missing
+ * archive root is [defaultArchiveRoot]; staging-root must be under target-root. Environment variables and
  * system properties never override values.
  */
 class ConfigurationLoader {
@@ -41,6 +43,7 @@ class ConfigurationLoader {
     }
 
     private fun configuration(homelight: HomeLightFile, override: PathOverride?): HomeLightConfiguration {
+        val sourceRoot = resolve(homelight.sourceRoot, "homelight.source-root")
         val targetRoot = resolve(homelight.targetRoot, "homelight.target-root")
         val stagingRoot = homelight.stagingRoot?.let { resolve(it, "homelight.staging-root") }
         if (stagingRoot != null && !stagingRoot.startsWith(targetRoot)) {
@@ -48,7 +51,7 @@ class ConfigurationLoader {
         }
         // The override replaces the first relocation's paths, or supplies it when none is configured.
         val relocations = homelight.relocations.mapIndexed { i, fields ->
-            relocation(fields, "homelight.relocations[$i]", targetRoot, stagingRoot, if (i == 0) override else null)
+            relocation(fields, "homelight.relocations[$i]", sourceRoot, targetRoot, stagingRoot, if (i == 0) override else null)
         }.ifEmpty {
             listOfNotNull(override?.let {
                 Relocation(expand(it.sourcePath.toString()), expand(it.targetPath.toString()), stagingRoot = stagingRoot)
@@ -57,17 +60,20 @@ class ConfigurationLoader {
         val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
             resolve(value, "homelight.ignored-source-paths[$i]")
         }
-        val sharedList = homelight.discovery?.sharedList?.let(::parseSharedList)
+        val sharedList = homelight.discovery?.sharedList?.let { value ->
+            convert("homelight.discovery.shared-list") { parseSharedList(value) }
+        }
         return HomeLightConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
 
     private fun relocation(
-        fields: RelocationFile, key: String, targetRoot: Path, stagingRoot: Path?, override: PathOverride?,
+        fields: RelocationFile, key: String, sourceRoot: Path, targetRoot: Path, stagingRoot: Path?,
+        override: PathOverride?,
     ): Relocation {
         val sourcePath = override?.let { expand(it.sourcePath.toString()) } ?: resolve(fields.sourcePath, "$key.source-path")
         val targetPath = override?.let { expand(it.targetPath.toString()) }
             ?: fields.targetPath?.let { resolve(it, "$key.target-path") }
-            ?: deriveTarget(targetRoot, sourcePath)
+            ?: deriveTarget(sourceRoot, targetRoot, sourcePath)
         return Relocation(
             sourcePath, targetPath, fields.whenSourceAndTargetDirectoriesExist, fields.whenOnlyTargetExists,
             fields.whenAdoptingTarget,
@@ -79,7 +85,18 @@ class ConfigurationLoader {
     /** A path from the file. A blank one is rejected, as it would expand to the working directory. */
     private fun resolve(value: String, key: String): Path {
         if (value.isJavaBlank()) throw ConfigurationException("$key must not be blank")
-        return expand(value)
+        return convert(key) { expand(value) }
+    }
+
+    /**
+     * Reports a value that a conversion rejects (`require`, or `Path.of` with a NUL) as a [ConfigurationException]
+     * naming its key, so the CLI prints one line instead of a stack trace.
+     */
+    private fun <T> convert(key: String, conversion: () -> T): T = try {
+        conversion()
+    } catch (exception: IllegalArgumentException) {
+        // An InvalidPathException's message repeats the input, which may hold the control character itself.
+        throw ConfigurationException("$key: ${(exception as? InvalidPathException)?.reason ?: exception.message}")
     }
 
     private fun expand(value: String): Path {
@@ -92,12 +109,12 @@ class ConfigurationLoader {
         return Path.of(expanded).toAbsolutePath().normalize()
     }
 
-    private fun deriveTarget(targetRoot: Path, sourcePath: Path): Path {
-        val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
-        if (!sourcePath.startsWith(home)) {
-            throw ConfigurationException("A source outside \$HOME requires an explicit target-path: $sourcePath")
+    private fun deriveTarget(sourceRoot: Path, targetRoot: Path, sourcePath: Path): Path {
+        if (!sourcePath.startsWith(sourceRoot)) {
+            throw ConfigurationException(
+                "A source outside source-root $sourceRoot requires an explicit target-path: $sourcePath")
         }
-        return targetRoot.resolve(home.relativize(sourcePath)).normalize()
+        return targetRoot.resolve(sourceRoot.relativize(sourcePath)).normalize()
     }
 
     companion object {
@@ -106,8 +123,11 @@ class ConfigurationLoader {
 }
 
 // The configuration file format, shared by ConfigurationLoader and ConfigurationPublisher. Paths stay as
-// written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null or empty, and are
-// omitted on output. Every class has a serial name because kotlinx puts it in its error messages.
+// written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null, empty or
+// `~` for source-root, and are omitted on output. Every class has a serial name because kotlinx puts it in its
+// error messages.
+
+internal const val DEFAULT_SOURCE_ROOT = "~"
 
 @Serializable
 @SerialName("configuration")
@@ -116,6 +136,8 @@ internal data class ConfigurationFile(val homelight: HomeLightFile)
 @Serializable
 @SerialName("homelight")
 internal data class HomeLightFile(
+    /** Targets derive from a source's path under this root. */
+    @SerialName("source-root") val sourceRoot: String = DEFAULT_SOURCE_ROOT,
     @SerialName("target-root") val targetRoot: String,
     @SerialName("staging-root") val stagingRoot: String? = null,
     val discovery: DiscoveryFile? = null,

@@ -63,7 +63,7 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
     "target-root": "/local/home/${USER}",
     "discovery": {"shared-list": "/net/team/homelight/candidates.json"},
     "relocations": [
-      // Target defaults to target-root plus the path under $HOME.
+      // Target defaults to target-root plus the path under source-root.
       {"source-path": "~/.m2"},
       {
         "source-path": "~/.cache/uv",
@@ -80,6 +80,10 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
   }
 }
 ```
+
+`source-root` is optional and defaults to `~`. A relocation without `target-path`
+takes its source's path under `source-root` and places it under `target-root`; a
+source outside `source-root` needs an explicit `target-path`.
 
 `when-adopting-target` is `prompt`, `discard-source` or `archive-source`. Archiving
 moves the source under `archive-root`, which defaults to `.homelight-archive` beside

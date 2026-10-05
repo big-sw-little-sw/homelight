@@ -151,4 +151,4 @@ private fun same(before: BasicFileAttributes, after: BasicFileAttributes): Boole
 
 private fun observation(
     path: Path, kind: Kind, target: Path?, generation: Long, diagnostics: List<Diagnostic>,
-): CandidateObservation = CandidateObservation(path, kind, target, generation, Instant.now(), false, diagnostics)
+): CandidateObservation = CandidateObservation(path, kind, target, generation, Instant.now(), diagnostics)

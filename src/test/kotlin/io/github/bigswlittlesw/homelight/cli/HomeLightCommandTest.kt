@@ -62,6 +62,8 @@ class HomeLightCommandTest {
                 {"source-path": "$source", "target-path": "$local/cache", "existing": "move"}]}}""",
             "bad-enum.json" to """{"homelight": {"target-root": "$local", "relocations": [
                 {"source-path": "$source", "target-path": "$local/cache", "when-only-target-exists": "sometimes"}]}}""",
+            "relative-shared-list.json" to """{"homelight": {"target-root": "$local", "discovery": {"shared-list": "x.json"}}}""",
+            "nul-source-root.json" to """{"homelight": {"source-root": "/a\u0000b", "target-root": "$local"}}""",
         )
         for ((name, content) in configs) {
             val config = root.resolve(name)
