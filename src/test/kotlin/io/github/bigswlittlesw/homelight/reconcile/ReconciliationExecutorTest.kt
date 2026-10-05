@@ -262,6 +262,24 @@ class ReconciliationExecutorTest {
         assertTrue(Files.notExists(root.resolve("missing"), LinkOption.NOFOLLOW_LINKS))
     }
 
+    /** The lock file is opened without following a link, so a link planted at its name is refused. */
+    @Test
+    fun refusesALinkAtTheLockFilesName(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val staging = Files.createDirectories(target.resolveSibling(".homelight-staging"))
+        val elsewhere = root.resolve("elsewhere")
+        Files.createSymbolicLink(lockOf(stagedCopy(staging, target)), elsewhere)
+
+        val actions = ReconciliationExecutor().execute(plan(Relocation(source, target))).relocations.single().actions
+
+        assertEquals(ReconciliationExecutor.ActionStatus.FAILED, actions.first().status)
+        assertTrue(Files.notExists(elsewhere, LinkOption.NOFOLLOW_LINKS))
+        assertTrue(Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
+        assertEquals("source", Files.readString(source.resolve("entry")))
+    }
+
     companion object {
         private fun plan(relocation: Relocation): ReconciliationPlan {
             val inspector = PathInspector()
