@@ -118,7 +118,7 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
 
     private fun validate(proposed: List<Row>): ConfigurationDraft {
         val relocations = configured + proposed.map { it.resolve(sourceRoot, targetRoot) }
-        val draft = ConfigurationDraft.of(targetRoot, relocations, sharedList)
+        val draft = ConfigurationDraft.of(targetRoot, relocations, sharedList, sourceRoot)
         validateConfiguration(draft)
         return draft
     }
