@@ -32,9 +32,7 @@ import kotlin.io.path.walk
 
 class ConcurrentExecutionTest {
     @TempDir
-    lateinit var temporary: Path
-
-    private val root: Path by lazy { temporary.toRealPath() }
+    lateinit var root: Path
 
     @Test
     fun runsIndependentRelocationsConcurrentlyButNeverAboveTheWindow() {
@@ -239,6 +237,29 @@ class ConcurrentExecutionTest {
         assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(listOf(first, second, independent)))
         // A relocation that depends on two groups merges them, and groups keep plan order.
         assertEquals(listOf(listOf(0, 1, 3), listOf(2)), independentGroups(listOf(first, second, independent, bridge)))
+    }
+
+    /** Paths spelled through a symlinked ancestor (#128) are compared as the real places they are; no `toRealPath()`. */
+    @Test
+    fun groupsRelocationsThatAliasThroughASymlinkedAncestor() {
+        val real = Files.createDirectories(root.resolve("real/store"))
+        val link = Files.createSymbolicLink(root.resolve("link"), real.parent)
+        Files.createDirectories(root.resolve("home"))
+        fun relocation(source: String, target: Path, staging: Path? = null) = RelocationPlan(
+            Relocation(root.resolve(source), target), RelocationOutcome.CONVERGED,
+            listOf(ReconciliationAction.MigrateDirectoryForPublication(root.resolve(source), target, staging)), listOf())
+
+        val sameTarget = listOf(relocation("home/a", link.resolve("store/x")), relocation("home/b", real.resolve("x")))
+        val nested = listOf(relocation("home/a", link.resolve("store/x")), relocation("home/b", real.resolve("x/inner")))
+        val missingParent = listOf(relocation("home/a", link.resolve("store/new/a")), relocation("home/b", real.resolve("new/b")))
+        val defaultStaging = listOf(relocation("home/a", link.resolve("store/a")), relocation("home/b", real.resolve("b")))
+
+        assertEquals(listOf(listOf(0, 1)), independentGroups(sameTarget))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(nested))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(missingParent))
+        // One staging root under two spellings is shared: shareable where locks work, one group where they do not.
+        assertEquals(listOf(listOf(0), listOf(1)), independentGroups(defaultStaging))
+        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging) { false })
     }
 
     @Test
