@@ -17,5 +17,5 @@ The decision that an already-existing target directory is authoritative. It requ
 _Avoid_: adopt source, move
 
 **Staging directory**:
-A HomeLight-owned, operation-scoped directory on the target filesystem used to prepare a target for atomic publication.
+A HomeLight-owned directory on the target filesystem used to prepare targets for atomic publication. Each target has its own staged copy and lock file there.
 _Avoid_: temporary directory, transaction journal

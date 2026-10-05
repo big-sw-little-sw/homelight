@@ -338,6 +338,17 @@ Overlap compares each path's real spelling: the real path of its longest existin
 
 Rejected: resolving in the planner (I/O in a pure step that runs on each choice); storing real paths in the configuration (links and displayed paths would change spelling).
 
+## 2026-10-04: One staging operation per target
+
+Staged publication uses one operation per target (#130, decisions D1 and D3 of the executor simplification). In the staging root, `operation-<sha256 of the target's real spelling>` is the staged copy and `operation-<same>.lock` its lock file, which is never deleted. A process claims the key in an in-process set, takes the file lock without waiting, clears whatever is at the copy's name (under the lock it can only be an earlier run's leftover), then copies, verifies and publishes; closing deletes the copy, releases the lock and then the key. Different targets never open each other's files, so relocations that share a staging root always run concurrently. A target already being staged, by this process or another, is an environment failure. The atomic-move probe is gone: the same-filesystem check rules out a cross-device rename, and `publish` uses `ATOMIC_MOVE`, which fails before the source changes.
+
+This replaces UUID-named operations, the `target` marker, the claimed-names set, stale cleanup of other operations, the lock probe and the lock-unsupported fallback. It also fixes four bugs: a leftover containing a symlink is now cleared (B2); a staging cleanup failure is added to the original failure instead of replacing it (B4); a failure after the copy was renamed into place reports `failed-recovery`, not `unresolved` (B5); and no probe file can leak (B8).
+
+- `[skipped: sweeping other targets' leftovers, add when abandoned staging copies are reported]` A target's leftover is cleared the next time that target is staged, and it stays inside the staging root.
+- `[skipped: deleting per-target lock files, add when users object; safe deletion is defeated by inode reuse]` One empty `.lock` per target stays behind.
+- The same target staged by two processes now fails fast with an environment failure, instead of the loser failing on drift after a full copy.
+- The on-disk layout changes. Nothing has been released, so there is no migration.
+
 ## How to add decisions
 
 Use this format:
