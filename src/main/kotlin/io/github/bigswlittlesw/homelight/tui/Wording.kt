@@ -137,6 +137,11 @@ internal const val DISCARD_SETUP_TITLE = "Discard this configuration?"
 internal val DISCARD_SETUP_BODY = listOf("Nothing has been saved yet.", "Your storage locations and relocations will be lost.")
 internal const val DISCARD_SETUP_KEYS = "y: Discard · n/Esc: Keep editing"
 
+/** Asked before saving over an existing configuration (tui-design §7); a new file is created without asking. */
+internal fun replaceConfigurationTitle(path: Path) = "Replace ${displayPath(path)}?"
+internal val REPLACE_CONFIGURATION_BODY = listOf("HomeLight rewrites the whole file.", "Comments in it are not kept.")
+internal const val REPLACE_CONFIGURATION_KEYS = "y: Replace · n/Esc: Keep editing"
+
 internal const val NO_CONFIGURATION = "No configuration file yet. Press i to create one; nothing is written until you save."
 internal const val NO_RELOCATIONS = "No relocations in the configuration."
 internal const val CHOOSE_TO_REVIEW = "Choose what to do for each relocation marked Choose."
