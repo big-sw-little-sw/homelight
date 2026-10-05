@@ -35,7 +35,7 @@ class ConfigurationPublisher {
      * when it was loaded. A changed or deleted file is left as it is and a [ConfigurationException] says so.
      *
      * A symlinked configuration (for example from a dotfiles checkout) is replaced at its target, so the link
-     * stays. Another writer that changes the file between the comparison and the move still loses its change;
+     * stays. The replaced file keeps its POSIX permissions (Linux and macOS only). Another writer that changes the file between the comparison and the move still loses its change;
      * closing that window needs a lock that every writer honors, which hand edits do not.
      */
     fun replace(path: Path, draft: ConfigurationDraft, loaded: ByteArray) {
@@ -45,7 +45,11 @@ class ConfigurationPublisher {
             val destination = path.toRealPath()
             if (!Files.readAllBytes(destination).contentEquals(loaded)) throw changedSinceLoad(shown)
             // On Linux and macOS an atomic move is rename(2), which replaces the destination in one step.
-            writeThrough(destination, draft) { temporary -> Files.move(temporary, destination, ATOMIC_MOVE) }
+            writeThrough(destination, draft) { temporary ->
+                // The temp file starts at 0600; a replace keeps the file's own permissions.
+                Files.setPosixFilePermissions(temporary, Files.getPosixFilePermissions(destination))
+                Files.move(temporary, destination, ATOMIC_MOVE)
+            }
         } catch (exception: NoSuchFileException) {
             throw changedSinceLoad(shown, exception)
         } catch (exception: IOException) {

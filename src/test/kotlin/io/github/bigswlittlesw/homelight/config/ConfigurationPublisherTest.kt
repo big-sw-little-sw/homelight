@@ -13,6 +13,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
@@ -82,6 +83,17 @@ class ConfigurationPublisherTest {
         assertEquals(root.resolve("home/cache").toAbsolutePath(),
                 ConfigurationLoader().load(path).relocations.single().sourcePath)
         assertEquals(listOf(path), Files.list(root).use { it.toList() })
+    }
+
+    @Test fun replaceKeepsTheFilePermissions(@TempDir root: Path) {
+        val path = root.resolve("config.json")
+        val loaded = existing(path, root)
+        val readable = PosixFilePermissions.fromString("rw-r--r--")
+        Files.setPosixFilePermissions(path, readable)
+
+        ConfigurationPublisher().replace(path, draft(root), loaded)
+
+        assertEquals(readable, Files.getPosixFilePermissions(path))
     }
 
     @Test fun refusesAFileChangedOrDeletedSinceLoad(@TempDir root: Path) {
