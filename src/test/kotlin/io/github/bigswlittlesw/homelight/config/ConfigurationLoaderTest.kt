@@ -365,6 +365,16 @@ class ConfigurationLoaderTest {
         }
     }
 
+    @Test fun reportsRejectedPathValuesAgainstTheirKey() {
+        assertEquals("homelight.discovery.shared-list: Shared list must be an absolute filesystem path",
+            failure("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": "relative.json"}}}"""))
+        assertEquals("homelight.source-root: Nul character not allowed",
+            failure("""{"homelight": {"source-root": "/a\u0000b", "target-root": "/local"}}"""))
+        assertEquals("homelight.relocations[0].source-path: Nul character not allowed", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a\u0000b", "target-path": "/local/b"}]}}
+            """))
+    }
+
     @Test fun reportsAMissingFile() {
         val missing = temporary.resolve("absent.json")
         assertEquals("Configuration file does not exist: $missing",

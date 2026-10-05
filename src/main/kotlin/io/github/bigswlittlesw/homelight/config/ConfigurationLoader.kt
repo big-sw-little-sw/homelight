@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
 /**
@@ -59,7 +60,9 @@ class ConfigurationLoader {
         val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
             resolve(value, "homelight.ignored-source-paths[$i]")
         }
-        val sharedList = homelight.discovery?.sharedList?.let(::parseSharedList)
+        val sharedList = homelight.discovery?.sharedList?.let { value ->
+            convert("homelight.discovery.shared-list") { parseSharedList(value) }
+        }
         return HomeLightConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
 
@@ -82,7 +85,18 @@ class ConfigurationLoader {
     /** A path from the file. A blank one is rejected, as it would expand to the working directory. */
     private fun resolve(value: String, key: String): Path {
         if (value.isJavaBlank()) throw ConfigurationException("$key must not be blank")
-        return expand(value)
+        return convert(key) { expand(value) }
+    }
+
+    /**
+     * Reports a value that a conversion rejects (`require`, or `Path.of` with a NUL) as a [ConfigurationException]
+     * naming its key, so the CLI prints one line instead of a stack trace.
+     */
+    private fun <T> convert(key: String, conversion: () -> T): T = try {
+        conversion()
+    } catch (exception: IllegalArgumentException) {
+        // An InvalidPathException's message repeats the input, which may hold the control character itself.
+        throw ConfigurationException("$key: ${(exception as? InvalidPathException)?.reason ?: exception.message}")
     }
 
     private fun expand(value: String): Path {
