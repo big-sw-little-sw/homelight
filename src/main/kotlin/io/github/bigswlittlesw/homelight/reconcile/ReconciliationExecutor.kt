@@ -19,15 +19,14 @@ import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileStore
 import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
@@ -38,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.PathWalkOption
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.fileVisitor
 import kotlin.io.path.fileSize
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
@@ -198,10 +198,11 @@ class ReconciliationExecutor internal constructor(
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = checkNotNull(action.target.parent) { "target has no parent directory: ${action.target}" }
-        val stagingRoot = action.stagingRoot ?: targetParent.resolve(DEFAULT_STAGING_NAME)
-        requirePosixPermissions(action.path)
-        requirePosixPermissions(targetParent)
-        if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
+        val stagingRoot = action.effectiveStagingRoot
+        requirePosixPermissions(action.path, fileStoreOfExistingAncestor(action.path))
+        val targetStore = fileStoreOfExistingAncestor(targetParent)
+        requirePosixPermissions(targetParent, targetStore)
+        if (fileStoreOfExistingAncestor(stagingRoot) != targetStore) {
             throw EnvironmentException("staging root is not on the target filesystem: $stagingRoot")
         }
         ensureDirectories(targetParent)
@@ -230,7 +231,7 @@ class ReconciliationExecutor internal constructor(
                             StandardCharsets.UTF_8,
                         )
                         stagingStep(StagingStep.MARKED, operation)
-                        Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
+                        Files.walkFileTree(action.path, copyVisitor(action.path, copy))
                         verifyCopy(action.path, copy)
                         stagingStep(StagingStep.COPIED, operation)
                         requireState(action.path, PathState.DIRECTORY)
@@ -273,37 +274,41 @@ class ReconciliationExecutor internal constructor(
     private fun createSymlink(action: ReconciliationAction.CreateSymlink) {
         requireState(action.path, PathState.ABSENT)
         requireState(action.target, PathState.DIRECTORY)
-        replaceWithLink(action.path, action.target, false)
+        replaceWithLink(action.path, action.target)
     }
 
     private fun replaceDirectoryWithSymlink(action: ReconciliationAction.ReplaceDirectoryWithSymlink) {
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.DIRECTORY)
-        val temporary = prepareLink(action.path, action.target)
-        try {
+        replaceWithLink(action.path, action.target) {
             requireState(action.path, PathState.DIRECTORY)
             requireState(action.target, PathState.DIRECTORY)
             deleteTree(action.path)
-            Files.move(temporary, action.path, StandardCopyOption.ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporary)
         }
     }
 
     private fun replaceSymlink(action: ReconciliationAction.ReplaceSymlink) {
-        requireState(action.path, PathState.SYMLINK)
+        // A symlink observation always carries its target.
+        val actualTarget = requireState(action.path, PathState.SYMLINK).symlinkTarget
         requireState(action.target, PathState.DIRECTORY)
-        val actualTarget = inspector.inspect(action.path).symlinkTarget
-            ?: throw StateDriftException("expected symlink at ${action.path}")
         if (actualTarget != action.expectedSourceTarget) {
             throw StateDriftException("expected symlink target ${action.expectedSourceTarget} at ${action.path}")
         }
-        replaceWithLink(action.path, action.target, true)
+        replaceWithLink(action.path, action.target, replaceExisting = true)
     }
 
-    private fun replaceWithLink(path: Path, target: Path, replaceExisting: Boolean) {
-        val temporary = prepareLink(path, target)
+    /**
+     * Creates a link to [target] beside [path] and moves it to [path] in one step. [beforeMove] runs once the link
+     * exists, so a failure to create it leaves [path] untouched.
+     */
+    private fun replaceWithLink(
+        path: Path, target: Path, replaceExisting: Boolean = false, beforeMove: () -> Unit = {},
+    ) {
+        val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
+        Files.delete(temporary)
+        Files.createSymbolicLink(temporary, target)
         try {
+            beforeMove()
             if (replaceExisting) {
                 Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             } else {
@@ -314,41 +319,16 @@ class ReconciliationExecutor internal constructor(
         }
     }
 
-    private fun requireState(path: Path, expected: PathState) {
-        val actual = inspector.inspect(path).state
+    /** Returns the observation that passed, so a caller can check more of it without inspecting again. */
+    private fun requireState(path: Path, expected: PathState): PathObservation {
+        val observation = inspector.inspect(path)
+        val actual = observation.state
         if (actual != expected) {
             throw StateDriftException(
                 "expected ${expected.name.lowercase(Locale.ROOT)} at $path but found ${actual.name.lowercase(Locale.ROOT)}",
             )
         }
-    }
-
-    /**
-     * Copies a tree, giving each copied directory the nine permission bits of its source.
-     *
-     * Directories start owner-only, so the copy is never more open to group or others than the
-     * source, and stay owner-writable until their entries are copied. Each gets its final mode
-     * after its contents, which lets a read-only source directory (`0500`) still receive children.
-     * `destination` must not exist yet.
-     */
-    private class CopyVisitor(private val source: Path, private val destination: Path) : SimpleFileVisitor<Path>() {
-        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
-            if (exception != null) {
-                throw exception
-            }
-            Files.setPosixFilePermissions(copiedPath(source, destination, directory), directoryPermissions(directory))
-            return FileVisitResult.CONTINUE
-        }
+        return observation
     }
 
     enum class ActionStatus { COMPLETED, FAILED, PENDING }
@@ -461,9 +441,8 @@ private data class Claim(val path: Path, val shareable: Boolean = false) {
 }
 
 private fun stagingRoots(relocation: RelocationPlan): List<Path> =
-    relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().map { migration ->
-        realSpelling(migration.stagingRoot ?: migration.target.resolveSibling(DEFAULT_STAGING_NAME))
-    }
+    relocation.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>()
+        .map { migration -> realSpelling(migration.effectiveStagingRoot) }
 
 private fun claimedPaths(relocation: RelocationPlan, stagingRoots: List<Path>, shareable: Set<Path>): List<Claim> {
     val own = (listOf(relocation.relocation.sourcePath, relocation.relocation.targetPath) +
@@ -502,7 +481,6 @@ internal fun stagingLocksWork(stagingRoot: Path): Boolean {
     }
 }
 
-private const val DEFAULT_STAGING_NAME = ".homelight-staging"
 private const val OPERATION_PREFIX = "operation-"
 private const val MARKER_HEADER = "homelight-staging-v1\n"
 
@@ -538,10 +516,11 @@ private val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(OWNER_AC
 /**
  * Refuses publication where directory permission bits cannot be read or set, rather than letting
  * the copy fall back to provider defaults (decision 2026-09-30). A provider that accepts but ignores
- * the bits is caught later by [verifyCopy].
+ * the bits is caught later by [verifyCopy]. [store] is the [fileStoreOfExistingAncestor] of [path], which the
+ * caller passes so the target's store is looked up once.
  */
-private fun requirePosixPermissions(path: Path) {
-    if (!fileStoreOfExistingAncestor(path).supportsFileAttributeView(PosixFileAttributeView::class.java)) {
+private fun requirePosixPermissions(path: Path, store: FileStore) {
+    if (!store.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
         throw EnvironmentException("cannot preserve directory permissions: no POSIX permission support at $path")
     }
 }
@@ -785,13 +764,6 @@ private fun tryAcquireLock(channel: FileChannel): FileLock? =
         null
     }
 
-private fun prepareLink(path: Path, target: Path): Path {
-    val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
-    Files.delete(temporary)
-    Files.createSymbolicLink(temporary, target)
-    return temporary
-}
-
 /**
  * Deletes [root] and everything under it without following links; a missing root is a no-op.
  *
@@ -819,6 +791,32 @@ private fun deleteFailureMessage(failure: Throwable): String? {
         FileSystemException(failure.file, cause.otherFile, cause.reason).message
     } else {
         failure.message
+    }
+}
+
+/**
+ * Copies a tree, giving each copied directory the nine permission bits of its source.
+ *
+ * Directories start owner-only, so the copy is never more open to group or others than the
+ * source, and stay owner-writable until their entries are copied. Each gets its final mode
+ * after its contents, which lets a read-only source directory (`0500`) still receive children.
+ * `destination` must not exist yet.
+ */
+internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = fileVisitor {
+    onPreVisitDirectory { directory, _ ->
+        Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
+        FileVisitResult.CONTINUE
+    }
+    onVisitFile { file, _ ->
+        Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
+        FileVisitResult.CONTINUE
+    }
+    onPostVisitDirectory { directory, exception ->
+        if (exception != null) {
+            throw exception
+        }
+        Files.setPosixFilePermissions(copiedPath(source, destination, directory), directoryPermissions(directory))
+        FileVisitResult.CONTINUE
     }
 }
 
