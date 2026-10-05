@@ -208,6 +208,10 @@ class StagedPermissionTest {
         }
     }
 
+    /**
+     * The source is set aside and linked before deletion (#132), so the entry it cannot delete stays aside, not at the
+     * source. Nothing is chmodded, and the next plan deletes what was left aside.
+     */
     @Test
     fun readOnlyPopulatedSourceIsPublishedReadOnlyAndReportsRecoveryWithoutChmod() {
         val root = posixRoot()
@@ -215,23 +219,26 @@ class StagedPermissionTest {
         Files.writeString(source.resolve("entry"), "keep")
         mode(source, "r-x------")
         val target = root.resolve("local/target")
+        val aside = replacedSourcePath(source, target)
         try {
             assumeFalse(Files.isWritable(source), "requires directory write denial, not a privileged process")
             val result = ReconciliationExecutor().execute(plan(source, target))
             assertFalse(result.succeeded())
             assertEquals(ReconciliationExecutor.ExecutionOutcome.FAILED_RECOVERY,
                     result.relocations.first().outcome())
-            assertTrue(Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS))
-            assertEquals("keep", Files.readString(source.resolve("entry")))
+            assertEquals(target, Files.readSymbolicLink(source))
+            assertEquals("keep", Files.readString(aside.resolve("entry")))
             assertEquals("keep", Files.readString(target.resolve("entry")))
-            assertMode(source, "r-x------")
+            assertMode(aside, "r-x------")
             assertMode(target, "r-x------")
             assertOnlyLockLeft(target)
-            assertTrue(plan(source, target).hasConflicts())
+            assertEquals(listOf(ReconciliationAction.DeleteDirectory(aside)),
+                    plan(source, target).relocations.single().actions)
         } finally {
-            mode(source, "rwx------")
-            if (Files.isDirectory(target)) {
-                mode(target, "rwx------")
+            for (directory in listOf(source, aside, target)) {
+                if (Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+                    mode(directory, "rwx------")
+                }
             }
         }
     }
@@ -440,7 +447,8 @@ class StagedPermissionTest {
         private fun plan(source: Path, target: Path): ReconciliationPlan {
             val inspector = PathInspector()
             return ReconciliationPlanner().plan(listOf(RelocationState(Relocation(source, target),
-                    inspector.inspect(source), inspector.inspect(target))))
+                    inspector.inspect(source), inspector.inspect(target),
+                    replacedSource = inspector.inspect(replacedSourcePath(source, target)))))
         }
     }
 }

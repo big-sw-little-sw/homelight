@@ -36,12 +36,12 @@ private val stagingKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
  */
 internal class StagingOperation private constructor(
     private val key: String, private val copy: Path, private val channel: FileChannel,
-    private val stagingStep: (ReconciliationExecutor.StagingStep, Path) -> Unit,
+    private val stagingStep: (ReconciliationExecutor.Step, Path) -> Unit,
 ) : AutoCloseable {
     fun stage(source: Path) {
         Files.walkFileTree(source, copyVisitor(source, copy))
         verifyCopy(source, copy)
-        stagingStep(ReconciliationExecutor.StagingStep.COPIED, copy)
+        stagingStep(ReconciliationExecutor.Step.COPIED, copy)
     }
 
     /**
@@ -57,7 +57,7 @@ internal class StagingOperation private constructor(
         }
         Files.move(copy, target, StandardCopyOption.ATOMIC_MOVE)
         try {
-            stagingStep(ReconciliationExecutor.StagingStep.PUBLISHED, copy)
+            stagingStep(ReconciliationExecutor.Step.PUBLISHED, copy)
             if (!writable) {
                 Files.setPosixFilePermissions(target, permissions)
             }
@@ -83,11 +83,9 @@ internal class StagingOperation private constructor(
 
     companion object {
         fun open(
-            stagingRoot: Path, target: Path, stagingStep: (ReconciliationExecutor.StagingStep, Path) -> Unit,
+            stagingRoot: Path, target: Path, stagingStep: (ReconciliationExecutor.Step, Path) -> Unit,
         ): StagingOperation {
-            val key = HexFormat.of().formatHex(
-                MessageDigest.getInstance("SHA-256").digest(realSpelling(target).toString().toByteArray()),
-            )
+            val key = sha256Hex(realSpelling(target).toString())
             if (!stagingKeys.add(key)) {
                 throw EnvironmentException("this HomeLight is already publishing $target")
             }
@@ -98,7 +96,7 @@ internal class StagingOperation private constructor(
                     if (channel.tryLock() == null) {
                         throw EnvironmentException("another HomeLight is publishing $target")
                     }
-                    stagingStep(ReconciliationExecutor.StagingStep.LOCKED, copy)
+                    stagingStep(ReconciliationExecutor.Step.LOCKED, copy)
                     clearCopy(copy)
                     return StagingOperation(key, copy, channel, stagingStep)
                 } catch (throwable: Throwable) {
@@ -112,6 +110,9 @@ internal class StagingOperation private constructor(
         }
     }
 }
+
+internal fun sha256Hex(text: String): String =
+    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.toByteArray()))
 
 private val LOCK_OPTIONS = setOf<OpenOption>(StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)
 private val OWNER_ONLY_FILE =
