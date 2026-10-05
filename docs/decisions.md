@@ -320,6 +320,12 @@ The executor reports an action as failed only for an I/O failure or an expected 
 
 - `[skipped: a stack trace for a bug that escapes execute, add when a bug report needs more than its message]`
 
+## 2026-10-04: Bugs are reported as internal errors
+
+A bug is any exception that is not a configuration, I/O or environment failure. It reads `Internal error (please report): <ExceptionType>: <message>`, with no stack trace. The CLI prints that one line on stderr and exits 70 (`EX_SOFTWARE`); a configuration error still prints its message and exits 1. `apply --json` still prints the result it has on stdout before the line, so automation keeps the evidence of what ran. Configuration evaluation turns only a `ConfigurationException` into an invalid or missing configuration, so a bug in inspection or planning is no longer shown as an invalid file. In the TUI, a bug while checking the configuration ends the TUI, restores the terminal and prints the line; a bug during apply shows the line as Apply's diagnostic, and the line is printed again with exit 70 when HomeLight exits. A terminal failure still prints `Failed to run HomeLight TUI: <message>` and exits 1.
+
+- `[skipped: printing the stack trace, add when a bug report needs more than the exception type and message, e.g. behind a debug option]`
+
 ## 2026-10-04: Existing ancestors may be symlinks; overlap compares real paths
 
 An existing ancestor of a path HomeLight works on may be a symlink to a directory, such as `/var` on macOS or `/home -> /var/home` on Fedora Atomic. Every directory HomeLight creates must be real, and so must the source, the target and the staging root themselves; their guards still inspect them without following links. `EnsureDirectory` follows the same rule, so an existing symlinked parent is accepted rather than refused.

@@ -35,6 +35,9 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
     /**
      * Schedules at most once, returning the same completion on every subsequent call.
      * The terminal snapshot is published before completion settles, including scheduling rejection.
+     *
+     * The executor reports I/O and environment failures as failed actions, so anything that escapes it is a bug:
+     * the result shows [internalErrorMessage] and completion fails with the bug, so callers report it too.
      */
     fun start(worker: Executor): CompletableFuture<Void?> {
         val completion = synchronized(this) {
@@ -49,13 +52,14 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
                 try {
                     executeReviewed(plan)
                     completion.complete(null)
-                } catch (error: Error) {
-                    finishWithoutExecution(plan, listOf(message(error)), false)
-                    completion.completeExceptionally(error)
+                } catch (bug: Throwable) {
+                    finishWithoutExecution(plan, listOf(internalErrorMessage(bug)), false)
+                    completion.completeExceptionally(bug)
                 }
             }
         } catch (exception: RuntimeException) {
-            finishWithoutExecution(plan, listOf(message(exception)), false)
+            // Scheduling rejection: nothing ran, and it is an environment failure rather than a bug.
+            finishWithoutExecution(plan, listOf(exception.message ?: exception.toString()), false)
             completion.complete(null)
         }
         return completion
@@ -68,36 +72,32 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
     }
 
     private fun executeReviewed(plan: ReconciliationPlan) {
-        try {
-            val executor = ReconciliationExecutor()
-            val drift = executor.preflight(plan)
-            if (drift.isNotEmpty()) {
-                finishWithoutExecution(plan, drift.map { it.message }, true)
-                return
-            }
-            val result = executor.execute(plan, object : ReconciliationExecutor.ProgressListener {
-                override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
-                    updateStep(relocation, action, ApplyModel.StepStatus.RUNNING, "Running")
-                    if (action.mutatesFilesystem) {
-                        pauseForVisualTesting()
-                    }
+        val executor = ReconciliationExecutor()
+        val drift = executor.preflight(plan)
+        if (drift.isNotEmpty()) {
+            finishWithoutExecution(plan, drift.map { it.message }, true)
+            return
+        }
+        val result = executor.execute(plan, object : ReconciliationExecutor.ProgressListener {
+            override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
+                updateStep(relocation, action, ApplyModel.StepStatus.RUNNING, "Running")
+                if (action.mutatesFilesystem) {
+                    pauseForVisualTesting()
                 }
+            }
 
-                override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
-                    updateStep(relocation, action.action, stepStatus(action.status), action.message)
-                }
-            })
-            val steps = result.relocations.flatMap { relocation ->
-                relocation.actions.map { action ->
-                    ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message)
-                }
+            override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
+                updateStep(relocation, action.action, stepStatus(action.status), action.message)
             }
-            val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
-            synchronized(this) {
-                snapshot = ApplyModel.Result.of(plan, steps, result, listOf(), stale)
+        })
+        val steps = result.relocations.flatMap { relocation ->
+            relocation.actions.map { action ->
+                ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message)
             }
-        } catch (exception: RuntimeException) {
-            finishWithoutExecution(plan, listOf(message(exception)), false)
+        }
+        val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
+        synchronized(this) {
+            snapshot = ApplyModel.Result.of(plan, steps, result, listOf(), stale)
         }
     }
 
@@ -154,5 +154,3 @@ private fun stepStatus(status: ReconciliationExecutor.ActionStatus): ApplyModel.
     ReconciliationExecutor.ActionStatus.FAILED -> ApplyModel.StepStatus.FAILED
     ReconciliationExecutor.ActionStatus.PENDING -> ApplyModel.StepStatus.PENDING
 }
-
-private fun message(exception: Throwable): String = exception.message ?: exception.toString()

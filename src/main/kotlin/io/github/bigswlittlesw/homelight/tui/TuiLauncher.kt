@@ -1,6 +1,8 @@
 package io.github.bigswlittlesw.homelight.tui
 
 import dev.tamboui.backend.jline3.JLineBackend
+import dev.tamboui.error.RuntimeIOException
+import dev.tamboui.error.TerminalIOException
 import dev.tamboui.terminal.Backend
 import dev.tamboui.toolkit.app.ToolkitRunner
 import dev.tamboui.toolkit.element.Element
@@ -10,6 +12,7 @@ import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import org.jline.terminal.Terminal
 import java.io.IOException
 import java.io.PrintWriter
+import java.io.UncheckedIOException
 import java.nio.file.Path
 import java.util.function.Supplier
 
@@ -19,7 +22,9 @@ internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb termin
 
 /**
  * Launches the interactive TUI with error handling and terminal validation, and returns the exit code:
- * 0 after a normal exit, 1 when the TUI fails, 2 when the terminal cannot run it.
+ * 0 after a normal exit, 1 when the terminal fails, 2 when the terminal cannot run it.
+ *
+ * A bug propagates once the terminal is restored, and the CLI reports it as an internal error.
  */
 internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
     // Since JDK 22, System.console() may return a console when input or output is redirected.
@@ -34,10 +39,14 @@ internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput
         errorOutput.println(DUMB_TERMINAL)
         return 2
     } catch (exception: Exception) {
+        if (!isTerminalFailure(exception)) throw exception
         errorOutput.println("Failed to run HomeLight TUI: " + (exception.message ?: exception.toString()))
         return 1
     }
 }
+
+private fun isTerminalFailure(exception: Exception): Boolean = exception is IOException
+    || exception is UncheckedIOException || exception is RuntimeIOException || exception is TerminalIOException
 
 /** Opens manual setup only for a missing configuration; it never edits an existing file. */
 internal fun launchInit(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
@@ -58,11 +67,10 @@ internal fun terminalRefusal(interactive: Boolean, term: String?): String? = whe
 
 internal fun runTui(app: HomeLightApp) {
     val configured = app.configure()
-    // Propagate render failures through the same waiting/cleanup boundary. The toolkit's
-    // default error screen intercepts Escape before application navigation can handle it.
-    val builder = configured.toBuilder().errorHandler(RenderErrorHandler { error, _ ->
-        throw IllegalStateException("Unable to render HomeLight", error.cause())
-    })
+    // Propagate render and key-handling failures unchanged through the same waiting/cleanup boundary, so a bug
+    // is reported by its own type and message. The toolkit's default error screen intercepts Escape before
+    // application navigation can handle it.
+    val builder = configured.toBuilder().errorHandler(RenderErrorHandler { error, _ -> throw error.cause() })
     if (configured.backend() == null) {
         builder.backend(systemBackend())
     }

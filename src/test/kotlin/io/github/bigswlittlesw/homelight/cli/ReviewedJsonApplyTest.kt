@@ -166,7 +166,7 @@ class ReviewedJsonApplyTest {
     }
 
     @Test
-    fun exceptionalCompletionRendersRetainedDiagnostics() {
+    fun exceptionalCompletionRendersRetainedDiagnosticsThenPropagates() {
         val root = directory.toRealPath()
         val config = configuration(root, "", "first")
         val execution = ReviewedExecution(ConfigurationEvaluation().loadRequired(config).plan)
@@ -174,10 +174,11 @@ class ReviewedJsonApplyTest {
             throw RejectedExecutionException("retained worker diagnostic")
         }
         // Inject completion failure after publication, without provoking a real VM failure.
-        completion.obtrudeException(AssertionError("exceptional completion"))
+        val failure = AssertionError("exceptional completion")
+        completion.obtrudeException(failure)
         val output = StringWriter()
 
-        assertEquals(1, renderCompletion(execution, PrintWriter(output, true)))
+        assertSame(failure, assertThrows<CompletionException> { renderCompletion(execution, PrintWriter(output, true)) }.cause)
         assertEquals(listOf("false"), values(output.toString(), "succeeded"))
         assertTrue(output.toString().contains("\"diagnostics\":[\"retained worker diagnostic\"]"))
         val statuses = values(output.toString(), "status")
@@ -186,7 +187,7 @@ class ReviewedJsonApplyTest {
     }
 
     @Test
-    fun exceptionalCompletionPreservesEvidenceAfterPartialMutation() {
+    fun exceptionalCompletionPreservesEvidenceAfterPartialMutationThenPropagates() {
         val root = directory.toRealPath()
         // The targets' parent, `local/data`, is missing, so every relocation claims it and they run in plan order.
         Files.createDirectories(root.resolve("home/data/second"))
@@ -198,11 +199,31 @@ class ReviewedJsonApplyTest {
         completion.obtrudeException(AssertionError("exceptional completion after mutation"))
         val output = StringWriter()
 
-        assertEquals(1, renderCompletion(execution, PrintWriter(output, true)))
+        assertThrows<CompletionException> { renderCompletion(execution, PrintWriter(output, true)) }
         assertEquals(listOf("false"), values(output.toString(), "succeeded"))
         assertTrue(values(output.toString(), "status").containsAll(listOf("completed", "failed", "pending")))
         assertTrue(Files.isSymbolicLink(root.resolve("home/data/first")))
         assertTrue(Files.notExists(root.resolve("home/data/third")))
+    }
+
+    @Test
+    fun anExecutorBugRendersInternalErrorEvidenceThenPropagates() {
+        val root = directory.toRealPath()
+        val config = configuration(root, "", "first")
+        // A plan without its review snapshot is a bug the executor's preflight refuses with a `require`.
+        val plan = ConfigurationEvaluation().loadRequired(config).plan.copy(expectedStates = listOf())
+        val execution = ReviewedExecution(plan)
+        execution.start(Runnable::run)
+        val output = StringWriter()
+
+        val thrown = assertThrows<CompletionException> { renderCompletion(execution, PrintWriter(output, true)) }
+        assertInstanceOf(IllegalArgumentException::class.java, thrown.cause)
+        assertEquals(listOf("false"), values(output.toString(), "succeeded"))
+        assertTrue(output.toString().contains(
+            "\"diagnostics\":[\"Internal error (please report): IllegalArgumentException: Plan has no complete review snapshot\"]"),
+            output.toString())
+        assertTrue(values(output.toString(), "status").all { it == "pending" })
+        assertTrue(Files.notExists(root.resolve("local")))
     }
 
     @Test

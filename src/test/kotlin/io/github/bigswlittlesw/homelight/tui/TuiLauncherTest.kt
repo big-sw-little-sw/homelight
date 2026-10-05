@@ -6,7 +6,9 @@ import dev.tamboui.terminal.AbstractBackend
 import dev.tamboui.tui.TuiConfig
 import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
+import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletionException
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
@@ -108,15 +111,61 @@ class TuiLauncherTest {
             tasks.first().run()
         }
         assertTrue(stopped.await(5, TimeUnit.SECONDS))
-        assertEquals("Unable to render HomeLight", thrown.get().message)
+        // The failure itself propagates, so the CLI can name its type and message.
+        assertEquals("render fixture failure", assertInstanceOf(IllegalStateException::class.java, thrown.get()).message)
         assertEquals(listOf("raw", "alternate", "hide", "show", "leave", "close"), backend.lifecycle)
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
         assertFalse(completion.isCancelled)
         assertTrue(Files.isSymbolicLink(temporary.resolve("source")))
     }
 
-    private class LifecycleBackend : AbstractBackend() {
+    @Test
+    fun aConfigurationEvaluationBugPropagatesAfterRestoringTheTerminal() {
+        val failing = AtomicBoolean()
+        val planner = ReconciliationPlanner()
+        val evaluator = ConfigurationEvaluation(plan = { states ->
+            if (failing.get()) throw IllegalStateException("injected planner bug") else planner.plan(states)
+        })
+        val session = HomeLightSession(HomeLightExitTest.configuration(temporary), evaluator = evaluator)
+        // `r` checks again, which loads the configuration while the TUI runs.
+        val backend = LifecycleBackend("r")
+        failing.set(true)
+
+        val thrown = assertThrows<IllegalStateException> { HomeLightApp(session, config(backend)).run() }
+        assertEquals("injected planner bug", thrown.message)
+        assertEquals(listOf("show", "leave", "close"), backend.lifecycle.takeLast(3))
+    }
+
+    @Test
+    fun anApplyBugShowsTheInternalErrorThenPropagatesAfterRestoringTheTerminal() {
+        val planner = ReconciliationPlanner()
+        // A plan without its review snapshot makes the executor's preflight fail a `require`: a bug.
+        val evaluator = ConfigurationEvaluation(plan = { states -> planner.plan(states).copy(expectedStates = listOf()) })
+        val session = HomeLightSession(HomeLightExitTest.configuration(temporary), evaluator = evaluator)
+        val backend = LifecycleBackend()
+        val app = HomeLightApp(session, config(backend))
+        app.switchScreen(Screen.APPLY)
+        session.confirmApply(Executor(Runnable::run))
+
+        val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
+        val line = "Internal error (please report): IllegalArgumentException: Plan has no complete review snapshot"
+        assertEquals(listOf(line), result.diagnostics)
+        for ((width, height) in listOf(80 to 24, 120 to 30)) {
+            val screen = HomeLightExitTest.render(app, width, height)
+            assertTrue(screen.contains("Internal error (please report)"), screen)
+            assertTrue(screen.contains("Worker stopped unexpectedly"), screen)
+        }
+        app.handleKeyEvent(KeyEvent.ofChar('q', KEY_BINDINGS))
+        val thrown = assertThrows<CompletionException> { app.run() }
+        assertInstanceOf(IllegalArgumentException::class.java, thrown.cause)
+        assertEquals(listOf("show", "leave", "close"), backend.lifecycle.takeLast(3))
+        assertFalse(Files.exists(temporary.resolve("source")))
+    }
+
+    /** Reads [input] one character at a time, then nothing. */
+    private class LifecycleBackend(input: String = "") : AbstractBackend() {
         val lifecycle: MutableList<String> = CopyOnWriteArrayList()
+        private val input = ConcurrentLinkedQueue(input.toList())
 
         override fun flush() { }
         override fun clear() { }
@@ -131,6 +180,7 @@ class TuiLauncherTest {
         override fun writeRaw(data: String) { }
         override fun onResize(handler: Runnable) { }
         override fun read(timeoutMs: Int): Int {
+            input.poll()?.let { return it.code }
             try {
                 Thread.sleep(Math.max(1, timeoutMs).toLong())
             } catch (exception: InterruptedException) {
