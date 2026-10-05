@@ -20,7 +20,7 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 4. **Use nullable types, not `Optional`.** Prefer `?.`, `?:`, `let` and early returns, but do not chain them into puzzles. Do not use `!!` without a comment saying why the value cannot be null.
 
-5. **Prefer immutability.** Use `val` by default. Expose read-only `List`/`Map`/`Set` in APIs and never a mutable collection that callers could change. When a type keeps a collection it was given, copy it with `toList()`, `toSet()` or `toMap()`, not `java.util.List.copyOf`; the read-only type is the guarantee, so tests do not cast to `MutableList` to prove immutability. Derive values with `copy`.
+5. **Prefer immutability.** Use `val` by default. Expose read-only `List`/`Map`/`Set` in APIs and never a mutable collection that callers could change. When a type keeps a collection it was given, copy it with `toList()`, `toSet()` or `toMap()`, not `java.util.List.copyOf`; the read-only type is the guarantee, so tests do not cast to `MutableList` to prove immutability. Derive values with `copy`. No out-parameters: functions return their results; accumulators stay local to the function that builds them. In the TUI, a line builder returns `List<Line>`, or a small `Anchored(lines, anchor)` when it also needs an anchor, instead of filling a `MutableList<Line>`.
 
 6. **When interpreting one input through several independent alternative shapes,** prefer small, named recognizers that return `T?`, combined with `?:`. Retain direct guards when checks are sequential, interdependent, or clearer that way.
 
