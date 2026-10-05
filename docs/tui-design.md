@@ -136,20 +136,34 @@ commands. Each binding appears once. Never advertise a key that does nothing now
 Summary rows count relocations:
 `4 relocations · ⚡ 2 to change · ⚠ 0 need a choice · ✖ 0 blocked` and
 `✔ 2 in sync · ─ 0 left as is`. A risk row appears only when non-zero:
-`Of these: 1 with warnings · 1 deletes or replaces data`.
+`Of these: 1 with warnings · 1 deletes data`.
+
+A relocation **deletes data** when apply removes content that is not kept
+anywhere else: deleting the source while keeping the target, deleting both, or
+deleting the original source an interrupted replacement left behind. A Move does
+not: it replaces the source with a link only after the copy at the target is
+checked, and its **Will do** line says so.
 
 The details pane answers, in this order:
 
 1. **Now:** what is there, for example `Now: both ~/.cache/uv and its target are
    directories.` Keep link, unreadable and missing cases explicit.
-2. **Your rule:** the rule for this observed case, for example `Your rule: keep
-   target, ask about source.`
-3. **Your choice (not saved):** a `Select` of the choices that apply, only when
-   one is needed. A choice is for the next apply only and is cleared by any
+2. **Decision:** one line, only when a rule governs the case observed now (both
+   exist, or only the target exists) or a choice is set. It says what will
+   happen and where that comes from: `Decision: ask each time (your
+   configuration)` or `Decision: keep target, delete source (your choice, not
+   saved)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have
+   no Decision line. A choice is for the next apply only and is cleared by any
    re-check, save or apply.
-4. **Will do:** the consequence of the current rule or choice, with destructive
-   effects stated plainly. Without a choice: `Will do: nothing until you choose.`
-5. **Paths:** source, target, archive and current link destination, each once.
+3. **Will do:** the consequence of the current rule or choice. Without a choice:
+   `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
+   reason. A row that deletes data adds `⚠ This deletes data for good.`
+4. **Choices:** the choices that apply, only when one is needed. While archiving
+   is only offered, its choice names the destination: `Move the source to
+   ~/.cache/.homelight-archive/… and replace it with a link to the target.`
+5. **Paths:** source, target and current link destination, each once.
+   `Archive:` appears only when the rule or choice archives the source, and
+   `Left behind:` only when apply deletes what an interrupted replacement left.
 
 `s: Always do this` (shown when a choice is set) opens a dialog that explains the
 rule in words and says it is saved to the configuration file, that comments in

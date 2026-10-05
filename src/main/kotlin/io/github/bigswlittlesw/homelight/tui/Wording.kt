@@ -37,12 +37,14 @@ internal fun choiceLabel(choice: DecisionChoice): String = when (choice) {
     DecisionChoice.DISCARD_BOTH -> bothLabel(WhenSourceAndTargetDirectoriesExist.DISCARD)
 }
 
-internal fun choiceDescription(choice: DecisionChoice): String = when (choice) {
+/** `archive` names where archiving would move the source, when the choice only offers it (#107). */
+internal fun choiceDescription(choice: DecisionChoice, archive: Path? = null): String = when (choice) {
     DecisionChoice.ADOPT_TARGET -> "Use the existing target and put a link to it at the source."
     DecisionChoice.ADOPT_AND_DISCARD_SOURCE ->
         "Keep the target's contents. Delete the source and replace it with a link to the target."
     DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE ->
-        "Keep the target's contents. Move the source to the archive and replace it with a link to the target."
+        "Keep the target's contents. Move the source to " + (archive?.let(::displayPath) ?: "the archive") +
+            " and replace it with a link to the target."
     DecisionChoice.LEAVE_UNCHANGED -> "Change nothing. Source and target stay as they are."
     DecisionChoice.DISCARD_BOTH -> "Delete the contents of both, then create an empty target and link the source to it."
 }
@@ -141,6 +143,12 @@ internal const val CHOOSE_TO_REVIEW = "Choose what to do for each relocation mar
 internal const val FIX_TO_REVIEW = "Fix the blocked paths; see Details."
 internal const val DELETES_OR_REPLACES = "⚠ This deletes or replaces existing data."
 internal const val RESULTS_KEPT = "The last apply's results are on 2: Results. Check again (r) before choosing."
+internal const val DELETES_DATA = "⚠ This deletes data for good."
+internal const val LEFT_BEHIND_DELETED =
+    "delete the original source an interrupted replacement left behind (under Paths); the link stays."
+
+/** A blocked row's problem, in the planner's words (they are shared with JSON output). */
+internal fun problem(reason: String) = "Problem: $reason."
 
 internal fun relocationCount(n: Int) = "$n " + if (n == 1) "relocation" else "relocations"
 internal fun toChange(n: Int) = "⚡ $n to change"
@@ -149,7 +157,13 @@ internal fun blockedCount(n: Int) = "✖ $n blocked"
 internal fun inSyncCount(n: Int) = "✔ $n in sync"
 internal fun leftAsIsCount(n: Int) = "─ $n left as is"
 internal fun deletesOrReplaces(n: Int) = "$n " + if (n == 1) "deletes or replaces data" else "delete or replace data"
-internal fun risks(warnings: Int, destructive: Int) = "Of these: $warnings with warnings · " + deletesOrReplaces(destructive)
+internal fun risks(warnings: Int, deleting: Int) =
+    "Of these: $warnings with warnings · $deleting " + if (deleting == 1) "deletes data" else "delete data"
+
+/** The one Details line that says what decides a row and where that comes from (tui-design §5). */
+internal fun ruleDecision(rule: String) = "Decision: " + rule.lowercase() + " (your configuration)"
+internal fun choiceDecision(choice: DecisionChoice) =
+    "Decision: " + choiceLabel(choice).lowercase() + " (your choice, not saved)"
 
 /** The Workspace list title: the in-sync rows `c` hides or shows, or none when `c` would change nothing. */
 internal fun relocationsTitle(inSync: Int, shown: Boolean): String = when {

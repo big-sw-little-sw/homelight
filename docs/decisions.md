@@ -379,6 +379,19 @@ Inspection chooses the name, because whether it is taken is a filesystem fact; t
 
 Rejected: always adding the suffix (unreadable in the common case); a timestamp suffix (a re-check would plan a different path); giving the plain name to the first relocation in file order (reordering the file would change where a source goes).
 
+## 2026-10-05: Workspace Details say the decision once and warn only for deletions
+
+Workspace Details (#110) replace the "Your rule" and "Your choice (not saved)" pair with one `Decision:` line that says what will happen and where it comes from, for example `Decision: ask each time (your configuration)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have no such line. `Archive:` appears under Paths only when the rule or choice archives the source; while archiving is only offered, the archive choice names its destination (#107). A blocked row now shows the planner's reason after `Will do`, which already pointed to "the problem below".
+
+`⚠ This deletes data for good.` and the summary's `deletes data` count cover only data that is not kept elsewhere: deleting a source while keeping the target, deleting both, or deleting what an interrupted replacement left behind. A verified Move no longer carries a warning: it replaces the source with a link only after the copy is checked, and its `Will do` line already says so. Review keeps its per-step ⚠ on every step that deletes or replaces something, because it lists exact steps.
+
+- `[skipped: plain-language reasons for blocked rows, add when the planner's reasons are reworded for JSON output too]` The reasons are shared with JSON, so Details shows them as written.
+- `[skipped: a softer Review warning for a verified "Replace source with a link" step, add when the Review walkthrough finds it alarming]`
+- `[skipped: keeping the Decision line in view when Details takes focus, add when users miss it]` Focusing Details still scrolls to the focused choice (#108).
+- `[skipped: List<Line> or Anchored builders in Setup and Browse, add when #114 and #115 replace those screens]`
+
+Rejected: a softer warning line on a Move ("Replaces the source with a link after a verified copy."), because it repeats the `Will do` line.
+
 ## How to add decisions
 
 Use this format:

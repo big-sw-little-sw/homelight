@@ -62,6 +62,7 @@ class WorkspaceViewTest {
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val source = model.items.first().relocation.sourcePath
         val choices = model.items.first().availableResolutions
+        val archive = model.observations.first { it.relocation.sourcePath == source }.archiveDestination?.path
         assertEquals(4, choices.size)
         ui.press(KeyCode.RIGHT)
         for (choice in 0 until choices.size) {
@@ -74,7 +75,7 @@ class WorkspaceViewTest {
                 assertTrue(screen.contains("1 left as is"), screen)
                 val details = rightPane(screen, size[0])
                 assertTrue(details.contains(choiceLabel(choices[choice])), details)
-                assertTrue(details.replace(" ", "").contains(choiceDescription(choices[choice]).replace(" ", "")), screen)
+                assertTrue(details.replace(" ", "").contains(choiceDescription(choices[choice], archive).replace(" ", "")), screen)
             }
             if (choice < choices.size - 1) ui.press(KeyCode.DOWN)
         }
@@ -108,48 +109,48 @@ class WorkspaceViewTest {
             val item = model.items.first()
             assertTrue(all.toString().contains(item.relocation.sourcePath.toString()), all.toString())
             assertTrue(all.toString().contains(item.relocation.targetPath.toString()))
-            assertTrue(all.toString().contains("Your rule:"))
-            assertTrue(all.toString().replace(" ", "").contains("Yourchoice(notsaved):none;yourruleapplies"))
+            assertTrue(all.toString().replace(" ", "").contains("Decision:askeachtime(yourconfiguration)"), all.toString())
+            assertFalse(all.toString().contains("Your rule") || all.toString().contains("Your choice"))
             assertTrue(all.toString().contains("Will do:"))
             assertTrue(all.toString().contains("archive-destination-distinguishing-suffix"))
         }
     }
 
     @Test
-    fun adoptionPolicyDetailsFollowTheSavedEnum() {
+    fun adoptionRuleFollowsTheSavedEnum() {
         val session = HomeLightSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
-        val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
+        val rule = WorkspaceView.rule(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
             WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE), item)
-        assertEquals("keep target, delete source.", policy)
+        assertEquals("Keep target, delete source", rule)
     }
 
     @ParameterizedTest
     @CsvSource(
-        "PROMPT, PROMPT, ask each time.",
-        "LEAVE_UNCHANGED, PROMPT, leave both as they are.",
-        "DISCARD, PROMPT, 'delete both, start empty.'",
-        "ADOPT, PROMPT, 'keep target, ask about source.'",
-        "ADOPT, DISCARD_SOURCE, 'keep target, delete source.'",
-        "ADOPT, ARCHIVE_SOURCE, 'keep target, archive source.'",
+        "PROMPT, PROMPT, Ask each time",
+        "LEAVE_UNCHANGED, PROMPT, Leave both as they are",
+        "DISCARD, PROMPT, 'Delete both, start empty'",
+        "ADOPT, PROMPT, 'Keep target, ask about source'",
+        "ADOPT, DISCARD_SOURCE, 'Keep target, delete source'",
+        "ADOPT, ARCHIVE_SOURCE, 'Keep target, archive source'",
     )
-    fun bothDirectoriesPolicyUsesTheConfigurationWords(
+    fun bothDirectoriesRuleUsesTheConfigurationWords(
         both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget, expected: String,
     ) {
         val session = HomeLightSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
         val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, whenAdoptingTarget = adopting)
-        assertEquals(expected, WorkspaceView.policy(relocation, item))
+        assertEquals(expected, WorkspaceView.rule(relocation, item))
     }
 
     @ParameterizedTest
     @CsvSource(
-        "PROMPT, ask each time.",
-        "ADOPT_TARGET, 'keep target, link source.'",
+        "PROMPT, Ask each time",
+        "ADOPT_TARGET, 'Keep target, link source'",
     )
-    fun onlyTargetPolicyUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists, expected: String) {
+    fun onlyTargetRuleUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists, expected: String) {
         val root = temporary.toRealPath()
         val source = root.resolve("home/only")
         val target = Files.createDirectories(root.resolve("local/only"))
@@ -157,7 +158,7 @@ class WorkspaceViewTest {
         val config = Files.writeString(root.resolve("config.json"),
             "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, HomeLightSession(config).evaluation()).items.single()
-        assertEquals(expected, WorkspaceView.policy(Relocation(source, target, whenOnlyTargetExists = onlyTarget), item))
+        assertEquals(expected, WorkspaceView.rule(Relocation(source, target, whenOnlyTargetExists = onlyTarget), item))
     }
 
     @Test
@@ -167,7 +168,7 @@ class WorkspaceViewTest {
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
         val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
         assertTrue(screen.contains("[Left as is] "), screen)
-        assertTrue(screen.contains("Your rule: leave both as they are."), screen)
+        assertTrue(screen.contains("Decision: leave both as they are (your configuration)"), screen)
         assertTrue(screen.contains("Will do: nothing; source and target are left as they are."), screen)
         assertTrue(screen.contains("(●) Leave both as they are"), screen)
         assertFalse(screen.contains("unmanaged") || screen.contains("Skipped"), screen)

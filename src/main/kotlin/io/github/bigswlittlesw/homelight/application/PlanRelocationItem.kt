@@ -61,7 +61,17 @@ data class PlanRelocationItem(
         return PlanBadge.SKIPPED
     }
 
-    fun hasDestructiveActions(): Boolean = plan.actions.any { it.destructive }
+    /**
+     * Whether applying deletes data that is not kept anywhere else. A Move does not: it replaces the source with a
+     * link only after the copy at the target is checked. Replacing a link deletes no data either.
+     */
+    fun deletesData(): Boolean {
+        val copiedFirst = plan.actions.any { it is ReconciliationAction.MigrateDirectoryForPublication }
+        return plan.actions.any { action ->
+            action is ReconciliationAction.DeleteDirectory
+                || (action is ReconciliationAction.ReplaceDirectoryWithSymlink && !copiedFirst)
+        }
+    }
 
     fun hasWarnings(): Boolean =
         sourceState == RelocationSourceState.WRONG_SYMLINK || sourceState == RelocationSourceState.BROKEN_SYMLINK
