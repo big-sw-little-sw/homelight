@@ -127,7 +127,7 @@ class ApplyCommandTest {
         assertEquals(0, result.exitCode, result.output)
         assertTrue(Files.isSymbolicLink(source))
         assertEquals("target", Files.readString(target.resolve("target-entry")))
-        assertEquals("source", Files.readString(archiveRoot.resolve(source.root.relativize(source)).resolve("source-entry")))
+        assertEquals("source", Files.readString(archiveRoot.resolve("cache/source-entry")))
         val repeated = apply(configuration(root, source, target, "\"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"archive-source\", \"archive-root\": \"$archiveRoot\""))
         assertEquals(0, repeated.exitCode, repeated.output)
         assertTrue(repeated.output.contains("\"type\":\"no-op\""))

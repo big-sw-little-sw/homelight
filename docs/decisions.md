@@ -368,6 +368,17 @@ Legitimately mutable state stays: lock-guarded monitors, the executor's `halted`
 
 - `[skipped: rewriting ensureDirectories's walk, add when it changes for another reason]`
 
+## 2026-10-05: The archive destination is the source's name under the archive root
+
+Archive-source moves a source to `<archive root>/<source name>` (rung 6, minimal new code), instead of nesting the source's full absolute path under the root, which was unique but hard to read (#142). When that name is taken, by an existing entry or by another configured relocation whose plain destination has the same real spelling, the name becomes `<source name>-<first 8 hex digits of the SHA-256 of the source's real spelling>`. The suffix reuses `sha256Hex` and the real-spelling rule from #128 (rung 2). The relocation rule depends only on the configuration, so two relocations with the same source name get different names whichever archives first; the suffix depends only on the source, so the same state always plans the same destination.
+
+Inspection chooses the name, because whether it is taken is a filesystem fact; the planner stays pure and uses the inspected path. Its guards are unchanged: the destination must be absent, outside the source and target, and archiving is an atomic rename, so it fails before changing anything on another filesystem. A suffixed name that is taken too blocks archiving.
+
+- `[skipped: a counter or further suffix when the suffixed name is also taken, add when users hit it; it means the same source was archived before and that archive is still there]`
+- The on-disk layout of archives changes. Nothing has been released, so there is no migration.
+
+Rejected: always adding the suffix (unreadable in the common case); a timestamp suffix (a re-check would plan a different path); giving the plain name to the first relocation in file order (reordering the file would change where a source goes).
+
 ## How to add decisions
 
 Use this format:

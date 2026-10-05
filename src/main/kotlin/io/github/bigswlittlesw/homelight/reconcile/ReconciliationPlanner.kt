@@ -136,11 +136,12 @@ private fun adoptTarget(state: RelocationState): RelocationPlan =
 
 private fun archiveSource(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
-    val archivePath = relocation.archiveRoot.resolve(sourceRelativePath(relocation.sourcePath)).normalize()
+    val destination = state.archiveDestination ?: return blocked(state, "source archive destination was not inspected")
+    val archivePath = destination.path
     if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
         return blocked(state, "source archive path overlaps a relocation path")
     }
-    if (state.archiveDestination?.observation?.state != PathState.ABSENT) {
+    if (destination.observation.state != PathState.ABSENT) {
         return blocked(state, "source archive destination already exists")
     }
     return outcome(
@@ -150,11 +151,6 @@ private fun archiveSource(state: RelocationState): RelocationPlan {
             ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath),
         ),
     )
-}
-
-private fun sourceRelativePath(source: Path): Path {
-    val absolute = source.toAbsolutePath().normalize()
-    return absolute.root.relativize(absolute)
 }
 
 private fun unchanged(state: RelocationState): RelocationPlan = RelocationPlan(

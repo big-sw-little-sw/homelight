@@ -101,7 +101,7 @@ class ConfigurationEvaluationTest {
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
         val archive = checkNotNull(observation.archiveDestination)
-        assertEquals(root.resolve("archive").resolve(root.root.relativize(root.resolve("source"))), archive.path)
+        assertEquals(root.resolve("archive/source"), archive.path)
         assertEquals(PathState.ABSENT, archive.observation.state)
 
         Files.delete(root.resolve("source"))
@@ -164,7 +164,7 @@ class ConfigurationEvaluationTest {
         // Archiving is always offered; without an archive-root it goes beside the source.
         val archived = evaluator.choose(loaded(), root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         val archive = archived.plan.actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().single()
-        assertTrue(archive.target.startsWith(root.resolve(".homelight-archive")), archive.target.toString())
+        assertEquals(root.resolve(".homelight-archive/other-source"), archive.target)
     }
 
     @Test

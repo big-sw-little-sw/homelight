@@ -68,29 +68,86 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun archiveSourceUsesADeterministicPath(@TempDir root: Path) {
+    fun archiveSourceUsesTheSourceNameUnderTheArchiveRoot(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
-        val relocation = Relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot = archiveRoot)
 
-        val archive = plan(relocation).actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().first()
-        assertEquals(archiveRoot.resolve(sourceRelativeToRoot(source)), archive.target)
+        val plan = plan(archiving(source, target, archiveRoot))
 
-        Files.createDirectories(archive.target)
-        assertTrue(plan(relocation).hasBlockedActions())
+        assertEquals(listOf(archiveRoot.resolve("cache")), archiveTargets(plan))
+        assertEquals(ReconciliationAction.EnsureDirectory(archiveRoot), plan.actions().first())
+    }
+
+    @Test
+    fun archiveSourceAddsASuffixWhenTheNameExistsAndBlocksWhenThatExistsToo(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val archiveRoot = root.resolve("archive")
+        val relocation = archiving(source, target, archiveRoot)
+        Files.createDirectories(archiveRoot.resolve("cache"))
+
+        val suffixed = archiveTargets(plan(relocation)).single()
+
+        assertEquals(archiveRoot.resolve("cache-" + sha256Hex(source.toRealPath().toString()).take(8)), suffixed)
+        assertEquals(listOf(suffixed), archiveTargets(plan(relocation)), "a re-run gives the same destination")
+        Files.createDirectories(suffixed)
+        assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive destination already exists")),
+                plan(relocation).actions())
+    }
+
+    @Test
+    fun relocationsWithTheSameSourceNameArchiveToDifferentDeterministicNames(@TempDir root: Path) {
+        val archiveRoot = root.resolve("archive")
+        val relocations = listOf("a", "b").map { parent ->
+            archiving(Files.createDirectories(root.resolve("$parent/cache")),
+                    Files.createDirectories(root.resolve("local/$parent-cache")), archiveRoot)
+        }
+
+        val targets = archiveTargets(ReconciliationPlanner().plan(states(relocations)))
+
+        assertEquals(relocations.map { archiveRoot.resolve("cache-" + sha256Hex(it.sourcePath.toRealPath().toString()).take(8)) },
+                targets)
+        assertEquals(targets, archiveTargets(ReconciliationPlanner().plan(states(relocations))))
+        assertEquals(listOf(archiveRoot.resolve("cache")), archiveTargets(plan(relocations.first())),
+                "alone, the name is not taken")
+    }
+
+    @Test
+    fun archiveRootsThatAreTheSameDirectoryShareNames(@TempDir root: Path) {
+        val archiveRoot = Files.createDirectories(root.resolve("archive"))
+        val alias = Files.createSymbolicLink(root.resolve("alias"), archiveRoot)
+        val relocations = listOf(archiveRoot, alias).mapIndexed { i, archive ->
+            archiving(Files.createDirectories(root.resolve("$i/cache")),
+                    Files.createDirectories(root.resolve("local/$i-cache")), archive)
+        }
+
+        val names = archiveTargets(ReconciliationPlanner().plan(states(relocations))).map { it.fileName.toString() }
+
+        assertEquals(2, names.toSet().size, names.toString())
+        assertTrue(names.all { it.startsWith("cache-") }, names.toString())
+    }
+
+    @Test
+    fun archiveSourceIsBlockedWithoutAnInspectedDestination(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val relocation = archiving(source, target, root.resolve("archive"))
+        val inspector = PathInspector()
+        val state = RelocationState(relocation, inspector.inspect(source), inspector.inspect(target))
+
+        assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive destination was not inspected")),
+                ReconciliationPlanner().plan(listOf(state)).actions())
     }
 
     @Test
     fun archiveSourceDefaultsBesideTheSourceAndRejectsAnOverlappingRoot(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
-        fun archive(archiveRoot: Path) = plan(Relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot = archiveRoot)).relocations.single()
+        fun archive(archiveRoot: Path) = plan(archiving(source, target, archiveRoot)).relocations.single()
 
         val default = archive(defaultArchiveRoot(source))
-        assertEquals(root.resolve("home/.homelight-archive").resolve(sourceRelativeToRoot(source)),
+        assertEquals(root.resolve("home/.homelight-archive/cache"),
                 default.actions.filterIsInstance<ReconciliationAction.ArchiveDirectory>().single().target)
         for (overlapping in listOf(target.resolve("archive"), source.resolve("archive"))) {
             assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive path overlaps a relocation path")),
@@ -166,7 +223,7 @@ class ReconciliationPlannerTest {
 
         val parent = Relocation(root.resolve("home/parent"), root.resolve("local/parent"))
         val child = Relocation(root.resolve("home/parent/child"), root.resolve("local/child"))
-        val overlapPlan = ReconciliationPlanner().plan(listOf(state(parent), state(child)))
+        val overlapPlan = ReconciliationPlanner().plan(states(listOf(parent, child)))
 
         assertTrue(inaccessiblePlan.hasBlockedActions())
         assertTrue(overlapPlan.hasBlockedActions())
@@ -189,7 +246,7 @@ class ReconciliationPlannerTest {
             val expected = assertThrows<IllegalArgumentException> {
                 validateConfiguration(ConfigurationDraft.of(local, relocations))
             }.message
-            val diagnostic = ReconciliationPlanner().plan(relocations.map(::state)).diagnostics.single()
+            val diagnostic = ReconciliationPlanner().plan(states(relocations)).diagnostics.single()
             assertEquals(expected, diagnostic.message)
             assertEquals(relocations.first().sourcePath, diagnostic.source)
             assertEquals("INVALID_RELOCATION", diagnostic.code)
@@ -197,22 +254,21 @@ class ReconciliationPlannerTest {
     }
 
     companion object {
-        private fun sourceRelativeToRoot(source: Path): Path {
-            val absolute = source.toAbsolutePath()
-            return absolute.root.relativize(absolute)
-        }
+        private fun archiving(source: Path, target: Path, archiveRoot: Path) = Relocation(source, target,
+                WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE,
+                archiveRoot = archiveRoot)
 
-        private fun plan(relocation: Relocation): ReconciliationPlan {
-            return ReconciliationPlanner().plan(listOf(state(relocation)))
-        }
+        private fun plan(relocation: Relocation): ReconciliationPlan = ReconciliationPlanner().plan(states(listOf(relocation)))
 
-        private fun state(relocation: Relocation): RelocationState {
+        private fun archiveTargets(plan: ReconciliationPlan): List<Path> =
+            plan.actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().map { it.target }
+
+        private fun states(relocations: List<Relocation>): List<RelocationState> {
             val inspector = PathInspector()
-            val source = relocation.sourcePath.toAbsolutePath()
-            val path = relocation.archiveRoot.resolve(source.root.relativize(source))
-            val archive = RelocationState.ArchiveDestination(path, inspector.inspect(path))
-            return RelocationState(relocation, inspector.inspect(relocation.sourcePath),
-                    inspector.inspect(relocation.targetPath), archive)
+            return relocations.zip(inspectArchiveDestinations(relocations, inspector::inspect)) { relocation, archive ->
+                RelocationState(relocation, inspector.inspect(relocation.sourcePath),
+                        inspector.inspect(relocation.targetPath), archive)
+            }
         }
     }
 }
