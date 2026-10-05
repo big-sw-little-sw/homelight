@@ -31,7 +31,8 @@ internal class CandidateBrowser {
     private var reveal = false
     private var message = ""
 
-    fun render(draft: SetupDraft): Element {
+    /** `interactive` is false while a dialog is open over the browser. */
+    fun render(draft: SetupDraft, interactive: Boolean = true): Element {
         val lines = mutableListOf<Line>()
         var anchor = -1
         val title: String
@@ -124,8 +125,8 @@ internal class CandidateBrowser {
                 (if (hidden > 0) " · u: " + (if (reveal) "Hide " else "Show ") + hidden else "") + " · q: Discard"
         }
         if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), palette.warn, false))
-        val reader = viewport.render(title, lines, true, anchor)
-        val help = viewport.help(navigation, commands)
+        val reader = viewport.render(title, lines, interactive, anchor)
+        val help = viewport.help(navigation, commands, interactive)
         return if (message.isNotEmpty() && !details && !diagnostics)
             Toolkit.column(
                 reader,

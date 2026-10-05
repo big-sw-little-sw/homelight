@@ -33,8 +33,14 @@ internal object WorkspaceView {
         return if (active.isEmpty()) model.items else active
     }
 
+    /** The relocation list. One instance lives across frames: TamboUI keeps its selection and scroll offset. */
+    fun list(): ListElement<Any> = ListElement<Any>().id(WORKSPACE_LIST)
+        .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
+        .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
+
+    /** `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen. */
     fun render(
-        session: HomeLightSession, selected: Int, showInSync: Boolean, focus: PaneFocus,
+        session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?, interactive: Boolean,
         choice: Int, viewport: DetailViewport,
     ): Element {
         val retained = session.applyModel() is ApplyModel.Result
@@ -55,41 +61,36 @@ internal object WorkspaceView {
             }
             return Toolkit.column(
                 header,
+                // The only pane, so it has focus unless a dialog is open.
                 viewport.render(
                     "Configuration",
                     listOf(Line("Config: " + session.configPath), Line(message, palette.warn, false)),
-                    focus == PaneFocus.DETAIL, 0,
+                    interactive, 0, WORKSPACE_DETAILS, interactive,
                 ),
-                viewport.help(
-                    if (focus == PaneFocus.DETAIL) "↑/↓: Scroll · Tab/Esc: Back" else "Tab/→: Details",
-                    (if (missing) "i: Manual setup · " else "") + "r: Reload · q: Quit",
-                ),
+                viewport.help("↑/↓: Scroll", (if (missing) "i: Manual setup · " else "") + "r: Reload · q: Quit", interactive),
             )
         }
         val configured = model
         val items = visibleItems(configured, showInSync)
-        val item = if (items.isEmpty()) null else items[selected.coerceIn(0, items.size - 1)]
-        val master = ListElement<Any>().title("Relocations")
-            .borderColor(if (focus == PaneFocus.MASTER) palette.focus else palette.dim)
-            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
-            .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
-        items.forEachIndexed { i, listed ->
+        val selected = list.selected().coerceIn(0, maxOf(0, items.size - 1))
+        val item = items.getOrNull(selected)
+        val rows = items.mapIndexed { i, listed ->
             val label = listed.badge().label
-            master.add(
-                Toolkit.row(
-                    Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2),
-                    Toolkit.text("[$label] ").fg(color(listed.badge())).length(label.length + 3),
-                    Toolkit.text(listed.relocation.sourcePath).ellipsisMiddle().fill(),
-                ),
+            Toolkit.row(
+                Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2),
+                Toolkit.text("[$label] ").fg(color(listed.badge())).length(label.length + 3),
+                Toolkit.text(listed.relocation.sourcePath).ellipsisMiddle().fill(),
             )
         }
-        master.selected(selected)
         val hidden = configured.items.size - items.size
-        if (hidden > 0) master.add(Toolkit.text("$hidden in sync hidden").fg(palette.dim))
+        // In the title, not a row, so the list's own selection never lands on it.
+        list.elements(*rows.toTypedArray()).title(if (hidden > 0) "Relocations · $hidden in sync hidden" else "Relocations")
+            .borderColor(if (focused == WORKSPACE_LIST) palette.focus else palette.dim).focusable(interactive)
+        val detailsFocused = focused == WORKSPACE_DETAILS
         val lines = mutableListOf<Line>()
         var anchor = 0
         if (item == null) lines.add(Line("No configured relocations."))
-        else anchor = details(session, item, choice, focus, lines, retained)
+        else anchor = details(session, item, choice, detailsFocused, lines, retained)
         configured.plan.diagnostics.mapTo(lines) { Line(it.message, palette.warn, false) }
         val summary = summary(configured.items)
         val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
@@ -98,7 +99,11 @@ internal object WorkspaceView {
             add(wrappedText("Config: " + session.configPath, palette.dim))
             add(summaryElement(summary.counts))
             if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, palette.warn))
-            add(Toolkit.row(master.percent(45), viewport.render("Details", lines, focus == PaneFocus.DETAIL, anchor)).fill())
+            add(
+                Toolkit.row(
+                    list.percent(45), viewport.render("Details", lines, detailsFocused, anchor, WORKSPACE_DETAILS, interactive),
+                ).fill(),
+            )
             if (!session.isPlanReady() && !retained) add(
                 wrappedText(
                     if (configured.items.any { it.isBlocked() }) "Review unavailable: repair blocked paths/configuration; inspect Details."
@@ -106,7 +111,7 @@ internal object WorkspaceView {
                     palette.warn,
                 ),
             )
-            val navigation = if (focus == PaneFocus.DETAIL)
+            val navigation = if (detailsFocused)
                 (if (choices) "↑/↓: Choose · Space/Enter: Select" else "↑/↓: Scroll") + " · Tab/Esc: Back"
             else "↑/↓: Select · Tab/→: Details · c: In sync"
             val review = when {
@@ -115,7 +120,7 @@ internal object WorkspaceView {
                 configured.plan.hasChanges() -> "a: Review & apply · 2: Review"
                 else -> "2: Review"
             }
-            add(viewport.help(navigation, (if (review.isEmpty()) "" else "$review · ") + "r: Re-plan · q: Quit"))
+            add(viewport.help(navigation, (if (review.isEmpty()) "" else "$review · ") + "r: Re-plan · q: Quit", interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
@@ -169,7 +174,7 @@ internal object WorkspaceView {
     }
 
     private fun details(
-        session: HomeLightSession, item: PlanRelocationItem, choice: Int, focus: PaneFocus,
+        session: HomeLightSession, item: PlanRelocationItem, choice: Int, focused: Boolean,
         lines: MutableList<Line>, retained: Boolean,
     ): Int {
         lines.add(
@@ -211,7 +216,7 @@ internal object WorkspaceView {
             val chosen = item.selectedResolution() == option
             lines.add(
                 Line(
-                    (if (i == choice && focus == PaneFocus.DETAIL) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") +
+                    (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") +
                         option.label,
                     if (chosen) palette.ok else palette.text, i == choice,
                 ),

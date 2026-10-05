@@ -113,8 +113,8 @@ class ApplyViewTest {
                 viewport.reset()
                 val evidence = StringBuilder()
                 repeat(180) {
-                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, selected,
-                        0, PaneFocus.DETAIL, viewport), size[0], size[1])
+                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, list(selected),
+                        0, REVIEW_DETAILS, viewport = viewport), size[0], size[1])
                     assertTrue(screen.contains("Action details"), screen)
                     assertTrue(screen.contains("r: Re-plan"), screen)
                     assertFalse(screen.contains("before any mutation"), screen)
@@ -145,6 +145,8 @@ class ApplyViewTest {
     }
 
     private companion object {
+        fun list(selected: Int) = ApplyView.list().selected(selected)
+
         fun plan(): ReconciliationPlan {
             val relocation = Relocation(Path.of("/home/cache"), Path.of("/local/cache"))
             return ReconciliationPlan(listOf(RelocationPlan(relocation, RelocationOutcome.CONVERGED,
@@ -164,7 +166,7 @@ class ApplyViewTest {
             marker.invoke(null)
             try {
                 val buffer = Buffer.empty(Rect.of(width, height))
-                ApplyView.render(Path.of("/config.json"), model, selected, spinnerFrame)
+                ApplyView.render(Path.of("/config.json"), model, list(selected), spinnerFrame)
                     .render(Frame.forTesting(buffer), Rect.of(width, height), RenderContext.empty())
                 val text = StringBuilder()
                 for (y in 0 until height) {

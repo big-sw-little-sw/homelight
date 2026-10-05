@@ -15,9 +15,18 @@ import java.nio.file.Path
 internal object ApplyView {
     private val SPINNER_FRAMES = listOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 
+    /**
+     * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
+     * offset. A relocation's first step carries the relocation's own line, so the selection is always an action.
+     */
+    fun list(): ListElement<Any> = ListElement<Any>().title("Reviewed actions").id(REVIEW_LIST)
+        .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
+        .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
+
+    /** `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen. */
     fun render(
-        config: Path, model: ApplyModel, selectedIndex: Int, spinnerFrame: Int = 0,
-        focus: PaneFocus = PaneFocus.MASTER, viewport: DetailViewport = DetailViewport(),
+        config: Path, model: ApplyModel, list: ListElement<Any>, spinnerFrame: Int = 0, focused: String? = REVIEW_LIST,
+        interactive: Boolean = true, viewport: DetailViewport = DetailViewport(),
     ): Element {
         val header = Toolkit.row(
             Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
@@ -39,31 +48,21 @@ internal object ApplyView {
         }
         val plan = reviewed.plan
         val steps = steps(model)
-        val selected = if (steps.isEmpty()) 0 else selectedIndex.coerceIn(0, steps.size - 1)
-        val checklist = ListElement<Any>().title("Reviewed actions")
-            .borderColor(if (focus == PaneFocus.MASTER) palette.focus else palette.dim)
-            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
-            .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
-        var row = 0
-        var selectedRow = 0
-        var index = 0
-        for (relocation in plan.relocations) {
-            checklist.add(Toolkit.text(relocation.relocation.sourcePath).bold().ellipsisMiddle())
-            row++
-            for (action in relocation.actions) {
-                val step = steps[index]
-                if (index == selected) selectedRow = row
-                val prefix = if (index == selected) "❯ " else "  "
-                checklist.add(
-                    Toolkit.text(
-                        prefix + glyph(step, spinnerFrame) + " " + actionLabel(action) + (if (action.destructive) " ⚠" else ""),
-                    ).fg(color(step)),
-                )
-                row++
-                index++
-            }
+        val selected = list.selected().coerceIn(0, maxOf(0, steps.size - 1))
+        val rows = steps.mapIndexed { i, step ->
+            val action = step.action
+            val row = Toolkit.text(
+                (if (i == selected) "❯ " else "  ") + glyph(step, spinnerFrame) + " " + actionLabel(action) +
+                    (if (action.destructive) " ⚠" else ""),
+            ).fg(color(step))
+            if (i > 0 && steps[i - 1].relocation == step.relocation) row
+            // TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the
+            // scrollbar can cover a row's last cell: the trailing space is what it covers.
+            else Toolkit.column(Toolkit.text(step.relocation.relocation.sourcePath.toString() + " ").bold().ellipsisMiddle(), row)
+                .length(2)
         }
-        checklist.selected(selectedRow)
+        list.elements(*rows.toTypedArray()).borderColor(if (focused == REVIEW_LIST) palette.focus else palette.dim)
+            .focusable(interactive)
         val detailLines = if (steps.isEmpty()) mutableListOf(DetailViewport.Line("No actions required."))
         else details(steps[selected]).toMutableList()
         if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, palette.error, false) }
@@ -111,13 +110,13 @@ internal object ApplyView {
             }
             add(
                 Toolkit.row(
-                    checklist.percent(45),
-                    viewport.render("Action details", detailLines, focus == PaneFocus.DETAIL, 0),
+                    list.percent(45),
+                    viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
-            val navigation = if (focus == PaneFocus.MASTER) "↑/↓: Inspect · Tab/→: Details"
+            val navigation = if (focused != REVIEW_DETAILS) "↑/↓: Inspect · Tab/→: Details"
             else "↑/↓: Scroll · Tab/←: List" + (if (model is ApplyModel.Confirmation) "" else " · Esc: Back")
-            add(viewport.help(navigation, footer))
+            add(viewport.help(navigation, footer, interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }

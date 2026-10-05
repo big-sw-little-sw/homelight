@@ -48,7 +48,7 @@ internal class SetupView(
 
     fun render(): Element {
         if (!closed) discovery?.let { draft.accept(it.snapshot()) }
-        var content = if (mode == Mode.CANDIDATES) browser.render(draft)
+        val content = if (mode == Mode.CANDIDATES) browser.render(draft, !discard)
         else {
             val lines = mutableListOf<Line>()
             lines.add(Line("Create configuration", palette.text, true))
@@ -60,22 +60,18 @@ internal class SetupView(
                 Mode.CANDIDATES -> error("The candidate browser renders itself")
             }
             lines.add(Line(literal(message), palette.warn, false))
-            Toolkit.column(viewport.render("Setup", lines, true, anchor), viewport.help(help(), commands())).fill()
-        }
-        if (discard) {
-            // One contextual help area while the modal consumes input.
-            content = Toolkit.column(
-                viewport.render(
-                    "Discard setup draft?",
-                    listOf(Line("Nothing has been written."), Line("Discard all locations and relocation choices?")),
-                    true, 0,
-                ),
-                Toolkit.text("Enter: Discard draft · Esc: Keep editing").fg(palette.dim),
-            ).fill()
+            Toolkit.column(viewport.render("Setup", lines, !discard, anchor), viewport.help(help(), commands(), !discard)).fill()
         }
         val header = Toolkit.row(Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[Setup]").fg(palette.focus).bold())
-        return Toolkit.column(header, content).fill()
+        // Setup keeps its own field focus until the configuration editor replaces it, so the screen is one focusable.
+        return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(!discard)
     }
+
+    /** The discard question, while it is open. */
+    fun dialog(): Element? = if (!discard) null else confirmDialog(
+        "Discard setup draft?", listOf("Nothing has been written.", "Discard all locations and relocation choices?"),
+        "y: Discard draft · n/Esc: Keep editing", onYes = ::close, onNo = { discard = false },
+    )
 
     private fun locations(lines: MutableList<Line>): Int {
         lines.add(Line("Storage locations", palette.text, true))
@@ -129,7 +125,7 @@ internal class SetupView(
     }
 
     private fun help(): String = when (mode) {
-        Mode.LOCATIONS -> "↑/↓/Tab: Field · Type: Edit · Ctrl-U: Clear"
+        Mode.LOCATIONS -> "↑/↓: Field · Type: Edit · Ctrl-U: Clear"
         Mode.TABLE -> if (draft.rows.isEmpty()) "e: Edit locations · Esc: Back"
         else "↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back"
         Mode.ROW -> when (field) {
@@ -153,7 +149,7 @@ internal class SetupView(
     private fun commands(): String = when (mode) {
         Mode.LOCATIONS -> "Enter: Relocations · Esc: Cancel without writing"
         Mode.TABLE -> "a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard"
-        Mode.ROW -> "↑/↓/Tab: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Policy · d: Remove") +
+        Mode.ROW -> "↑/↓: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Policy · d: Remove") +
             " · Esc: Table"
         Mode.CANDIDATES -> ""
     }
@@ -161,11 +157,6 @@ internal class SetupView(
     fun key(key: KeyEvent) {
         if (closed) return
         discovery?.let { draft.accept(it.snapshot()) }
-        if (discard) {
-            if (key.isKey(KeyCode.ESCAPE) || key.isCharIgnoreCase('n')) discard = false
-            else if (key.isKey(KeyCode.ENTER) || key.isCharIgnoreCase('y')) close()
-            return
-        }
         if (key.isKey(KeyCode.ESCAPE)) {
             when (mode) {
                 Mode.CANDIDATES -> if (!browser.back()) changeMode(Mode.TABLE)
@@ -197,7 +188,8 @@ internal class SetupView(
         if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return }
         if (mode == Mode.LOCATIONS) { locationsKey(key); return }
         if (mode == Mode.TABLE) { tableKey(key); return }
-        if (key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isDown() || key.isUp()) {
+        // Not Tab: TamboUI takes it to move focus before any handler sees it, and setup's fields are not focusable.
+        if (key.isDown() || key.isUp()) {
             field = (field + (if (key.isUp()) -1 else 1)).mod(6); viewport.followChoice(); return
         }
         if (textField()) return
@@ -206,7 +198,7 @@ internal class SetupView(
     }
 
     private fun locationsKey(key: KeyEvent) {
-        if (key.isKey(KeyCode.TAB) || key.isChar('\t') || key.isDown() || key.isUp()) {
+        if (key.isDown() || key.isUp()) {
             field = (field + (if (key.isUp()) -1 else 1)).mod(3); viewport.followChoice()
         } else if (key.isKey(KeyCode.ENTER)) {
             // Manual incomplete drafts remain editable even before roots validate.

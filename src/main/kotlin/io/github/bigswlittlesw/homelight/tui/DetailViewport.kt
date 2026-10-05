@@ -20,16 +20,20 @@ internal class DetailViewport {
 
     data class Line(val text: String, val color: Color = palette.text, val bold: Boolean = false)
 
-    // Resolve overflow after the reader renders, so help reflects this frame's size.
-    fun help(navigation: String, commands: String): Element {
+    /**
+     * Resolves overflow after the reader renders, so help reflects this frame's size. While a dialog is open and
+     * takes every key, help is not `shown` and its two lines stay blank.
+     */
+    fun help(navigation: String, commands: String, shown: Boolean = true): Element {
         class Help : StyledElement<Help>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.heightOnly(2)
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
+                if (!shown) return
                 val overflows = maximum > 0
                 val keys = when {
                     !navigation.startsWith("↑/↓: Scroll") -> if (overflows) "$navigation · [/]: Scroll" else navigation
                     overflows -> navigation.replace("↑/↓: Scroll", "↑/↓/[/]: Scroll")
-                    else -> navigation.replace("↑/↓: Scroll · ", "")
+                    else -> navigation.removePrefix("↑/↓: Scroll").removePrefix(" · ")
                 }
                 wrappedText(keys + "\n" + commands, palette.dim).render(frame, area, context)
             }
@@ -46,7 +50,10 @@ internal class DetailViewport {
         top = (top.toLong() + delta).coerceIn(0, maximum.toLong()).toInt()
     }
 
-    fun render(title: String, lines: List<Line>, focused: Boolean, choiceLine: Int): Element {
+    /** A pane with an `id` takes part in focus when `focusable`; `focused` is what it looks like and follows. */
+    fun render(
+        title: String, lines: List<Line>, focused: Boolean, choiceLine: Int, id: String? = null, focusable: Boolean = false,
+    ): Element {
         class Pane : StyledElement<Pane>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.UNKNOWN
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
@@ -82,7 +89,8 @@ internal class DetailViewport {
                 }
             }
         }
-        return Pane().fill()
+        val pane = Pane().fill()
+        return if (id == null) pane else pane.id(id).focusable(focusable)
     }
 }
 
