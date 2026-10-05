@@ -65,8 +65,8 @@ class HomeLightExitTest {
             for ((width, height) in listOf(80 to 24, 120 to 30)) {
                 val text = ui.screen(width, height)
                 assertTrue(text.contains("╔Quit HomeLight?"), text)
-                assertTrue(text.contains("y: Exit when execution finishes · n/Esc: Keep running"), text)
-                assertTrue(text.contains("won't remain available after exit"), text)
+                assertTrue(text.contains("y: Exit when it finishes · n/Esc: Keep running"), text)
+                assertTrue(text.contains("not kept after you exit"), text)
                 assertEquals(DIALOG, ui.focused())
                 assertFalse(ui.app.exitRequested())
             }
@@ -98,7 +98,7 @@ class HomeLightExitTest {
         val open = ui.screen()
         assertTrue(open.contains("Quit HomeLight?"), open)
         // Help behind the dialog would advertise keys that do nothing.
-        assertFalse(open.contains("q: Quit options"), open)
+        assertFalse(open.contains("q: Quit"), open)
         for (key in listOf(KeyCode.ENTER, KeyCode.TAB, KeyCode.DOWN, KeyCode.LEFT, KeyCode.HOME)) ui.press(key)
         for (c in "qQ12rajY ") ui.press(c)
         ui.press(ctrlC)
@@ -139,7 +139,7 @@ class HomeLightExitTest {
             ui.press('y')
             for (c in "qyra123") ui.press(c)
             ui.press(KeyCode.ESCAPE)
-            assertTrue(ui.screen().contains("Will exit after execution settles"))
+            assertTrue(ui.screen().contains("HomeLight will exit when the changes finish."))
             assertFalse(ui.app.exitRequested())
             assertFalse(completion.isDone)
             assertFalse(Files.exists(temporary.resolve("source")))

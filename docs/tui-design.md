@@ -106,8 +106,10 @@ ones.
   the full absolute path.
 - Word-wrap prose; wrap paths by character only when they cannot break.
 - Scrollbars appear only when content overflows. No numeric line counters.
-- In-sync relocations are hidden when others exist; `c` toggles them and a count
-  says how many are hidden. Urgent rows (blocked, needs a choice) sort first.
+- In-sync relocations are hidden when others exist; `c` toggles them. The list
+  title says how many and which key shows them: `Relocations · c: show 2 in
+  sync`, or `c: hide 2 in sync` while shown. Urgent rows (blocked, needs a
+  choice) sort first.
 
 ### Dialogs
 

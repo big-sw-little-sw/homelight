@@ -103,8 +103,7 @@ internal class HomeLightApp(
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
         if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
-                content, Toolkit.text("Will exit after execution settles, including failure.").fg(palette.warn),
-                Toolkit.text("Session-local results won't remain available after exit.").fg(palette.dim),
+                content, Toolkit.text(QUITTING).fg(palette.warn), Toolkit.text(RESULTS_NOT_KEPT).fg(palette.dim),
             )
         }
         // Every element inherits the root's colors, and the root fills the whole screen with the background.
@@ -112,12 +111,7 @@ internal class HomeLightApp(
     }
 
     private fun quitDialog(): Element = confirmDialog(
-        "Quit HomeLight?",
-        listOf(
-            "Filesystem operations will finish, including on failure.",
-            "Results are session-local and won't remain available after exit.",
-        ),
-        "y: Exit when execution finishes · n/Esc: Keep running",
+        QUIT_TITLE, QUIT_BODY, QUIT_KEYS,
         onYes = { closeQuitDialog(ExitIntent.AFTER_EXECUTION) },
         onNo = { closeQuitDialog(ExitIntent.STAY) },
     )

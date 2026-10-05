@@ -137,7 +137,7 @@ class TuiLauncherTest {
         for ((width, height) in listOf(80 to 24, 120 to 30)) {
             val screen = ui.screen(width, height)
             assertTrue(screen.contains("Internal error (please report)"), screen)
-            assertTrue(screen.contains("Worker stopped unexpectedly"), screen)
+            assertTrue(screen.contains("Stopped unexpectedly"), screen)
         }
         val backend = LifecycleBackend("q")
         val thrown = assertThrows<CompletionException> { runTui(session, config(backend)) }

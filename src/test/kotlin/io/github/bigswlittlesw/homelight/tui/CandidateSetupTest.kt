@@ -44,13 +44,13 @@ class CandidateSetupTest {
         for (width in listOf(80, 120, 80, 120)) {
             val height = if (width == 80) 24 else 30
             val details = ui.screen(width, height)
-            assertTrue(details.contains("❯ Both directories: Discard both"), details)
+            assertTrue(details.contains("❯ Both exist: Delete both, start empty"), details)
             val text = details.replace(Regex("[│█\\s]"), "")
             assertTrue(text.contains("Permanentlydeletebothsourceandtargetdirectorytrees.Createanemptytargetdirectoryandlinkthesourcetoit."), details)
             assertFalse(details.contains("Discard target") || details.contains("relocate source"), details)
             escape(ui)
             val table = ui.screen(width, height)
-            assertTrue(table.contains("Policies") && table.contains("Discard both"), table)
+            assertTrue(table.contains("Rules") && table.contains("Delete both, start empty"), table)
             assertFalse(table.contains("Discard target"), table)
             enter(ui); down(ui); down(ui)
         }
@@ -77,13 +77,13 @@ class CandidateSetupTest {
             key(ui, 'b'); await(workers, ui)
             val list = render(ui)
             assertTrue(list.contains("Maven (1)"), list)
-            assertTrue(list.contains("Mixed advice"), list)
-            assertTrue(list.contains("1 usually-unnecessary directory hidden"), list)
+            assertTrue(list.contains("mixed advice"), list)
+            assertTrue(list.contains("1 usually not needed, hidden"), list)
             choose(ui, "team-cache"); enter(ui)
             key(ui, 'a')
             assertTrue(render(ui).contains("e: Edit draft row"))
             key(ui, 'e'); down(ui); clear(ui); type(ui, "custom-target")
-            down(ui); key(ui, ' ') // Adopt target, no inferred source disposition.
+            down(ui); key(ui, ' ') // Keep target, no inferred source rule.
             escape(ui); key(ui, 'b')
             Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(ui, 'r'); await(workers, ui)
@@ -92,7 +92,7 @@ class CandidateSetupTest {
             assertTrue(details.contains("No current catalog attribution."), details)
             assertTrue(details.contains("custom-target"), details)
             key(ui, 'e')
-            assertTrue(all(ui).contains("Adopt target"))
+            assertTrue(all(ui).contains("Both exist: Keep target"))
             escape(ui); key(ui, 's')
             assertTrue(render(ui).contains("[1: Workspace]"))
             val saved = ConfigurationLoader().load(root.resolve("config.json"))
@@ -117,7 +117,7 @@ class CandidateSetupTest {
         assertTrue(screen.contains("  Source root: /$letters"), screen)
         assertTrue(screen.contains("  Target root: $letters"), screen)
         assertTrue(screen.contains("❯ Shared candidate list (optional): $letters"), screen)
-        assertFalse(screen.contains("Discard setup draft?"), screen)
+        assertFalse(screen.contains("Discard this configuration?"), screen)
         ctrl(ui, 'd'); ctrl(ui, 'k')
         assertTrue(render(ui).contains("❯ Shared candidate list (optional): $letters "), "Ctrl chords are not text")
         ctrl(ui, 'u')
@@ -136,7 +136,7 @@ class CandidateSetupTest {
         screen = render(ui)
         assertTrue(screen.contains("  Target path: ${letters}x"), screen)
         assertTrue(screen.contains("❯ Archive root: /$letters"), screen)
-        assertFalse(screen.contains("Discard setup draft?"), screen)
+        assertFalse(screen.contains("Discard this configuration?"), screen)
     }
 
     @Test fun ctrlAndAltChordsDoNotActAsLetterCommands() {
@@ -154,10 +154,10 @@ class CandidateSetupTest {
             escape(ui); key(ui, 'b'); await(workers, ui)
             ctrl(ui, 'u'); alt(ui, 'u'); ctrl(ui, 'd')
             val list = render(ui)
-            assertTrue(list.contains("1 usually-unnecessary directory hidden"), list)
+            assertTrue(list.contains("1 usually not needed, hidden"), list)
             assertTrue(list.contains("1 in draft"), list)
             key(ui, 'u')
-            assertTrue(render(ui).contains("1 usually-unnecessary directory revealed"))
+            assertTrue(render(ui).contains("1 usually not needed, shown"))
             escape(ui)
             assertTrue(render(ui).contains("❯ manual"))
             ui.app.closeSetup()
@@ -223,17 +223,20 @@ class CandidateSetupTest {
             key(ui, 'b'); await(workers, ui); choose(ui, "absent-cache")
             assertTrue(render(ui).contains("Space/a: Add"))
             assertTrue(render(ui).contains("[ ] absent-cache"))
-            assertFalse(render(ui).contains("Missing") || render(ui).contains("Not created yet"))
+            // The row says why it is unusual (tui-design §8).
+            assertTrue(render(ui).contains("absent-cache                    not created yet"), render(ui))
+            assertFalse(render(ui).contains("Missing"))
             enter(ui)
             val details = all(ui)
-            assertTrue(details.contains("Metadata: Not created yet"), details)
+            assertTrue(details.contains("State: not created yet"), details)
             assertTrue(details.contains("Not found under the source root"), details)
             assertTrue(details.contains("source and target are both missing"), details)
             assertTrue(details.contains("If only the target exists"), details)
             assertTrue(details.contains("Save writes configuration only"), details)
             escape(ui); key(ui, ' ')
             assertTrue(render(ui).contains("❯   [x] absent-cache"))
-            assertFalse(render(ui).contains("Missing") || render(ui).contains("Not created yet"))
+            assertTrue(render(ui).contains("not created yet"))
+            assertFalse(render(ui).contains("Missing"))
             key(ui, 'e'); down(ui); clear(ui); type(ui, "future-cache")
             down(ui); down(ui); key(ui, ' ')
             escape(ui); key(ui, 'b'); key(ui, 'r'); await(workers, ui)
@@ -355,7 +358,7 @@ class CandidateSetupTest {
         val text = WorkspaceViewTest.render(browser.render(draft), 120, 30)
         assertTrue(text.contains("Configured"))
         assertTrue(text.contains("Saved target:"))
-        assertTrue(text.contains("both directories: Discard both"), text)
+        assertTrue(text.contains("Both exist: Delete both, start empty"), text)
         assertFalse(text.contains("a: Add") || text.contains("e: Edit"))
         browser.key(KeyEvent.ofChar('a', KEY_BINDINGS), draft); browser.key(KeyEvent.ofChar('e', KEY_BINDINGS), draft)
         assertTrue(draft.rows.isEmpty())
@@ -371,13 +374,17 @@ class CandidateSetupTest {
         // Together these rows hold every value of each policy.
         val rows = listOf(
             Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
-                "both directories: Prompt; only target: Prompt; adopt target: Prompt",
+                "Both exist: Ask each time · Only target: Ask each time",
             Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenAdoptingTarget.DISCARD_SOURCE) to
-                "both directories: Adopt target; only target: Adopt target; adopt target: Discard source",
+                "Both exist: Keep target, delete source · Only target: Keep target, link source",
+            Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.ARCHIVE_SOURCE) to
+                "Both exist: Keep target, archive source · Only target: Ask each time",
+            Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
+                "Both exist: Keep target, ask about source · Only target: Ask each time",
             Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.ARCHIVE_SOURCE) to
-                "both directories: Leave unchanged; only target: Prompt; adopt target: Archive source",
+                "Both exist: Leave both as they are · Only target: Ask each time",
             Triple(WhenSourceAndTargetDirectoriesExist.DISCARD, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
-                "both directories: Discard both; only target: Prompt; adopt target: Prompt",
+                "Both exist: Delete both, start empty · Only target: Ask each time",
         )
         for ((policies, expected) in rows) {
             val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"), policies.first, policies.second, policies.third)
@@ -386,10 +393,10 @@ class CandidateSetupTest {
             WorkspaceViewTest.render(browser.render(draft), 80, 24)
             browser.key(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
             val text = WorkspaceViewTest.render(browser.render(draft), 200, 30)
-            val line = text.lines().first { it.contains("Saved policies: ") }
-                .substringAfter("Saved policies: ").substringBefore('│').trimEnd()
+            val line = text.lines().first { it.contains("Saved rules: ") }
+                .substringAfter("Saved rules: ").substringBefore('│').trimEnd()
             assertEquals(expected, line, text)
-            val shown = line.split("; ").map { part -> part.substringAfter(": ") }
+            val shown = line.split(" · ").map { part -> part.substringAfter(": ") }
             assertTrue(shown.none { label -> label in rawKeys }, line)
         }
     }
