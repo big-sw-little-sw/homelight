@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.application
 
-import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
@@ -30,15 +29,12 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         private set
     var discovery: CandidateDiscovery.Result? = null
         private set
-    private val occurrences = ArrayList<RowOccurrence>()
+    private val draftRows = ArrayList<Row>()
     private var generation: Long = -1
 
-    val rows: List<Row> get() = occurrences.map { it.value }
+    val rows: List<Row> get() = draftRows.toList()
 
-    /**
-     * Explicit root edits re-resolve relative row values. Historical attribution
-     * stays historical; observations from the previous request cannot reattach.
-     */
+    /** Explicit root edits re-resolve relative row values; observations from the previous request cannot reattach. */
     fun roots(source: Path, target: Path) {
         val nextSource = absolute(source)
         val nextTarget = absolute(target)
@@ -66,8 +62,6 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
             || result.request != CandidateDiscovery.Request.of(sourceRoot, sharedList)
         ) return false
         discovery = result
-        val candidates = candidates()
-        occurrences.replaceAll { remember(it, candidates) }
         return true
     }
 
@@ -76,16 +70,15 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
      * no duplicate or malformed row is silently discarded by the join.
      */
     fun append(row: Row) {
-        occurrences.add(remember(RowOccurrence(row, listOf()), candidates()))
+        draftRows.add(row)
     }
 
     fun edit(index: Int, row: Row) {
-        val previous = occurrences[index]
-        occurrences[index] = remember(RowOccurrence(row, previous.history), candidates())
+        draftRows[index] = row
     }
 
     fun remove(index: Int) {
-        occurrences.removeAt(index)
+        draftRows.removeAt(index)
     }
 
     /**
@@ -94,9 +87,7 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
      */
     fun canAdd(entry: Entry): Boolean {
         if (entry.configured != null || entry.draft != null) return false
-        val candidate = entry.discovery
-        // Source attribution may be stale even after fresh metadata inspection.
-        if (candidate == null || candidate.observation.generation != generation) return false
+        val candidate = entry.discovery ?: return false
         return when (candidate.observation.kind) {
             CandidateObservation.Kind.DIRECTORY, CandidateObservation.Kind.MISSING -> true
             CandidateObservation.Kind.PENDING, CandidateObservation.Kind.LINK, CandidateObservation.Kind.REGULAR_FILE,
@@ -114,14 +105,13 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
      */
     fun add(source: Path) {
         val identity = source.toAbsolutePath().normalize()
-        // `canAdd` admits only entries with a discovered candidate.
-        val candidate = requireNotNull(entries().firstOrNull { it.sourcePath == identity }?.takeIf(::canAdd)?.discovery) {
+        require(entries().any { it.sourcePath == identity && canAdd(it) }) {
             "Add requires an unselected path currently observed as a directory or missing: $identity"
         }
         val relative = sourceRoot.relativize(identity).toString()
         val row = Row(relative, relative)
         validate(rows + row)
-        occurrences.add(RowOccurrence(row, candidate.catalog.definitions))
+        draftRows.add(row)
     }
 
     fun validate(): ConfigurationDraft = validate(rows)
@@ -145,16 +135,15 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         for (relocation in configured) {
             val path = relocation.sourcePath.toAbsolutePath().normalize()
             used.add(path)
-            entries.add(Entry(path, relocation, null, candidates[path], listOf(), !path.startsWith(sourceRoot)))
+            entries.add(Entry(path, relocation, null, candidates[path], !path.startsWith(sourceRoot)))
         }
-        for (occurrence in occurrences) {
-            val row = occurrence.value
+        for (row in draftRows) {
             val path = source(row)
             if (path != null) used.add(path)
-            entries.add(Entry(path, null, row, path?.let { candidates[it] }, occurrence.history, false))
+            entries.add(Entry(path, null, row, path?.let { candidates[it] }, false))
         }
         candidates.forEach { (path, candidate) ->
-            if (path !in used) entries.add(Entry(path, null, null, candidate, listOf(), false))
+            if (path !in used) entries.add(Entry(path, null, null, candidate, false))
         }
         return entries
     }
@@ -168,14 +157,6 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         } catch (exception: IllegalArgumentException) {
             null
         }
-
-    private fun remember(row: RowOccurrence, candidates: Map<Path, CandidateDiscovery.Candidate>): RowOccurrence {
-        val candidate = source(row.value)?.let { candidates[it] } ?: return row
-        return RowOccurrence(row.value, (row.history + candidate.catalog.definitions).distinct())
-    }
-
-    /** Each list position owns its history, even when row values or object references match. */
-    private data class RowOccurrence(val value: Row, val history: List<CandidateDefinition>)
 
     private fun invalidateDiscovery() {
         generation = -1
@@ -203,14 +184,9 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
         }
     }
 
-    /**
-     * `lastKnownDefinitions` is session history, never a current assertion or
-     * persisted configuration. Use discovery/source outcomes for current freshness.
-     */
     data class Entry(
         val sourcePath: Path?, val configured: Relocation?, val draft: Row?,
-        val discovery: CandidateDiscovery.Candidate?,
-        val lastKnownDefinitions: List<CandidateDefinition>, val outsideRoot: Boolean,
+        val discovery: CandidateDiscovery.Candidate?, val outsideRoot: Boolean,
     )
 }
 
