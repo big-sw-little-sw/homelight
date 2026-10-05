@@ -20,20 +20,20 @@ internal object ApplyView {
         focus: PaneFocus = PaneFocus.MASTER, viewport: DetailViewport = DetailViewport(),
     ): Element {
         val header = Toolkit.row(
-            Toolkit.text("⌂ HOMELIGHT  ").cyan().bold(),
-            Toolkit.text(if (model is ApplyModel.Running) "[Workspace unavailable]  " else "[1: Workspace]  ").gray().dim(),
+            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+            Toolkit.text(if (model is ApplyModel.Running) "[Workspace unavailable]  " else "[1: Workspace]  ").fg(palette.dim),
             Toolkit.text(
                 when (model) {
                     is ApplyModel.Result -> "[2: Results]"
                     is ApplyModel.Running -> "[Applying]"
                     is ApplyModel.Idle, is ApplyModel.Confirmation -> "[2: Review]"
                 },
-            ).cyan().bold(),
+            ).fg(palette.focus).bold(),
         )
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
-                header, Toolkit.text("Review a resolved plan before applying.").yellow(),
-                Toolkit.text("1: Workspace  ·  q: Quit").gray(),
+                header, Toolkit.text("Review a resolved plan before applying.").fg(palette.warn),
+                Toolkit.text("1: Workspace  ·  q: Quit").fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
         }
@@ -41,14 +41,14 @@ internal object ApplyView {
         val steps = steps(model)
         val selected = if (steps.isEmpty()) 0 else selectedIndex.coerceIn(0, steps.size - 1)
         val checklist = ListElement<Any>().title("Reviewed actions")
-            .borderColor(if (focus == PaneFocus.MASTER) Color.CYAN else Color.DARK_GRAY)
-            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(Color.CYAN)
+            .borderColor(if (focus == PaneFocus.MASTER) palette.focus else palette.dim)
+            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
             .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         var row = 0
         var selectedRow = 0
         var index = 0
         for (relocation in plan.relocations) {
-            checklist.add(Toolkit.text(relocation.relocation.sourcePath).cyan().bold().ellipsisMiddle())
+            checklist.add(Toolkit.text(relocation.relocation.sourcePath).bold().ellipsisMiddle())
             row++
             for (action in relocation.actions) {
                 val step = steps[index]
@@ -66,7 +66,7 @@ internal object ApplyView {
         checklist.selected(selectedRow)
         val detailLines = if (steps.isEmpty()) mutableListOf(DetailViewport.Line("No actions required."))
         else details(steps[selected]).toMutableList()
-        if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, Color.RED, false) }
+        if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, palette.error, false) }
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
             is ApplyModel.Confirmation -> when {
@@ -95,19 +95,19 @@ internal object ApplyView {
         }
         val content = buildList {
             add(header)
-            add(wrappedText("Config: $config", Color.GRAY))
-            add(wrappedText(headline, if (model is ApplyModel.Result && model.succeeded()) Color.GREEN else Color.YELLOW))
+            add(wrappedText("Config: $config", palette.dim))
+            add(wrappedText(headline, if (model is ApplyModel.Result && model.succeeded()) palette.ok else palette.warn))
             if (model is ApplyModel.Confirmation) {
                 if (plan.hasChanges()) add(
                     wrappedText(
                         "${plan.actions().count { it.mutatesFilesystem }} planned changes · $destructive destructive actions",
-                        Color.CYAN,
+                        palette.change,
                     ),
                 )
             } else {
                 val progress = progress(steps)
-                if (progress.isNotEmpty()) add(wrappedText(progress, Color.CYAN))
-                add(wrappedText(counts(steps, model is ApplyModel.Result), Color.GRAY))
+                if (progress.isNotEmpty()) add(wrappedText(progress, palette.ok))
+                add(wrappedText(counts(steps, model is ApplyModel.Result), palette.text))
             }
             add(
                 Toolkit.row(
@@ -133,7 +133,7 @@ internal object ApplyView {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
         if (step.status != ApplyModel.StepStatus.PENDING) add(DetailViewport.Line(step.message, color(step), false))
-        if (action.destructive) add(DetailViewport.Line("⚠ Destructive: existing content or link will be removed.", Color.YELLOW, true))
+        if (action.destructive) add(DetailViewport.Line("⚠ Destructive: existing content or link will be removed.", palette.warn, true))
         add(DetailViewport.Line(affectedPath(action)))
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))
         val relocation = step.relocation.relocation
@@ -194,10 +194,10 @@ internal object ApplyView {
     }
 
     private fun color(step: ApplyModel.Step): Color = when (step.status) {
-        ApplyModel.StepStatus.PENDING -> Color.GRAY
-        ApplyModel.StepStatus.RUNNING -> Color.CYAN
-        ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) Color.GREEN else Color.GRAY
-        ApplyModel.StepStatus.FAILED -> Color.RED
+        ApplyModel.StepStatus.PENDING -> palette.dim
+        ApplyModel.StepStatus.RUNNING -> palette.focus
+        ApplyModel.StepStatus.COMPLETED -> if (step.action.mutatesFilesystem) palette.ok else palette.dim
+        ApplyModel.StepStatus.FAILED -> palette.error
     }
 
     private fun progress(steps: List<ApplyModel.Step>): String {

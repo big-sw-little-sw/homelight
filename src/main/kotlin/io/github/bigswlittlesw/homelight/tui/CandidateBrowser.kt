@@ -63,18 +63,18 @@ internal class CandidateBrowser {
             lines.add(
                 Line(
                     "${unique.size} candidates · $inDraft in draft" + (if (configured == 0) "" else " · $configured configured"),
-                    Color.GRAY, false,
+                    palette.dim, false,
                 ),
             )
             if (draft.discovery?.sources.orEmpty().any { it.status != CandidateDiscovery.SourceStatus.CURRENT }) {
-                lines.add(Line(sourceSummary(draft), Color.YELLOW, false))
+                lines.add(Line(sourceSummary(draft), palette.warn, false))
             }
             val hidden = hiddenCount(draft)
             if (hidden > 0) lines.add(
                 Line(
                     "$hidden usually-unnecessary " + (if (hidden == 1) "directory " else "directories ") +
                         (if (reveal) "revealed" else "hidden"),
-                    Color.YELLOW, true,
+                    palette.warn, true,
                 ),
             )
             if (items.isEmpty()) lines.add(Line("No candidates available yet. Esc returns to manual setup."))
@@ -86,7 +86,7 @@ internal class CandidateBrowser {
                 when (item) {
                     is Item.Group -> {
                         label = (if (item.app in collapsed) "▸ " else "▾ ") + (item.app ?: "Other directories") + " (" + item.count + ")"
-                        color = Color.BLUE
+                        color = palette.text
                     }
                     is Item.Directory -> {
                         val entry = unique.getValue(item.path) // directory items come from these keys
@@ -98,11 +98,11 @@ internal class CandidateBrowser {
                             else -> " − "
                         }
                         label = "  " + marker + " " + path + " ".repeat(maxOf(1, 32 - CharWidth.of(path))) + listNotes(entry)
-                        color = if (entry.draft != null) Color.GREEN else Color.GRAY
+                        color = if (entry.draft != null) palette.ok else palette.text
                     }
                 }
                 lines.add(
-                    Line((if (selected) "❯ " else "  ") + literal(label), if (selected) Color.CYAN else color, selected || item is Item.Group),
+                    Line((if (selected) "❯ " else "  ") + literal(label), if (selected) palette.focus else color, selected || item is Item.Group),
                 )
             }
             val listedFocus = focus != null && items.any { same(it, focus) }
@@ -112,7 +112,7 @@ internal class CandidateBrowser {
                     Line(
                         if (focus is Item.Directory) "❯ Focused path is hidden or no longer listed."
                         else "❯ Focused app is no longer listed.",
-                        Color.CYAN, true,
+                        palette.focus, true,
                     ),
                 )
             }
@@ -123,13 +123,13 @@ internal class CandidateBrowser {
             commands = "r: Refresh · i: Sources" +
                 (if (hidden > 0) " · u: " + (if (reveal) "Hide " else "Show ") + hidden else "") + " · q: Discard"
         }
-        if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), Color.YELLOW, false))
+        if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), palette.warn, false))
         val reader = viewport.render(title, lines, true, anchor)
         val help = viewport.help(navigation, commands)
         return if (message.isNotEmpty() && !details && !diagnostics)
             Toolkit.column(
                 reader,
-                wrappedText("Not added. Inspect the row for details; prior choices are unchanged.", Color.YELLOW),
+                wrappedText("Not added. Inspect the row for details; prior choices are unchanged.", palette.warn),
                 help,
             ).fill()
         else Toolkit.column(reader, help).fill()
@@ -219,10 +219,10 @@ internal fun literal(text: String): String = buildString {
 
 internal fun attribution(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
     val current = definitions(entry)
-    lines.add(Line("Advice is optional, not a safety assessment or a requirement.", Color.GRAY, false))
+    lines.add(Line("Advice is optional, not a safety assessment or a requirement.", palette.dim, false))
     if (current.isEmpty()) lines.add(Line("No current catalog attribution."))
     else {
-        lines.add(Line("Discovery attribution · source status below", Color.CYAN, true))
+        lines.add(Line("Discovery attribution · source status below", palette.text, true))
         for (definition in current) {
             val status = draft.discovery?.sources.orEmpty().firstOrNull { it.source == definition.source }
                 ?.let { sourceState(it.status) } ?: "unavailable"
@@ -332,7 +332,7 @@ private fun kind(kind: CandidateObservation.Kind): String = when (kind) {
 }
 
 private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
-    lines.add(Line(membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), Color.CYAN, true))
+    lines.add(Line(membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), palette.text, true))
     // The browser finds entries by source path (focusedEntry, entriesByPath), so the path is set.
     lines.add(Line("Source: " + literal(checkNotNull(entry.sourcePath).toString())))
     entry.configured?.let { r ->
@@ -411,19 +411,19 @@ private fun sourceDetails(lines: MutableList<Line>, draft: SetupDraft) {
     lines.add(Line("Manual editing, saving and exit do not wait for discovery."))
     val result = draft.discovery ?: return
     for (source in result.sources) {
-        lines.add(Line(sourceName(source.source) + ": " + sourceState(source.status), Color.CYAN, true))
+        lines.add(Line(sourceName(source.source) + ": " + sourceState(source.status), palette.text, true))
         lines.add(Line("Location: " + literal(source.source.location)))
         for (problem in source.problems) {
-            lines.add(Line(problemAdvice(problem.kind), Color.YELLOW, false))
+            lines.add(Line(problemAdvice(problem.kind), palette.warn, false))
             lines.add(Line("Diagnostic: " + literal(problem.detail)))
         }
-        if (source.diagnostics.isNotEmpty()) lines.add(Line("List rejected. Fix the JSON and refresh.", Color.YELLOW, false))
+        if (source.diagnostics.isNotEmpty()) lines.add(Line("List rejected. Fix the JSON and refresh.", palette.warn, false))
         for (d in source.diagnostics) {
             lines.add(
                 Line(
                     literal(d.message) + (if (d.location.isEmpty()) "" else " · " + literal(d.location)) +
                         (if (d.line == 0) "" else " · input line " + d.line + ", column " + d.column),
-                    Color.YELLOW, false,
+                    palette.warn, false,
                 ),
             )
         }

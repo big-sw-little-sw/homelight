@@ -18,7 +18,7 @@ internal class DetailViewport {
     private var followingChoice = false
     private var keepVisible = false
 
-    data class Line(val text: String, val color: Color = Color.WHITE, val bold: Boolean = false)
+    data class Line(val text: String, val color: Color = palette.text, val bold: Boolean = false)
 
     // Resolve overflow after the reader renders, so help reflects this frame's size.
     fun help(navigation: String, commands: String): Element {
@@ -31,7 +31,7 @@ internal class DetailViewport {
                     overflows -> navigation.replace("↑/↓: Scroll", "↑/↓/[/]: Scroll")
                     else -> navigation.replace("↑/↓: Scroll · ", "")
                 }
-                wrappedText(keys + "\n" + commands, Color.GRAY).render(frame, area, context)
+                wrappedText(keys + "\n" + commands, palette.dim).render(frame, area, context)
             }
         }
         return Help()
@@ -72,11 +72,12 @@ internal class DetailViewport {
                     if (line.bold) text.bold() else text
                 }
                 Toolkit.panel(title, Toolkit.column(*rows.toTypedArray()).fill())
-                    .borderColor(if (focused) Color.CYAN else Color.DARK_GRAY).fill()
+                    .borderColor(if (focused) palette.focus else palette.dim).fill()
                     .render(frame, area, context)
                 if (overflow) {
-                    ScrollbarElement().state(wrapped.size, height, top).hideMarkers()
-                        .thumbColor(Color.CYAN).trackColor(Color.CYAN)
+                    // TamboUI's Scrollbar patches the inherited text color over thumb and track colors, so the
+                    // element's own color is the only one that shows.
+                    ScrollbarElement().state(wrapped.size, height, top).hideMarkers().fg(palette.focus)
                         .render(frame, Rect(area.x() + area.width() - 2, area.y() + 1, 1, height), context)
                 }
             }

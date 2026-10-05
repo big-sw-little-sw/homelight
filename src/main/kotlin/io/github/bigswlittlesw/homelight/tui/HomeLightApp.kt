@@ -1,5 +1,8 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.style.Style
+import dev.tamboui.text.Line
+import dev.tamboui.text.Span
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.Column
@@ -80,23 +83,25 @@ internal class HomeLightApp(
             content = Toolkit.column(
                 content,
                 Toolkit.panel(
-                    "Quit HomeLight?",
                     Toolkit.column(
                         Toolkit.text("Filesystem operations will finish, including on failure."),
                         Toolkit.text("Results are session-local and won't remain available after exit."),
                         Toolkit.text((if (exitIntent == ExitIntent.CONFIRM_KEEP) "❯ " else "  ") + "Keep running"),
                         Toolkit.text((if (exitIntent == ExitIntent.CONFIRM_EXIT) "❯ " else "  ") + "Exit when execution finishes"),
-                        Toolkit.text("↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel").gray(),
+                        Toolkit.text("↑/↓ or Tab: Choose  ·  Enter: Confirm  ·  Esc: Cancel").fg(palette.dim),
                     ),
-                ).length(7),
+                ).title(Line.from(Span.styled("Quit HomeLight?", Style.EMPTY.fg(palette.dialog))))
+                    .borderColor(palette.dialog).length(7),
             )
         } else if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
-                content, Toolkit.text("Will exit after execution settles, including failure.").yellow(),
-                Toolkit.text("Session-local results won't remain available after exit.").gray(),
+                content, Toolkit.text("Will exit after execution settles, including failure.").fg(palette.warn),
+                Toolkit.text("Session-local results won't remain available after exit.").fg(palette.dim),
             )
         }
-        return content.id("homelight-screen").onKeyEvent(this::handleKeyEvent).focusable()
+        // Every element inherits the root's colors, and the root fills the whole screen with the background.
+        return content.id("homelight-screen").bg(palette.background).fg(palette.text)
+            .onKeyEvent(this::handleKeyEvent).focusable()
     }
 
     private fun renderApply(): Element {

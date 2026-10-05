@@ -10,7 +10,8 @@
 #
 # Needs gh (authenticated) and docker on an arm64 host, e.g. OrbStack on an Apple silicon Mac.
 # Nothing is mounted from the host except the downloaded binary (read-only); the container's home
-# is its own. TERM inside is xterm-256color; set HOMELIGHT_TERM to try another value.
+# is its own. TERM inside is xterm-256color; set HOMELIGHT_TERM to try another value. COLORTERM is
+# passed through from the host, so the TUI uses Harbor's full colors when your terminal reports them.
 set -euo pipefail
 
 pr=${1:?usage: ci/try-pr <pr-number>}
@@ -66,5 +67,5 @@ exec bash
 '
 
 docker run --rm -it --platform linux/arm64 --hostname "homelight-pr$pr" \
-  -e TERM="${HOMELIGHT_TERM:-xterm-256color}" -v "$dir:/hl:ro" \
+  -e TERM="${HOMELIGHT_TERM:-xterm-256color}" -e COLORTERM -v "$dir:/hl:ro" \
   ubuntu:24.04 bash -c "$setup"
