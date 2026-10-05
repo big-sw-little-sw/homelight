@@ -5,8 +5,8 @@
 #
 # Each step records exit code, stdout and stderr; the run ends with a listing of the resulting
 # fixture tree. The fixture path is replaced by ROOT, so transcripts from the JVM and native
-# builds, on any machine, compare as plain text. The path is fixed because archived sources keep
-# their full original path under the archive root, which shows in the tree listing.
+# builds, on any machine, compare as plain text. The path is fixed so the transcript never depends on
+# where it ran.
 # Needs bash and GNU find.
 set -u
 

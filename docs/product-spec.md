@@ -185,7 +185,7 @@ The configuration names the decision for the observed state:
 - `when-source-and-target-directories-exist`: `prompt`, `adopt`, `leave-unchanged`, or `discard`
 - `when-only-target-exists`: `prompt` or `adopt-target`
 - `when-adopting-target`: `prompt`, `discard-source`, or `archive-source`
-- `archive-root`: where `archive-source` moves the source; optional, defaulting to `.homelight-archive` beside the source. It must be on the source's filesystem, because archiving is an atomic rename.
+- `archive-root`: where `archive-source` moves the source; optional, defaulting to `.homelight-archive` beside the source. It must be on the source's filesystem, because archiving is an atomic rename. The source moves to `<archive-root>/<source name>`. When that name is taken, by an existing entry or by another relocation with the same source name and archive root, it becomes `<source name>-<first 8 hex digits of the SHA-256 of the source's real path>`, so the same state always plans the same destination.
 
 An absent target with a source directory is staged, verified, and atomically published as one relocation. `adopt` makes the target authoritative, but a separate source disposition remains mandatory. `leave-unchanged` is intentional success, not convergence or a no-op.
 

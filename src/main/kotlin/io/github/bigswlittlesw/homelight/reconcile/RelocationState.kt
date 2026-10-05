@@ -1,7 +1,9 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.realSpelling
 import io.github.bigswlittlesw.homelight.fs.PathObservation
+import io.github.bigswlittlesw.homelight.fs.PathState
 import java.nio.file.Path
 
 /**
@@ -16,9 +18,44 @@ data class RelocationState(
     val archiveDestination: ArchiveDestination? = null,
     val replacedSource: PathObservation? = null,
 ) {
-    /** The no-follow observation of a deterministic source archive destination. */
+    /** The no-follow observation of the source's archive destination, chosen by [inspectArchiveDestinations]. */
     data class ArchiveDestination(val path: Path, val observation: PathObservation)
 }
+
+/**
+ * Chooses and inspects where archive-source would move each relocation's source, in the order given.
+ *
+ * The destination is `<archive root>/<source name>`. When that name is taken, it becomes
+ * `<source name>-<first 8 hex digits of the SHA-256 of the source's real spelling>`. A name is taken when anything
+ * exists there, or when another of [relocations] has the same plain destination, compared by real spelling. The second
+ * rule depends only on the configuration, so two relocations with the same source name always get different names,
+ * whichever of them archives first. The suffix depends only on the source, so the same filesystem state always gives
+ * the same destination. A suffixed name that is taken too is not varied further: the planner blocks archiving.
+ *
+ * This is the only place that decides the name; the planner uses the path it is given.
+ */
+internal fun inspectArchiveDestinations(
+    relocations: List<Relocation>, inspect: (Path) -> PathObservation,
+): List<RelocationState.ArchiveDestination> {
+    val plain = relocations.map { it.archiveRoot.resolve(sourceName(it.sourcePath)).normalize() }
+    val spellings = plain.map(::realSpelling)
+    val claims = spellings.groupingBy { it }.eachCount()
+    return relocations.indices.map { i ->
+        val path = plain[i]
+        val observation = if (claims.getValue(spellings[i]) == 1) inspect(path) else null
+        if (observation?.state == PathState.ABSENT) {
+            RelocationState.ArchiveDestination(path, observation)
+        } else {
+            val suffix = sha256Hex(realSpelling(relocations[i].sourcePath).toString()).take(8)
+            val suffixed = path.resolveSibling("${path.fileName}-$suffix")
+            RelocationState.ArchiveDestination(suffixed, inspect(suffixed))
+        }
+    }
+}
+
+private fun sourceName(source: Path): Path =
+    // A filesystem root overlaps every target, so the loader refuses it as a source.
+    checkNotNull(source.toAbsolutePath().normalize().fileName) { "source has no name: $source" }
 
 /**
  * Where replacing [source] with a link to [target] sets the source aside before deleting it:

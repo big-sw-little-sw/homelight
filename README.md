@@ -89,8 +89,11 @@ The three `when-…` rules default to `prompt`, which asks each time. A saved fi
 out a rule set to `prompt`.
 
 `when-adopting-target` is `prompt`, `discard-source` or `archive-source`. Archiving
-moves the source under `archive-root`, which defaults to `.homelight-archive` beside
-the source. The root must be on the source's filesystem, because archiving is a rename.
+moves the source to `<archive-root>/<source name>`, for example
+`~/.cache/.homelight-archive/tool-a`. `archive-root` defaults to `.homelight-archive`
+beside the source. If that name is taken, the name gets a short suffix made from the
+source path, such as `tool-a-3f9c2b1d`. The root must be on the source's filesystem,
+because archiving is a rename.
 Review always offers archiving when the policy prompts.
 
 Unknown keys, missing required keys, wrong value types and unknown policy values are
