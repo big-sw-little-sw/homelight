@@ -17,26 +17,20 @@ open class HomeLightSession(
     // Guarded by this instance's monitor. The apply worker touches them only through
     // `refreshObservationsAfterExecution`, which takes the monitor.
     private var evaluation: ConfigurationEvaluation.Evaluation = evaluator.load(configPath)
-    private var discardedChoices: List<ConfigurationEvaluation.DiscardedChoice> = listOf()
     private var reviewedExecution: ReviewedExecution? = null
     private var execution: CompletableFuture<Void?> = CompletableFuture.completedFuture(null)
 
     @Synchronized
     fun evaluation(): ConfigurationEvaluation.Evaluation = evaluation
 
-    /** Choices discarded by the most recent explicit replan, retained for presentation by the caller. */
-    @Synchronized
-    fun discardedChoices(): List<ConfigurationEvaluation.DiscardedChoice> = discardedChoices
-
+    /** A re-check reloads from disk and clears the draft: Workspace choices are for one apply only. */
     @Synchronized
     fun refresh() {
         if (isApplying()) {
             return
         }
         reviewedExecution = null
-        val replanned = evaluator.replan(evaluation)
-        discardedChoices = replanned.discardedChoices
-        evaluation = replanned.evaluation
+        evaluation = evaluator.load(configPath)
     }
 
     @Synchronized

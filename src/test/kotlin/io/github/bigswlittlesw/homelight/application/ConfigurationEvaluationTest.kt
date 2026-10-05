@@ -125,7 +125,7 @@ class ConfigurationEvaluationTest {
     }
 
     @Test
-    fun replacingChoiceStartsFromSavedPolicyAndCancelsReview() {
+    fun replacingChoiceCancelsReviewAndRecheckClearsIt() {
         bothDirectories("source", "target")
         write(entry("source", "target", mapOf("archive-root" to archive())))
         val session = HomeLightSession(config)
@@ -139,7 +139,10 @@ class ConfigurationEvaluationTest {
         assertTrue(session.requestApply())
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        assertEquals(selected.draft, assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).draft)
+        // A re-check clears the choice even though nothing on disk changed.
+        val rechecked = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
+        assertTrue(rechecked.draft.isEmpty())
+        assertEquals(rechecked.savedPlan, rechecked.plan)
     }
 
     @Test
@@ -165,80 +168,30 @@ class ConfigurationEvaluationTest {
     }
 
     @Test
-    fun retainsChoicesBySourceAcrossReorderAndReportsRemoval() {
-        bothDirectories("first", "first-target")
-        bothDirectories("second", "second-target")
-        val first = entry("first", "first-target")
-        val second = entry("second", "second-target")
-        write(first, second)
-        var selected = evaluator.choose(loaded(), root.resolve("first"), DecisionChoice.LEAVE_UNCHANGED)
-        selected = evaluator.choose(selected, root.resolve("second"), DecisionChoice.DISCARD_BOTH)
-        write(second, first)
-        val reordered = evaluator.replan(selected)
-        assertTrue(reordered.discardedChoices.isEmpty())
-        val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, reordered.evaluation)
-        assertEquals(selected.draft, next.draft)
-        assertEquals(root.resolve("second"), next.plan.relocations.first().relocation.sourcePath)
-        assertEquals(WhenSourceAndTargetDirectoriesExist.DISCARD,
-                next.plan.relocations.first().relocation.whenSourceAndTargetDirectoriesExist)
-        write(second)
-        val removed = evaluator.replan(next)
-        assertEquals(listOf(ConfigurationEvaluation.DiscardedChoice(root.resolve("first"),
-                DecisionChoice.LEAVE_UNCHANGED, ConfigurationEvaluation.DiscardReason.REMOVED)), removed.discardedChoices)
-        assertEquals(mapOf(root.resolve("second") to DecisionChoice.DISCARD_BOTH),
-                assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, removed.evaluation).draft)
-    }
-
-    @Test
-    fun changedDefinitionsNeverInheritDrafts() {
+    fun duplicateSourceCannotReceiveAnAmbiguousDraft() {
         bothDirectories("source", "target")
-        write(entry("source", "target"))
-        val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.DISCARD_BOTH)
-        for (changed in listOf(
-                entry("source", "other-target"),
-                entry("source", "target", mapOf("when-source-and-target-directories-exist" to "leave-unchanged")),
-                entry("source", "target", mapOf("archive-root" to archive())))) {
-            write(changed)
-            val result = evaluator.replan(selected)
-            assertEquals(ConfigurationEvaluation.DiscardReason.DEFINITION_CHANGED, result.discardedChoices.first().reason)
-            assertTrue(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, result.evaluation).draft.isEmpty())
-        }
-        write(entry("new-source", "target"))
-        val moved = evaluator.replan(selected)
-        assertEquals(ConfigurationEvaluation.DiscardReason.REMOVED, moved.discardedChoices.first().reason)
-        assertTrue(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, moved.evaluation).draft.isEmpty())
-    }
-
-    @Test
-    fun duplicateSourceCannotReceiveOrRetainAnAmbiguousDraft() {
-        bothDirectories("source", "target")
-        write(entry("source", "target"))
-        val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.LEAVE_UNCHANGED)
         write(entry("source", "target"), entry("source", "target"))
-        val replanned = evaluator.replan(selected)
-        val duplicate = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, replanned.evaluation)
+        val duplicate = loaded()
         assertTrue(duplicate.plan.hasBlockedActions())
         assertFalse(duplicate.plan.diagnostics.isEmpty())
-        assertTrue(duplicate.draft.isEmpty())
-        assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, replanned.discardedChoices.first().reason)
         assertThrows<IllegalArgumentException> { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
     }
 
     @Test
-    fun reinspectionDiscardsUnavailableChoiceAndClassifiesCurrentSource() {
+    fun recheckClassifiesCurrentSourceWithoutTheEarlierChoice() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
-        val selected = evaluator.choose(loaded(), root.resolve("source"), DecisionChoice.ADOPT_TARGET)
+        val session = HomeLightSession(config)
+        session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         Files.createSymbolicLink(root.resolve("source"), root.resolve("target"))
-        val result = evaluator.replan(selected)
-        assertEquals(ConfigurationEvaluation.DiscardReason.UNAVAILABLE, result.discardedChoices.first().reason)
-        val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, result.evaluation)
+        session.refresh()
+        val next = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertTrue(next.draft.isEmpty())
         assertEquals(RelocationSourceState.CORRECT_SYMLINK, next.items.first().sourceState)
     }
 
     @Test
-    fun missingAndMalformedConfigDiscardDraftAndRequireFreshReview() {
+    fun missingAndMalformedConfigClearDraftAndRequireFreshReview() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
         val session = HomeLightSession(config)
@@ -249,8 +202,6 @@ class ConfigurationEvaluationTest {
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, session.evaluation())
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         assertFalse(session.requestApply())
-        assertEquals(ConfigurationEvaluation.DiscardReason.CONFIGURATION_UNAVAILABLE,
-                session.discardedChoices().first().reason)
         Files.delete(config)
         val missing = assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
         assertTrue(missing.message.contains("does not exist"), missing.message)
@@ -281,7 +232,6 @@ class ConfigurationEvaluationTest {
         assertThrows<IllegalStateException> { session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET) }
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        assertTrue(session.discardedChoices().isEmpty())
         assertTrue(session.isPlanReady())
     }
 
