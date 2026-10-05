@@ -249,7 +249,8 @@ class HomeLightAppTest {
         assertEquals(steps.size - 1, ui.app.selectedIndex())
         val screen = ui.screen(120, 30)
         assertTrue(screen.contains("❯ ○ Create source link"), screen)
-        for (name in names) assertTrue(screen.contains("home/$name │"), screen)
+        // A path ends its row, shortened in the middle when it does not fit.
+        for (name in names) assertTrue(Regex("home/$name +│").containsMatchIn(screen), screen)
     }
 
     @Test
