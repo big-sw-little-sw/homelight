@@ -95,16 +95,16 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     }
 
     private fun failed(
-        candidate: Path, failure: Exception, generation: Long, diagnostics: MutableList<Diagnostic>,
+        candidate: Path, failure: Exception, generation: Long, diagnostics: List<Diagnostic>,
     ): CandidateObservation {
         val reason = when (failure) {
             is Changed -> Reason.CHANGED
             is AccessDeniedException, is SecurityException -> Reason.ACCESS_DENIED
             else -> Reason.IO_ERROR
         }
-        diagnostics.add(Diagnostic(candidate, reason, failure.toString()))
         return observation(
-            candidate, if (failure is Changed) Kind.UNKNOWN else Kind.INACCESSIBLE, null, generation, diagnostics,
+            candidate, if (failure is Changed) Kind.UNKNOWN else Kind.INACCESSIBLE, null, generation,
+            diagnostics + Diagnostic(candidate, reason, failure.toString()),
         )
     }
 
@@ -151,4 +151,4 @@ private fun same(before: BasicFileAttributes, after: BasicFileAttributes): Boole
 
 private fun observation(
     path: Path, kind: Kind, target: Path?, generation: Long, diagnostics: List<Diagnostic>,
-): CandidateObservation = CandidateObservation(path, kind, target, generation, Instant.now(), diagnostics)
+): CandidateObservation = CandidateObservation(path, kind, target, generation, Instant.now(), diagnostics.toList())
