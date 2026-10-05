@@ -70,7 +70,7 @@ private fun executeValidated(parseResult: ParseResult): Int {
 }
 
 /** `EX_SOFTWARE` from BSD `sysexits.h`: an internal software error. */
-internal const val INTERNAL_ERROR_EXIT_CODE = 70
+private const val INTERNAL_ERROR_EXIT_CODE = 70
 
 /**
  * Prints a [ConfigurationException] as its message alone, with exit code 1: it is the user's error.
