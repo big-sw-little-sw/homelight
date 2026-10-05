@@ -323,9 +323,10 @@ internal class SetupView(
         try {
             applyLocations()
             ConfigurationPublisher().saveNew(session.configPath, draft.validate())
-            close()
-            session.refresh()
-        } catch (error: RuntimeException) { message = "Save failed: " + error.message; viewport.scroll(Int.MAX_VALUE) }
+        } catch (error: RuntimeException) { message = "Save failed: " + error.message; viewport.scroll(Int.MAX_VALUE); return }
+        close()
+        // Outside the catch: the file is saved, and a bug while checking it again must not read as a failed save.
+        session.refresh()
     }
 
     override fun close() {

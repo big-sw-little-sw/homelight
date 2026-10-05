@@ -211,6 +211,47 @@ class ConfigurationEvaluationTest {
     }
 
     @Test
+    fun everyInvalidConfigurationLoadsAsInvalidWithTheLoaderMessage() {
+        val target = root.resolve("target")
+        val source = root.resolve("source")
+        val relocation = "\"source-path\": \"$source\", \"target-path\": \"$target\""
+        val cases = mapOf(
+            "malformed" to "{\"homelight\": [",
+            "unknown key" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{$relocation, \"existing\": \"move\"}]}}",
+            "bad enum" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
+                "{$relocation, \"when-only-target-exists\": \"sometimes\"}]}}",
+            "missing key" to "{\"homelight\": {\"relocations\": []}}",
+            "relative shared-list" to "{\"homelight\": {\"target-root\": \"$root\", \"discovery\": {\"shared-list\": \"x.json\"}}}",
+            "NUL in a path" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
+                "{\"source-path\": \"/a\\u0000b\", \"target-path\": \"$target\"}]}}",
+            "blank source-root" to "{\"homelight\": {\"source-root\": \" \", \"target-root\": \"$root\"}}",
+            "NUL in source-root" to "{\"homelight\": {\"source-root\": \"/a\\u0000b\", \"target-root\": \"$root\"}}",
+            "source outside source-root" to "{\"homelight\": {\"source-root\": \"$root/home\", \"target-root\": \"$root\"," +
+                " \"relocations\": [{\"source-path\": \"$source\"}]}}",
+        )
+        for ((name, content) in cases) {
+            Files.writeString(config, content)
+            val expected = assertThrows<ConfigurationException>(name) { evaluator.loadRequired(config) }.message
+            val invalid = assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config), name)
+            assertEquals(expected, invalid.message, name)
+        }
+    }
+
+    @Test
+    fun anInspectorOrPlannerBugPropagatesOutOfLoad() {
+        write(entry("source", "target"))
+        val inspectorBug = IllegalStateException("injected inspector bug")
+        val plannerBug = IllegalStateException("injected planner bug")
+
+        assertSame(inspectorBug, assertThrows<IllegalStateException> {
+            ConfigurationEvaluation(inspect = { throw inspectorBug }).load(config)
+        })
+        assertSame(plannerBug, assertThrows<IllegalStateException> {
+            ConfigurationEvaluation(plan = { throw plannerBug }).load(config)
+        })
+    }
+
+    @Test
     fun runningAndRetainedResultsRejectEditsUntilExplicitReplan() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))

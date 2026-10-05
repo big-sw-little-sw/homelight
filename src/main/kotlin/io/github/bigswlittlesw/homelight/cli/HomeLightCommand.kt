@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.DEBUG_STEP_DELAY_MILLIS
+import io.github.bigswlittlesw.homelight.application.internalErrorMessage
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.tui.launchTui
@@ -13,6 +14,7 @@ import picocli.CommandLine.ParseResult
 import picocli.CommandLine.Spec
 import java.nio.file.Path
 import java.util.concurrent.Callable
+import java.util.concurrent.CompletionException
 import kotlin.system.exitProcess
 
 /** Root command and CLI entry point for HomeLight. */
@@ -67,12 +69,21 @@ private fun executeValidated(parseResult: ParseResult): Int {
     return CommandLine.RunLast().execute(parseResult)
 }
 
+/** `EX_SOFTWARE` from BSD `sysexits.h`: an internal software error. */
+internal const val INTERNAL_ERROR_EXIT_CODE = 70
+
 /**
- * Prints a [ConfigurationException] as its message alone: it is the user's error, not a bug.
- * Rethrowing keeps picocli's default for everything else: a stack trace and exit code 1.
+ * Prints a [ConfigurationException] as its message alone, with exit code 1: it is the user's error.
+ *
+ * Commands handle ordinary failures themselves, so anything else is a bug: one [internalErrorMessage] line and
+ * exit code 70, with no stack trace. A bug from a worker arrives wrapped in a [CompletionException].
  */
 private fun handleExecutionException(exception: Exception, commandLine: CommandLine, parseResult: ParseResult): Int {
-    if (exception !is ConfigurationException) throw exception
-    commandLine.err.println(exception.message)
-    return CommandLine.ExitCode.SOFTWARE
+    if (exception is ConfigurationException) {
+        commandLine.err.println(exception.message)
+        return 1
+    }
+    val bug = (exception as? CompletionException)?.cause ?: exception
+    commandLine.err.println(internalErrorMessage(bug))
+    return INTERNAL_ERROR_EXIT_CODE
 }

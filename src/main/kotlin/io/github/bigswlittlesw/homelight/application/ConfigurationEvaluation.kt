@@ -1,9 +1,11 @@
 package io.github.bigswlittlesw.homelight.application
 
+import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.HomeLightConfiguration
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.fs.PathInspector
+import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
@@ -16,11 +18,13 @@ import java.nio.file.Path
  * Loads and inspects once; draft choices replan solely from the retained observations.
  * A draft lives only in one [Loaded]: any fresh [load] starts without one.
  * This bounded inspection pass is not an atomic filesystem snapshot.
+ *
+ * `inspect` and `plan` are functions so tests can inject a bug into either.
  */
 class ConfigurationEvaluation(
     private val loader: ConfigurationLoader = ConfigurationLoader(),
-    private val inspector: PathInspector = PathInspector(),
-    private val planner: ReconciliationPlanner = ReconciliationPlanner(),
+    private val inspect: (Path) -> PathObservation = PathInspector()::inspect,
+    private val plan: (List<RelocationState>) -> ReconciliationPlan = ReconciliationPlanner()::plan,
 ) {
     sealed interface Evaluation {
         val configPath: Path
@@ -71,13 +75,17 @@ class ConfigurationEvaluation(
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
     }
 
+    /**
+     * A [ConfigurationException] becomes [Missing] or [Invalid]. Any other exception is a bug in inspection or
+     * planning and propagates, so it is never shown as an invalid configuration.
+     */
     fun load(configPath: Path): Evaluation {
         if (isUnconfiguredDefault(configPath)) {
             return Unconfigured(configPath)
         }
         return try {
             loadRequired(configPath)
-        } catch (exception: RuntimeException) {
+        } catch (exception: ConfigurationException) {
             val message = exception.message ?: exception.toString()
             if (Files.notExists(configPath)) Missing(configPath, message) else Invalid(configPath, message)
         }
@@ -89,14 +97,14 @@ class ConfigurationEvaluation(
         val observations = configuration.relocations.map { relocation ->
             RelocationState(
                 relocation,
-                inspector.inspect(relocation.sourcePath), inspector.inspect(relocation.targetPath),
+                inspect(relocation.sourcePath), inspect(relocation.targetPath),
                 normalize(relocation.sourcePath).let { source ->
                     val path = relocation.archiveRoot.resolve(source.root.relativize(source)).normalize()
-                    RelocationState.ArchiveDestination(path, inspector.inspect(path))
+                    RelocationState.ArchiveDestination(path, inspect(path))
                 },
             )
         }
-        val savedPlan = planner.plan(observations)
+        val savedPlan = plan(observations)
         val choices = LinkedHashMap<Path, List<DecisionChoice>>()
         observations.forEachIndexed { i, state ->
             // Invalid duplicate sources have no unambiguous draft identity. The planner retains their diagnostics.
@@ -120,7 +128,7 @@ class ConfigurationEvaluation(
         }
         return Loaded.of(
             current.configPath, current.savedConfiguration, current.observations,
-            current.savedPlan, draft, current.availableChoices, planner.plan(effective),
+            current.savedPlan, draft, current.availableChoices, plan(effective),
         )
     }
 }
