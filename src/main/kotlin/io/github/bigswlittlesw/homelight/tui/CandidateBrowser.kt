@@ -97,7 +97,7 @@ internal class CandidateBrowser {
                             draft.canAdd(entry) -> "[ ]"
                             else -> " − "
                         }
-                        label = "  " + marker + " " + path + " ".repeat(maxOf(1, 32 - CharWidth.of(path))) + listNotes(entry, draft)
+                        label = "  " + marker + " " + path + " ".repeat(maxOf(1, 32 - CharWidth.of(path))) + listNotes(entry)
                         color = if (entry.draft != null) Color.GREEN else Color.GRAY
                     }
                 }
@@ -229,11 +229,6 @@ internal fun attribution(lines: MutableList<Line>, entry: SetupDraft.Entry, draf
             definition(lines, definition, status)
         }
     }
-    val history = entry.lastKnownDefinitions.filter { it !in current }
-    if (history.isNotEmpty()) {
-        lines.add(Line("Historical attribution · no longer in current discovery", Color.YELLOW, true))
-        history.forEach { definition(lines, it, "historical; not current advice") }
-    }
 }
 
 private fun entriesByPath(draft: SetupDraft): Map<Path, SetupDraft.Entry> {
@@ -294,16 +289,13 @@ private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String = whe
     else -> ""
 }
 
-private fun listNotes(entry: SetupDraft.Entry, draft: SetupDraft): String {
+private fun listNotes(entry: SetupDraft.Entry): String {
     val notes = mutableListOf<String>()
     if (entry.configured != null) notes.add("Configured")
     val ordinary = entry.discovery?.takeIf { c ->
         c.observation.kind == CandidateObservation.Kind.DIRECTORY || c.observation.kind == CandidateObservation.Kind.MISSING
     }
-    if (ordinary == null) notes.add(state(entry, draft))
-    else if (draft.discovery?.let { r -> r.generation != ordinary.observation.generation } == true) {
-        notes.add("Earlier observation")
-    }
+    if (ordinary == null) notes.add(state(entry))
     val advice = adviceSummary(entry)
     if (advice == " · Mixed advice" || advice == " · Usually unnecessary") notes.add(advice.substring(3))
     return notes.joinToString(" · ")
@@ -324,10 +316,7 @@ private fun advice(advice: CandidateDefinition.Advice?): String = when (advice) 
     null -> "Not supplied"
 }
 
-private fun state(entry: SetupDraft.Entry, draft: SetupDraft): String = entry.discovery?.let { c ->
-    kind(c.observation.kind) +
-        if (draft.discovery?.let { r -> r.generation != c.observation.generation } == true) " (earlier observation)" else ""
-} ?: "Not observed"
+private fun state(entry: SetupDraft.Entry): String = entry.discovery?.let { kind(it.observation.kind) } ?: "Not observed"
 
 private fun kind(kind: CandidateObservation.Kind): String = when (kind) {
     CandidateObservation.Kind.PENDING -> "Pending"
@@ -360,7 +349,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     entry.draft?.let { r ->
         lines.add(Line("Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString())))
     }
-    lines.add(Line("Metadata: " + state(entry, draft)))
+    lines.add(Line("Metadata: " + state(entry)))
     if (entry.discovery?.observation?.kind == CandidateObservation.Kind.MISSING) {
         lines.add(Line("Not found under the source root. You can configure it before the app creates it."))
         lines.add(Line("On Apply, if source and target are both missing: create the target directory and source link."))
@@ -370,12 +359,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     lines.add(Line("Size: not estimated · Ownership: not evaluated"))
     entry.discovery?.let { candidate ->
         val observation = candidate.observation
-        if (observation.kind != CandidateObservation.Kind.PENDING) lines.add(
-            Line(
-                "Observed: " + observation.observedAt +
-                    if (draft.discovery?.generation == observation.generation) " · This request" else " · Earlier request",
-            ),
-        )
+        if (observation.kind != CandidateObservation.Kind.PENDING) lines.add(Line("Observed: " + observation.observedAt))
         observation.rawLinkTarget?.let { path -> lines.add(Line("Link text: " + literal(path.toString()) + " · Target not checked")) }
         observation.diagnostics.forEach { d ->
             lines.add(Line("Metadata note: " + literal(d.detail) + " · " + literal(d.path.toString())))
@@ -416,7 +400,6 @@ private fun sourceName(source: CandidateSource): String =
 private fun sourceState(status: CandidateDiscovery.SourceStatus): String = when (status) {
     CandidateDiscovery.SourceStatus.CURRENT -> "current"
     CandidateDiscovery.SourceStatus.PENDING -> "pending"
-    CandidateDiscovery.SourceStatus.STALE -> "stale"
     CandidateDiscovery.SourceStatus.FAILED -> "unavailable"
 }
 
@@ -430,9 +413,6 @@ private fun sourceDetails(lines: MutableList<Line>, draft: SetupDraft) {
     for (source in result.sources) {
         lines.add(Line(sourceName(source.source) + ": " + sourceState(source.status), Color.CYAN, true))
         lines.add(Line("Location: " + literal(source.source.location)))
-        if (source.status == CandidateDiscovery.SourceStatus.STALE) {
-            lines.add(Line("Retaining earlier definitions; this read supplied no replacement."))
-        }
         for (problem in source.problems) {
             lines.add(Line(problemAdvice(problem.kind), Color.YELLOW, false))
             lines.add(Line("Diagnostic: " + literal(problem.detail)))

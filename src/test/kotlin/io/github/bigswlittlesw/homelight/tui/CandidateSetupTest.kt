@@ -69,7 +69,7 @@ class CandidateSetupTest {
         assertInstanceOf(ApplyModel.Idle::class.java, app.session.applyModel())
     }
 
-    @Test fun browseAddEditRefreshRemovalAndSavePreserveChoicesAndHistory() {
+    @Test fun browseAddEditRefreshRemovalAndSavePreserveChoices() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val app = app(root, workers)
@@ -87,10 +87,10 @@ class CandidateSetupTest {
             escape(app); key(app, 'b')
             Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(app, 'r'); await(workers, app)
-            // Refresh while inspecting does not leave details or erase the row.
-            val history = all(app)
-            assertTrue(history.contains("Historical attribution"), history)
-            assertTrue(history.contains("custom-target"), history)
+            // Refresh while inspecting does not leave details or erase the row; the dropped list entry is not recalled.
+            val details = all(app)
+            assertTrue(details.contains("No current catalog attribution."), details)
+            assertTrue(details.contains("custom-target"), details)
             key(app, 'e')
             assertTrue(all(app).contains("Adopt target"))
             escape(app); key(app, 's')

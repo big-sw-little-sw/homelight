@@ -9,8 +9,7 @@ import java.time.Instant
  */
 data class CandidateObservation(
     val path: Path, val kind: Kind, val rawLinkTarget: Path?,
-    val generation: Long, val observedAt: Instant, val stale: Boolean,
-    val diagnostics: List<Diagnostic>,
+    val generation: Long, val observedAt: Instant, val diagnostics: List<Diagnostic>,
 ) {
     init {
         require(path.isAbsolute && path == path.normalize()) { "Observation requires normalized absolute identity" }
@@ -23,19 +22,17 @@ data class CandidateObservation(
 
     enum class Reason {
         SYMLINK_EXCLUDED, ACCESS_DENIED, IO_ERROR, CHANGED, DEADLINE,
-        CAPACITY, ALIAS_UNCERTAINTY, NOT_DIRECTORY, MISSING,
+        ALIAS_UNCERTAINTY, NOT_DIRECTORY, MISSING,
     }
 
     /** Paths and details are unescaped data; a presentation must escape controls. */
     data class Diagnostic(val path: Path, val reason: Reason, val detail: String)
 
-    internal fun retained(): CandidateObservation = copy(stale = true)
-
     internal companion object {
         fun unknown(path: Path, generation: Long, reason: Reason, detail: String): CandidateObservation =
             CandidateObservation(
                 path, Kind.UNKNOWN, null, generation,
-                Instant.now(), false, listOf(Diagnostic(path, reason, detail)),
+                Instant.now(), listOf(Diagnostic(path, reason, detail)),
             )
     }
 }
