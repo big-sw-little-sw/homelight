@@ -273,20 +273,16 @@ class ReconciliationExecutor internal constructor(
     private fun createSymlink(action: ReconciliationAction.CreateSymlink) {
         requireState(action.path, PathState.ABSENT)
         requireState(action.target, PathState.DIRECTORY)
-        replaceWithLink(action.path, action.target, false)
+        replaceWithLink(action.path, action.target)
     }
 
     private fun replaceDirectoryWithSymlink(action: ReconciliationAction.ReplaceDirectoryWithSymlink) {
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.DIRECTORY)
-        val temporary = prepareLink(action.path, action.target)
-        try {
+        replaceWithLink(action.path, action.target) {
             requireState(action.path, PathState.DIRECTORY)
             requireState(action.target, PathState.DIRECTORY)
             deleteTree(action.path)
-            Files.move(temporary, action.path, StandardCopyOption.ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporary)
         }
     }
 
@@ -297,12 +293,21 @@ class ReconciliationExecutor internal constructor(
         if (actualTarget != action.expectedSourceTarget) {
             throw StateDriftException("expected symlink target ${action.expectedSourceTarget} at ${action.path}")
         }
-        replaceWithLink(action.path, action.target, true)
+        replaceWithLink(action.path, action.target, replaceExisting = true)
     }
 
-    private fun replaceWithLink(path: Path, target: Path, replaceExisting: Boolean) {
-        val temporary = prepareLink(path, target)
+    /**
+     * Creates a link to [target] beside [path] and moves it to [path] in one step. [beforeMove] runs once the link
+     * exists, so a failure to create it leaves [path] untouched.
+     */
+    private fun replaceWithLink(
+        path: Path, target: Path, replaceExisting: Boolean = false, beforeMove: () -> Unit = {},
+    ) {
+        val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
+        Files.delete(temporary)
+        Files.createSymbolicLink(temporary, target)
         try {
+            beforeMove()
             if (replaceExisting) {
                 Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             } else {
@@ -786,13 +791,6 @@ private fun tryAcquireLock(channel: FileChannel): FileLock? =
     } catch (_: OverlappingFileLockException) {
         null
     }
-
-private fun prepareLink(path: Path, target: Path): Path {
-    val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
-    Files.delete(temporary)
-    Files.createSymbolicLink(temporary, target)
-    return temporary
-}
 
 /**
  * Deletes [root] and everything under it without following links; a missing root is a no-op.
