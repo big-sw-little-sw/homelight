@@ -358,6 +358,16 @@ The source is set aside as `<source parent>/.homelight-replaced-<source name>-<S
 - `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]` The plan asks for the adopt-target decision instead, and keeps the set-aside tree until the link exists.
 - `[skipped: recognizing a published target whose source was not yet set aside, add when a crash between publication and replacement is reported]` A crash there leaves two whole directories, reported as "both exist" exactly as a failure after publication already is (B5). A saved `discard` rule would delete both whole copies; no name or marker distinguishes this case from two directories the user made.
 
+## 2026-10-05: Functions return their results
+
+Functions no longer take a mutable collection to fill; they return what they build, and an accumulator stays local to the function that builds it. This was a habit left from the Java port, not a design choice. Preflight, candidate parsing, candidate metadata failures, available choices, independent groups and per-action execution now return their results; parent walks use `generateSequence`. TUI line builders follow the same rule as their screens change (#110, #111, #115): they return `List<Line>`, or a small `Anchored(lines, anchor)` when they also need an anchor.
+
+Moving `progress.finished` for a completed action out of the executor's `try` also fixes a bug: a listener that threw `IOException` there recorded the action twice, completed and then failed. An exception from `finished` now propagates like any other listener bug.
+
+Legitimately mutable state stays: lock-guarded monitors, the executor's `halted` flag, `mapBounded`'s slots, staging keys, the JDK file visitor, picocli fields and `DetailViewport.wrap`.
+
+- `[skipped: rewriting ensureDirectories's walk, add when it changes for another reason]`
+
 ## How to add decisions
 
 Use this format:

@@ -29,14 +29,12 @@ import java.nio.file.Path
  */
 internal fun independentGroups(relocations: List<RelocationPlan>): List<List<Int>> {
     val claims = relocations.map(::claimedPaths)
-    var groups = listOf<List<Int>>()
-    for (index in relocations.indices) {
+    return relocations.indices.fold(listOf<List<Int>>()) { groups, index ->
         val (dependent, independent) = groups.partition { group ->
             group.any { other -> claims[other].any { left -> claims[index].any { right -> left.overlaps(right) } } }
         }
-        groups = independent + listOf((dependent.flatten() + index).sorted())
-    }
-    return groups.sortedBy { group -> group.first() }
+        independent + listOf((dependent.flatten() + index).sorted())
+    }.sortedBy { group -> group.first() }
 }
 
 /** A path a relocation claims. A staging root does not overlap the same staging root of another relocation. */

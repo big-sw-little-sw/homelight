@@ -107,12 +107,13 @@ class ConfigurationEvaluation(
             )
         }
         val savedPlan = plan(observations)
-        val choices = LinkedHashMap<Path, List<DecisionChoice>>()
-        observations.forEachIndexed { i, state ->
-            // Invalid duplicate sources have no unambiguous draft identity. The planner retains their diagnostics.
-            val choicesForSource = availableChoices(state, savedPlan.relocations[i])
-            choices.merge(normalize(state.relocation.sourcePath), choicesForSource) { _, _ -> listOf() }
-        }
+        // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
+        // their diagnostics. groupBy keeps sources in first-seen order.
+        val choices = observations.zip(savedPlan.relocations)
+            .groupBy({ (state, _) -> normalize(state.relocation.sourcePath) }) { (state, plan) ->
+                availableChoices(state, plan)
+            }
+            .mapValues { (_, choices) -> choices.singleOrNull() ?: listOf() }
         return Loaded.of(configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan)
     }
 
@@ -141,12 +142,10 @@ fun isUnconfiguredDefault(configPath: Path): Boolean =
 
 private fun availableChoices(state: RelocationState, plan: RelocationPlan): List<DecisionChoice> {
     if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
-        return buildList {
-            add(DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
-            add(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
-            add(DecisionChoice.LEAVE_UNCHANGED)
-            add(DecisionChoice.DISCARD_BOTH)
-        }
+        return listOf(
+            DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE,
+            DecisionChoice.LEAVE_UNCHANGED, DecisionChoice.DISCARD_BOTH,
+        )
     }
     if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
         && (plan.conflict != null || state.relocation.whenOnlyTargetExists == WhenOnlyTargetExists.ADOPT_TARGET)

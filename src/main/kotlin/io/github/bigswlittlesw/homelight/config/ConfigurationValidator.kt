@@ -74,10 +74,7 @@ internal fun aliasedRelocationProblem(relocations: List<Relocation>): Relocation
  */
 internal fun realSpelling(path: Path): Path {
     val absolute = normalized(path)
-    var existing = absolute.parent ?: return absolute
-    while (!Files.exists(existing)) {
-        existing = existing.parent ?: return absolute
-    }
+    val existing = generateSequence(absolute.parent) { it.parent }.firstOrNull { Files.exists(it) } ?: return absolute
     return try {
         existing.toRealPath().resolve(existing.relativize(absolute))
     } catch (_: IOException) {
