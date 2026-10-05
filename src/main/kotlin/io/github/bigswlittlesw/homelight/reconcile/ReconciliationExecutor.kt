@@ -101,37 +101,40 @@ class ReconciliationExecutor internal constructor(
 
     /** Runs one relocation's actions in order; a failure leaves its remaining actions pending and sets [halted]. */
     private fun execute(relocation: RelocationPlan, progress: ProgressListener, halted: AtomicBoolean): RelocationExecution {
-        val actions = ArrayList<ActionExecution>()
         var failed = false
-        for (action in relocation.actions) {
+        val actions = relocation.actions.map { action ->
             if (failed) {
-                actions.add(notRun(action))
-                continue
-            }
-            fun fail(exception: Exception) {
-                val execution = ActionExecution(
-                    action, ActionStatus.FAILED, exception.message ?: exception.toString(),
-                    stateDrift = exception is StateDriftException, targetPublished = exception is PartlyPublishedException,
-                )
-                actions.add(execution)
-                halted.set(true)
-                failed = true
-                progress.finished(relocation, execution)
-            }
-            // Only I/O and environment failures fail the action and halt the plan. Anything else is a bug: it
-            // propagates, after `finally` blocks have cleaned up staging.
-            try {
-                progress.started(relocation, action)
-                val execution = ActionExecution(action, ActionStatus.COMPLETED, apply(action))
-                actions.add(execution)
-                progress.finished(relocation, execution)
-            } catch (exception: IOException) {
-                fail(exception)
-            } catch (exception: EnvironmentException) {
-                fail(exception)
+                notRun(action)
+            } else {
+                runAction(relocation, action, progress, halted).also { failed = it.status == ActionStatus.FAILED }
             }
         }
         return RelocationExecution(relocation, actions)
+    }
+
+    /**
+     * Runs one action and reports it to [progress] exactly once. A failure sets [halted] before it is reported:
+     * a listener that sees the failure can rely on no new relocation starting.
+     *
+     * Only I/O and environment failures, from the action or from [ProgressListener.started], fail the action. Anything
+     * else is a bug: it propagates, after `finally` blocks have cleaned up staging. [ProgressListener.finished] runs
+     * outside that handling, so a listener that throws there propagates too, rather than recording the action again
+     * as failed.
+     */
+    private fun runAction(
+        relocation: RelocationPlan, action: ReconciliationAction, progress: ProgressListener, halted: AtomicBoolean,
+    ): ActionExecution {
+        val execution = try {
+            progress.started(relocation, action)
+            ActionExecution(action, ActionStatus.COMPLETED, apply(action))
+        } catch (exception: IOException) {
+            failure(action, exception)
+        } catch (exception: EnvironmentException) {
+            failure(action, exception)
+        }
+        if (execution.status == ActionStatus.FAILED) halted.set(true)
+        progress.finished(relocation, execution)
+        return execution
     }
 
     private fun apply(action: ReconciliationAction): String = when (action) {
@@ -339,6 +342,11 @@ internal class PartlyPublishedException(message: String, cause: IOException) : I
 
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
+
+private fun failure(action: ReconciliationAction, exception: Exception) = ReconciliationExecutor.ActionExecution(
+    action, ReconciliationExecutor.ActionStatus.FAILED, exception.message ?: exception.toString(),
+    stateDrift = exception is StateDriftException, targetPublished = exception is PartlyPublishedException,
+)
 
 /**
  * Refuses publication where directory permission bits cannot be read or set, rather than letting
