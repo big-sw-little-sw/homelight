@@ -393,15 +393,11 @@ private fun createRealDirectory(path: Path) {
 
 /** Follows a symlink at the nearest existing component, as [ensureDirectories] would. */
 private fun fileStoreOfExistingAncestor(path: Path): FileStore {
-    var current: Path? = path.toAbsolutePath().normalize()
-    while (current != null) {
-        if (Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            if (!Files.isDirectory(current)) {
-                throw StateDriftException("expected real directory at $current")
-            }
-            return Files.getFileStore(current)
-        }
-        current = current.parent
+    val existing = generateSequence(path.toAbsolutePath().normalize()) { it.parent }
+        .firstOrNull { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
+        ?: throw IOException("no existing ancestor for $path")
+    if (!Files.isDirectory(existing)) {
+        throw StateDriftException("expected real directory at $existing")
     }
-    throw IOException("no existing ancestor for $path")
+    return Files.getFileStore(existing)
 }
