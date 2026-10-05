@@ -7,8 +7,8 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.widgets.common.ScrollBarPolicy
 import io.github.bigswlittlesw.homelight.application.ApplyModel
+import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import java.nio.file.Path
 
 /** Renders the review and results screen. The object names the screen; it holds no state. */
@@ -128,11 +128,6 @@ internal object ApplyView {
         is ApplyModel.Running -> model.steps
         is ApplyModel.Result -> model.steps
     }
-
-    private fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
-        plan.relocations.flatMap { relocation ->
-            relocation.actions.map { action -> ApplyModel.Step(relocation, action, ApplyModel.StepStatus.PENDING, "Not started") }
-        }
 
     fun details(step: ApplyModel.Step): List<DetailViewport.Line> = buildList {
         val action = step.action

@@ -38,7 +38,7 @@ class HomeLightSessionTest {
         assertFalse(session.isApplying())
         assertSame(completion, session.confirmApply { task -> fail<Unit>("Must not restart") })
         assertFalse(Files.exists(root.resolve("home")))
-        assertEquals(1, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items.size)
+        assertEquals(1, assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items.size)
     }
 
     @Test
@@ -50,7 +50,7 @@ class HomeLightSessionTest {
         Files.writeString(config, "{\"homelight\": [invalid")
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
-        assertInstanceOf(PlanModel.Invalid::class.java, session.planModel())
+        assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, session.evaluation())
         assertTrue(Files.isSymbolicLink(root.resolve("home/cache")))
     }
 
@@ -58,7 +58,7 @@ class HomeLightSessionTest {
     fun visualDelayHoldsEachActionBeforeCompletion() {
         val root = directory.toRealPath()
         val session = HomeLightSession(configuration(root, "", "cache"), 20)
-        val actionCount = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan.actions().size
+        val actionCount = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan.actions().size
         session.requestApply()
         val started = System.nanoTime()
         session.confirmApply().get(10, TimeUnit.SECONDS)
@@ -73,7 +73,7 @@ class HomeLightSessionTest {
         Files.writeString(source.resolve("entry"), "keep this content")
         val config = configuration(root, "", "cache")
         val session = HomeLightSession(config)
-        val reviewed = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan
+        val reviewed = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan
 
         assertTrue(session.requestApply())
         assertSame(reviewed, assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel()).plan)
@@ -99,8 +99,8 @@ class HomeLightSessionTest {
         configuration(root, "", "cache")
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        assertEquals(1, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
-        val repeated = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).plan
+        assertEquals(1, inSync(session))
+        val repeated = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan
         assertNotSame(reviewed, repeated)
         assertFalse(repeated.actions().any(ReconciliationAction::mutatesFilesystem))
         assertTrue(session.requestApply())
@@ -159,13 +159,13 @@ class HomeLightSessionTest {
 
         session.refresh()
         assertTrue(session.hasConflicts())
-        val second = assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).items
+        val second = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
                 .first { item -> item.relocation.sourcePath.endsWith("second") }
         session.choose(second.relocation.sourcePath, DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
-        assertEquals(2, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
+        assertEquals(2, inSync(session))
     }
 
     @Test
@@ -210,7 +210,7 @@ class HomeLightSessionTest {
         assertTrue(running.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.COMPLETED })
-        assertEquals(1, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
+        assertEquals(1, inSync(session))
     }
 
     @Test
@@ -221,7 +221,7 @@ class HomeLightSessionTest {
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
         val config = configuration(root, "\"staging-root\": \"$staging\", ", "data/first", "data/second", "data/third")
         val session = HomeLightSession(config)
-        assertTrue(session.requestApply(), session.planModel().toString())
+        assertTrue(session.requestApply(), session.evaluation().toString())
         Files.writeString(staging, "not a directory")
         session.confirmApply(Runnable::run).join()
 
@@ -243,8 +243,12 @@ class HomeLightSessionTest {
         val retried = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertNotSame(result.plan, retried.plan)
         assertTrue(retried.succeeded())
-        assertEquals(3, assertInstanceOf(PlanModel.Configured::class.java, session.planModel()).summary.inSync)
+        assertEquals(3, inSync(session))
     }
+
+    private fun inSync(session: HomeLightSession): Int =
+        assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
+            .count { it.badge() == PlanBadge.IN_SYNC }
 
     /** `globals` and `policies` are JSON members, each followed by a comma; `policies` go in every relocation. */
     private fun configuration(root: Path, globals: String, vararg names: String, policies: String = ""): Path {

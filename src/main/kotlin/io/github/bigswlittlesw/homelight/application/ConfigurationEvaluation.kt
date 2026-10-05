@@ -55,6 +55,17 @@ class ConfigurationEvaluation(
             )
         }
 
+        /** One row per configured relocation under the effective draft plan, most urgent first, then by source path. */
+        val items: List<PlanRelocationItem> = observations.mapIndexed { i, state ->
+            val relocationPlan = plan.relocations[i]
+            val relocation = relocationPlan.relocation
+            PlanRelocationItem(
+                relocation, state.source, state.target, relocationPlan,
+                state.source.sourceStateForTarget(relocation.targetPath),
+                choicesFor(relocation.sourcePath),
+            )
+        }.sortedWith(compareBy({ it.badge().priority }, { it.relocation.sourcePath.toString() }))
+
         /** Evaluation records choices, possibly none, for every configured source. */
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
     }

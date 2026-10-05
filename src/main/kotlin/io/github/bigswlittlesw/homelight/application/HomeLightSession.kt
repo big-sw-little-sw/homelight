@@ -18,12 +18,8 @@ open class HomeLightSession(
     // `refreshObservationsAfterExecution`, which takes the monitor.
     private var evaluation: ConfigurationEvaluation.Evaluation = evaluator.load(configPath)
     private var discardedChoices: List<ConfigurationEvaluation.DiscardedChoice> = listOf()
-    private var planModel: PlanModel = planModel(evaluation)
     private var reviewedExecution: ReviewedExecution? = null
     private var execution: CompletableFuture<Void?> = CompletableFuture.completedFuture(null)
-
-    @Synchronized
-    open fun planModel(): PlanModel = planModel
 
     @Synchronized
     fun evaluation(): ConfigurationEvaluation.Evaluation = evaluation
@@ -40,7 +36,7 @@ open class HomeLightSession(
         reviewedExecution = null
         val replanned = evaluator.replan(evaluation)
         discardedChoices = replanned.discardedChoices
-        replaceEvaluation(replanned.evaluation)
+        evaluation = replanned.evaluation
     }
 
     @Synchronized
@@ -49,22 +45,22 @@ open class HomeLightSession(
         val loaded = checkNotNull(evaluation as? ConfigurationEvaluation.Loaded) { "No loaded configuration" }
         val chosen = evaluator.choose(loaded, sourcePath, choice)
         reviewedExecution = null
-        replaceEvaluation(chosen)
+        evaluation = chosen
     }
 
     @Synchronized
-    open fun isPlanReady(): Boolean {
-        val configured = planModel
+    fun isPlanReady(): Boolean {
+        val loaded = evaluation
         return applyModel() !is ApplyModel.Running && applyModel() !is ApplyModel.Result
-                && configured is PlanModel.Configured
-                && !configured.plan.hasBlockedActions()
-                && !configured.plan.hasConflicts()
+                && loaded is ConfigurationEvaluation.Loaded
+                && !loaded.plan.hasBlockedActions()
+                && !loaded.plan.hasConflicts()
     }
 
     @Synchronized
     fun hasConflicts(): Boolean {
-        val configured = planModel
-        return configured is PlanModel.Configured && configured.plan.hasConflicts()
+        val loaded = evaluation
+        return loaded is ConfigurationEvaluation.Loaded && loaded.plan.hasConflicts()
     }
 
     @Synchronized
@@ -80,11 +76,11 @@ open class HomeLightSession(
     /** Captures the current plan without reloading it or touching the filesystem. */
     @Synchronized
     fun requestApply(): Boolean {
-        val configured = planModel
-        if (!isPlanReady() || configured !is PlanModel.Configured) {
+        val loaded = evaluation
+        if (!isPlanReady() || loaded !is ConfigurationEvaluation.Loaded) {
             return false
         }
-        reviewedExecution = ReviewedExecution(configured.plan, debugStepDelayMillis)
+        reviewedExecution = ReviewedExecution(loaded.plan, debugStepDelayMillis)
         return true
     }
 
@@ -108,19 +104,15 @@ open class HomeLightSession(
         return execution
     }
 
+    /** Applying clears the draft: the next plan starts from the saved policy and the new observations. */
     @Synchronized
     private fun refreshObservationsAfterExecution() {
-        planModel = planModel(evaluator.load(configPath))
+        evaluation = evaluator.load(configPath)
     }
 
     /** Terminal shutdown waits for an active mutation sequence rather than interrupting it mid-action. */
     open fun awaitExecution() {
         val pending = synchronized(this) { execution }
         pending.join()
-    }
-
-    private fun replaceEvaluation(next: ConfigurationEvaluation.Evaluation) {
-        evaluation = next
-        planModel = planModel(next)
     }
 }
