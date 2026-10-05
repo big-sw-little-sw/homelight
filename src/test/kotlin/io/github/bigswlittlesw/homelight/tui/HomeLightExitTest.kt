@@ -223,7 +223,7 @@ class HomeLightExitTest {
             app.handleKeyEvent(KeyEvent.ofKey(code, KEY_BINDINGS))
         }
 
-        private fun render(app: HomeLightApp, width: Int, height: Int): String {
+        internal fun render(app: HomeLightApp, width: Int, height: Int): String {
             val marker = Class.forName("dev.tamboui.tui.RenderThread").getDeclaredMethod("markAsRenderThread")
             val clear = Class.forName("dev.tamboui.tui.RenderThread").getDeclaredMethod("clearRenderThread")
             marker.isAccessible = true

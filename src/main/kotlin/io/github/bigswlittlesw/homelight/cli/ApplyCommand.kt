@@ -57,6 +57,7 @@ internal class ApplyCommand(private val worker: Executor = Executor { it.run() }
     }
 }
 
+/** A bug that stopped execution propagates, after the JSON evidence, so the CLI reports it as an internal error. */
 internal fun renderCompletion(execution: ReviewedExecution, output: PrintWriter): Int {
     try {
         execution.awaitExecution()
@@ -65,7 +66,6 @@ internal fun renderCompletion(execution: ReviewedExecution, output: PrintWriter)
         val snapshot = execution.snapshot()
         if (snapshot is ApplyModel.Result && !snapshot.succeeded()) {
             renderApplyJson(snapshot, output)
-            return 1
         }
         throw exception
     }

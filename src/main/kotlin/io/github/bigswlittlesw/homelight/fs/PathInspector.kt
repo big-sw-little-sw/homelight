@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.fs
 
 import java.io.IOException
+import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
@@ -29,6 +30,9 @@ class PathInspector {
     } catch (exception: NoSuchFileException) {
         PathObservation(PathState.ABSENT)
     } catch (exception: IOException) {
+        PathObservation(PathState.INACCESSIBLE)
+    } catch (exception: UncheckedIOException) {
+        // Reading a directory's entries reports an I/O failure this way; it is not a bug.
         PathObservation(PathState.INACCESSIBLE)
     }
 

@@ -10,12 +10,14 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import picocli.CommandLine.Command
+import picocli.CommandLine.Option
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
 import java.util.concurrent.Callable
+import java.util.concurrent.CompletionException
 
 class HomeLightCommandTest {
 
@@ -81,21 +83,34 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun keepsTheStackTraceForAnUnexpectedException() {
-        val commandLine = HomeLightCommand.createCommandLine().addSubcommand("fail", FailingCommand())
-        val output = StringWriter()
-        val errorOutput = StringWriter()
-        commandLine.setOut(PrintWriter(output, true))
-        commandLine.setErr(PrintWriter(errorOutput, true))
+    fun reportsAnyOtherExceptionAsOneInternalErrorLineWithExitCode70() {
+        for (arguments in listOf(
+            arrayOf("fail"), arrayOf("fail", "--json"), arrayOf("fail", "--worker"), arrayOf("fail", "--worker", "--json"),
+        )) {
+            val commandLine = HomeLightCommand.createCommandLine().addSubcommand("fail", FailingCommand())
+            val output = StringWriter()
+            val errorOutput = StringWriter()
+            commandLine.setOut(PrintWriter(output, true))
+            commandLine.setErr(PrintWriter(errorOutput, true))
 
-        assertEquals(1, commandLine.execute("fail"))
-        assertTrue(errorOutput.toString().contains("java.lang.IllegalStateException: unexpected"), errorOutput.toString())
-        assertTrue(errorOutput.toString().contains("\tat "), errorOutput.toString())
+            val context = arguments.joinToString(" ") + ": " + errorOutput
+            assertEquals(70, commandLine.execute(*arguments), context)
+            assertEquals("Internal error (please report): IllegalStateException: unexpected\n",
+                errorOutput.toString().replace(System.lineSeparator(), "\n"), context)
+            assertEquals("", output.toString(), context)
+        }
     }
 
+    /** The handler treats `--json` and a worker's wrapped bug the same way as a plain bug. */
     @Command(name = "fail")
     private class FailingCommand : Callable<Int> {
-        override fun call(): Int = throw IllegalStateException("unexpected")
+        @Option(names = ["--json"]) private var json = false
+        @Option(names = ["--worker"]) private var worker = false
+
+        override fun call(): Int {
+            val bug = IllegalStateException("unexpected")
+            throw if (worker) CompletionException(bug) else bug
+        }
     }
 
     @Test
