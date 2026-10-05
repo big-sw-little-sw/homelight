@@ -5,7 +5,9 @@ import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -16,6 +18,7 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
 
 class ReconciliationExecutorTest {
     @Test
@@ -85,9 +88,7 @@ class ReconciliationExecutorTest {
         assertEquals(ReconciliationExecutor.ExecutionOutcome.FAILED_RECOVERY, result.relocations.first().outcome())
         assertTrue(Files.isDirectory(source))
         assertTrue(Files.isDirectory(target))
-        Files.list(target.parent.resolve(".homelight-staging")).use { stagingEntries ->
-            assertTrue(stagingEntries.findAny().isEmpty())
-        }
+        assertOnlyLockLeft(target)
         assertTrue(plan(Relocation(source, target)).hasConflicts())
     }
 
@@ -136,7 +137,7 @@ class ReconciliationExecutorTest {
 
     /** A failed internal precondition is a bug: it propagates, and staging is cleaned up as on an I/O failure. */
     @ParameterizedTest
-    @EnumSource(ReconciliationExecutor.StagingStep::class, names = ["CREATED", "LOCKED", "MARKED", "COPIED"])
+    @EnumSource(ReconciliationExecutor.StagingStep::class, names = ["LOCKED", "COPIED"])
     internal fun aFailedPreconditionPropagatesAfterStagingCleanup(step: ReconciliationExecutor.StagingStep, @TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
@@ -149,8 +150,60 @@ class ReconciliationExecutorTest {
         assertEquals("injected bug", bug.message)
         assertEquals("source", Files.readString(source.resolve("entry")))
         assertTrue(Files.notExists(target))
-        Files.list(target.resolveSibling(".homelight-staging")).use { entries -> assertEquals(listOf<Path>(), entries.toList()) }
+        assertOnlyLockLeft(target)
         assertTrue(ReconciliationExecutor().execute(plan).succeeded())
+    }
+
+    /** B4: a failure to clean up staging is added to the action's own failure, which it used to replace. */
+    @Test
+    fun aStagingCleanupFailureDoesNotHideTheOriginalFailure(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val staging = target.resolveSibling(".homelight-staging")
+        val plan = plan(Relocation(source, target))
+        val bug = IllegalStateException("injected bug")
+        // The copy's contents can be deleted, but the copy cannot be removed from the read-only staging root.
+        val executor = ReconciliationExecutor(1) { at, _ ->
+            if (at == ReconciliationExecutor.StagingStep.COPIED) {
+                Files.setPosixFilePermissions(staging, PosixFilePermissions.fromString("r-x------"))
+                throw bug
+            }
+        }
+
+        try {
+            assertSame(bug, assertThrows<IllegalStateException> { executor.execute(plan) })
+            assumeFalse(Files.isWritable(staging), "requires directory write denial, not a privileged process")
+            assertEquals(listOf(stagedCopy(staging, target).toString()), bug.suppressed.map { it.message })
+        } finally {
+            Files.setPosixFilePermissions(staging, PosixFilePermissions.fromString("rwx------"))
+        }
+        assertTrue(Files.notExists(target))
+        // The next run of the same target clears the leftover under its lock.
+        assertTrue(ReconciliationExecutor().execute(plan).succeeded())
+        assertEquals("source", Files.readString(target.resolve("entry")))
+        assertOnlyLockLeft(target)
+    }
+
+    /** B5: a failure after the copy was moved to the target leaves both directories, which needs recovery. */
+    @Test
+    fun aFailureAfterPublicationReportsFailedRecovery(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val executor = ReconciliationExecutor(1) { at, _ ->
+            if (at == ReconciliationExecutor.StagingStep.PUBLISHED) throw IOException("injected failure")
+        }
+
+        val relocation = executor.execute(plan(Relocation(source, target))).relocations.single()
+
+        assertEquals(ReconciliationExecutor.ExecutionOutcome.FAILED_RECOVERY, relocation.outcome())
+        val failed = relocation.actions.single { it.status == ReconciliationExecutor.ActionStatus.FAILED }
+        assertEquals("published $target but could not restore its permissions: injected failure", failed.message)
+        assertTrue(failed.targetPublished)
+        assertEquals("source", Files.readString(source.resolve("entry")))
+        assertEquals("source", Files.readString(target.resolve("entry")))
+        assertOnlyLockLeft(target)
     }
 
     /**
@@ -207,6 +260,24 @@ class ReconciliationExecutorTest {
         }
         assertEquals(listOf<Path>(), Files.list(elsewhere).use { it.toList() })
         assertTrue(Files.notExists(root.resolve("missing"), LinkOption.NOFOLLOW_LINKS))
+    }
+
+    /** The lock file is opened without following a link, so a link planted at its name is refused. */
+    @Test
+    fun refusesALinkAtTheLockFilesName(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val staging = Files.createDirectories(target.resolveSibling(".homelight-staging"))
+        val elsewhere = root.resolve("elsewhere")
+        Files.createSymbolicLink(lockOf(stagedCopy(staging, target)), elsewhere)
+
+        val actions = ReconciliationExecutor().execute(plan(Relocation(source, target))).relocations.single().actions
+
+        assertEquals(ReconciliationExecutor.ActionStatus.FAILED, actions.first().status)
+        assertTrue(Files.notExists(elsewhere, LinkOption.NOFOLLOW_LINKS))
+        assertTrue(Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
+        assertEquals("source", Files.readString(source.resolve("entry")))
     }
 
     companion object {

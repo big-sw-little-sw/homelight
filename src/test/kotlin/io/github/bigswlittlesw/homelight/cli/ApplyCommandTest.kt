@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import io.github.bigswlittlesw.homelight.reconcile.lockOf
+import io.github.bigswlittlesw.homelight.reconcile.stagedCopy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -54,45 +56,28 @@ class ApplyCommandTest {
         assertTrue(Files.isDirectory(stagingRoot))
         assertTrue(Files.notExists(target.parent.resolve(".homelight-staging")))
         Files.list(stagingRoot).use { entries ->
-            assertTrue(entries.findAny().isEmpty)
+            assertEquals(listOf(lockOf(stagedCopy(stagingRoot, target))), entries.toList())
         }
     }
 
     @Test
-    fun cleansAProvenStaleStagingOperationBeforePublishing(@TempDir temporary: Path) {
+    fun clearsTheTargetsLeftoverAndKeepsOtherEntries(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = root.resolve("local/cache")
         val stagingRoot = Files.createDirectories(root.resolve("local/staging"))
-        val stale = Files.createDirectory(stagingRoot.resolve("operation-00000000-0000-0000-0000-000000000000"))
-        Files.writeString(stale.resolve("target"), "homelight-staging-v1\n$target\n")
-        Files.createFile(stale.resolve("lock"))
-        Files.writeString(source.resolve("entry"), "source")
-
-        val json = configuration(root, source, target, stagingRoot)
-        val result = apply(json)
-
-        assertEquals(0, result.exitCode, result.output)
-        assertTrue(Files.notExists(stale))
-        assertEquals("source", Files.readString(target.resolve("entry")))
-    }
-
-    @Test
-    fun retainsAStagingOperationWithAnUnexpectedEntry(@TempDir temporary: Path) {
-        val root = temporary.toRealPath()
-        val source = Files.createDirectories(root.resolve("home/cache"))
-        val target = root.resolve("local/cache")
-        val stagingRoot = Files.createDirectories(root.resolve("local/staging"))
-        val suspicious = Files.createDirectory(stagingRoot.resolve("operation-00000000-0000-0000-0000-000000000000"))
-        Files.writeString(suspicious.resolve("target"), "homelight-staging-v1\n$target\n")
-        Files.createFile(suspicious.resolve("lock"))
-        Files.writeString(suspicious.resolve("unexpected"), "keep")
+        val leftover = Files.createDirectory(stagedCopy(stagingRoot, target))
+        Files.writeString(leftover.resolve("entry"), "stale")
+        val other = Files.createDirectory(stagingRoot.resolve("operation-other"))
+        Files.writeString(other.resolve("entry"), "keep")
         Files.writeString(source.resolve("entry"), "source")
 
         val result = apply(configuration(root, source, target, stagingRoot))
 
         assertEquals(0, result.exitCode, result.output)
-        assertTrue(Files.exists(suspicious))
+        assertTrue(Files.notExists(leftover))
+        assertEquals("keep", Files.readString(other.resolve("entry")))
+        assertEquals("source", Files.readString(target.resolve("entry")))
     }
 
     @Test

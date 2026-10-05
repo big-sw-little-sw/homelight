@@ -22,7 +22,6 @@ import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Collections
-import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -74,6 +73,7 @@ class ConcurrentExecutionTest {
     fun runsSiblingsUnderAnExistingParentConcurrently() {
         // `home` and `store` exist, and the migrations share the default staging root `store/.homelight-staging`.
         Files.createDirectories(root.resolve("store"))
+        val staging = root.resolve("store/.homelight-staging")
         val relocations = listOf("a", "b", "c").map { name -> migration("home/.$name", "store/$name", files = 20) }
         val plan = plan(relocations)
         assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(plan.relocations))
@@ -101,48 +101,55 @@ class ConcurrentExecutionTest {
             assertTrue(Files.isSymbolicLink(relocation.sourcePath))
             assertEquals(20, Files.list(relocation.targetPath).use { it.count() }.toInt())
         }
-        assertEquals(listOf<Path>(), entries(root.resolve("store/.homelight-staging")))
+        assertEquals(relocations.map { lockOf(stagedCopy(staging, it.targetPath)) }.toSet(), entries(staging).toSet())
     }
 
     /**
-     * Pauses one migration after [step] and runs stale cleanup against its shared staging root from another process
-     * and from another migration in this one. Neither changes the paused operation or frees its lock, and both still
-     * delete a stale leftover.
+     * Pauses one migration of target T after [step]. Another process and this one both try T and fail without
+     * changing T's operation or freeing its lock, and both publish another target through the same staging root.
      */
     @ParameterizedTest
     @EnumSource(StagingStep::class)
-    internal fun cleanupLeavesAnInFlightOperationInASharedStagingRootAlone(step: StagingStep) {
+    internal fun anInFlightTargetIsLockedWhileOtherTargetsShareItsStagingRoot(step: StagingStep) {
         Files.createDirectories(root.resolve("store"))
         val staging = root.resolve("store/.homelight-staging")
+        val target = root.resolve("store/paused")
         val paused = plan(listOf(migration("home/.paused", "store/paused", files = 5)))
-        val other = plan(listOf(migration("home/.other", "store/other", files = 5)))
+        val rival = migration("home/.rival", "store/unused", files = 1).sourcePath
         val reached = CompletableFuture<Path>()
         val release = CountDownLatch(1)
-        val executor = ReconciliationExecutor(RELOCATION_CONCURRENCY) { at, operation ->
+        val executor = ReconciliationExecutor(RELOCATION_CONCURRENCY) { at, copy ->
             if (at == step) {
-                reached.complete(operation)
+                reached.complete(copy)
                 assertTrue(release.await(10, TimeUnit.SECONDS))
             }
         }
         val pausedRun = CompletableFuture.supplyAsync { executor.execute(paused) }
         try {
-            val operation = reached.get(10, TimeUnit.SECONDS)
-            val lock = operation.resolve("lock")
-            val locked = step != StagingStep.CREATED
-            val before = snapshot(operation)
+            val copy = reached.get(10, TimeUnit.SECONDS)
+            assertEquals(stagedCopy(staging, target), copy)
+            val lock = lockOf(copy)
+            val before = snapshot(copy)
+            // Once T is published, its own guard refuses first.
+            fun refusal(lockMessage: String) =
+                if (step == StagingStep.PUBLISHED) "expected absent at $target but found directory" else lockMessage
             ForeignStagingProcess().use { foreign ->
-                val stale = staleOperation(staging)
-                foreign.cleanStaleStaging(staging)
-                assertTrue(Files.notExists(stale))
-                assertEquals(before, snapshot(operation))
-                assertEquals(locked, Files.exists(lock) && foreign.lockIsHeld(lock))
+                assertEquals(refusal("another HomeLight is publishing $target"), foreign.migrate(rival, target))
+                assertEquals(before, snapshot(copy))
+                assertTrue(foreign.lockIsHeld(lock))
 
-                val alsoStale = staleOperation(staging)
+                // This process must refuse before it opens the lock file: closing a channel to it would free the lock.
+                val again = ReconciliationExecutor().execute(migrationOnly(rival, target)).relocations.single()
+                assertEquals(refusal("this HomeLight is already publishing $target"), again.actions.single().message)
+                assertEquals(before, snapshot(copy))
+                assertTrue(foreign.lockIsHeld(lock))
+
+                val foreignSource = migration("home/.foreign", "store/unused", files = 5).sourcePath
+                assertEquals("completed", foreign.migrate(foreignSource, root.resolve("store/foreign")))
+                val other = plan(listOf(migration("home/.other", "store/other", files = 5)))
                 assertTrue(ReconciliationExecutor().execute(other).succeeded())
-                assertTrue(Files.notExists(alsoStale))
-                assertEquals(before, snapshot(operation))
-                // Cleanup in this process must not even try the lock: closing its channel would free the lock.
-                assertEquals(locked, Files.exists(lock) && foreign.lockIsHeld(lock))
+                assertEquals(before, snapshot(copy))
+                assertTrue(foreign.lockIsHeld(lock))
             }
         } finally {
             release.countDown()
@@ -150,8 +157,9 @@ class ConcurrentExecutionTest {
 
         assertTrue(pausedRun.get(10, TimeUnit.SECONDS).succeeded())
         assertTrue(Files.isSymbolicLink(root.resolve("home/.paused")))
-        assertEquals(5, entries(root.resolve("store/paused")).size)
-        assertEquals(listOf<Path>(), entries(staging))
+        val targets = listOf(target, root.resolve("store/foreign"), root.resolve("store/other"))
+        targets.forEach { published -> assertEquals(5, entries(published).size, published.toString()) }
+        assertEquals(targets.map { lockOf(stagedCopy(staging, it)) }.toSet(), entries(staging).toSet())
     }
 
     @Test
@@ -226,9 +234,6 @@ class ConcurrentExecutionTest {
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, nested)))
         assertEquals(listOf(listOf(0), listOf(1)), independentGroups(sharedStaging))
         assertEquals(listOf(listOf(0), listOf(1)), independentGroups(defaultStaging))
-        // Where file locks are not confirmed to work, a shared staging root keeps its relocations sequential.
-        assertEquals(listOf(listOf(0, 1)), independentGroups(sharedStaging) { false })
-        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging) { false })
         assertEquals(listOf(listOf(0, 1)), independentGroups(nestedStaging))
         assertEquals(listOf(listOf(0, 1, 2)), independentGroups(stagingInTarget))
         assertEquals(listOf(listOf(0, 1)), independentGroups(listOf(first, archiveIntoFirst)))
@@ -257,9 +262,8 @@ class ConcurrentExecutionTest {
         assertEquals(listOf(listOf(0, 1)), independentGroups(sameTarget))
         assertEquals(listOf(listOf(0, 1)), independentGroups(nested))
         assertEquals(listOf(listOf(0, 1)), independentGroups(missingParent))
-        // One staging root under two spellings is shared: shareable where locks work, one group where they do not.
+        // One staging root under two spellings is one shared root.
         assertEquals(listOf(listOf(0), listOf(1)), independentGroups(defaultStaging))
-        assertEquals(listOf(listOf(0, 1)), independentGroups(defaultStaging) { false })
     }
 
     @Test
@@ -436,41 +440,16 @@ class ConcurrentExecutionTest {
         }
     }
 
-    @Test
-    fun lockProbeConfirmsLocksOnlyWhereItCanTakeOne() {
-        val store = Files.createDirectories(root.resolve("store"))
-        val existing = Files.createDirectories(store.resolve(".homelight-staging"))
-
-        assertTrue(stagingLocksWork(existing))
-        assertEquals(listOf<Path>(), entries(existing))
-        // A missing root is probed in its parent, on the filesystem the root will be created on.
-        assertTrue(stagingLocksWork(store.resolve(".missing-staging")))
-        assertEquals(listOf(existing), entries(store))
-        assertFalse(stagingLocksWork(root.resolve("absent/.homelight-staging")))
-        Files.createSymbolicLink(store.resolve(".linked-staging"), existing)
-        assertFalse(stagingLocksWork(store.resolve(".linked-staging")))
-    }
-
     private fun entries(directory: Path): List<Path> = Files.list(directory).use { it.toList() }
 
     /**
-     * Each entry under [operation], relative to it, with a regular file's contents. The lock file is never opened:
-     * closing a channel to it would release the operation's lock.
+     * Each entry under [copy], relative to it, with a regular file's contents; empty while there is no copy. The lock
+     * file is never opened here: closing a channel to it would release the operation's lock.
      */
-    private fun snapshot(operation: Path): Map<Path, String?> = operation.walk(PathWalkOption.INCLUDE_DIRECTORIES)
-        .associate { entry ->
-            val readable = Files.isRegularFile(entry) && entry.fileName.toString() != "lock"
-            operation.relativize(entry) to if (readable) Files.readString(entry) else null
+    private fun snapshot(copy: Path): Map<Path, String?> =
+        if (Files.notExists(copy)) mapOf() else copy.walk(PathWalkOption.INCLUDE_DIRECTORIES).associate { entry ->
+            copy.relativize(entry) to if (Files.isRegularFile(entry)) Files.readString(entry) else null
         }
-
-    /** An operation left by a killed run: marked for a missing target, with a free lock and a partial copy. */
-    private fun staleOperation(staging: Path): Path {
-        val operation = Files.createDirectories(staging.resolve("operation-${UUID.randomUUID()}"))
-        Files.writeString(operation.resolve("target"), "homelight-staging-v1\n${root.resolve("store/gone")}\n")
-        Files.createFile(operation.resolve("lock"))
-        Files.writeString(Files.createDirectory(operation.resolve("copy")).resolve("entry"), "stale")
-        return operation
-    }
 
     /** A source directory with [files] files under [root], to migrate to an absent target. */
     private fun migration(source: String, target: String, files: Int, stagingRoot: String? = null): Relocation {
