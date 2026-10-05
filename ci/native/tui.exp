@@ -92,16 +92,18 @@ send "\033\[B"; set k1 [pump 0.5]
 send "\033\[A"; set k2 [pump 0.5]
 check keys [expr {$k1 > 0 && $k2 > 0}] "$k1+$k2"
 
-# The guide has an HTML entity, so rendering it reads CommonMark's entities resource; without it
-# registered for Native Image, Help would fail and the TUI would exit. The TUI redraws only the
-# cells that change, so the match is text on Help's own help line, which no other screen has.
+# Help renders Markdown, and its Guide tab the embedded guide; if either failed in Native Image,
+# the TUI would exit. The TUI redraws only the cells that change, so the match is text on Help's
+# own help lines, which no other screen has.
 send "?"
 set timeout 5
 expect {
-  -re {Top/bottom} { puts -nonewline $lf $expect_out(buffer); check help 1 shown }
+  -re {Other tab} { puts -nonewline $lf $expect_out(buffer); check help 1 shown }
   timeout { check help 0 missing }
 }
 pump 1
+send "\t"; set g [pump 1]
+check guide [expr {$g > 0}] $g
 send "?"; pump 1
 
 foreach size {{24 80} {30 120} {50 140}} {

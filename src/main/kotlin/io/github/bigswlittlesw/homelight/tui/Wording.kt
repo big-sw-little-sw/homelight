@@ -204,10 +204,24 @@ internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
     "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)
 
-// The Help screen (tui-design §3 Help). The guide below it is docs/user-guide.md, never copied here.
+// The Help screen (tui-design §3 Help screen). Its Guide tab is docs/user-guide.md, never copied here.
 internal const val HELP_TITLE = "Help"
-internal fun onThisScreenTitle(screen: String) = "On this screen: $screen"
+internal const val THIS_SCREEN_TAB = "This screen"
+internal const val GUIDE_TAB = "Guide"
+internal const val YOU_ARE_HERE = "You are here"
+internal const val MOVE_AROUND = "Move around"
+internal const val DO_KEYS = "Do"
 internal const val HELP_HINT = "Press ? for help."
+internal const val FIRST_RUN_HINT = "New to HomeLight? Press ? to read the guide."
+
+/** The steps of using HomeLight, as "You are here" names them. */
+internal fun stepLabel(step: Step): String = when (step) {
+    Step.CONFIGURE -> "Configure"
+    Step.WORKSPACE -> "Workspace"
+    Step.REVIEW -> "Review"
+    Step.APPLY -> "Apply"
+    Step.RESULTS -> "Results"
+}
 
 // Screen names as the header shows them, and what each screen is for in its current state.
 internal const val WORKSPACE_NAME = "Workspace"
@@ -233,9 +247,20 @@ internal const val PURPOSE_RESULTS =
     "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
 internal const val PURPOSE_CONFIGURATION =
     "Create the configuration file: where storage is and which directories to move. Saving changes nothing on disk."
-internal const val PURPOSE_BROWSE = "Directories HomeLight knows about. Add the ones you want to move."
+internal const val PURPOSE_BROWSE =
+    "Suggestions from the built-in list and your list. Add the ones you want to move."
+internal const val DETAILS_NAME = "Details"
+internal const val ACTION_DETAILS_NAME = "Action details"
+internal const val RELOCATIONS_NAME = "Relocations"
+/** Configuration's fields, as its pane labels them; Help names the focused one. */
+internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Shared candidate list (optional)")
+internal val RELOCATION_FIELDS =
+    listOf("Source path", "Target path", "Both exist", "Only target", "Source when keeping target", "Archive root")
+internal fun place(vararg parts: String) = parts.joinToString(" › ")
 
 internal val HELP_KEY = KeyHint("?", "Help")
+/** Help's key in a text field, where `?` types. */
+internal val TEXT_FIELD_HELP_KEY = KeyHint("F1", "Help")
 internal val QUIT_KEY = KeyHint("q", "Quit")
 internal val CHECK_AGAIN_KEY = KeyHint("r", "Check again")
 internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll")

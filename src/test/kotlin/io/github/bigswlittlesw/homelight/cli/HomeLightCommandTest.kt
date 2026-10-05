@@ -151,7 +151,7 @@ class HomeLightCommandTest {
 
         assertEquals(0, result.exitCode)
         assertEquals(userGuide(), result.output)
-        assertTrue(result.output.startsWith("# HomeLight user guide"))
+        assertTrue(result.output.startsWith("# HomeLight\n"))
     }
 
     @Test

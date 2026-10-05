@@ -33,7 +33,7 @@ not screens.
 | Review | The exact plan to apply, then progress and results in place | `1`, or `n`/Esc before confirming |
 | Configuration | Create or edit the configuration file | Esc from the list closes it |
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
-| Help | The current screen's purpose and keys, then the user guide | `?` or Esc returns where you were |
+| Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | `?`, F1 or Esc returns where you were |
 
 Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
 `[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
@@ -153,35 +153,50 @@ focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
 
 Two lines at the bottom, specific to the focused element: navigation first, then
 commands. Each binding appears once. Never advertise a key that does nothing now.
-Every screen offers `?: Help` before `q`, except where every field is a text
-field: there `?` types a question mark, as it does in any text field.
+Every screen offers `?: Help` before `q`. In a text field `?` types a question
+mark, so there the help lines offer `F1: Help` instead; F1 opens Help on every
+screen.
 
-Each screen builds its help in one function: a name, one purpose line for its
-current state, and its keys (`ScreenHelp`). The help lines and the Help screen
-both read it, so they cannot disagree. Keys left out of the help lines for room
-(PageUp/PageDown, Home/End, `[`/`]`, `←` back, `c` in the list title) are marked
-Help-only there.
+Each screen builds its help in one function (`ScreenHelp`): its place (such as
+`Configuration › Target root`), one purpose line for its current state, its step,
+and its keys. The help lines and the Help screen both read it, so they cannot
+disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
+`[`/`]`, `←` back, `c` in the list title) are marked Help-only there.
 
 ### Help screen
 
-`?` opens a full-screen **Help** screen from any screen. Header `⌂ HOMELIGHT
-[Help]`, one pane titled `Help · <screen name>`, holding, in order:
+`?` (or F1) opens a full-screen **Help** screen from any screen. Header
+`⌂ HOMELIGHT  [Help]`, then a TamboUI tab bar with two tabs:
 
-1. **On this screen: <name>**: the purpose line, then every key for the screen
-   and focus behind Help as `key  action`, Help-only keys included.
-2. **The user guide**: `docs/user-guide.md` as packaged in the build, rendered
-   with TamboUI's Markdown element in the palette's colors. The guide is the only
+1. **This screen**: a pane titled with the place, the purpose line, then
+   `You are here: Configure › Workspace › Review › Apply › Results` with the
+   current step in the focus color (Configuration and Browse are Configure;
+   Applying is Apply), then the keys in two groups, "Move around" and "Do",
+   as `key  action`. Help's own key is left out.
+2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
+   TamboUI's Markdown element in the palette's colors. The guide is the only
    copy of its text; nothing in the code repeats it.
 
-Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`?/Esc: Back · q: Quit`. `?` or Esc returns exactly where the user was, with
-focus and selection kept. `q` does what it does on the screen behind, and the
-help line names it (`q: Discard` over Configuration); where `q` does nothing, it
-is not shown. Every other key does nothing. An apply keeps running behind Help.
+Help opens on This screen, except before there is a configuration file: then it
+opens on Guide, and the empty Workspace says `New to HomeLight? Press ? to read
+the guide.` (with no relocations it says `Press ? for help.`).
 
-The empty Workspace (no configuration, or no relocations) says `Press ? for
-help.` `homelight guide` prints the same guide as Markdown; `homelight --help`
-ends with its online address.
+Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
+`[`/`]` scroll the open tab, and each tab keeps its scroll position; `?`, F1 or
+Esc return exactly where the user was, with focus and selection kept. `q` does
+what it does on the screen behind (Discard over Configuration, Quit elsewhere)
+and is hidden where it does nothing there. Every other key does nothing. An
+apply keeps running behind Help.
+
+Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
+`Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit`.
+
+TamboUI moves focus on Tab before any handler sees it, so the open tab follows
+focus: the open tab's pane has that tab's focus id and the tab bar has the
+other's.
+
+`homelight guide` prints the same guide as Markdown; `homelight --help` ends
+with its online address.
 
 ## 5. Workspace
 

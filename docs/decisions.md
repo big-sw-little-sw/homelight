@@ -401,25 +401,30 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 - `[skipped: "or s to always do this" in the quit dialog, add with #116]`
 - `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
 
-## 2026-10-05: Help is a screen, and the user guide is its only text
+## 2026-10-05: Help is a screen with two tabs, and the user guide is its only text
 
-Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a full-screen Help screen from any screen: "On this screen", with one purpose line for the screen's state and every key for its current focus, then the user guide. `?` or Esc returns exactly where the user was; an apply keeps running behind it. The empty Workspace says `Press ? for help.`
+Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a full-screen Help screen from any screen, and F1 opens it everywhere, text fields included, where `?` types and the help lines offer `F1: Help`. It has two tabs (TamboUI `TabsElement`, rung 4):
 
-This reverses the first version of #152, which rejected a separate help screen. That version was a `?` dialog with five steps and three "key ideas" kept in `Wording.kt`, plus a separate `docs/user-guide.md` and a test that the two matched. The user's walkthrough rejected it: the dialog never said what HomeLight is, used the internal name "Setup", and pointed to a Markdown file that users of the native binary never see. A screen has room for the whole guide, and showing the guide itself leaves one copy of the text.
+- **This screen**: the place (such as `Configuration › Target root`), one purpose line for the screen's state, `You are here: Configure › Workspace › Review › Apply › Results` with the current step in the focus color, and the keys for the current focus in two groups, "Move around" and "Do".
+- **Guide**: `docs/user-guide.md`, rendered with TamboUI's Markdown element.
 
-- `docs/user-guide.md` is end-user documentation shown in the app. It is packaged as a resource and rendered with TamboUI's Markdown element (`tamboui-toolkit-markdown`, rung 4) inside a `DetailViewport` pane that scrolls it and draws the scrollbar (rung 2). Native Image needs CommonMark's `org/commonmark/internal/util/entities.txt` registered; the native TUI test opens Help to prove it. `homelight guide` prints the same Markdown. Its online address comes from one constant: `main` for a `-SNAPSHOT` version, else the `v<version>` tag; `homelight --help` ends with it.
-- The guide is written for people using HomeLight: plain language, the names shown on screen, no internal names or history. It takes over the Scripting section #19 put in the README while no guide existed; the README points to it.
-- Each screen's help is a `ScreenHelp(name, purpose, navigation, commands)` built in one function (`WorkspaceView.screenHelp`, `ApplyView.screenHelp`, `SetupView.screenHelp`, `CandidateBrowser.screenHelp`). The help lines show the hints marked for them and Help lists all of them, so the two cannot disagree.
-- `q` on Help does what it does on the screen behind: quit, or discard over Configuration, so a draft is never lost without the discard question.
+Tab and ←/→ switch tabs and each keeps its scroll; `?`, F1 or Esc return exactly where the user was; an apply keeps running behind. Help opens on Guide until there is a configuration file, so a first run starts by reading it; the empty Workspace says `New to HomeLight? Press ? to read the guide.`
+
+This reverses the first version of #152, which rejected a separate help screen. That version was a `?` dialog with five steps and three "key ideas" kept in `Wording.kt`, plus a separate `docs/user-guide.md` and a test that the two matched. The walkthrough rejected it: the dialog never said what HomeLight is, used the internal name "Setup", and pointed to a Markdown file that users of the native binary never see. A second walkthrough split the screen into tabs, so the keys and the guide each get the whole pane, and asked for F1 and a product-first guide.
+
+- The guide is written for people using HomeLight: what it does, how to use it (one section per journey, "Free space on this machine" today), suggestion lists, words to know, undo, then reference. It takes over the Scripting section #19 put in the README while no guide existed. The feature is the **suggestion list** ("the built-in list", "your list"); the on-screen and configuration-key renames follow with #115 and #114, and until then the guide shows the current key. A test fails if the guide names tickets or pull requests or has a line over 78 columns.
+- The guide is packaged as a resource and rendered by `MarkdownElement` (`tamboui-toolkit-markdown`) inside a `DetailViewport` pane that scrolls it and draws the scrollbar (rung 2). This screen is Markdown built from code, so both tabs render the same way. `homelight guide` prints the guide; its online address comes from one constant, `main` for a `-SNAPSHOT` version, else the `v<version>` tag, and `homelight --help` ends with it.
+- Native Image needs CommonMark's `org/commonmark/internal/util/entities.txt` registered for any HTML entity. The guide has none now, so a JVM test renders an entity fixture and checks that every registered resource exists; the native TUI test opens both tabs.
+- TamboUI moves focus on Tab before any handler sees it, so the open tab follows focus: the open tab's pane has that tab's id and the tab bar has the other's.
+- Each screen's help is a `ScreenHelp(name, purpose, step, navigation, commands)` built in one function (`WorkspaceView.screenHelp`, `ApplyView.screenHelp`, `SetupView.screenHelp`, `CandidateBrowser.screenHelp`). The help lines show the hints marked for them and Help lists all of them, so the two cannot disagree.
+- `q` on Help does what it does on the screen behind: quit, or discard over Configuration, so a draft is never lost without the discard question. Over a text field, where `q` types, it does nothing.
 - Names users see: `[Setup]` becomes `[Configuration]`, and the warning badge `[Check]` becomes `[Warning]` (it clashed with "Check again"). `init` says "Create a configuration file." The README no longer lists `homelight config` until #114 adds it.
-- Setup's locations step and its path fields do not offer `?: Help`: every key there types, including `?`.
 - Setup's relocations table says `b: Browse` instead of `b: Browse candidates`, so the line and `?: Help` fit 80 columns.
 - `[skipped: tying key handlers to their listing, add when a walkthrough finds a listed key that does nothing]`
 - `[skipped: first-run tour, add when walkthroughs show Help is not found]`
-- `[skipped: help key from text fields, add with #114 (likely F1)]`
 - `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` Help lists only keys that work.
 
-Rejected: a `?` dialog with its own steps and key ideas (the first version of this PR; it duplicated the guide and still did not say what HomeLight is); listing keys by hand beside the help lines (two lists that drift); a hand-written Markdown renderer (kept as the fallback if TamboUI's failed in Native Image).
+Rejected: a `?` dialog with its own steps and key ideas (the first version of this PR; it duplicated the guide and still did not say what HomeLight is); one long Help pane with the keys above the guide (the second version; the keys pushed the guide off the first screen); `1`/`2` for the tabs (they are the Workspace and Review keys); listing keys by hand beside the help lines (two lists that drift); a hand-written Markdown renderer (kept as the fallback if TamboUI's failed in Native Image).
 
 ## 2026-10-05: Scripting keeps today's JSON commands, versioned
 

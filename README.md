@@ -21,7 +21,7 @@ homelight guide
 
 Running `homelight` starts the full-screen TUI. Named commands open the corresponding TUI workflow. Automation uses prompt-free JSON forms such as `plan --json`, `status --json`, and `apply --json --yes`.
 
-The [user guide](docs/user-guide.md) is for people using HomeLight: how to use it, the words it uses, what each rule does on disk and how to undo a change. The TUI shows it on its Help screen (`?`), and `homelight guide` prints it.
+The [user guide](docs/user-guide.md) is for people using HomeLight: how to use it, the words it uses, what each rule does on disk and how to undo a change. The TUI shows it on the Guide tab of its Help screen (`?` or F1), and `homelight guide` prints it.
 
 For the JSON commands, their `"schema"` field and exit codes, see [Scripting](docs/user-guide.md#scripting) in the user guide.
 

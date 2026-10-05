@@ -34,7 +34,8 @@ internal const val REVIEW_LIST = "review-list"
 internal const val REVIEW_DETAILS = "review-details"
 internal const val SETUP_SCREEN = "setup"
 internal const val DIALOG = "dialog"
-internal const val HELP_SCREEN = "help"
+internal const val HELP_THIS_SCREEN = "help-this-screen"
+internal const val HELP_GUIDE = "help-guide"
 
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.
@@ -74,7 +75,9 @@ internal class HomeLightApp(
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
     private var helpOpen = false
     private var focusBeforeHelp: String? = null
-    private val helpViewport = DetailViewport()
+    private var helpTab = HelpTab.THIS_SCREEN
+    // One per tab, so each keeps its scroll position.
+    private val helpViewports = HelpTab.entries.associateWith { DetailViewport() }
     private val guide: String by lazy { userGuide() }
 
     /** `CONFIRM_*` while a quit dialog is open: during an apply, or with one-time choices not applied yet. */
@@ -107,7 +110,7 @@ internal class HomeLightApp(
         val dialog = setup?.dialog() ?: quitDialog()
         val interactive = dialog == null
         val view = when {
-            helpOpen -> helpScreen(screenHelp(), guide, helpViewport, interactive)
+            helpOpen -> renderHelp(interactive)
             else -> setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
         }
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
@@ -141,11 +144,24 @@ internal class HomeLightApp(
             ApplyView.screenHelp(session.applyModel(), focusBeforeHelp, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
     }
 
+    /** The open tab follows focus, which is how Tab switches it (see [helpScreen]). */
+    private fun renderHelp(interactive: Boolean): Element {
+        when (focus.focusedId()) {
+            HELP_THIS_SCREEN -> helpTab = HelpTab.THIS_SCREEN
+            HELP_GUIDE -> helpTab = HelpTab.GUIDE
+        }
+        return helpScreen(screenHelp(), guide, helpTab, helpViewports, interactive)
+    }
+
+    /** Help opens on the guide until there is a configuration file, so a first run starts by reading it. */
     private fun openHelp() {
         helpOpen = true
-        helpViewport.reset()
-        // Help's pane is the only focusable while it is open, so the next frame focuses it.
+        val firstRun = session.evaluation().let { it is ConfigurationEvaluation.Missing || it is ConfigurationEvaluation.Unconfigured }
+        helpTab = if (firstRun) HelpTab.GUIDE else HelpTab.THIS_SCREEN
+        // This screen changes with the screen behind; the guide keeps where the reader left it.
+        helpViewports.getValue(HelpTab.THIS_SCREEN).reset()
         focusBeforeHelp = focus.focusedId()
+        focus.setFocus(helpTabId(helpTab))
     }
 
     private fun closeHelp() {
@@ -154,19 +170,25 @@ internal class HomeLightApp(
     }
 
     /**
-     * Help scrolls and goes back; every other key of the screen behind does nothing, so a key typed while reading
-     * changes nothing. `q` does what it does on that screen, which Help's own help line names.
+     * Help switches tabs, scrolls and goes back; every other key of the screen behind does nothing, so a key typed
+     * while reading changes nothing. `q` does what it does on that screen, which Help's own help line names.
      */
     private fun helpKey(key: KeyEvent) {
+        val viewport = helpViewports.getValue(helpTab)
         when {
-            key.isChar('?') || key.isKey(KeyCode.ESCAPE) -> closeHelp()
-            key.isQuit() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
-            key.isUp() || key.isChar('[') -> helpViewport.scroll(-1)
-            key.isDown() || key.isChar(']') -> helpViewport.scroll(1)
-            key.isPageUp() || key.isPageDown() -> helpViewport.scrollPage(if (key.isPageUp()) -1 else 1)
-            key.isHome() || key.isEnd() -> helpViewport.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
+            key.isChar('?') || key.isKey(KeyCode.F1) || key.isKey(KeyCode.ESCAPE) -> closeHelp()
+            // Not where the screen behind would type it: `q` in a text field is a letter.
+            key.isQuit() && setup?.editsText(key) != true ->
+                setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
+            key.isLeft() || key.isRight() ->
+                focus.setFocus(helpTabId(if (helpTab == HelpTab.GUIDE) HelpTab.THIS_SCREEN else HelpTab.GUIDE))
+            key.isUp() || key.isChar('[') -> viewport.scroll(-1)
+            key.isDown() || key.isChar(']') -> viewport.scroll(1)
+            key.isPageUp() || key.isPageDown() -> viewport.scrollPage(if (key.isPageUp()) -1 else 1)
+            key.isHome() || key.isEnd() -> viewport.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
         }
     }
+
 
     /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
     private fun unappliedChoiceCount(): Int = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.size ?: 0
@@ -204,8 +226,8 @@ internal class HomeLightApp(
 
     private fun handleKey(key: KeyEvent) {
         if (helpOpen) { helpKey(key); return }
-        // In a setup text field `?` is typed like any other character.
-        if (key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
+        // F1 opens Help everywhere; in a setup text field `?` is typed like any other character.
+        if (key.isKey(KeyCode.F1) || key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
         setup?.let { current ->
             current.key(key)
             dropClosedSetup()

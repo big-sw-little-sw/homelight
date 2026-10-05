@@ -46,7 +46,7 @@ internal object ApplyView {
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
-                Toolkit.text(helpLine(screenHelp(model, focused, quitting).keys)).fg(palette.dim),
+                Toolkit.text(screenHelp(model, focused, quitting).let { helpLine(it.navigation + it.commands) }).fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
         }
@@ -152,12 +152,15 @@ internal object ApplyView {
             is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
             is ApplyModel.Result -> listOf(KeyHint("1/Enter", "Workspace"), CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY)
         }
+        fun help(name: String, purpose: String, step: Step) = ScreenHelp(
+            if (focused == REVIEW_DETAILS) place(name, ACTION_DETAILS_NAME) else name, purpose, step, navigation, commands,
+        )
         return when (model) {
-            is ApplyModel.Idle -> ScreenHelp(REVIEW_NAME, NOTHING_TO_REVIEW, navigation, commands)
+            is ApplyModel.Idle -> help(REVIEW_NAME, NOTHING_TO_REVIEW, Step.REVIEW)
             is ApplyModel.Confirmation ->
-                ScreenHelp(REVIEW_NAME, if (model.plan.hasChanges()) PURPOSE_REVIEW else PURPOSE_NO_CHANGES, navigation, commands)
-            is ApplyModel.Running -> ScreenHelp(APPLYING_NAME, PURPOSE_APPLYING, navigation, commands)
-            is ApplyModel.Result -> ScreenHelp(RESULTS_NAME, PURPOSE_RESULTS, navigation, commands)
+                help(REVIEW_NAME, if (model.plan.hasChanges()) PURPOSE_REVIEW else PURPOSE_NO_CHANGES, Step.REVIEW)
+            is ApplyModel.Running -> help(APPLYING_NAME, PURPOSE_APPLYING, Step.APPLY)
+            is ApplyModel.Result -> help(RESULTS_NAME, PURPOSE_RESULTS, Step.RESULTS)
         }
     }
 

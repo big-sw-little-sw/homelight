@@ -131,7 +131,7 @@ internal class CandidateBrowser {
         if (diagnostics || details) {
             val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
             return ScreenHelp(
-                BROWSE_NAME, PURPOSE_BROWSE,
+                place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, back),
                 listOfNotNull(entryKey, refresh, HELP_KEY, KeyHint("q", "Discard draft")),
             )
@@ -145,7 +145,7 @@ internal class CandidateBrowser {
             else -> null
         }
         return ScreenHelp(
-            BROWSE_NAME, PURPOSE_BROWSE,
+            place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
             listOfNotNull(
                 KeyHint("↑/↓", "Move").takeIf { items.isNotEmpty() }, focusedEntry(draft)?.let { listAction(it, draft) },
                 enter, back, HOME_END_KEYS.takeIf { items.isNotEmpty() }, scroll,

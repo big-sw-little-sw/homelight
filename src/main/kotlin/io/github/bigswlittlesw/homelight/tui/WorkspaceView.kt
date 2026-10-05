@@ -65,7 +65,7 @@ internal object WorkspaceView {
                 else -> NO_CONFIGURATION
             }
             val lines = listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)) +
-                (if (missing) listOf(Line(HELP_HINT)) else listOf())
+                (if (missing) listOf(Line(FIRST_RUN_HINT)) else listOf())
             return Toolkit.column(
                 header,
                 // The only pane, so it has focus unless a dialog is open.
@@ -121,7 +121,8 @@ internal object WorkspaceView {
         if (model !is ConfigurationEvaluation.Loaded) {
             val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
             return ScreenHelp(
-                WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID,
+                // Without a configuration that loads, the next step is to configure.
+                WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID, Step.CONFIGURE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, SCROLL_DETAILS_KEYS),
                 listOfNotNull(KeyHint("i", "Create configuration").takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
             )
@@ -148,7 +149,8 @@ internal object WorkspaceView {
         // The list title shows `c`, so the help lines leave it out.
         val toggle = KeyHint("c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false)
         return ScreenHelp(
-            WORKSPACE_NAME, if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE,
+            if (focused == WORKSPACE_DETAILS) place(WORKSPACE_NAME, DETAILS_NAME) else WORKSPACE_NAME,
+            if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE, Step.WORKSPACE,
             navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
         )
     }

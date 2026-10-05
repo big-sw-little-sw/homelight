@@ -80,7 +80,7 @@ internal class SetupView(
 
     private fun locations(lines: MutableList<Line>): Int {
         lines.add(Line("Storage locations", palette.text, true))
-        listOf("Source root" to sourceRoot, "Target root" to targetRoot, "Shared candidate list (optional)" to sharedList)
+        LOCATION_FIELDS.zip(listOf(sourceRoot, targetRoot, sharedList))
             .forEachIndexed { i, (name, value) -> choice(lines, "$name: $value", i == field) }
         lines.add(
             Line(
@@ -114,10 +114,11 @@ internal class SetupView(
     private fun rowDetails(lines: MutableList<Line>): Int {
         val value = draft.rows[row]
         lines.add(Line("Edit relocation " + (row + 1), palette.text, true))
-        listOf(
-            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both exist" to bothLabel(value.both),
-            "Only target" to onlyTargetLabel(value.onlyTarget), "Source when keeping target" to adoptingLabel(value.adopting),
-            "Archive root" to archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
+        RELOCATION_FIELDS.zip(
+            listOf(
+                value.sourceRelative, value.targetRelative, bothLabel(value.both), onlyTargetLabel(value.onlyTarget),
+                adoptingLabel(value.adopting), archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
+            ),
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
             if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), palette.warn, true))
@@ -150,20 +151,22 @@ internal class SetupView(
     }
 
     /**
-     * Configuration's purpose and keys in its current state, for its help lines and the Help screen. In a text field
-     * `?` types, so help does not offer it there.
+     * Configuration's place, purpose and keys in its current state, for its help lines and the Help screen. In a text
+     * field `?` types, so help offers F1 there.
      */
     fun screenHelp(): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
         val editing = listOf(KeyHint("Type", "Edit"), KeyHint("Ctrl-U", "Clear"))
-        fun help(navigation: List<KeyHint>, commands: List<KeyHint>) =
-            ScreenHelp(CONFIGURATION_NAME, PURPOSE_CONFIGURATION, navigation, commands)
+        fun help(where: String, navigation: List<KeyHint>, commands: List<KeyHint>) =
+            ScreenHelp(place(CONFIGURATION_NAME, where), PURPOSE_CONFIGURATION, Step.CONFIGURE, navigation, commands)
         return when (mode) {
             Mode.LOCATIONS -> help(
+                LOCATION_FIELDS[field],
                 listOf(KeyHint("↑/↓", "Field")) + editing + scroll,
-                listOf(KeyHint("Enter", "Relocations"), KeyHint("Esc", "Cancel without writing")),
+                listOf(KeyHint("Enter", "Relocations"), KeyHint("Esc", "Cancel without writing"), TEXT_FIELD_HELP_KEY),
             )
             Mode.TABLE -> help(
+                RELOCATIONS_NAME,
                 if (draft.rows.isEmpty()) listOf(KeyHint("e", "Edit locations"), KeyHint("Esc", "Back"), scroll)
                 else listOf(
                     KeyHint("↑/↓", "Row"), KeyHint("Enter", "Details"), KeyHint("d", "Remove"), KeyHint("e", "Locations"),
@@ -176,8 +179,9 @@ internal class SetupView(
                 ),
             )
             Mode.ROW -> help(
+                RELOCATION_FIELDS[field],
                 listOf(scroll),
-                if (textField()) listOf(KeyHint("↑/↓", "Field")) + editing + KeyHint("Esc", "Table")
+                if (textField()) listOf(KeyHint("↑/↓", "Field")) + editing + KeyHint("Esc", "Table") + TEXT_FIELD_HELP_KEY
                 else listOf(
                     KeyHint("↑/↓", "Field"), KeyHint("Space", "Change rule"), KeyHint("d", "Remove"), KeyHint("Esc", "Table"),
                     HELP_KEY, KeyHint("q", "Discard", inHelpArea = false),
