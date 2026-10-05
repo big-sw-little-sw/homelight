@@ -291,10 +291,9 @@ class ReconciliationExecutor internal constructor(
     }
 
     private fun replaceSymlink(action: ReconciliationAction.ReplaceSymlink) {
-        requireState(action.path, PathState.SYMLINK)
+        // A symlink observation always carries its target.
+        val actualTarget = requireState(action.path, PathState.SYMLINK).symlinkTarget
         requireState(action.target, PathState.DIRECTORY)
-        val actualTarget = inspector.inspect(action.path).symlinkTarget
-            ?: throw StateDriftException("expected symlink at ${action.path}")
         if (actualTarget != action.expectedSourceTarget) {
             throw StateDriftException("expected symlink target ${action.expectedSourceTarget} at ${action.path}")
         }
@@ -314,13 +313,16 @@ class ReconciliationExecutor internal constructor(
         }
     }
 
-    private fun requireState(path: Path, expected: PathState) {
-        val actual = inspector.inspect(path).state
+    /** Returns the observation that passed, so a caller can check more of it without inspecting again. */
+    private fun requireState(path: Path, expected: PathState): PathObservation {
+        val observation = inspector.inspect(path)
+        val actual = observation.state
         if (actual != expected) {
             throw StateDriftException(
                 "expected ${expected.name.lowercase(Locale.ROOT)} at $path but found ${actual.name.lowercase(Locale.ROOT)}",
             )
         }
+        return observation
     }
 
     /**
