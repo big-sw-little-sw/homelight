@@ -19,15 +19,14 @@ import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileStore
 import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
@@ -38,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.PathWalkOption
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.fileVisitor
 import kotlin.io.path.fileSize
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
@@ -231,7 +231,7 @@ class ReconciliationExecutor internal constructor(
                             StandardCharsets.UTF_8,
                         )
                         stagingStep(StagingStep.MARKED, operation)
-                        Files.walkFileTree(action.path, CopyVisitor(action.path, copy))
+                        Files.walkFileTree(action.path, copyVisitor(action.path, copy))
                         verifyCopy(action.path, copy)
                         stagingStep(StagingStep.COPIED, operation)
                         requireState(action.path, PathState.DIRECTORY)
@@ -329,34 +329,6 @@ class ReconciliationExecutor internal constructor(
             )
         }
         return observation
-    }
-
-    /**
-     * Copies a tree, giving each copied directory the nine permission bits of its source.
-     *
-     * Directories start owner-only, so the copy is never more open to group or others than the
-     * source, and stay owner-writable until their entries are copied. Each gets its final mode
-     * after its contents, which lets a read-only source directory (`0500`) still receive children.
-     * `destination` must not exist yet.
-     */
-    private class CopyVisitor(private val source: Path, private val destination: Path) : SimpleFileVisitor<Path>() {
-        override fun preVisitDirectory(directory: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult {
-            Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun postVisitDirectory(directory: Path, exception: IOException?): FileVisitResult {
-            if (exception != null) {
-                throw exception
-            }
-            Files.setPosixFilePermissions(copiedPath(source, destination, directory), directoryPermissions(directory))
-            return FileVisitResult.CONTINUE
-        }
     }
 
     enum class ActionStatus { COMPLETED, FAILED, PENDING }
@@ -819,6 +791,32 @@ private fun deleteFailureMessage(failure: Throwable): String? {
         FileSystemException(failure.file, cause.otherFile, cause.reason).message
     } else {
         failure.message
+    }
+}
+
+/**
+ * Copies a tree, giving each copied directory the nine permission bits of its source.
+ *
+ * Directories start owner-only, so the copy is never more open to group or others than the
+ * source, and stay owner-writable until their entries are copied. Each gets its final mode
+ * after its contents, which lets a read-only source directory (`0500`) still receive children.
+ * `destination` must not exist yet.
+ */
+internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = fileVisitor {
+    onPreVisitDirectory { directory, _ ->
+        Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
+        FileVisitResult.CONTINUE
+    }
+    onVisitFile { file, _ ->
+        Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
+        FileVisitResult.CONTINUE
+    }
+    onPostVisitDirectory { directory, exception ->
+        if (exception != null) {
+            throw exception
+        }
+        Files.setPosixFilePermissions(copiedPath(source, destination, directory), directoryPermissions(directory))
+        FileVisitResult.CONTINUE
     }
 }
 

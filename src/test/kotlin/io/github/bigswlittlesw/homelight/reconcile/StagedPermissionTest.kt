@@ -14,7 +14,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.channels.FileChannel
 import java.nio.file.FileSystems
-import java.nio.file.FileVisitor
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -440,14 +439,6 @@ class StagedPermissionTest {
             assertEquals(ReconciliationExecutor.ExecutionOutcome.UNRESOLVED, result.relocations.first().outcome())
             assertTrue(Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS))
             assertTrue(Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        private fun copyVisitor(source: Path, target: Path): FileVisitor<Path> {
-            val type = Class.forName(ReconciliationExecutor::class.java.name + "\$CopyVisitor")
-            val constructor = type.getDeclaredConstructor(Path::class.java, Path::class.java)
-            constructor.setAccessible(true)
-            return constructor.newInstance(source, target) as FileVisitor<Path>
         }
 
         private fun plan(source: Path, target: Path): ReconciliationPlan {
