@@ -48,8 +48,8 @@ class ReconciliationPlannerTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
 
-        val plan = plan(relocation(source, target, WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED,
-                null, null))
+        val plan = plan(Relocation(source, target,
+                whenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED))
 
         assertEquals(RelocationOutcome.UNCHANGED, plan.relocations.first().outcome)
         assertEquals("leave-unchanged", plan.actions().first().type)
@@ -61,7 +61,7 @@ class ReconciliationPlannerTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
 
         val unresolved = plan(Relocation(source, target))
-        val adopted = plan(relocation(source, target, null, WhenOnlyTargetExists.ADOPT_TARGET, null))
+        val adopted = plan(Relocation(source, target, whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET))
 
         assertTrue(unresolved.hasConflicts())
         assertEquals(RelocationOutcome.CONVERGED, adopted.relocations.first().outcome)
@@ -72,8 +72,8 @@ class ReconciliationPlannerTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
-        val relocation = relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)
+        val relocation = Relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
+                whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot = archiveRoot)
 
         val archive = plan(relocation).actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().first()
         assertEquals(archiveRoot.resolve(sourceRelativeToRoot(source)), archive.target)
@@ -86,8 +86,8 @@ class ReconciliationPlannerTest {
     fun archiveSourceDefaultsBesideTheSourceAndRejectsAnOverlappingRoot(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
-        fun archive(archiveRoot: Path) = plan(relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
-                null, WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot)).relocations.single()
+        fun archive(archiveRoot: Path) = plan(Relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
+                whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE, archiveRoot = archiveRoot)).relocations.single()
 
         val default = archive(defaultArchiveRoot(source))
         assertEquals(root.resolve("home/.homelight-archive").resolve(sourceRelativeToRoot(source)),
@@ -197,12 +197,6 @@ class ReconciliationPlannerTest {
     }
 
     companion object {
-        private fun relocation(source: Path, target: Path, directories: WhenSourceAndTargetDirectoriesExist?,
-                onlyTarget: WhenOnlyTargetExists?, adoption: WhenAdoptingTarget?,
-                archiveRoot: Path = defaultArchiveRoot(source)): Relocation {
-            return Relocation(source, target, directories, onlyTarget, adoption, archiveRoot)
-        }
-
         private fun sourceRelativeToRoot(source: Path): Path {
             val absolute = source.toAbsolutePath()
             return absolute.root.relativize(absolute)

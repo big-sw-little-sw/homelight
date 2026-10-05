@@ -210,16 +210,14 @@ class ConfigurationLoaderTest {
               "staging-root": "/local/staging/../.staging",
               "ignored-source-paths": ["~/ignored"],
               "discovery": {"shared-list": "/shared/candidates.json"},
-              "relocations": [{"source-path": "~/cache", "target-path": null, "when-adopting-target": null,
-                               "when-only-target-exists": null}]
+              "relocations": [{"source-path": "~/cache", "target-path": null, "archive-root": null}]
             }}
             """)
         val relocation = configuration.relocations.first()
         assertEquals(home.resolve("cache"), relocation.sourcePath)
         assertEquals(Path.of("/local").resolve(home.relativize(home.resolve("cache"))), relocation.targetPath)
         assertEquals(Path.of("/local/.staging"), relocation.stagingRoot)
-        assertNull(relocation.whenAdoptingTarget)
-        assertNull(relocation.whenOnlyTargetExists)
+        assertEquals(defaultArchiveRoot(relocation.sourcePath), relocation.archiveRoot)
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
         assertEquals(Path.of("/shared/candidates.json"), configuration.sharedList)
         // A blank shared list is the documented "none" of parseSharedList.
@@ -294,9 +292,13 @@ class ConfigurationLoaderTest {
         val encoded = encodeConfiguration(decoded)
         assertEquals(decoded, decodeJson(ConfigurationFile.serializer(), encoded))
         val relocations = decoded.homelight.relocations
-        assertEquals(WhenSourceAndTargetDirectoriesExist.entries, relocations.mapNotNull { it.whenSourceAndTargetDirectoriesExist })
-        assertEquals(WhenOnlyTargetExists.entries, relocations.mapNotNull { it.whenOnlyTargetExists })
-        assertEquals(WhenAdoptingTarget.entries, relocations.mapNotNull { it.whenAdoptingTarget })
+        assertEquals(WhenSourceAndTargetDirectoriesExist.entries, relocations.map { it.whenSourceAndTargetDirectoriesExist })
+        assertEquals(listOf(WhenOnlyTargetExists.PROMPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenOnlyTargetExists.PROMPT,
+            WhenOnlyTargetExists.PROMPT), relocations.map { it.whenOnlyTargetExists })
+        assertEquals(listOf(WhenAdoptingTarget.PROMPT, WhenAdoptingTarget.DISCARD_SOURCE, WhenAdoptingTarget.ARCHIVE_SOURCE,
+            WhenAdoptingTarget.PROMPT), relocations.map { it.whenAdoptingTarget })
+        // The explicit prompts of `~/a` are dropped, with the same meaning.
+        assertFalse(encoded.contains("\"prompt\""), encoded)
         assertEquals(listOf(null, null, "~/archive", null), relocations.map { it.archiveRoot })
         // Paths are written back in the user's form.
         assertTrue(encoded.contains("\"target-root\": \"~/local/\${USER}\""), encoded)
@@ -315,6 +317,49 @@ class ConfigurationLoaderTest {
             assertEquals(DEFAULT_SOURCE_ROOT, decoded.homelight.sourceRoot)
             assertFalse(encodeConfiguration(decoded).contains("source-root"), text)
         }
+    }
+
+    @Test fun omittedAndExplicitPromptRulesLoadAlikeAndAreNotWritten() {
+        val omitted = """
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache"}]}}
+            """
+        val explicit = """
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache",
+              "when-source-and-target-directories-exist": "prompt", "when-only-target-exists": "prompt",
+              "when-adopting-target": "prompt"}]}}
+            """
+        for (text in listOf(omitted, explicit)) {
+            val relocation = load(text).relocations.single()
+            assertEquals(Relocation(relocation.sourcePath, relocation.targetPath), relocation, text)
+            val decoded = decodeJson(ConfigurationFile.serializer(), text)
+            assertEquals(RelocationFile("/home/cache", "/local/cache"), decoded.homelight.relocations.single(), text)
+            val written = encodeConfiguration(decoded)
+            assertFalse(written.contains("when-"), written)
+            assertEquals(relocation, load(written).relocations.single())
+        }
+    }
+
+    @Test fun thePublisherLeavesOutPromptRulesAndWritesTheOthers() {
+        val prompt = Relocation(temporary.resolve("home/cache"), temporary.resolve("local/cache"))
+        val decided = prompt.copy(
+            whenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.ADOPT,
+            whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET,
+            whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE,
+        )
+        for ((name, relocation) in listOf("prompt" to prompt, "decided" to decided)) {
+            val path = temporary.resolve("$name.json")
+            ConfigurationPublisher().saveNew(path, ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation)))
+            assertEquals(relocation == decided, Files.readString(path).contains("when-"), name)
+            assertEquals(relocation, ConfigurationLoader().load(path).relocations.single(), name)
+        }
+    }
+
+    /** A rule has a default instead of null, so `null` is a wrong value type, as for `source-root`. */
+    @Test fun rejectsANullRule() {
+        assertEquals("Line 1, column 112: Expected string literal but 'null' literal was found at " +
+            "homelight.relocations[0].when-adopting-target", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "when-adopting-target": null}]}}
+            """))
     }
 
     @Test fun thePublisherWritesASourceRootOnlyWhenItIsNotTheHomeDirectory() {
@@ -351,7 +396,7 @@ class ConfigurationLoaderTest {
 
     @Test fun loadsWhatThePublisherWritesAndOmitsTheDefaultArchiveRoot() {
         val source = temporary.resolve("home/it's \"quoted\"")
-        for (policy in WhenAdoptingTarget.entries + null) {
+        for (policy in WhenAdoptingTarget.entries) {
             for (archiveRoot in listOf(defaultArchiveRoot(source), temporary.resolve("archive"))) {
                 val relocation = Relocation(source, temporary.resolve("local/it's"),
                     WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy, archiveRoot)

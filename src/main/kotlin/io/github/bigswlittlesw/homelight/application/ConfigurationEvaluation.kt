@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.application
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.HomeLightConfiguration
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
@@ -178,7 +179,7 @@ private fun availableChoices(state: RelocationState, plan: RelocationPlan): List
         }
     }
     if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
-        && (plan.conflict != null || state.relocation.whenOnlyTargetExists != null)
+        && (plan.conflict != null || state.relocation.whenOnlyTargetExists == WhenOnlyTargetExists.ADOPT_TARGET)
     ) {
         return listOf(DecisionChoice.ADOPT_TARGET)
     }

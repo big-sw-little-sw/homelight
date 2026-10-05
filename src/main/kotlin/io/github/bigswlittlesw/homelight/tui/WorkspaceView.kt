@@ -280,7 +280,7 @@ internal object WorkspaceView {
     fun policy(relocation: Relocation, item: PlanRelocationItem): String {
         if (item.sourceObservation.state == PathState.ABSENT && item.targetObservation.state == PathState.DIRECTORY)
             return when (val only = relocation.whenOnlyTargetExists) {
-                WhenOnlyTargetExists.PROMPT, null -> onlyTargetLabel(only) + " before adopting the existing target."
+                WhenOnlyTargetExists.PROMPT -> onlyTargetLabel(only) + " before adopting the existing target."
                 WhenOnlyTargetExists.ADOPT_TARGET -> onlyTargetLabel(only) + " and create a source link."
             }
         if (item.sourceObservation.state != PathState.DIRECTORY || item.targetObservation.state != PathState.DIRECTORY)
@@ -292,7 +292,6 @@ internal object WorkspaceView {
             WhenAdoptingTarget.PROMPT -> "prompt for source"
             WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
             WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
-            null -> "default (prompt) for source"
         }
         return bothLabel(both) + "; " + adopting + "."
     }

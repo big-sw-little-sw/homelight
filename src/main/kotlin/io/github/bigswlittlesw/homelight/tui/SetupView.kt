@@ -139,9 +139,9 @@ internal class SetupView(
             2 -> if (discardPolicyFocused()) "Save writes configuration only; Apply requires review."
             else "Both exist: " + bothConsequence(draft.rows[row].both)
             3 -> "When only target exists: " +
-                if ((draft.rows[row].onlyTarget ?: WhenOnlyTargetExists.PROMPT) == WhenOnlyTargetExists.PROMPT)
+                if (draft.rows[row].onlyTarget == WhenOnlyTargetExists.PROMPT)
                     "prompt before acting." else "link the source to that target."
-            else -> "When adopting: " + when (draft.rows[row].adopting ?: WhenAdoptingTarget.PROMPT) {
+            else -> "When adopting: " + when (draft.rows[row].adopting) {
                 WhenAdoptingTarget.PROMPT -> "prompt for what to do with source contents."
                 WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
@@ -381,12 +381,8 @@ private fun clears(key: KeyEvent): Boolean = key.isChar('\u0015') || key.hasCtrl
 private fun typed(key: KeyEvent): Char? =
     key.character().takeIf { c -> c != '\u0000' && !Character.isISOControl(c) && !key.hasCtrl() && !key.hasAlt() }
 
-/** Cycles default, then each value in order, then back to default. */
-private fun <T : Enum<T>> next(current: T?, values: List<T>): T? = when {
-    current == null -> values[0]
-    current.ordinal + 1 == values.size -> null
-    else -> values[current.ordinal + 1]
-}
+/** Cycles each value in order, then back to the first (`PROMPT`). */
+private fun <T : Enum<T>> next(current: T, values: List<T>): T = values[(current.ordinal + 1) % values.size]
 
 private fun choice(lines: MutableList<Line>, value: String, focused: Boolean) {
     lines.add(Line((if (focused) "❯ " else "  ") + literal(value), if (focused) Color.CYAN else Color.GRAY, focused))
@@ -397,13 +393,18 @@ private fun cell(value: String, width: Int): String {
     return if (text.length > width) text.substring(0, width - 1) + "…" else text.padEnd(width)
 }
 
+/** Lists only the rules that decide something; a row whose rules all ask each time reads Prompt. */
 private fun policies(row: SetupDraft.Row): String {
-    val values = listOfNotNull(row.both?.let(::bothLabel), row.onlyTarget?.let(::onlyTargetLabel), row.adopting?.let(::adoptingLabel))
-    return if (values.isEmpty()) DEFAULT_POLICY_LABEL else values.joinToString(", ")
+    val values = listOfNotNull(
+        row.both.takeIf { it != WhenSourceAndTargetDirectoriesExist.PROMPT }?.let(::bothLabel),
+        row.onlyTarget.takeIf { it != WhenOnlyTargetExists.PROMPT }?.let(::onlyTargetLabel),
+        row.adopting.takeIf { it != WhenAdoptingTarget.PROMPT }?.let(::adoptingLabel),
+    )
+    return if (values.isEmpty()) "Prompt" else values.joinToString(", ")
 }
 
-private fun bothConsequence(value: WhenSourceAndTargetDirectoriesExist?): String =
-    when (value ?: WhenSourceAndTargetDirectoriesExist.PROMPT) {
+private fun bothConsequence(value: WhenSourceAndTargetDirectoriesExist): String =
+    when (value) {
         WhenSourceAndTargetDirectoriesExist.PROMPT -> "prompt before acting."
         WhenSourceAndTargetDirectoriesExist.ADOPT -> "use target contents; choose source disposition below."
         WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both paths unchanged."

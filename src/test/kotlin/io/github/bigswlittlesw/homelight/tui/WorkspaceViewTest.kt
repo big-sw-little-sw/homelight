@@ -121,46 +121,35 @@ class WorkspaceViewTest {
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
-            WhenSourceAndTargetDirectoriesExist.ADOPT,
-            null, WhenAdoptingTarget.DISCARD_SOURCE), item)
+            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE), item)
         assertEquals("Adopt target; discard source.", policy)
     }
 
-    /** `(none)` stands for an omitted policy, which must read differently from an explicit `Prompt`. */
     @ParameterizedTest
     @CsvSource(
-        nullValues = ["(none)"],
-        value = [
-            "(none), (none), Default (prompt).",
-            "PROMPT, (none), Prompt.",
-            "LEAVE_UNCHANGED, (none), Leave unchanged.",
-            "DISCARD, (none), Discard both.",
-            "ADOPT, (none), Adopt target; default (prompt) for source.",
-            "ADOPT, PROMPT, Adopt target; prompt for source.",
-            "ADOPT, DISCARD_SOURCE, Adopt target; discard source.",
-            "ADOPT, ARCHIVE_SOURCE, Adopt target; archive source.",
-        ],
+        "PROMPT, PROMPT, Prompt.",
+        "LEAVE_UNCHANGED, PROMPT, Leave unchanged.",
+        "DISCARD, PROMPT, Discard both.",
+        "ADOPT, PROMPT, Adopt target; prompt for source.",
+        "ADOPT, DISCARD_SOURCE, Adopt target; discard source.",
+        "ADOPT, ARCHIVE_SOURCE, Adopt target; archive source.",
     )
     fun bothDirectoriesPolicyUsesTheConfigurationWords(
-        both: WhenSourceAndTargetDirectoriesExist?, adopting: WhenAdoptingTarget?, expected: String,
+        both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget, expected: String,
     ) {
         val session = HomeLightSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
-        val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, null, adopting)
+        val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, whenAdoptingTarget = adopting)
         assertEquals(expected, WorkspaceView.policy(relocation, item))
     }
 
     @ParameterizedTest
     @CsvSource(
-        nullValues = ["(none)"],
-        value = [
-            "(none), Default (prompt) before adopting the existing target.",
-            "PROMPT, Prompt before adopting the existing target.",
-            "ADOPT_TARGET, Adopt target and create a source link.",
-        ],
+        "PROMPT, Prompt before adopting the existing target.",
+        "ADOPT_TARGET, Adopt target and create a source link.",
     )
-    fun onlyTargetPolicyUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists?, expected: String) {
+    fun onlyTargetPolicyUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists, expected: String) {
         val root = temporary.toRealPath()
         val source = root.resolve("home/only")
         val target = Files.createDirectories(root.resolve("local/only"))
@@ -168,7 +157,7 @@ class WorkspaceViewTest {
         val config = Files.writeString(root.resolve("config.json"),
             "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, HomeLightSession(config).evaluation()).items.single()
-        assertEquals(expected, WorkspaceView.policy(Relocation(source, target, null, onlyTarget), item))
+        assertEquals(expected, WorkspaceView.policy(Relocation(source, target, whenOnlyTargetExists = onlyTarget), item))
     }
 
     @Test

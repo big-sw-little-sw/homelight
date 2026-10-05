@@ -123,8 +123,9 @@ class ConfigurationLoader {
 }
 
 // The configuration file format, shared by ConfigurationLoader and ConfigurationPublisher. Paths stay as
-// written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null, empty or
-// `~` for source-root, and are omitted on output. Every class has a serial name because kotlinx puts it in its
+// written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null, empty, `~` for
+// source-root or `prompt` for a rule, and are omitted on output, so an explicit default is dropped on the next
+// write without changing its meaning. Every class has a serial name because kotlinx puts it in its
 // error messages.
 
 internal const val DEFAULT_SOURCE_ROOT = "~"
@@ -156,9 +157,9 @@ internal data class RelocationFile(
     @SerialName("source-path") val sourcePath: String,
     @SerialName("target-path") val targetPath: String? = null,
     @SerialName("when-source-and-target-directories-exist")
-    val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist? = null,
-    @SerialName("when-only-target-exists") val whenOnlyTargetExists: WhenOnlyTargetExists? = null,
-    @SerialName("when-adopting-target") val whenAdoptingTarget: WhenAdoptingTarget? = null,
+    val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.PROMPT,
+    @SerialName("when-only-target-exists") val whenOnlyTargetExists: WhenOnlyTargetExists = WhenOnlyTargetExists.PROMPT,
+    @SerialName("when-adopting-target") val whenAdoptingTarget: WhenAdoptingTarget = WhenAdoptingTarget.PROMPT,
     /** Absent means [defaultArchiveRoot]. */
     @SerialName("archive-root") val archiveRoot: String? = null,
 )

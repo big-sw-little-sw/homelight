@@ -165,13 +165,13 @@ class SetupDraft(sourceRoot: Path, targetRoot: Path, sharedList: Path?, configur
 
     /**
      * Partial form data: path validity is checked at Add/Validate/Save, not while
-     * typing. Original relative text and omitted policies survive refresh/root edits.
+     * typing. Original relative text survives refresh/root edits.
      */
     data class Row(
         val sourceRelative: String, val targetRelative: String,
-        val both: WhenSourceAndTargetDirectoriesExist? = null,
-        val onlyTarget: WhenOnlyTargetExists? = null,
-        val adopting: WhenAdoptingTarget? = null, val archiveRoot: Path? = null,
+        val both: WhenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.PROMPT,
+        val onlyTarget: WhenOnlyTargetExists = WhenOnlyTargetExists.PROMPT,
+        val adopting: WhenAdoptingTarget = WhenAdoptingTarget.PROMPT, val archiveRoot: Path? = null,
     ) {
         /** A null `archiveRoot` is [defaultArchiveRoot]. */
         internal fun resolve(sourceRoot: Path, targetRoot: Path): Relocation {
