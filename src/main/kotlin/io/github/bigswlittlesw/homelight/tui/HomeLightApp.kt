@@ -20,12 +20,11 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
 
 /**
- * Key handlers read navigation from this set: arrows plus `h`/`j`/`k`/`l` and `g`/`G`, matched without Ctrl or Alt.
- *
- * Vim also binds `x` (delete forward) and Ctrl+U/Ctrl+D (page up/down). HomeLight has no such actions; setup
- * ignores the paging chords and its text fields take typed characters before any binding.
+ * Key handlers read navigation from this set: arrows, Home/End and PageUp/PageDown, with no letter aliases, so
+ * navigation never takes a key a text field could type. `q`, `Q` and Ctrl+C are still quit and Space is still
+ * select, so setup's text fields take typed characters before any binding.
  */
-internal val KEY_BINDINGS: Bindings = BindingSets.vim()
+internal val KEY_BINDINGS: Bindings = BindingSets.standard()
 
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.

@@ -77,7 +77,7 @@ class D3PolishTest {
         val app = HomeLightApp(session)
         app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         assertEquals(Screen.WORKSPACE, app.activeScreen)
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(80, 24))) {
             val screen = WorkspaceViewTest.render(app.render(), size[0], size[1])
@@ -101,7 +101,7 @@ class D3PolishTest {
         }
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS))
         assertTrue(WorkspaceViewTest.render(app.render(), 80, 24).contains("a: Review & apply"))
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         val selected: Int = app.selectedIndex()
         app.handleKeyEvent(KeyEvent.ofChar('1', KEY_BINDINGS))
         assertEquals(selected, app.selectedIndex())

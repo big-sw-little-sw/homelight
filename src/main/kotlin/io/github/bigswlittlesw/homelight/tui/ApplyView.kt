@@ -115,8 +115,8 @@ internal object ApplyView {
                     viewport.render("Action details", detailLines, focus == PaneFocus.DETAIL, 0),
                 ).fill(),
             )
-            val navigation = if (focus == PaneFocus.MASTER) "↑/↓: Inspect · Tab/l: Details"
-            else "↑/↓: Scroll · Tab/h: List" + (if (model is ApplyModel.Confirmation) "" else " · Esc: Back")
+            val navigation = if (focus == PaneFocus.MASTER) "↑/↓: Inspect · Tab/→: Details"
+            else "↑/↓: Scroll · Tab/←: List" + (if (model is ApplyModel.Confirmation) "" else " · Esc: Back")
             add(viewport.help(navigation, footer))
         }
         return Toolkit.column(*content.toTypedArray()).fill()

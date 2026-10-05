@@ -179,9 +179,9 @@ internal class SetupView(
             if (mode == Mode.LOCATIONS) editLocation(key) else editRow(key)
             return
         }
-        // Vim binds Ctrl+U and Ctrl+D to paging, which setup does not have. Letter commands ignore Ctrl,
-        // so without this they would act as u (reveal hidden candidates) and d (remove a row).
-        if (key.isPageUp() || key.isPageDown()) return
+        // Letter commands match with or without Ctrl or Alt, so without this Ctrl+D would remove a row and
+        // Ctrl+U would reveal hidden candidates.
+        if ((key.hasCtrl() || key.hasAlt()) && !key.isQuit()) return
         if (mode == Mode.CANDIDATES) {
             if (key.isQuit()) discard = true
             else if (key.isCharIgnoreCase('r')) refreshDiscovery()
@@ -343,8 +343,9 @@ internal class SetupView(
     private fun textField(): Boolean = field == 0 || field == 1 || field == 5
 
     /**
-     * A focused path field takes its editing keys before any binding: with vim bindings, `j`, `k`, `h`, `l`, `g`,
-     * `G` and `x` are also navigation and editing actions. `[` and `]` stay scroll keys on every setup screen.
+     * A focused path field takes its editing keys before any binding or letter command: `q`, `Q` and Space are
+     * bindings, and letters such as `d` and `b` are setup commands. `[` and `]` stay scroll keys on every setup
+     * screen.
      */
     private fun editsText(key: KeyEvent): Boolean =
         (mode == Mode.LOCATIONS || mode == Mode.ROW && textField()) &&
