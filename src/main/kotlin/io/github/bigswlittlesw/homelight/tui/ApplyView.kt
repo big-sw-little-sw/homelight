@@ -60,11 +60,14 @@ internal object ApplyView {
             val path = displayPath(step.relocation.relocation.sourcePath)
             when {
                 i > 0 && steps[i - 1].relocation == step.relocation -> actionRow(pointer, step, spinnerFrame)
-                // An in-sync relocation is its own single row: there is no step to show under it.
-                own.size == 1 && step.action is ReconciliationAction.NoOp ->
-                    markedRow(pointer, mark(step.status, false, spinnerFrame), inSyncRow(path), palette.dim)
+                // An in-sync relocation is its own single row, at the relocation column: there is no step to show
+                // under it. Selected, the pointer takes its mark's cell, so the row does not shift.
+                own.size == 1 && step.action is ReconciliationAction.NoOp -> markedRow(
+                    "", if (i == selected) Toolkit.text("❯").fg(palette.focus) else mark(step.status, false, spinnerFrame),
+                    inSyncRow(path), palette.dim,
+                )
                 else -> Toolkit.column(
-                    markedRow("  ", mark(relocationStatus(own), own.any { it.action.mutatesFilesystem }, spinnerFrame),
+                    markedRow("", mark(relocationStatus(own), own.any { it.action.mutatesFilesystem }, spinnerFrame),
                         path, palette.text, bold = true),
                     actionRow(pointer, step, spinnerFrame),
                 ).length(2)
@@ -187,15 +190,15 @@ internal object ApplyView {
         } + destination
     }
 
-    // Not indented under its relocation line: at 80 columns the longest action label then fits beside the pointer,
-    // its mark and the scrollbar's cell.
+    // Indented under its relocation line by the pointer's two cells only: at 80 columns a deeper indent would cut the
+    // longest label, "Replace source with a link ⚠", once the scrollbar's cell is kept free.
     private fun actionRow(pointer: String, step: ApplyModel.Step, spinnerFrame: Int): StyledElement<*> = markedRow(
         pointer, mark(step.status, step.action.mutatesFilesystem, spinnerFrame),
         actionLabel(step.action) + (if (step.action.destructive) " ⚠" else ""), color(step),
     )
 
     /**
-     * A list row: the pointer (and indent), a status mark, then the label, shortened in the middle to fit.
+     * A list row: the pointer (none on a relocation line), a status mark, then the label, shortened in the middle.
      *
      * TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the scrollbar can
      * cover a row's last cell: the trailing space is what it covers.
@@ -204,10 +207,9 @@ internal object ApplyView {
         prefix: String, mark: StyledElement<*>, label: String, color: Color, bold: Boolean = false,
     ): StyledElement<*> {
         val text = Toolkit.text("$label ").fg(color).ellipsisMiddle().fill()
-        return Toolkit.row(
-            Toolkit.text(prefix).fg(palette.focus).length(CharWidth.of(prefix)), mark.length(2),
-            if (bold) text.bold() else text,
-        )
+        val cells = listOf(mark.length(2), if (bold) text.bold() else text)
+        val row = if (prefix.isEmpty()) cells else listOf(Toolkit.text(prefix).fg(palette.focus).length(CharWidth.of(prefix))) + cells
+        return Toolkit.row(*row.toTypedArray())
     }
 
     /** TamboUI's spinner while running; otherwise the step's glyph. `changes` is false for steps that change nothing. */

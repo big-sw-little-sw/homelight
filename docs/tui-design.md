@@ -211,8 +211,10 @@ return.
 
 - Each relocation row carries its own mark: spinner while any of its actions
   runs, `✔` when all are done, `✖` if any failed, `○` otherwise. Action rows
-  use the same glyphs. Both start in the same column; the relocation's path is
-  bold.
+  use the same glyphs. A relocation row starts at the left edge with its mark
+  (`✔ ~/.cache/uv`); its action rows sit two cells in, after the `❯` pointer
+  slot. An in-sync relocation is one row at the left edge; when selected, `❯`
+  takes its mark's cell.
 - The selection stays where the user put it. It never follows running steps.
 - Header line `Applying. Leave HomeLight running until it finishes.`, then a
   TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·
