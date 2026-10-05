@@ -73,6 +73,13 @@ class WordingTest {
     }
 
     @Test
+    fun replaceDialogNamesTheFileAsShownAndSaysCommentsAreLost() {
+        assertEquals("Replace ~/.homelight.json?",
+            replaceConfigurationTitle(Path.of(System.getProperty("user.home"), ".homelight.json")))
+        assertEquals(1, REPLACE_CONFIGURATION_BODY.count { "Comments" in it })
+    }
+
+    @Test
     fun browseRowNotesArePlain() {
         val path = Path.of("/home/me/.cache/uv")
         fun note(kind: CandidateObservation.Kind, vararg reasons: CandidateObservation.Reason) = observationNote(
