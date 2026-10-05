@@ -131,6 +131,12 @@ internal const val QUIT_TITLE = "Quit HomeLight?"
 internal const val RESULTS_NOT_KEPT = "Results on this screen are not kept after you exit."
 internal val QUIT_BODY = listOf("HomeLight finishes the changes it is making first, even if one fails.", RESULTS_NOT_KEPT)
 internal const val QUIT_KEYS = "y: Exit when it finishes · n/Esc: Keep running"
+internal const val QUIT_CHOICES_KEYS = "y: Quit · n/Esc: Go back"
+internal fun unappliedChoices(n: Int): List<String> = listOf(
+    if (n == 1) "You have 1 choice that is not applied yet. Quitting forgets it."
+    else "You have $n choices that are not applied yet. Quitting forgets them.",
+    "Press n to go back. You can keep choosing, or press a to review and apply.",
+)
 internal const val QUITTING = "HomeLight will exit when the changes finish."
 
 internal const val DISCARD_SETUP_TITLE = "Discard this configuration?"
@@ -163,7 +169,7 @@ internal fun risks(warnings: Int, deleting: Int) =
 /** The one Details line that says what decides a row and where that comes from (tui-design §5). */
 internal fun ruleDecision(rule: String) = "Decision: " + rule.lowercase() + " (your configuration)"
 internal fun choiceDecision(choice: DecisionChoice) =
-    "Decision: " + choiceLabel(choice).lowercase() + " (your choice, not saved)"
+    "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
 
 /** The Workspace list title: the in-sync rows `c` hides or shows, or none when `c` would change nothing. */
 internal fun relocationsTitle(inSync: Int, shown: Boolean): String = when {
@@ -185,4 +191,9 @@ internal const val WORKER_STOPPED =
     "Stopped unexpectedly; some changes may have been made. Check the steps, then check again."
 internal const val STOPPED = "Stopped after some changes. Check the failed and not-run steps, then check again."
 internal const val NO_STEPS = "Nothing to do."
+internal fun inSyncRow(path: String) = "$path (in sync)"
+internal fun runningCount(done: Int, changes: Int, running: Int, failed: Int) =
+    "$done of $changes changes done · $running running · $failed failed"
+internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
+    "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)

@@ -60,13 +60,35 @@ Entry points:
   screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
   never exits.
 - `q` quits from any list. Inside a text field it types `q`. With unsaved
-  configuration changes, `q` and Esc-to-close ask before discarding.
+  configuration changes, `q` and Esc-to-close ask before discarding. With
+  one-time choices not applied yet, or during an apply, `q` asks first (see
+  Quit).
 - One app key handler, keyed by the focused id, handles what TamboUI elements
   leave unhandled and always reports the key as handled.
 - No mouse capture, so the terminal's own text selection keeps working.
 
 Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
 check again, `q` quit. `2` never starts changes.
+
+### Quit
+
+`q` (or Ctrl-C) exits at once unless something would be lost:
+
+- **One-time choices not applied yet** (Workspace or Review): a dialog asks
+  first. The count reads `1 choice` or `2 choices`:
+
+  ```
+  Quit HomeLight?
+  You have 2 choices that are not applied yet. Quitting forgets them.
+  Press n to go back. You can keep choosing, or press a to review and apply.
+  y: Quit · n/Esc: Go back
+  ```
+
+  A plan with no one-time choices does not ask: the next run plans it again.
+- **During an apply:** see §6.
+
+Once HomeLight is set to exit when the apply finishes, the help stops showing
+`q: Quit`, because `q` then does nothing.
 
 ## 4. Visual language
 
@@ -151,8 +173,8 @@ The details pane answers, in this order:
 2. **Decision:** one line, only when a rule governs the case observed now (both
    exist, or only the target exists) or a choice is set. It says what will
    happen and where that comes from: `Decision: ask each time (your
-   configuration)` or `Decision: keep target, delete source (your choice, not
-   saved)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have
+   configuration)` or `Decision: keep target, delete source (your choice, this
+   run only)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have
    no Decision line. A choice is for the next apply only and is cleared by any
    re-check, save or apply.
 3. **Will do:** the consequence of the current rule or choice. Without a choice:
@@ -188,18 +210,24 @@ return.
 **Applying** updates the same tree in place:
 
 - Each relocation row carries its own mark: spinner while any of its actions
-  runs, `✔` when all are done, `✖` if any failed. Action rows use the same glyphs.
+  runs, `✔` when all are done, `✖` if any failed, `○` otherwise. Action rows
+  use the same glyphs. Both start in the same column; the relocation's path is
+  bold.
 - The selection stays where the user put it. It never follows running steps.
 - Header line `Applying. Leave HomeLight running until it finishes.`, then a
   TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·
-  2 running · 0 failed`. In-sync relocations appear as `─ ~/.npm (in sync)`.
+  2 running · 0 failed`. In-sync relocations appear as one row,
+  `─ ~/.npm (in sync)`.
 - Progress is per action. Never imply byte progress or rollback.
 - `q` opens the quit dialog: **Keep running** (default) or **Exit when it
   finishes**. Changes always run to completion, including on failure. Results
-  are not kept after exit.
+  are not kept after exit. After **Exit when it finishes**, two lines below the
+  help say so and `q: Quit` is no longer shown.
 
-**Results** keep the tree with final marks. On finish the selection moves once to
-the first failure, or else the last completed action. Messages distinguish a plan
+**Results** keep the tree with final marks, the gauge and the count line, which
+then ends with what did not run: `3 of 8 changes done · 1 failed · 4 not run`.
+On finish the selection moves once to the first failure, or else the last
+completed action. Messages distinguish a plan
 refused before any change (`Nothing changed: the disk no longer matches the
 reviewed plan. Check again.`), a stop partway (`Stopped after some changes. Check
 the failed and not-run steps, then check again.`) and success (`Done. Checked

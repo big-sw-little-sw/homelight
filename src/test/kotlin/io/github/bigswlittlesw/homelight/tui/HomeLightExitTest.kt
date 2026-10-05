@@ -53,6 +53,68 @@ class HomeLightExitTest {
     }
 
     @Test
+    fun quittingWithUnappliedChoicesAsksFirstAndCountsThem() {
+        val root = temporary.toRealPath()
+        val names = listOf("one", "two")
+        for (name in names) {
+            Files.createDirectories(root.resolve("home/$name"))
+            Files.createDirectories(root.resolve("local/$name"))
+        }
+        val relocations = names.joinToString(",\n") { name ->
+            "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
+        }
+        val config = Files.writeString(root.resolve("config.json"),
+            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+        val ui = HeadlessTui(HomeLightSession(config))
+        fun choose() {
+            ui.press(KeyCode.TAB)
+            ui.press(KeyCode.ENTER)
+        }
+
+        choose()
+        ui.press('q')
+        for ((width, height) in listOf(80 to 24, 120 to 30)) {
+            val text = ui.screen(width, height)
+            assertTrue(text.contains("╔Quit HomeLight?"), text)
+            assertTrue(text.contains("You have 1 choice that is not applied yet. Quitting forgets it."), text)
+            assertTrue(text.contains("Press n to go back. You can keep choosing, or press a to review and apply."), text)
+            assertTrue(text.contains("y: Quit · n/Esc: Go back"), text)
+            assertEquals(DIALOG, ui.focused())
+        }
+        ui.press('n')
+        assertFalse(ui.app.exitRequested())
+        assertEquals(WORKSPACE_DETAILS, ui.focused())
+
+        ui.press(KeyCode.ESCAPE)
+        // Rows that still need a choice sort first.
+        ui.press(KeyCode.HOME)
+        choose()
+        ui.press('q')
+        val plural = ui.screen()
+        assertTrue(plural.contains("You have 2 choices that are not applied yet. Quitting forgets them."), plural)
+        ui.press(KeyCode.ESCAPE)
+        assertFalse(ui.app.exitRequested())
+        assertFalse(ui.screen().contains("Quit HomeLight?"))
+
+        // Review keeps the choices unapplied, so it asks there too.
+        ui.press('a')
+        assertEquals(Screen.APPLY, ui.app.activeScreen)
+        ui.press('q')
+        assertTrue(ui.screen().contains("You have 2 choices"))
+        ui.press('y')
+        assertTrue(ui.app.exitRequested())
+        names.forEach { name -> assertTrue(Files.isDirectory(root.resolve("home/$name"), java.nio.file.LinkOption.NOFOLLOW_LINKS)) }
+    }
+
+    @Test
+    fun quittingWithoutChoicesExitsAtOnceEvenWithAPlanToApply() {
+        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        assertTrue(ui.app.session.isPlanReady())
+        ui.press('q')
+        assertTrue(ui.app.exitRequested())
+    }
+
+    @Test
     fun completionNeverAnswersOrDismissesTheQuitDialog() {
         for (answer in listOf('n', 'y')) {
             val root = Files.createDirectory(temporary.resolve("case-$answer"))
