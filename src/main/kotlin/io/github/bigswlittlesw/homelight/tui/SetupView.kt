@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.tui
 
-import dev.tamboui.style.Color
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.tui.event.KeyCode
@@ -52,7 +51,7 @@ internal class SetupView(
         var content = if (mode == Mode.CANDIDATES) browser.render(draft)
         else {
             val lines = mutableListOf<Line>()
-            lines.add(Line("Create configuration", Color.CYAN, true))
+            lines.add(Line("Create configuration", palette.text, true))
             lines.add(Line("Config: " + literal(session.configPath.toString())))
             val anchor = when (mode) {
                 Mode.LOCATIONS -> locations(lines)
@@ -60,7 +59,7 @@ internal class SetupView(
                 Mode.ROW -> rowDetails(lines)
                 Mode.CANDIDATES -> error("The candidate browser renders itself")
             }
-            lines.add(Line(literal(message), Color.YELLOW, false))
+            lines.add(Line(literal(message), palette.warn, false))
             Toolkit.column(viewport.render("Setup", lines, true, anchor), viewport.help(help(), commands())).fill()
         }
         if (discard) {
@@ -71,14 +70,15 @@ internal class SetupView(
                     listOf(Line("Nothing has been written."), Line("Discard all locations and relocation choices?")),
                     true, 0,
                 ),
-                Toolkit.text("Enter: Discard draft · Esc: Keep editing").gray(),
+                Toolkit.text("Enter: Discard draft · Esc: Keep editing").fg(palette.dim),
             ).fill()
         }
-        return Toolkit.column(Toolkit.text("⌂ HOMELIGHT  [Setup]").cyan().bold(), content).fill()
+        val header = Toolkit.row(Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[Setup]").fg(palette.focus).bold())
+        return Toolkit.column(header, content).fill()
     }
 
     private fun locations(lines: MutableList<Line>): Int {
-        lines.add(Line("Storage locations", Color.CYAN, true))
+        lines.add(Line("Storage locations", palette.text, true))
         listOf("Source root" to sourceRoot, "Target root" to targetRoot, "Shared candidate list (optional)" to sharedList)
             .forEachIndexed { i, (name, value) -> choice(lines, "$name: $value", i == field) }
         lines.add(
@@ -92,17 +92,17 @@ internal class SetupView(
         )
         if (!sharedList.isJavaBlank()) {
             try { lines.add(Line("Resolved list: " + parseSharedList(sharedList))) }
-            catch (error: IllegalArgumentException) { lines.add(Line(shown(error), Color.YELLOW, false)) }
+            catch (error: IllegalArgumentException) { lines.add(Line(shown(error), palette.warn, false)) }
         }
         return 3 + field
     }
 
     private fun table(lines: MutableList<Line>): Int {
-        lines.add(Line("Storage locations", Color.CYAN, true))
+        lines.add(Line("Storage locations", palette.text, true))
         lines.add(Line("Source root: $sourceRoot"))
         lines.add(Line("Target root: $targetRoot"))
-        lines.add(Line("Relocations", Color.CYAN, true))
-        lines.add(Line("  Source (relative)        Target (relative)        Policies", Color.GRAY, true))
+        lines.add(Line("Relocations", palette.text, true))
+        lines.add(Line("  Source (relative)        Target (relative)        Policies", palette.dim, true))
         if (draft.rows.isEmpty()) lines.add(Line("No relocations yet. Add a directory manually or browse candidates."))
         draft.rows.forEachIndexed { i, value ->
             choice(lines, cell(value.sourceRelative, 23) + "  " + cell(value.targetRelative, 23) + "  " + policies(value), i == row)
@@ -112,16 +112,16 @@ internal class SetupView(
 
     private fun rowDetails(lines: MutableList<Line>): Int {
         val value = draft.rows[row]
-        lines.add(Line("Edit relocation " + (row + 1), Color.CYAN, true))
+        lines.add(Line("Edit relocation " + (row + 1), palette.text, true))
         listOf(
             "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both directories" to bothLabel(value.both),
             "Only target" to onlyTargetLabel(value.onlyTarget), "Adopt target" to adoptingLabel(value.adopting),
             "Archive root" to archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
-            if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), Color.YELLOW, true))
+            if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), palette.warn, true))
         }
-        lines.add(Line("Paths (resolved)", Color.CYAN, true))
+        lines.add(Line("Paths (resolved)", palette.text, true))
         lines.add(Line("Source: " + resolved(sourceRoot, value.sourceRelative)))
         lines.add(Line("Target: " + resolved(targetRoot, value.targetRelative)))
         attribution(lines, draft.entries()[row], draft)
@@ -387,7 +387,7 @@ private fun typed(key: KeyEvent): Char? =
 private fun <T : Enum<T>> next(current: T, values: List<T>): T = values[(current.ordinal + 1) % values.size]
 
 private fun choice(lines: MutableList<Line>, value: String, focused: Boolean) {
-    lines.add(Line((if (focused) "❯ " else "  ") + literal(value), if (focused) Color.CYAN else Color.GRAY, focused))
+    lines.add(Line((if (focused) "❯ " else "  ") + literal(value), if (focused) palette.focus else palette.text, focused))
 }
 
 private fun cell(value: String, width: Int): String {

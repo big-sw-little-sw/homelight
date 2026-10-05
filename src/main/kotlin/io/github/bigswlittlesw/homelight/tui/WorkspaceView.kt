@@ -39,10 +39,11 @@ internal object WorkspaceView {
     ): Element {
         val retained = session.applyModel() is ApplyModel.Result
         val header = Toolkit.row(
-            Toolkit.text("⌂ HOMELIGHT  [1: Workspace]").cyan().bold(),
+            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+            Toolkit.text("[1: Workspace]").fg(palette.focus).bold(),
             Toolkit.text(
                 if (retained) "  [2: Results]" else if (session.isPlanReady()) "  [2: Review]" else "  [Review unavailable]",
-            ).gray(),
+            ).fg(palette.dim),
         )
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
@@ -56,7 +57,7 @@ internal object WorkspaceView {
                 header,
                 viewport.render(
                     "Configuration",
-                    listOf(Line("Config: " + session.configPath), Line(message, Color.YELLOW, false)),
+                    listOf(Line("Config: " + session.configPath), Line(message, palette.warn, false)),
                     focus == PaneFocus.DETAIL, 0,
                 ),
                 viewport.help(
@@ -69,14 +70,14 @@ internal object WorkspaceView {
         val items = visibleItems(configured, showInSync)
         val item = if (items.isEmpty()) null else items[selected.coerceIn(0, items.size - 1)]
         val master = ListElement<Any>().title("Relocations")
-            .borderColor(if (focus == PaneFocus.MASTER) Color.CYAN else Color.DARK_GRAY)
-            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(Color.CYAN)
+            .borderColor(if (focus == PaneFocus.MASTER) palette.focus else palette.dim)
+            .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
             .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         items.forEachIndexed { i, listed ->
             val label = listed.badge().label
             master.add(
                 Toolkit.row(
-                    Toolkit.text(if (i == selected) "❯ " else "  ").cyan().length(2),
+                    Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2),
                     Toolkit.text("[$label] ").fg(color(listed.badge())).length(label.length + 3),
                     Toolkit.text(listed.relocation.sourcePath).ellipsisMiddle().fill(),
                 ),
@@ -84,25 +85,25 @@ internal object WorkspaceView {
         }
         master.selected(selected)
         val hidden = configured.items.size - items.size
-        if (hidden > 0) master.add(Toolkit.text("$hidden in sync hidden").gray())
+        if (hidden > 0) master.add(Toolkit.text("$hidden in sync hidden").fg(palette.dim))
         val lines = mutableListOf<Line>()
         var anchor = 0
         if (item == null) lines.add(Line("No configured relocations."))
         else anchor = details(session, item, choice, focus, lines, retained)
-        configured.plan.diagnostics.mapTo(lines) { Line(it.message, Color.YELLOW, false) }
+        configured.plan.diagnostics.mapTo(lines) { Line(it.message, palette.warn, false) }
         val summary = summary(configured.items)
         val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
         val content = buildList {
             add(header)
-            add(wrappedText("Config: " + session.configPath, Color.GRAY))
+            add(wrappedText("Config: " + session.configPath, palette.dim))
             add(summaryElement(summary.counts))
-            if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, Color.YELLOW))
+            if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, palette.warn))
             add(Toolkit.row(master.percent(45), viewport.render("Details", lines, focus == PaneFocus.DETAIL, anchor)).fill())
             if (!session.isPlanReady() && !retained) add(
                 wrappedText(
                     if (configured.items.any { it.isBlocked() }) "Review unavailable: repair blocked paths/configuration; inspect Details."
                     else "Review unavailable: choose a decision for each conflict.",
-                    Color.YELLOW,
+                    palette.warn,
                 ),
             )
             val navigation = if (focus == PaneFocus.DETAIL)
@@ -139,12 +140,12 @@ internal object WorkspaceView {
         return Summary(
             listOf(
                 listOf(
-                    SummaryCell("${items.size} relocations", Color.CYAN),
-                    SummaryCell("⚡ $actionable actionable", Color.CYAN),
-                    SummaryCell("⚠ $conflict conflict", Color.YELLOW),
-                    SummaryCell("✖ $blocked blocked", Color.RED),
+                    SummaryCell("${items.size} relocations", palette.text),
+                    SummaryCell("⚡ $actionable actionable", palette.change),
+                    SummaryCell("⚠ $conflict conflict", palette.warn),
+                    SummaryCell("✖ $blocked blocked", palette.error),
                 ),
-                listOf(SummaryCell("✔ $synced in sync", Color.GREEN), SummaryCell("─ $unchanged unchanged", Color.GRAY)),
+                listOf(SummaryCell("✔ $synced in sync", palette.ok), SummaryCell("─ $unchanged unchanged", palette.dim)),
             ),
             if (warnings == 0 && destructive == 0) ""
             else "Of these: $warnings with warnings · $destructive with destructive changes",
@@ -177,13 +178,13 @@ internal object WorkspaceView {
                     "Current: Source and target are directories."
                 else "Current: Source " + observation(item.sourceObservation) + "; target " +
                     observation(item.targetObservation) + ".",
-                Color.CYAN, true,
+                palette.text, true,
             ),
         )
         when (item.sourceState) {
-            RelocationSourceState.WRONG_SYMLINK -> lines.add(Line("Source link points to a different target.", Color.YELLOW, false))
-            RelocationSourceState.BROKEN_SYMLINK -> lines.add(Line("Source link is broken: its destination is absent.", Color.YELLOW, false))
-            RelocationSourceState.CORRECT_SYMLINK -> lines.add(Line("Source link points to the configured target.", Color.GREEN, false))
+            RelocationSourceState.WRONG_SYMLINK -> lines.add(Line("Source link points to a different target.", palette.warn, false))
+            RelocationSourceState.BROKEN_SYMLINK -> lines.add(Line("Source link is broken: its destination is absent.", palette.warn, false))
+            RelocationSourceState.CORRECT_SYMLINK -> lines.add(Line("Source link points to the configured target.", palette.ok, false))
             RelocationSourceState.ABSENT, RelocationSourceState.FILE, RelocationSourceState.DIRECTORY,
             RelocationSourceState.INACCESSIBLE, RelocationSourceState.OTHER -> {}
         }
@@ -191,7 +192,7 @@ internal object WorkspaceView {
         if (evaluation is ConfigurationEvaluation.Loaded) {
             val source = item.relocation.sourcePath
             evaluation.savedConfiguration.relocations.firstOrNull { it.sourcePath == source }
-                ?.let { saved -> lines.add(Line("Saved policy: " + policy(saved, item), Color.GRAY, false)) }
+                ?.let { saved -> lines.add(Line("Saved policy: " + policy(saved, item))) }
             lines.add(
                 Line(
                     (if (retained) "Reviewed draft: " else "Draft (not saved): ") +
@@ -199,10 +200,10 @@ internal object WorkspaceView {
                 ),
             )
         }
-        lines.add(Line("Expected outcome: " + consequence(item), Color.CYAN, true))
-        if (retained) lines.add(Line("Execution history: Results retained in 2: Results. Re-plan before editing.", Color.YELLOW, false))
-        item.plan.diagnostics.mapTo(lines) { Line(it.message, Color.YELLOW, false) }
-        if (item.hasDestructiveActions()) lines.add(Line("⚠ Destructive: existing content or links will be removed.", Color.YELLOW, true))
+        lines.add(Line("Expected outcome: " + consequence(item), palette.text, true))
+        if (retained) lines.add(Line("Execution history: Results retained in 2: Results. Re-plan before editing.", palette.warn, false))
+        item.plan.diagnostics.mapTo(lines) { Line(it.message, palette.warn, false) }
+        if (item.hasDestructiveActions()) lines.add(Line("⚠ Destructive: existing content or links will be removed.", palette.warn, true))
         var anchor = 0
         if (!retained) item.availableResolutions.forEachIndexed { i, option ->
             lines.add(Line(""))
@@ -212,7 +213,7 @@ internal object WorkspaceView {
                 Line(
                     (if (i == choice && focus == PaneFocus.DETAIL) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") +
                         option.label,
-                    if (chosen) Color.GREEN else Color.CYAN, i == choice,
+                    if (chosen) palette.ok else palette.text, i == choice,
                 ),
             )
             lines.add(
@@ -224,7 +225,7 @@ internal object WorkspaceView {
             )
         }
         lines.add(Line(""))
-        lines.add(Line("Paths", Color.CYAN, true))
+        lines.add(Line("Paths", palette.text, true))
         lines.add(Line("Source: " + item.relocation.sourcePath))
         lines.add(Line("Target: " + item.relocation.targetPath))
         item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
@@ -291,10 +292,10 @@ internal object WorkspaceView {
     }
 
     private fun color(badge: PlanBadge): Color = when (badge) {
-        PlanBadge.IN_SYNC -> Color.GREEN
-        PlanBadge.MIGRATE, PlanBadge.ADOPT, PlanBadge.LINK, PlanBadge.BACKUP, PlanBadge.DISCARD -> Color.CYAN
-        PlanBadge.CONFLICT, PlanBadge.WARNING -> Color.YELLOW
-        PlanBadge.BLOCKED, PlanBadge.INACCESSIBLE -> Color.RED
-        PlanBadge.SKIPPED -> Color.GRAY
+        PlanBadge.IN_SYNC -> palette.ok
+        PlanBadge.MIGRATE, PlanBadge.ADOPT, PlanBadge.LINK, PlanBadge.BACKUP, PlanBadge.DISCARD -> palette.change
+        PlanBadge.CONFLICT, PlanBadge.WARNING -> palette.warn
+        PlanBadge.BLOCKED, PlanBadge.INACCESSIBLE -> palette.error
+        PlanBadge.SKIPPED -> palette.dim
     }
 }

@@ -73,22 +73,23 @@ check again, `q` quit. `2` never starts changes.
 ### Color
 
 HomeLight paints its own dark background on the whole screen and uses the
-**Harbor** palette as exact RGB colors. On a terminal that does not report full
-color (`COLORTERM`), each role falls back to its nearest basic ANSI color. Views
-name roles only; one palette file maps roles to colors.
+**Harbor** palette as exact RGB colors. Unless `COLORTERM` is `truecolor` or
+`24bit`, each role falls back to the basic ANSI color of the same hue (ANSI
+names: white is light gray, bright black is dark gray). Views name roles only;
+one palette file maps roles to colors. Headings inside panes are bold body text.
 
-| Role | Color | Used for |
-| --- | --- | --- |
-| background | `#1b1d22` | Whole screen |
-| text | `#d8dbe2` | Body text |
-| brand | `#7fd1c7` | `⌂ HOMELIGHT` |
-| focus | `#6cb6e8` | Focused pane border, `❯` pointer, running spinner, active header slot |
-| ok | `#7cc79a` | Done, in sync, the chosen value, gauge fill |
-| change | `#7fd1c7` | Rows that apply will change |
-| warn | `#e6b55c` | Needs a choice, data will be deleted or replaced |
-| error | `#e76f6f` | Failed, blocked |
-| dialog | `#b39cf0` | Dialog border and title |
-| dim | `#6f7a88` | Help lines, inactive borders, pending steps, secondary notes |
+| Role | Color | Basic | Used for |
+| --- | --- | --- | --- |
+| background | `#1b1d22` | black | Whole screen |
+| text | `#d8dbe2` | white | Body text |
+| brand | `#7fd1c7` | cyan | `⌂ HOMELIGHT` |
+| focus | `#6cb6e8` | bright blue | Focused pane border, `❯` pointer, running spinner, active header slot, scrollbar thumb |
+| ok | `#7cc79a` | green | Done, in sync, the chosen value, gauge fill |
+| change | `#7fd1c7` | cyan | Rows that apply will change |
+| warn | `#e6b55c` | yellow | Needs a choice, data will be deleted or replaced |
+| error | `#e76f6f` | red | Failed, blocked |
+| dialog | `#b39cf0` | magenta | Dialog border and title |
+| dim | `#6f7a88` | bright black | Help lines, inactive borders, pending steps, secondary notes |
 
 Color may carry meaning on its own when the same information is also on screen
 another way (text, a glyph or a count). Aim for pleasing colors, not only safe
