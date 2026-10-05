@@ -46,7 +46,7 @@ internal object ApplyView {
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
-                Toolkit.text("1: Workspace  ·  q: Quit").fg(palette.dim),
+                Toolkit.text(helpLine(keys(model, focused, quitting).all)).fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
         }
@@ -95,14 +95,6 @@ internal object ApplyView {
                 else -> STOPPED
             }
         }
-        val footer = when (reviewed) {
-            is ApplyModel.Confirmation -> when {
-                !plan.hasChanges() -> "1/Enter/n/Esc: Workspace · q: Quit"
-                else -> "y: Apply · n/Esc/1: Cancel · q: Quit"
-            }
-            is ApplyModel.Running -> if (quitting) "" else "q: Quit"
-            is ApplyModel.Result -> "1/Enter: Workspace · r: Check again · q: Quit"
-        }
         val changes = steps.filter { it.action.mutatesFilesystem }
         val content = buildList {
             add(header)
@@ -136,11 +128,31 @@ internal object ApplyView {
                     viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
-            val navigation = if (focused != REVIEW_DETAILS) "↑/↓: Inspect · Tab/→: Details"
-            else "↑/↓: Scroll · Tab/←: List" + (if (model is ApplyModel.Confirmation) "" else " · Esc: Back")
-            add(viewport.help(navigation, footer, interactive))
+            add(viewport.help(keys(model, focused, quitting), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
+    }
+
+    /** Review's keys in its current state, for its help lines and the `?` overlay. */
+    fun keys(model: ApplyModel, focused: String?, quitting: Boolean): ScreenKeys {
+        val navigation = when {
+            model is ApplyModel.Idle -> listOf()
+            focused != REVIEW_DETAILS -> listOf(
+                KeyHint("↑/↓", "Inspect"), KeyHint("Tab/→", "Details"), PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+            )
+            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List")) +
+                (if (model is ApplyModel.Confirmation) listOf() else listOf(KeyHint("Esc", "Back")))
+        }
+        val commands = when (model) {
+            is ApplyModel.Idle -> listOf(KeyHint("1", "Workspace"), HELP_KEY, QUIT_KEY)
+            is ApplyModel.Confirmation ->
+                if (!model.plan.hasChanges()) listOf(KeyHint("1/Enter/n/Esc", "Workspace"), HELP_KEY, QUIT_KEY)
+                else listOf(KeyHint("y", "Apply"), KeyHint("n/Esc/1", "Cancel"), HELP_KEY, QUIT_KEY)
+            // Once HomeLight will exit when the apply finishes, `q` does nothing.
+            is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
+            is ApplyModel.Result -> listOf(KeyHint("1/Enter", "Workspace"), CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY)
+        }
+        return ScreenKeys(navigation, commands)
     }
 
     fun steps(model: ApplyModel): List<ApplyModel.Step> = when (model) {

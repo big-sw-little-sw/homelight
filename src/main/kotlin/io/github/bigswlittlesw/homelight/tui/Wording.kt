@@ -10,7 +10,8 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
 
 // The TUI's words for application values and the messages its screens show (tui-design §9). Application enums keep
-// meaning only. Key hints stay beside the handlers that bind them, so a hint and its key cannot drift apart.
+// meaning only. Key hints stay in each screen's `keys` function, beside the handlers that bind them, so a hint and its
+// key cannot drift apart; only keys several screens share are here.
 
 internal fun badgeLabel(badge: PlanBadge): String = when (badge) {
     PlanBadge.CONFLICT -> "Choose"
@@ -202,3 +203,37 @@ internal fun runningCount(done: Int, changes: Int, running: Int, failed: Int) =
 internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
     "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)
+
+// The `?` overlay (tui-design §3 Help). docs/user-guide.md copies HOW_IT_WORKS word for word; UserGuideTest checks it.
+internal const val HELP_TITLE = "Help"
+internal const val HOW_IT_WORKS_TITLE = "How it works"
+internal val HOW_IT_WORKS = listOf(
+    "Setup: say where storage is.",
+    "Workspace: see what HomeLight found and what it plans for each directory.",
+    "Pick a choice for anything marked as needing one, or leave the plan as is.",
+    "Press a to review every change. Nothing changes until you press y.",
+    "Apply runs the changes and shows the results. Press r to check again.",
+)
+internal const val SCREEN_KEYS_TITLE = "Keys on this screen"
+internal const val KEY_IDEAS_TITLE = "Key ideas"
+internal val KEY_IDEAS = listOf(
+    "Rule or one-time choice" to
+        "A rule is saved in your configuration and decides every run. A one-time choice decides one relocation for " +
+        "the next apply only. Checking again, saving or applying forgets it.",
+    "Archive or delete" to
+        "Archive moves the source into an archive folder, shown under Paths, so you can move it back. " +
+        "Delete removes it for good.",
+    "Check again" to
+        "HomeLight looks at the disk again and makes a new plan. Do it after you change files outside HomeLight.",
+)
+internal const val HELP_HINT = "Press ? for help."
+
+internal val HELP_KEY = KeyHint("?", "Help")
+internal val QUIT_KEY = KeyHint("q", "Quit")
+internal val CHECK_AGAIN_KEY = KeyHint("r", "Check again")
+internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll")
+internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false)
+internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
+internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
+internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)
+internal val HELP_DIALOG_KEYS = ScreenKeys(listOf(SCROLL_KEY, KeyHint("?/Esc", "Close")), listOf())

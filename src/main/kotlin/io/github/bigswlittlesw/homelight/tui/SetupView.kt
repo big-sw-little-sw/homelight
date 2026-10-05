@@ -46,9 +46,10 @@ internal class SetupView(
     // Unfinished location text is independent of the last valid model roots.
     private val draft = Path.of(sourceRoot).toAbsolutePath().let { home -> SetupDraft(home, home, null, listOf()) }
 
-    fun render(): Element {
+    /** `interactive` is false while a dialog, this view's or the app's, is open over setup. */
+    fun render(interactive: Boolean): Element {
         if (!closed) discovery?.let { draft.accept(it.snapshot()) }
-        val content = if (mode == Mode.CANDIDATES) browser.render(draft, !discard)
+        val content = if (mode == Mode.CANDIDATES) browser.render(draft, interactive)
         else {
             val lines = mutableListOf<Line>()
             lines.add(Line("Create configuration", palette.text, true))
@@ -60,11 +61,13 @@ internal class SetupView(
                 Mode.CANDIDATES -> error("The candidate browser renders itself")
             }
             lines.add(Line(literal(message), palette.warn, false))
-            Toolkit.column(viewport.render("Setup", lines, !discard, anchor), viewport.help(help(), commands(), !discard)).fill()
+            Toolkit.column(
+                viewport.render("Setup", lines, interactive, anchor), viewport.help(keys(), interactive, fieldNote()),
+            ).fill()
         }
         val header = Toolkit.row(Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[Setup]").fg(palette.focus).bold())
         // Setup keeps its own field focus until the configuration editor replaces it, so the screen is one focusable.
-        return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(!discard)
+        return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(interactive)
     }
 
     /** The discard question, while it is open. */
@@ -123,10 +126,9 @@ internal class SetupView(
         return 3 + field
     }
 
-    private fun help(): String = when (mode) {
-        Mode.LOCATIONS -> "↑/↓: Field · Type: Edit · Ctrl-U: Clear"
-        Mode.TABLE -> if (draft.rows.isEmpty()) "e: Edit locations · Esc: Back"
-        else "↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back"
+    /** What the focused relocation field means, in place of the navigation help line. */
+    private fun fieldNote(): String? = when (mode) {
+        Mode.LOCATIONS, Mode.TABLE, Mode.CANDIDATES -> null
         Mode.ROW -> when (field) {
             0 -> "Source is relative; matching target follows until edited."
             1 -> "Target is relative to the target root."
@@ -142,15 +144,42 @@ internal class SetupView(
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "move the source to the archive root."
             }
         }
-        Mode.CANDIDATES -> ""
     }
 
-    private fun commands(): String = when (mode) {
-        Mode.LOCATIONS -> "Enter: Relocations · Esc: Cancel without writing"
-        Mode.TABLE -> "a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard"
-        Mode.ROW -> "↑/↓: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Change rule · d: Remove") +
-            " · Esc: Table"
-        Mode.CANDIDATES -> ""
+    /**
+     * Setup's keys in its current state, for its help lines and the `?` overlay. In a text field `?` types, so help
+     * does not offer it there.
+     */
+    fun keys(): ScreenKeys {
+        val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
+        val editing = listOf(KeyHint("Type", "Edit"), KeyHint("Ctrl-U", "Clear"))
+        return when (mode) {
+            Mode.LOCATIONS -> ScreenKeys(
+                listOf(KeyHint("↑/↓", "Field")) + editing + scroll,
+                listOf(KeyHint("Enter", "Relocations"), KeyHint("Esc", "Cancel without writing")),
+            )
+            Mode.TABLE -> ScreenKeys(
+                if (draft.rows.isEmpty()) listOf(KeyHint("e", "Edit locations"), KeyHint("Esc", "Back"), scroll)
+                else listOf(
+                    KeyHint("↑/↓", "Row"), KeyHint("Enter", "Details"), KeyHint("d", "Remove"), KeyHint("e", "Locations"),
+                    KeyHint("Esc", "Back"), scroll,
+                ),
+                // "b: Browse" is short so that this line and `?: Help` fit 80 columns.
+                listOf(
+                    KeyHint("a", "Add manual"), KeyHint("b", "Browse"), KeyHint("v", "Validate"), KeyHint("s", "Save"),
+                    HELP_KEY, KeyHint("q", "Discard"),
+                ),
+            )
+            Mode.ROW -> ScreenKeys(
+                listOf(scroll),
+                if (textField()) listOf(KeyHint("↑/↓", "Field")) + editing + KeyHint("Esc", "Table")
+                else listOf(
+                    KeyHint("↑/↓", "Field"), KeyHint("Space", "Change rule"), KeyHint("d", "Remove"), KeyHint("Esc", "Table"),
+                    HELP_KEY, KeyHint("q", "Discard", inHelpArea = false),
+                ),
+            )
+            Mode.CANDIDATES -> browser.keys(draft)
+        }
     }
 
     fun key(key: KeyEvent) {
@@ -335,10 +364,10 @@ internal class SetupView(
 
     /**
      * A focused path field takes its editing keys before any binding or letter command: `q`, `Q` and Space are
-     * bindings, and letters such as `d` and `b` are setup commands. `[` and `]` stay scroll keys on every setup
-     * screen.
+     * bindings, letters such as `d` and `b` are setup commands, and `?` opens help. `[` and `]` stay scroll keys on
+     * every setup screen.
      */
-    private fun editsText(key: KeyEvent): Boolean =
+    internal fun editsText(key: KeyEvent): Boolean =
         (mode == Mode.LOCATIONS || mode == Mode.ROW && textField()) &&
             (clears(key) || key.isKey(KeyCode.BACKSPACE) || typed(key).let { c -> c != null && c != '[' && c != ']' })
 

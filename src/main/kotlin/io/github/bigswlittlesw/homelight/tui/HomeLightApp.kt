@@ -70,6 +70,8 @@ internal class HomeLightApp(
     private var exitIntent = ExitIntent.STAY
     private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
+    private var helpOpen = false
+    private val helpViewport = DetailViewport()
 
     /** `CONFIRM_*` while a quit dialog is open: during an apply, or with one-time choices not applied yet. */
     private enum class ExitIntent { STAY, CONFIRM_APPLYING, CONFIRM_CHOICES, AFTER_EXECUTION, EXIT }
@@ -98,9 +100,9 @@ internal class HomeLightApp(
         settleDeferredExit()
         // The discard dialog closes setup without a key reaching handleKey.
         dropClosedSetup()
-        val dialog = setup?.dialog() ?: quitDialog()
+        val dialog = setup?.dialog() ?: quitDialog() ?: helpDialog()
         val interactive = dialog == null
-        val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+        val view = setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
         if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
@@ -123,6 +125,27 @@ internal class HomeLightApp(
             onNo = { closeQuitDialog(ExitIntent.STAY) },
         )
         ExitIntent.STAY, ExitIntent.AFTER_EXECUTION, ExitIntent.EXIT -> null
+    }
+
+    /** It lists the keys of the screen behind it, with the focus that screen had when help opened. */
+    private fun helpDialog(): Element? {
+        if (!helpOpen) return null
+        val focused = focusBeforeDialog
+        val keys = setup?.keys() ?: when (activeScreen) {
+            Screen.WORKSPACE -> WorkspaceView.keys(session, workspaceList, showInSync, focused)
+            Screen.APPLY -> ApplyView.keys(session.applyModel(), focused, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
+        }
+        return helpDialog(keys.all, helpViewport) {
+            helpOpen = false
+            focus.setFocus(focusBeforeDialog)
+        }
+    }
+
+    private fun openHelp() {
+        helpOpen = true
+        helpViewport.reset()
+        // The dialog is the only focusable while it is open, so the next frame focuses it.
+        focusBeforeDialog = focus.focusedId()
     }
 
     /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
@@ -160,6 +183,8 @@ internal class HomeLightApp(
     }
 
     private fun handleKey(key: KeyEvent) {
+        // In a setup text field `?` is typed like any other character.
+        if (key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
         setup?.let { current ->
             current.key(key)
             dropClosedSetup()

@@ -36,13 +36,9 @@ internal class CandidateBrowser {
         val lines = mutableListOf<Line>()
         var anchor = -1
         val title: String
-        val navigation: String
-        val commands: String
         if (diagnostics) {
             title = "Discovery sources"
             sourceDetails(lines, draft)
-            navigation = "↑/↓: Scroll · Esc: Back"
-            commands = "r: Refresh · q: Discard draft"
         } else if (details) {
             title = "Candidate details"
             val entry = focusedEntry(draft)
@@ -52,8 +48,6 @@ internal class CandidateBrowser {
                 if (focused is Item.Directory) lines.add(Line("Source: " + literal(focused.path.toString())))
                 lines.add(Line("Existing draft rows are retained. Esc returns to the list."))
             } else detailLines(lines, entry, draft)
-            navigation = "↑/↓: Scroll · Esc: Back"
-            commands = (entry?.let { action(it, draft) } ?: "") + "r: Refresh · q: Discard draft"
         } else {
             title = "Browse candidates"
             val unique = entriesByPath(draft)
@@ -116,16 +110,10 @@ internal class CandidateBrowser {
                     ),
                 )
             }
-            navigation = (if (items.isEmpty()) "" else "↑/↓: Move · ") +
-                (focusedEntry(draft)?.let { listAction(it, draft) } ?: "") +
-                (if (focus is Item.Directory) "Enter: Inspect · " else if (listedFocus) "Enter: Expand/collapse · " else "") +
-                "Esc: Back"
-            commands = "r: Refresh · i: Sources" +
-                (if (hidden > 0) " · u: " + (if (reveal) "Hide " else "Show ") + hidden else "") + " · q: Discard"
         }
         if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), palette.warn, false))
         val reader = viewport.render(title, lines, interactive, anchor)
-        val help = viewport.help(navigation, commands, interactive)
+        val help = viewport.help(keys(draft), interactive)
         return if (message.isNotEmpty() && !details && !diagnostics)
             Toolkit.column(
                 reader,
@@ -133,6 +121,39 @@ internal class CandidateBrowser {
                 help,
             ).fill()
         else Toolkit.column(reader, help).fill()
+    }
+
+    /** The browser's keys in its current state, for its help lines and the `?` overlay. */
+    fun keys(draft: SetupDraft): ScreenKeys {
+        val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
+        val back = KeyHint("Esc", "Back")
+        val refresh = KeyHint("r", "Refresh")
+        if (diagnostics || details) {
+            val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
+            return ScreenKeys(
+                listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, back),
+                listOfNotNull(entryKey, refresh, HELP_KEY, KeyHint("q", "Discard draft")),
+            )
+        }
+        val items = items(draft, entriesByPath(draft))
+        val listedFocus = focus != null && items.any { same(it, focus) }
+        val hidden = hiddenCount(draft)
+        val enter = when {
+            focus is Item.Directory -> KeyHint("Enter", "Inspect")
+            listedFocus -> KeyHint("Enter", "Expand/collapse")
+            else -> null
+        }
+        return ScreenKeys(
+            listOfNotNull(
+                KeyHint("↑/↓", "Move").takeIf { items.isNotEmpty() }, focusedEntry(draft)?.let { listAction(it, draft) },
+                enter, back, HOME_END_KEYS.takeIf { items.isNotEmpty() }, scroll,
+            ),
+            listOfNotNull(
+                refresh, KeyHint("i", "Sources"),
+                KeyHint("u", (if (reveal) "Hide " else "Show ") + hidden).takeIf { hidden > 0 }, HELP_KEY,
+                KeyHint("q", "Discard"),
+            ),
+        )
     }
 
     /** Handles a key and returns the index of a draft row to edit, or -1 to stay in the browser. */
@@ -275,18 +296,18 @@ private fun compact(path: String): String {
 }
 
 
-private fun action(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
-    entry.configured != null -> ""
-    entry.draft != null -> "e: Edit draft row · "
-    draft.canAdd(entry) -> "a: Add to draft · "
-    else -> ""
+private fun action(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
+    entry.configured != null -> null
+    entry.draft != null -> KeyHint("e", "Edit draft row")
+    draft.canAdd(entry) -> KeyHint("a", "Add to draft")
+    else -> null
 }
 
-private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
-    entry.configured != null -> ""
-    entry.draft != null -> "e: Edit · "
-    draft.canAdd(entry) -> "Space/a: Add · "
-    else -> ""
+private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
+    entry.configured != null -> null
+    entry.draft != null -> KeyHint("e", "Edit")
+    draft.canAdd(entry) -> KeyHint("Space/a", "Add")
+    else -> null
 }
 
 private fun listNotes(entry: SetupDraft.Entry): String {

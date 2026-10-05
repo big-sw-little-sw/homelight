@@ -152,6 +152,29 @@ focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
 
 Two lines at the bottom, specific to the focused element: navigation first, then
 commands. Each binding appears once. Never advertise a key that does nothing now.
+Every screen offers `?: Help` before `q`, except where every field is a text
+field: there `?` types a question mark, as it does in any text field.
+
+Each screen builds its keys in one function, which the help lines and the `?`
+overlay both read, so they cannot disagree. Keys left out of the help lines for
+room (PageUp/PageDown, Home/End, `[`/`]`, `←` back, `c` in the list title) are
+marked overlay-only there.
+
+`?` opens the help overlay, a dialog over the current screen, with three parts:
+
+1. **How it works:** the same five steps on every screen. `docs/user-guide.md`
+   copies them word for word, and a test fails if the two differ.
+2. **Keys on this screen:** every key for the screen and focus behind it, as
+   `keys: action`, including the overlay-only ones.
+3. **Key ideas:** rule or one-time choice, archive or delete, check again.
+
+It is 76 columns wide and as tall as its content, shrunk to leave the header
+and help lines uncovered; at 80x24 and 120x30 it scrolls. ↑/↓, PageUp/PageDown,
+Home/End and `[`/`]` scroll it; `?` or Esc closes it and returns focus to where
+it was; every other key is ignored.
+
+The empty Workspace (no configuration, or no relocations) says `Press ? for
+help.`
 
 ## 5. Workspace
 

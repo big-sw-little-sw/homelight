@@ -15,6 +15,8 @@ import dev.tamboui.toolkit.elements.ScrollbarElement
 internal class DetailViewport {
     private var top = 0
     private var maximum = 0
+    // One line less than the pane's height, so a page keeps a line of context.
+    private var page = 1
     private var followingChoice = false
     private var keepVisible = false
 
@@ -25,13 +27,16 @@ internal class DetailViewport {
 
     /**
      * Resolves overflow after the reader renders, so help reflects this frame's size. While a dialog is open and
-     * takes every key, help is not `shown` and its two lines stay blank.
+     * takes every key, help is not `shown` and its two lines stay blank. A `note` about the focused field takes the
+     * navigation line's place.
      */
-    fun help(navigation: String, commands: String, shown: Boolean = true): Element {
+    fun help(keys: ScreenKeys, shown: Boolean = true, note: String? = null): Element {
         class Help : StyledElement<Help>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.heightOnly(2)
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
                 if (!shown) return
+                val navigation = note ?: helpLine(keys.navigation)
+                val commands = helpLine(keys.commands)
                 val overflows = maximum > 0
                 val keys = when {
                     !navigation.startsWith("↑/↓: Scroll") -> if (overflows) "$navigation · [/]: Scroll" else navigation
@@ -52,16 +57,23 @@ internal class DetailViewport {
         // In Long: callers scroll by ±Int.MAX_VALUE to reach either end.
         top = (top.toLong() + delta).coerceIn(0, maximum.toLong()).toInt()
     }
+    fun scrollPage(direction: Int) = scroll(direction * page)
 
-    /** A pane with an `id` takes part in focus when `focusable`; `focused` is what it looks like and follows. */
+    /**
+     * A pane with an `id` takes part in focus when `focusable`; `focused` is what it looks like and follows. A pane
+     * without a `title` has no border, for a dialog that draws its own.
+     */
     fun render(
-        title: String, lines: List<Line>, focused: Boolean, choiceLine: Int, id: String? = null, focusable: Boolean = false,
+        title: String?, lines: List<Line>, focused: Boolean, choiceLine: Int, id: String? = null, focusable: Boolean = false,
     ): Element {
         class Pane : StyledElement<Pane>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.UNKNOWN
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
-                var width = maxOf(1, area.width() - 2)
-                val height = maxOf(1, area.height() - 2)
+                val inner = if (title == null) area
+                else Rect(area.x() + 1, area.y() + 1, maxOf(0, area.width() - 2), maxOf(0, area.height() - 2))
+                var width = maxOf(1, inner.width())
+                val height = maxOf(1, inner.height())
+                page = maxOf(1, height - 1)
                 val overflow = lines.sumOf { line -> wrap(line.text, width).size } > height
                 if (overflow) width = maxOf(1, width - 1)
                 val parts = lines.map { line -> wrap(line.text, width).map { part -> Line(part, line.color, line.bold) } }
@@ -78,14 +90,15 @@ internal class DetailViewport {
                     val text = Toolkit.text(line.text).fg(line.color)
                     if (line.bold) text.bold() else text
                 }
-                Toolkit.panel(title, Toolkit.column(*rows.toTypedArray()).fill())
-                    .borderColor(if (focused) palette.focus else palette.dim).fill()
+                val column = Toolkit.column(*rows.toTypedArray()).fill()
+                if (title == null) column.render(frame, inner, context)
+                else Toolkit.panel(title, column).borderColor(if (focused) palette.focus else palette.dim).fill()
                     .render(frame, area, context)
                 if (overflow) {
                     // TamboUI's Scrollbar patches the inherited text color over thumb and track colors, so the
                     // element's own color is the only one that shows.
                     ScrollbarElement().state(wrapped.size, height, top).hideMarkers().fg(palette.focus)
-                        .render(frame, Rect(area.x() + area.width() - 2, area.y() + 1, 1, height), context)
+                        .render(frame, Rect(inner.x() + inner.width() - 1, inner.y(), 1, height), context)
                 }
             }
         }

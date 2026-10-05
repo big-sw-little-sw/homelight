@@ -401,6 +401,21 @@ Apply progress (#111) keeps the plan a tree by starting relocation rows at the l
 - `[skipped: "or s to always do this" in the quit dialog, add with #116]`
 - `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
 
+## 2026-10-05: `?` explains the workflow; keys come from one place per screen
+
+Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a help overlay on every screen: five "How it works" steps, every key for the current screen, and three key ideas (rule or one-time choice, archive or delete, check again). `docs/user-guide.md` copies the steps word for word, adds captures, what each rule does on disk and how to undo by hand; a test compares the guide's steps with the overlay's. The empty Workspace says `Press ? for help.`
+
+Each screen's keys are a list of `KeyHint(keys, action, inHelpArea)` built in one function (`WorkspaceView.keys`, `ApplyView.keys`, `SetupView.keys`, `CandidateBrowser.keys`). The help lines show the hints marked for them and the overlay lists all of them, so the two cannot disagree. The overlay is a TamboUI `dialog()` holding a borderless `DetailViewport` pane, which already wraps, scrolls and draws the scrollbar (rung 2, 4); the dialog's footer is the viewport's own help line, so `↑/↓: Scroll` shows only when it scrolls.
+
+- The issue's fifth step said "press `c` to check again"; check again is `r`, and `c` shows or hides in-sync rows, so the step says `r`. "Results show here" became "shows the results", because the overlay is not where results show.
+- Setup's locations step and its path fields do not offer `?: Help`: every key there types, including `?`, as the issue asks.
+- Setup's relocations table says `b: Browse` instead of `b: Browse candidates`, so the line and `?: Help` fit 80 columns.
+- `[skipped: first-run tour, add when walkthroughs show the overlay is not found]`
+- `[skipped: a key that opens help from a text field (such as F1), add when users in Setup's locations step look for help]`
+- `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` The overlay lists only keys that work.
+
+Rejected: listing keys in the overlay by hand beside the help lines (two lists that drift); a separate help screen (help is a short question over the current screen, so it is a dialog).
+
 ## How to add decisions
 
 Use this format:
