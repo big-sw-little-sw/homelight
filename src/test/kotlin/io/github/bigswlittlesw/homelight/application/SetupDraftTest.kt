@@ -80,8 +80,7 @@ class SetupDraftTest {
             refresh(draft, worker)
             draft.add(root.resolve("team-cache"))
             draft.add(root.resolve(".cache/uv"))
-            val edited = SetupDraft.Row("team-cache", "custom-team", null,
-                    WhenOnlyTargetExists.ADOPT_TARGET, null, null)
+            val edited = SetupDraft.Row("team-cache", "custom-team", onlyTarget = WhenOnlyTargetExists.ADOPT_TARGET)
             draft.edit(0, edited)
             val savedRows = draft.rows
             Files.writeString(shared(), "{\"directories\": [")
@@ -173,12 +172,12 @@ class SetupDraftTest {
     @Test fun archiveRootDefaultsBesideTheSourceForEveryPolicy() {
         val root = Files.createDirectory(temporary.resolve("home"))
         val archive = temporary.resolve("archive")
-        fun resolved(adopting: WhenAdoptingTarget?, archiveRoot: Path?): Relocation {
+        fun resolved(adopting: WhenAdoptingTarget, archiveRoot: Path?): Relocation {
             val draft = draft(root, listOf())
             draft.append(SetupDraft.Row("a/b", "a/b", adopting = adopting, archiveRoot = archiveRoot))
             return draft.validate().relocations.single()
         }
-        for (adopting in WhenAdoptingTarget.entries + null) {
+        for (adopting in WhenAdoptingTarget.entries) {
             assertEquals(root.resolve("a/.homelight-archive"), resolved(adopting, null).archiveRoot, adopting.toString())
             assertEquals(archive, resolved(adopting, archive).archiveRoot, adopting.toString())
             assertEquals(adopting, resolved(adopting, null).whenAdoptingTarget)
@@ -289,8 +288,8 @@ class SetupDraftTest {
             val loaded = ConfigurationLoader().load(path)
             assertEquals(draft.validate().relocations, loaded.relocations)
             assertEquals(3, loaded.relocations.size)
-            assertTrue(loaded.relocations.all { r -> r.whenSourceAndTargetDirectoriesExist == null
-                    && r.whenOnlyTargetExists == null && r.whenAdoptingTarget == null })
+            assertTrue(loaded.relocations.all { r -> r.whenSourceAndTargetDirectoriesExist == WhenSourceAndTargetDirectoriesExist.PROMPT
+                    && r.whenOnlyTargetExists == WhenOnlyTargetExists.PROMPT && r.whenAdoptingTarget == WhenAdoptingTarget.PROMPT })
             assertEquals(shared(), loaded.sharedList)
             assertEquals("unchanged", Files.readString(root.resolve("manual/data")))
             assertFalse(Files.exists(temporary.resolve("target")))

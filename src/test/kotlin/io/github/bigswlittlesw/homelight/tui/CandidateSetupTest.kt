@@ -40,7 +40,7 @@ class CandidateSetupTest {
         val app = HomeLightApp(HomeLightSession(root.resolve("config.json")))
         key(app, 'i'); locations(app, root, root.resolve("shared.json"))
         key(app, 'a'); type(app, "team-cache"); down(app); down(app)
-        repeat(4) { key(app, ' ') }
+        repeat(3) { key(app, ' ') }
         for (width in listOf(80, 120, 80, 120)) {
             val height = if (width == 80) 24 else 30
             val details = WorkspaceViewTest.render(app.render(), width, height)
@@ -83,7 +83,7 @@ class CandidateSetupTest {
             key(app, 'a')
             assertTrue(render(app).contains("e: Edit draft row"))
             key(app, 'e'); down(app); clear(app); type(app, "custom-target")
-            down(app); key(app, ' '); key(app, ' ') // Adopt target, no inferred source disposition.
+            down(app); key(app, ' ') // Adopt target, no inferred source disposition.
             escape(app); key(app, 'b')
             Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(app, 'r'); await(workers, app)
@@ -236,7 +236,7 @@ class CandidateSetupTest {
             assertTrue(render(app).contains("❯   [x] absent-cache"))
             assertFalse(render(app).contains("Missing") || render(app).contains("Not created yet"))
             key(app, 'e'); down(app); clear(app); type(app, "future-cache")
-            down(app); down(app); key(app, ' '); key(app, ' ')
+            down(app); down(app); key(app, ' ')
             escape(app); key(app, 'b'); key(app, 'r'); await(workers, app)
             assertTrue(render(app).contains("❯   [x] absent-cache"))
             enter(app)
@@ -369,18 +369,16 @@ class CandidateSetupTest {
             "prompt", "adopt", "leave-unchanged", "discard", "adopt-target", "discard-source", "archive-source",
             "PROMPT", "ADOPT", "LEAVE_UNCHANGED", "DISCARD", "ADOPT_TARGET", "DISCARD_SOURCE", "ARCHIVE_SOURCE",
         )
-        // Together these rows hold every value of each policy, and its omission.
+        // Together these rows hold every value of each policy.
         val rows = listOf(
             Triple(WhenSourceAndTargetDirectoriesExist.PROMPT, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
                 "both directories: Prompt; only target: Prompt; adopt target: Prompt",
             Triple(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenAdoptingTarget.DISCARD_SOURCE) to
                 "both directories: Adopt target; only target: Adopt target; adopt target: Discard source",
-            Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, null, WhenAdoptingTarget.ARCHIVE_SOURCE) to
-                "both directories: Leave unchanged; only target: Default (prompt); adopt target: Archive source",
-            Triple(WhenSourceAndTargetDirectoriesExist.DISCARD, null, null) to
-                "both directories: Discard both; only target: Default (prompt); adopt target: Default (prompt)",
-            Triple(null, null, null) to
-                "both directories: Default (prompt); only target: Default (prompt); adopt target: Default (prompt)",
+            Triple(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.ARCHIVE_SOURCE) to
+                "both directories: Leave unchanged; only target: Prompt; adopt target: Archive source",
+            Triple(WhenSourceAndTargetDirectoriesExist.DISCARD, WhenOnlyTargetExists.PROMPT, WhenAdoptingTarget.PROMPT) to
+                "both directories: Discard both; only target: Prompt; adopt target: Prompt",
         )
         for ((policies, expected) in rows) {
             val relocation = Relocation(root.resolve("home/.m2"), root.resolve("local/saved"), policies.first, policies.second, policies.third)
@@ -444,7 +442,7 @@ class CandidateSetupTest {
         SetupDiscoveryFixture().use { workers ->
             val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'a'); type(app, "manual"); down(app); clear(app); type(app, "chosen-target")
-            down(app); key(app, ' '); key(app, ' '); escape(app)
+            down(app); key(app, ' '); escape(app)
             key(app, 'e'); clear(app); type(app, root.resolve("other-home").toString())
             down(app); clear(app); type(app, root.resolve("other-target").toString())
             down(app); clear(app); enter(app); key(app, 's')

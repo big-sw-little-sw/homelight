@@ -85,6 +85,9 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
 takes its source's path under `source-root` and places it under `target-root`; a
 source outside `source-root` needs an explicit `target-path`.
 
+The three `when-…` rules default to `prompt`, which asks each time. A saved file leaves
+out a rule set to `prompt`.
+
 `when-adopting-target` is `prompt`, `discard-source` or `archive-source`. Archiving
 moves the source under `archive-root`, which defaults to `.homelight-archive` beside
 the source. The root must be on the source's filesystem, because archiving is a rename.

@@ -390,7 +390,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
             when {
                 entry.configured != null -> "Inspection only. Saved target and policies remain authoritative."
                 entry.draft != null -> "Target and policies remain editable in Row details."
-                draft.canAdd(entry) -> "Adding uses a matching target path and $DEFAULT_POLICY_LABEL policies."
+                draft.canAdd(entry) -> "Adding uses a matching target path and Prompt policies."
                 else -> "Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."
             },
         ),

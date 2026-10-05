@@ -89,7 +89,7 @@ private fun onlyTargetExists(state: RelocationState): RelocationPlan =
     else unresolved(state, state.relocation.targetPath, "a real target directory requires an adopt-target decision")
 
 private fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
-    when (state.relocation.whenSourceAndTargetDirectoriesExist ?: WhenSourceAndTargetDirectoriesExist.PROMPT) {
+    when (state.relocation.whenSourceAndTargetDirectoriesExist) {
         WhenSourceAndTargetDirectoriesExist.PROMPT -> unresolved(
             state, state.relocation.sourcePath,
             "both source and target directories exist; choose which directory is authoritative",
@@ -100,7 +100,7 @@ private fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
     }
 
 private fun adoptTarget(state: RelocationState): RelocationPlan =
-    when (state.relocation.whenAdoptingTarget ?: WhenAdoptingTarget.PROMPT) {
+    when (state.relocation.whenAdoptingTarget) {
         WhenAdoptingTarget.PROMPT -> unresolved(
             state, state.relocation.sourcePath, "adopting the target requires a source disposition",
         )

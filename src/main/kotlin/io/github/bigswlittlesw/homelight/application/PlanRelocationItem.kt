@@ -71,24 +71,18 @@ data class PlanRelocationItem(
 
     fun isBlocked(): Boolean = badge() == PlanBadge.BLOCKED || badge() == PlanBadge.INACCESSIBLE
 
-    /** The decision the saved policy already makes, or null while it still prompts or has none. */
-    fun selectedResolution(): DecisionChoice? {
-        val whenBoth = relocation.whenSourceAndTargetDirectoriesExist
-        if (whenBoth != null) {
-            return when (whenBoth) {
-                WhenSourceAndTargetDirectoriesExist.ADOPT -> when (relocation.whenAdoptingTarget) {
-                    WhenAdoptingTarget.DISCARD_SOURCE -> DecisionChoice.ADOPT_AND_DISCARD_SOURCE
-                    WhenAdoptingTarget.ARCHIVE_SOURCE -> DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
-                    WhenAdoptingTarget.PROMPT, null -> null
-                }
-                WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> DecisionChoice.LEAVE_UNCHANGED
-                WhenSourceAndTargetDirectoriesExist.DISCARD -> DecisionChoice.DISCARD_BOTH
-                WhenSourceAndTargetDirectoriesExist.PROMPT -> null
-            }
+    /** The decision the saved rules already make, or null while they ask each time. */
+    fun selectedResolution(): DecisionChoice? = when (relocation.whenSourceAndTargetDirectoriesExist) {
+        WhenSourceAndTargetDirectoriesExist.ADOPT -> when (relocation.whenAdoptingTarget) {
+            WhenAdoptingTarget.DISCARD_SOURCE -> DecisionChoice.ADOPT_AND_DISCARD_SOURCE
+            WhenAdoptingTarget.ARCHIVE_SOURCE -> DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
+            WhenAdoptingTarget.PROMPT -> null
         }
-        return when (relocation.whenOnlyTargetExists) {
+        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> DecisionChoice.LEAVE_UNCHANGED
+        WhenSourceAndTargetDirectoriesExist.DISCARD -> DecisionChoice.DISCARD_BOTH
+        WhenSourceAndTargetDirectoriesExist.PROMPT -> when (relocation.whenOnlyTargetExists) {
             WhenOnlyTargetExists.ADOPT_TARGET -> DecisionChoice.ADOPT_TARGET
-            WhenOnlyTargetExists.PROMPT, null -> null
+            WhenOnlyTargetExists.PROMPT -> null
         }
     }
 }

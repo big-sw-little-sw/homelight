@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.application.PlanSummary
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -22,7 +23,6 @@ import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -57,7 +57,7 @@ class HomeLightAppTest {
         val relocation = ConfigurationLoader().load(config).relocations.first()
         assertEquals(root.resolve("home/.cache/tool"), relocation.sourcePath)
         assertEquals(root.resolve("local/.cache/tool"), relocation.targetPath)
-        assertNull(relocation.whenSourceAndTargetDirectoriesExist)
+        assertEquals(WhenSourceAndTargetDirectoriesExist.PROMPT, relocation.whenSourceAndTargetDirectoriesExist)
         assertFalse(Files.exists(root.resolve("home/.cache/tool")), "saving must not relocate")
     }
 

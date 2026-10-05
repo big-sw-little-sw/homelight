@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.application
 
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -9,7 +10,6 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -134,7 +134,7 @@ class ConfigurationEvaluationTest {
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
         val selected = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertEquals(1, selected.draft.size)
-        assertNull(selected.plan.relocations.first().relocation.whenAdoptingTarget)
+        assertEquals(WhenAdoptingTarget.PROMPT, selected.plan.relocations.first().relocation.whenAdoptingTarget)
         assertTrue(session.requestApply())
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
