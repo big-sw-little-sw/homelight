@@ -199,9 +199,10 @@ class ReconciliationExecutor internal constructor(
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = checkNotNull(action.target.parent) { "target has no parent directory: ${action.target}" }
         val stagingRoot = action.stagingRoot ?: targetParent.resolve(DEFAULT_STAGING_NAME)
-        requirePosixPermissions(action.path)
-        requirePosixPermissions(targetParent)
-        if (fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)) {
+        requirePosixPermissions(action.path, fileStoreOfExistingAncestor(action.path))
+        val targetStore = fileStoreOfExistingAncestor(targetParent)
+        requirePosixPermissions(targetParent, targetStore)
+        if (fileStoreOfExistingAncestor(stagingRoot) != targetStore) {
             throw EnvironmentException("staging root is not on the target filesystem: $stagingRoot")
         }
         ensureDirectories(targetParent)
@@ -545,10 +546,11 @@ private val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(OWNER_AC
 /**
  * Refuses publication where directory permission bits cannot be read or set, rather than letting
  * the copy fall back to provider defaults (decision 2026-09-30). A provider that accepts but ignores
- * the bits is caught later by [verifyCopy].
+ * the bits is caught later by [verifyCopy]. [store] is the [fileStoreOfExistingAncestor] of [path], which the
+ * caller passes so the target's store is looked up once.
  */
-private fun requirePosixPermissions(path: Path) {
-    if (!fileStoreOfExistingAncestor(path).supportsFileAttributeView(PosixFileAttributeView::class.java)) {
+private fun requirePosixPermissions(path: Path, store: FileStore) {
+    if (!store.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
         throw EnvironmentException("cannot preserve directory permissions: no POSIX permission support at $path")
     }
 }
