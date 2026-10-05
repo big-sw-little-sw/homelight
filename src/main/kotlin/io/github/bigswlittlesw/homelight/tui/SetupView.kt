@@ -52,7 +52,7 @@ internal class SetupView(
         else {
             val lines = mutableListOf<Line>()
             lines.add(Line("Create configuration", palette.text, true))
-            lines.add(Line("Config: " + literal(session.configPath.toString())))
+            lines.add(Line("Config: " + literal(displayPath(session.configPath))))
             val anchor = when (mode) {
                 Mode.LOCATIONS -> locations(lines)
                 Mode.TABLE -> table(lines)
@@ -69,8 +69,7 @@ internal class SetupView(
 
     /** The discard question, while it is open. */
     fun dialog(): Element? = if (!discard) null else confirmDialog(
-        "Discard setup draft?", listOf("Nothing has been written.", "Discard all locations and relocation choices?"),
-        "y: Discard draft · n/Esc: Keep editing", onYes = ::close, onNo = { discard = false },
+        DISCARD_SETUP_TITLE, DISCARD_SETUP_BODY, DISCARD_SETUP_KEYS, onYes = ::close, onNo = { discard = false },
     )
 
     private fun locations(lines: MutableList<Line>): Int {
@@ -98,7 +97,7 @@ internal class SetupView(
         lines.add(Line("Source root: $sourceRoot"))
         lines.add(Line("Target root: $targetRoot"))
         lines.add(Line("Relocations", palette.text, true))
-        lines.add(Line("  Source (relative)        Target (relative)        Policies", palette.dim, true))
+        lines.add(Line("  Source (relative)        Target (relative)        Rules", palette.dim, true))
         if (draft.rows.isEmpty()) lines.add(Line("No relocations yet. Add a directory manually or browse candidates."))
         draft.rows.forEachIndexed { i, value ->
             choice(lines, cell(value.sourceRelative, 23) + "  " + cell(value.targetRelative, 23) + "  " + policies(value), i == row)
@@ -110,8 +109,8 @@ internal class SetupView(
         val value = draft.rows[row]
         lines.add(Line("Edit relocation " + (row + 1), palette.text, true))
         listOf(
-            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both directories" to bothLabel(value.both),
-            "Only target" to onlyTargetLabel(value.onlyTarget), "Adopt target" to adoptingLabel(value.adopting),
+            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both exist" to bothLabel(value.both),
+            "Only target" to onlyTargetLabel(value.onlyTarget), "Source when keeping target" to adoptingLabel(value.adopting),
             "Archive root" to archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
@@ -134,13 +133,13 @@ internal class SetupView(
             5 -> "Archive root is optional; use an absolute path on the source's filesystem."
             2 -> if (discardPolicyFocused()) "Save writes configuration only; Apply requires review."
             else "Both exist: " + bothConsequence(draft.rows[row].both)
-            3 -> "When only target exists: " +
+            3 -> "Only target: " +
                 if (draft.rows[row].onlyTarget == WhenOnlyTargetExists.PROMPT)
-                    "prompt before acting." else "link the source to that target."
-            else -> "When adopting: " + when (draft.rows[row].adopting) {
-                WhenAdoptingTarget.PROMPT -> "prompt for what to do with source contents."
-                WhenAdoptingTarget.DISCARD_SOURCE -> "delete source contents."
-                WhenAdoptingTarget.ARCHIVE_SOURCE -> "move source contents to the archive root."
+                    "ask each time." else "keep the target and link the source to it."
+            else -> "When keeping the target: " + when (draft.rows[row].adopting) {
+                WhenAdoptingTarget.PROMPT -> "ask what to do with the source."
+                WhenAdoptingTarget.DISCARD_SOURCE -> "delete the source."
+                WhenAdoptingTarget.ARCHIVE_SOURCE -> "move the source to the archive root."
             }
         }
         Mode.CANDIDATES -> ""
@@ -149,7 +148,7 @@ internal class SetupView(
     private fun commands(): String = when (mode) {
         Mode.LOCATIONS -> "Enter: Relocations · Esc: Cancel without writing"
         Mode.TABLE -> "a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard"
-        Mode.ROW -> "↑/↓: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Policy · d: Remove") +
+        Mode.ROW -> "↑/↓: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Change rule · d: Remove") +
             " · Esc: Table"
         Mode.CANDIDATES -> ""
     }
@@ -387,21 +386,20 @@ private fun cell(value: String, width: Int): String {
     return if (text.length > width) text.substring(0, width - 1) + "…" else text.padEnd(width)
 }
 
-/** Lists only the rules that decide something; a row whose rules all ask each time reads Prompt. */
+/** Lists only the rules that decide something; a row whose rules all ask each time reads Ask each time. */
 private fun policies(row: SetupDraft.Row): String {
     val values = listOfNotNull(
-        row.both.takeIf { it != WhenSourceAndTargetDirectoriesExist.PROMPT }?.let(::bothLabel),
+        row.both.takeIf { it != WhenSourceAndTargetDirectoriesExist.PROMPT }?.let { bothExistLabel(it, row.adopting) },
         row.onlyTarget.takeIf { it != WhenOnlyTargetExists.PROMPT }?.let(::onlyTargetLabel),
-        row.adopting.takeIf { it != WhenAdoptingTarget.PROMPT }?.let(::adoptingLabel),
     )
-    return if (values.isEmpty()) "Prompt" else values.joinToString(", ")
+    return if (values.isEmpty()) ASK_EACH_TIME else values.joinToString("; ")
 }
 
 private fun bothConsequence(value: WhenSourceAndTargetDirectoriesExist): String =
     when (value) {
-        WhenSourceAndTargetDirectoriesExist.PROMPT -> "prompt before acting."
-        WhenSourceAndTargetDirectoriesExist.ADOPT -> "use target contents; choose source disposition below."
-        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both paths unchanged."
+        WhenSourceAndTargetDirectoriesExist.PROMPT -> "ask each time."
+        WhenSourceAndTargetDirectoriesExist.ADOPT -> "keep the target; set the source rule below."
+        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "leave both as they are."
         WhenSourceAndTargetDirectoriesExist.DISCARD ->
             "Permanently delete both source and target directory trees. Create an empty target directory and link the source to it."
     }

@@ -19,7 +19,7 @@ internal object ApplyView {
      * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
      * offset. A relocation's first step carries the relocation's own line, so the selection is always an action.
      */
-    fun list(): ListElement<Any> = ListElement<Any>().title("Reviewed actions").id(REVIEW_LIST)
+    fun list(): ListElement<Any> = ListElement<Any>().title(REVIEW_LIST_TITLE).id(REVIEW_LIST)
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
 
@@ -41,7 +41,7 @@ internal object ApplyView {
         )
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
-                header, Toolkit.text("Review a resolved plan before applying.").fg(palette.warn),
+                header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
                 Toolkit.text("1: Workspace  ·  q: Quit").fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
@@ -58,50 +58,46 @@ internal object ApplyView {
             if (i > 0 && steps[i - 1].relocation == step.relocation) row
             // TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the
             // scrollbar can cover a row's last cell: the trailing space is what it covers.
-            else Toolkit.column(Toolkit.text(step.relocation.relocation.sourcePath.toString() + " ").bold().ellipsisMiddle(), row)
+            else Toolkit.column(Toolkit.text(displayPath(step.relocation.relocation.sourcePath) + " ").bold().ellipsisMiddle(), row)
                 .length(2)
         }
         list.elements(*rows.toTypedArray()).borderColor(if (focused == REVIEW_LIST) palette.focus else palette.dim)
             .focusable(interactive)
-        val detailLines = if (steps.isEmpty()) mutableListOf(DetailViewport.Line("No actions required."))
+        val detailLines = if (steps.isEmpty()) mutableListOf(DetailViewport.Line(NO_STEPS))
         else details(steps[selected]).toMutableList()
         if (model is ApplyModel.Result) model.diagnostics.mapTo(detailLines) { DetailViewport.Line(it, palette.error, false) }
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
             is ApplyModel.Confirmation -> when {
-                !plan.hasChanges() -> "No changes to apply."
-                destructive > 0 -> "Confirm reviewed plan: $destructive destructive action(s). Content may be permanently removed."
-                else -> "Confirm reviewed plan. No changes have been made."
+                !plan.hasChanges() -> NO_CHANGES
+                destructive > 0 -> CONFIRM_DESTRUCTIVE
+                else -> CONFIRM
             }
-            is ApplyModel.Running -> "Applying reviewed plan. Wait for execution to finish."
+            is ApplyModel.Running -> APPLYING
             is ApplyModel.Result -> when {
                 reviewed.stale && reviewed.execution == null && reviewed.steps.all { it.status == ApplyModel.StepStatus.PENDING } ->
-                    "Plan stale: preflight rejected before any mutation. Inspect details."
-                reviewed.stale -> "Plan stale during execution. Inspect failed and not-run actions."
-                reviewed.succeeded() -> "Application complete. Observations refreshed. Results retained."
-                reviewed.execution == null -> "Worker stopped unexpectedly. Mutation extent may be uncertain; inspect evidence."
-                else -> "Application stopped. Inspect failed and not-run actions, then re-plan."
+                    REFUSED
+                reviewed.stale -> STALE
+                reviewed.succeeded() -> DONE
+                reviewed.execution == null -> WORKER_STOPPED
+                else -> STOPPED
             }
         }
         val footer = when (reviewed) {
             is ApplyModel.Confirmation -> when {
                 !plan.hasChanges() -> "1/Enter/n/Esc: Workspace · q: Quit"
-                destructive > 0 -> "y: Confirm destructive plan · n/Esc/1: Cancel review · q: Quit"
-                else -> "y: Confirm apply · n/Esc/1: Cancel review · q: Quit"
+                else -> "y: Apply · n/Esc/1: Cancel · q: Quit"
             }
-            is ApplyModel.Running -> "q: Quit options"
-            is ApplyModel.Result -> "1/Enter: Workspace · r: Re-plan · q: Quit"
+            is ApplyModel.Running -> "q: Quit"
+            is ApplyModel.Result -> "1/Enter: Workspace · r: Check again · q: Quit"
         }
         val content = buildList {
             add(header)
-            add(wrappedText("Config: $config", palette.dim))
+            add(wrappedText("Config: " + displayPath(config), palette.dim))
             add(wrappedText(headline, if (model is ApplyModel.Result && model.succeeded()) palette.ok else palette.warn))
             if (model is ApplyModel.Confirmation) {
                 if (plan.hasChanges()) add(
-                    wrappedText(
-                        "${plan.actions().count { it.mutatesFilesystem }} planned changes · $destructive destructive actions",
-                        palette.change,
-                    ),
+                    wrappedText(plannedChanges(plan.actions().count { it.mutatesFilesystem }, destructive), palette.change),
                 )
             } else {
                 val progress = progress(steps)
@@ -132,7 +128,7 @@ internal object ApplyView {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
         if (step.status != ApplyModel.StepStatus.PENDING) add(DetailViewport.Line(step.message, color(step), false))
-        if (action.destructive) add(DetailViewport.Line("⚠ Destructive: existing content or link will be removed.", palette.warn, true))
+        if (action.destructive) add(DetailViewport.Line(DELETES_OR_REPLACES, palette.warn, true))
         add(DetailViewport.Line(affectedPath(action)))
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))
         val relocation = step.relocation.relocation
@@ -143,14 +139,14 @@ internal object ApplyView {
     }
 
     fun affectedPath(action: ReconciliationAction): String = when (action) {
-        is ReconciliationAction.EnsureDirectory -> "Parent directory: "
+        is ReconciliationAction.EnsureDirectory -> "Parent folder: "
         is ReconciliationAction.CreateDirectory -> "Create at: "
         is ReconciliationAction.MigrateDirectoryForPublication -> "Copy from: "
         is ReconciliationAction.ArchiveDirectory -> "Archive from: "
         is ReconciliationAction.DeleteDirectory -> "Delete at: "
         is ReconciliationAction.CreateSymlink, is ReconciliationAction.ReplaceDirectoryWithSymlink,
         is ReconciliationAction.ReplaceSymlink -> "Link at: "
-        is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged -> "Unchanged path: "
+        is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged -> "Path: "
         is ReconciliationAction.Blocked -> "Blocked path: "
     } + action.path
 
@@ -158,7 +154,7 @@ internal object ApplyView {
         val destination = action.destination ?: return ""
         return when (action) {
             is ReconciliationAction.ArchiveDirectory -> "Archive: "
-            is ReconciliationAction.MigrateDirectoryForPublication -> "Publish to: "
+            is ReconciliationAction.MigrateDirectoryForPublication -> "Copy to: "
             is ReconciliationAction.CreateSymlink, is ReconciliationAction.ReplaceDirectoryWithSymlink,
             is ReconciliationAction.ReplaceSymlink -> "Link to: "
             // Unreachable: these actions have no destination.
@@ -166,20 +162,6 @@ internal object ApplyView {
             is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
             is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> ""
         } + destination
-    }
-
-    private fun actionLabel(action: ReconciliationAction): String = when (action) {
-        is ReconciliationAction.EnsureDirectory -> "Ensure parent directory"
-        is ReconciliationAction.CreateDirectory -> "Create directory"
-        is ReconciliationAction.MigrateDirectoryForPublication -> "Copy, verify and publish"
-        is ReconciliationAction.ArchiveDirectory -> "Archive source"
-        is ReconciliationAction.DeleteDirectory -> "Delete directory"
-        is ReconciliationAction.CreateSymlink -> "Create source link"
-        is ReconciliationAction.ReplaceDirectoryWithSymlink -> "Replace directory with link"
-        is ReconciliationAction.ReplaceSymlink -> "Replace source link"
-        is ReconciliationAction.NoOp -> "Already in sync"
-        is ReconciliationAction.LeaveUnchanged -> "Leave unchanged"
-        is ReconciliationAction.Blocked -> "Blocked"
     }
 
     private fun glyph(step: ApplyModel.Step, spinnerFrame: Int): String {
@@ -204,7 +186,7 @@ internal object ApplyView {
         if (changes.isEmpty()) return ""
         val completed = changes.count { it.status == ApplyModel.StepStatus.COMPLETED }
         val filled = 20 * completed / changes.size
-        return "[" + "█".repeat(filled) + "░".repeat(20 - filled) + "] " + completed + "/" + changes.size + " actions completed"
+        return "[" + "█".repeat(filled) + "░".repeat(20 - filled) + "] " + completed + " of " + changes.size + " changes done"
     }
 
     private fun counts(steps: List<ApplyModel.Step>, result: Boolean): String {
@@ -212,9 +194,9 @@ internal object ApplyView {
         fun changes(status: ApplyModel.StepStatus) = changes.count { it.status == status }
         val inSync = steps.count { it.action is ReconciliationAction.NoOp }
         val unchanged = steps.count { it.action is ReconciliationAction.LeaveUnchanged }
-        return "Mutations: " + changes(ApplyModel.StepStatus.COMPLETED) + " completed · " +
+        return "Changes: " + changes(ApplyModel.StepStatus.COMPLETED) + " done · " +
             changes(ApplyModel.StepStatus.FAILED) + " failed · " + changes(ApplyModel.StepStatus.PENDING) +
-            (if (result) " not run" else " pending") + " · " + changes(ApplyModel.StepStatus.RUNNING) + " running\n" +
-            "No change: " + inSync + " in sync · " + unchanged + " intentionally unchanged"
+            (if (result) " not run" else " not started") + " · " + changes(ApplyModel.StepStatus.RUNNING) + " running\n" +
+            "No change needed: " + inSync + " in sync · " + unchanged + " left as is"
     }
 }

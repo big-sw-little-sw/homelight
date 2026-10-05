@@ -9,14 +9,10 @@ import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.widgets.common.ScrollBarPolicy
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
@@ -31,6 +27,12 @@ internal object WorkspaceView {
         if (showInSync) return model.items
         val active = model.items.filter { item -> item.badge() != PlanBadge.IN_SYNC }
         return if (active.isEmpty()) model.items else active
+    }
+
+    /** The in-sync rows `c` hides or shows: none when every row is in sync, because then they always show. */
+    private fun toggledInSync(model: ConfigurationEvaluation.Loaded): Int {
+        val inSync = model.items.count { item -> item.badge() == PlanBadge.IN_SYNC }
+        return if (inSync == model.items.size) 0 else inSync
     }
 
     /** The relocation list. One instance lives across frames: TamboUI keeps its selection and scroll offset. */
@@ -57,17 +59,17 @@ internal object WorkspaceView {
             val message = when (model) {
                 is ConfigurationEvaluation.Missing -> model.message
                 is ConfigurationEvaluation.Invalid -> model.message
-                else -> "No configuration file found. Press i to create one manually; nothing is saved until you choose Save."
+                else -> NO_CONFIGURATION
             }
             return Toolkit.column(
                 header,
                 // The only pane, so it has focus unless a dialog is open.
                 viewport.render(
                     "Configuration",
-                    listOf(Line("Config: " + session.configPath), Line(message, palette.warn, false)),
+                    listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)),
                     interactive, 0, WORKSPACE_DETAILS, interactive,
                 ),
-                viewport.help("↑/↓: Scroll", (if (missing) "i: Manual setup · " else "") + "r: Reload · q: Quit", interactive),
+                viewport.help("↑/↓: Scroll", (if (missing) "i: Create configuration · " else "") + "r: Check again · q: Quit", interactive),
             )
         }
         val configured = model
@@ -75,28 +77,28 @@ internal object WorkspaceView {
         val selected = list.selected().coerceIn(0, maxOf(0, items.size - 1))
         val item = items.getOrNull(selected)
         val rows = items.mapIndexed { i, listed ->
-            val label = listed.badge().label
+            val label = badgeLabel(listed.badge())
             Toolkit.row(
                 Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2),
                 Toolkit.text("[$label] ").fg(color(listed.badge())).length(label.length + 3),
-                Toolkit.text(listed.relocation.sourcePath).ellipsisMiddle().fill(),
+                Toolkit.text(displayPath(listed.relocation.sourcePath)).ellipsisMiddle().fill(),
             )
         }
-        val hidden = configured.items.size - items.size
+        val inSync = toggledInSync(configured)
         // In the title, not a row, so the list's own selection never lands on it.
-        list.elements(*rows.toTypedArray()).title(if (hidden > 0) "Relocations · $hidden in sync hidden" else "Relocations")
+        list.elements(*rows.toTypedArray()).title(relocationsTitle(inSync, showInSync))
             .borderColor(if (focused == WORKSPACE_LIST) palette.focus else palette.dim).focusable(interactive)
         val detailsFocused = focused == WORKSPACE_DETAILS
         val lines = mutableListOf<Line>()
         var anchor = 0
-        if (item == null) lines.add(Line("No configured relocations."))
+        if (item == null) lines.add(Line(NO_RELOCATIONS))
         else anchor = details(session, item, choice, detailsFocused, lines, retained)
         configured.plan.diagnostics.mapTo(lines) { Line(it.message, palette.warn, false) }
         val summary = summary(configured.items)
         val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
         val content = buildList {
             add(header)
-            add(wrappedText("Config: " + session.configPath, palette.dim))
+            add(wrappedText("Config: " + displayPath(session.configPath), palette.dim))
             add(summaryElement(summary.counts))
             if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, palette.warn))
             add(
@@ -106,21 +108,20 @@ internal object WorkspaceView {
             )
             if (!session.isPlanReady() && !retained) add(
                 wrappedText(
-                    if (configured.items.any { it.isBlocked() }) "Review unavailable: repair blocked paths/configuration; inspect Details."
-                    else "Review unavailable: choose a decision for each conflict.",
+                    if (configured.items.any { it.isBlocked() }) FIX_TO_REVIEW else CHOOSE_TO_REVIEW,
                     palette.warn,
                 ),
             )
             val navigation = if (detailsFocused)
                 (if (choices) "↑/↓: Choose · Space/Enter: Select" else "↑/↓: Scroll") + " · Tab/Esc: Back"
-            else "↑/↓: Select · Tab/→: Details · c: In sync"
+            else "↑/↓: Select · Tab/→: Details"
             val review = when {
                 retained -> "2: Results"
                 !session.isPlanReady() -> ""
                 configured.plan.hasChanges() -> "a: Review & apply · 2: Review"
                 else -> "2: Review"
             }
-            add(viewport.help(navigation, (if (review.isEmpty()) "" else "$review · ") + "r: Re-plan · q: Quit", interactive))
+            add(viewport.help(navigation, (if (review.isEmpty()) "" else "$review · ") + "r: Check again · q: Quit", interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
@@ -145,15 +146,14 @@ internal object WorkspaceView {
         return Summary(
             listOf(
                 listOf(
-                    SummaryCell("${items.size} relocations", palette.text),
-                    SummaryCell("⚡ $actionable actionable", palette.change),
-                    SummaryCell("⚠ $conflict conflict", palette.warn),
-                    SummaryCell("✖ $blocked blocked", palette.error),
+                    SummaryCell(relocationCount(items.size), palette.text),
+                    SummaryCell(toChange(actionable), palette.change),
+                    SummaryCell(needChoice(conflict), palette.warn),
+                    SummaryCell(blockedCount(blocked), palette.error),
                 ),
-                listOf(SummaryCell("✔ $synced in sync", palette.ok), SummaryCell("─ $unchanged unchanged", palette.dim)),
+                listOf(SummaryCell(inSyncCount(synced), palette.ok), SummaryCell(leftAsIsCount(unchanged), palette.dim)),
             ),
-            if (warnings == 0 && destructive == 0) ""
-            else "Of these: $warnings with warnings · $destructive with destructive changes",
+            if (warnings == 0 && destructive == 0) "" else risks(warnings, destructive),
         )
     }
 
@@ -177,19 +177,21 @@ internal object WorkspaceView {
         session: HomeLightSession, item: PlanRelocationItem, choice: Int, focused: Boolean,
         lines: MutableList<Line>, retained: Boolean,
     ): Int {
+        val shown = displayPath(item.relocation.sourcePath)
         lines.add(
             Line(
                 if (item.sourceObservation.state == PathState.DIRECTORY && item.targetObservation.state == PathState.DIRECTORY)
-                    "Current: Source and target are directories."
-                else "Current: Source " + observation(item.sourceObservation) + "; target " +
+                    "Now: both $shown and its target are directories."
+                else "Now: $shown is " + observation(item.sourceObservation) + "; its target is " +
                     observation(item.targetObservation) + ".",
                 palette.text, true,
             ),
         )
         when (item.sourceState) {
-            RelocationSourceState.WRONG_SYMLINK -> lines.add(Line("Source link points to a different target.", palette.warn, false))
-            RelocationSourceState.BROKEN_SYMLINK -> lines.add(Line("Source link is broken: its destination is absent.", palette.warn, false))
-            RelocationSourceState.CORRECT_SYMLINK -> lines.add(Line("Source link points to the configured target.", palette.ok, false))
+            RelocationSourceState.WRONG_SYMLINK -> lines.add(Line("The source link points somewhere else.", palette.warn, false))
+            RelocationSourceState.BROKEN_SYMLINK ->
+                lines.add(Line("The source link is broken: what it points to is missing.", palette.warn, false))
+            RelocationSourceState.CORRECT_SYMLINK -> lines.add(Line("The source link already points to the target.", palette.ok, false))
             RelocationSourceState.ABSENT, RelocationSourceState.FILE, RelocationSourceState.DIRECTORY,
             RelocationSourceState.INACCESSIBLE, RelocationSourceState.OTHER -> {}
         }
@@ -197,18 +199,18 @@ internal object WorkspaceView {
         if (evaluation is ConfigurationEvaluation.Loaded) {
             val source = item.relocation.sourcePath
             evaluation.savedConfiguration.relocations.firstOrNull { it.sourcePath == source }
-                ?.let { saved -> lines.add(Line("Saved policy: " + policy(saved, item))) }
+                ?.let { saved -> lines.add(Line("Your rule: " + policy(saved, item))) }
             lines.add(
                 Line(
-                    (if (retained) "Reviewed draft: " else "Draft (not saved): ") +
-                        (evaluation.draft[source]?.label ?: "None; using saved policy"),
+                    (if (retained) "Your choice (reviewed): " else "Your choice (not saved): ") +
+                        (evaluation.draft[source]?.let(::choiceLabel) ?: "none; your rule applies"),
                 ),
             )
         }
-        lines.add(Line("Expected outcome: " + consequence(item), palette.text, true))
-        if (retained) lines.add(Line("Execution history: Results retained in 2: Results. Re-plan before editing.", palette.warn, false))
+        lines.add(Line("Will do: " + consequence(item), palette.text, true))
+        if (retained) lines.add(Line(RESULTS_KEPT, palette.warn, false))
         item.plan.diagnostics.mapTo(lines) { Line(it.message, palette.warn, false) }
-        if (item.hasDestructiveActions()) lines.add(Line("⚠ Destructive: existing content or links will be removed.", palette.warn, true))
+        if (item.hasDestructiveActions()) lines.add(Line(DELETES_OR_REPLACES, palette.warn, true))
         var anchor = 0
         if (!retained) item.availableResolutions.forEachIndexed { i, option ->
             lines.add(Line(""))
@@ -216,18 +218,11 @@ internal object WorkspaceView {
             val chosen = item.selectedResolution() == option
             lines.add(
                 Line(
-                    (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") +
-                        option.label,
+                    (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") + choiceLabel(option),
                     if (chosen) palette.ok else palette.text, i == choice,
                 ),
             )
-            lines.add(
-                Line(
-                    option.description +
-                        if (option == DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE || option == DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
-                            " Replace source with a link to target." else "",
-                ),
-            )
+            lines.add(Line(choiceDescription(option)))
         }
         lines.add(Line(""))
         lines.add(Line("Paths", palette.text, true))
@@ -241,59 +236,47 @@ internal object WorkspaceView {
     }
 
     private fun consequence(item: PlanRelocationItem): String {
-        if (item.isBlocked()) return "Blocked; repair the problem described below, then re-plan."
-        if (item.hasConflict()) return "Choose a decision to see planned changes."
-        if (item.plan.outcome == RelocationOutcome.UNCHANGED)
-            return "No changes; source and target left unchanged by choice."
-        if (item.plan.actions.none { it.mutatesFilesystem }) return "No changes needed; already in sync."
+        if (item.isBlocked()) return "nothing until you fix the problem below, then check again."
+        if (item.hasConflict()) return "nothing until you choose."
+        if (item.plan.outcome == RelocationOutcome.UNCHANGED) return "nothing; source and target are left as they are."
+        if (item.plan.actions.none { it.mutatesFilesystem }) return "nothing; already in sync."
         return when (item.badge()) {
-            PlanBadge.DISCARD -> "Delete source and target contents; recreate an empty target and source link."
-            PlanBadge.BACKUP -> "Archive the source directory; keep target contents and create a source link."
-            PlanBadge.ADOPT -> "Keep target contents; delete the source directory and replace it with a link."
-            PlanBadge.MIGRATE -> "Copy, verify and publish source contents to target; replace source with a link."
+            PlanBadge.DISCARD -> "delete the contents of source and target, then create an empty target and link the source to it."
+            PlanBadge.BACKUP -> "move the source to the archive, keep the target's contents and link the source to it."
+            PlanBadge.ADOPT -> "keep the target's contents, delete the source and replace it with a link."
+            PlanBadge.MIGRATE -> "copy the source to the target, check the copy, then replace the source with a link."
             PlanBadge.LINK -> when {
                 item.plan.actions.any { it is ReconciliationAction.CreateDirectory } ->
-                    "Create an empty target directory and link source to it."
+                    "create an empty target directory and link the source to it."
                 item.plan.actions.any { it is ReconciliationAction.ReplaceSymlink } ->
-                    "Remove the existing source link and replace it with a link to the configured target."
-                else -> "Keep target contents and create a source link to it."
+                    "fix the source link so it points to the target."
+                else -> "keep the target's contents and link the source to it."
             }
             PlanBadge.CONFLICT, PlanBadge.BLOCKED, PlanBadge.INACCESSIBLE, PlanBadge.WARNING, PlanBadge.SKIPPED,
-            PlanBadge.IN_SYNC -> "Reconcile source and target; inspect exact changes in Review."
+            PlanBadge.IN_SYNC -> "change source and target; see the exact steps in Review."
         }
     }
 
     private fun observation(observation: PathObservation): String = when (observation.state) {
-        PathState.ABSENT -> "Absent"
-        PathState.DIRECTORY -> if (observation.emptyDirectory) "Empty directory" else "Directory"
-        PathState.FILE -> "File"
-        PathState.OTHER -> "Other filesystem entry"
-        PathState.INACCESSIBLE -> "Inaccessible"
+        PathState.ABSENT -> "missing"
+        PathState.DIRECTORY -> if (observation.emptyDirectory) "an empty directory" else "a directory"
+        PathState.FILE -> "a file"
+        PathState.OTHER -> "a special file"
+        PathState.INACCESSIBLE -> "unreadable"
         PathState.SYMLINK -> when (observation.symlinkTargetAvailability) {
-            SymlinkTargetAvailability.EXISTS -> "link destination exists"
-            SymlinkTargetAvailability.ABSENT -> "link destination is missing"
-            SymlinkTargetAvailability.INACCESSIBLE -> "link destination is inaccessible"
-            SymlinkTargetAvailability.NOT_A_SYMLINK -> "symlink"
+            SymlinkTargetAvailability.EXISTS, SymlinkTargetAvailability.NOT_A_SYMLINK -> "a link"
+            SymlinkTargetAvailability.ABSENT -> "a broken link"
+            SymlinkTargetAvailability.INACCESSIBLE -> "a link to something unreadable"
         }
     }
 
+    /** The saved rule for the case observed now, as the clause after "Your rule: ". */
     fun policy(relocation: Relocation, item: PlanRelocationItem): String {
         if (item.sourceObservation.state == PathState.ABSENT && item.targetObservation.state == PathState.DIRECTORY)
-            return when (val only = relocation.whenOnlyTargetExists) {
-                WhenOnlyTargetExists.PROMPT -> onlyTargetLabel(only) + " before adopting the existing target."
-                WhenOnlyTargetExists.ADOPT_TARGET -> onlyTargetLabel(only) + " and create a source link."
-            }
+            return onlyTargetLabel(relocation.whenOnlyTargetExists).lowercase() + "."
         if (item.sourceObservation.state != PathState.DIRECTORY || item.targetObservation.state != PathState.DIRECTORY)
-            return "No conflict policy needed for this observed case."
-        val both = relocation.whenSourceAndTargetDirectoriesExist
-        if (both != WhenSourceAndTargetDirectoriesExist.ADOPT) return bothLabel(both) + "."
-        // A clause after the label, so lowercase, but in the adopting labels' words.
-        val adopting = when (relocation.whenAdoptingTarget) {
-            WhenAdoptingTarget.PROMPT -> "prompt for source"
-            WhenAdoptingTarget.DISCARD_SOURCE -> "discard source"
-            WhenAdoptingTarget.ARCHIVE_SOURCE -> "archive source"
-        }
-        return bothLabel(both) + "; " + adopting + "."
+            return "none needed here."
+        return bothExistLabel(relocation.whenSourceAndTargetDirectoriesExist, relocation.whenAdoptingTarget).lowercase() + "."
     }
 
     private fun color(badge: PlanBadge): Color = when (badge) {

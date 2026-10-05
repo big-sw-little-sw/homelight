@@ -73,8 +73,7 @@ internal class CandidateBrowser {
             val hidden = hiddenCount(draft)
             if (hidden > 0) lines.add(
                 Line(
-                    "$hidden usually-unnecessary " + (if (hidden == 1) "directory " else "directories ") +
-                        (if (reveal) "revealed" else "hidden"),
+                    "$hidden usually not needed, " + (if (reveal) "shown" else "hidden"),
                     palette.warn, true,
                 ),
             )
@@ -292,13 +291,10 @@ private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String = whe
 
 private fun listNotes(entry: SetupDraft.Entry): String {
     val notes = mutableListOf<String>()
-    if (entry.configured != null) notes.add("Configured")
-    val ordinary = entry.discovery?.takeIf { c ->
-        c.observation.kind == CandidateObservation.Kind.DIRECTORY || c.observation.kind == CandidateObservation.Kind.MISSING
-    }
-    if (ordinary == null) notes.add(state(entry))
+    if (entry.configured != null) notes.add("configured")
+    if (entry.discovery?.observation?.kind != CandidateObservation.Kind.DIRECTORY) notes.add(state(entry))
     val advice = adviceSummary(entry)
-    if (advice == " · Mixed advice" || advice == " · Usually unnecessary") notes.add(advice.substring(3))
+    if (advice == " · Mixed advice" || advice == " · Usually not needed") notes.add(advice.substring(3).lowercase())
     return notes.joinToString(" · ")
 }
 
@@ -313,24 +309,11 @@ private fun adviceSummary(entry: SetupDraft.Entry): String {
 
 private fun advice(advice: CandidateDefinition.Advice?): String = when (advice) {
     CandidateDefinition.Advice.CONSIDER -> "Consider"
-    CandidateDefinition.Advice.USUALLY_UNNECESSARY -> "Usually unnecessary"
+    CandidateDefinition.Advice.USUALLY_UNNECESSARY -> "Usually not needed"
     null -> "Not supplied"
 }
 
-private fun state(entry: SetupDraft.Entry): String = entry.discovery?.let { kind(it.observation.kind) } ?: "Not observed"
-
-private fun kind(kind: CandidateObservation.Kind): String = when (kind) {
-    CandidateObservation.Kind.PENDING -> "Pending"
-    CandidateObservation.Kind.DIRECTORY -> "Directory"
-    CandidateObservation.Kind.LINK -> "Symbolic link"
-    CandidateObservation.Kind.MISSING -> "Not created yet"
-    CandidateObservation.Kind.REGULAR_FILE -> "Regular file"
-    CandidateObservation.Kind.OTHER -> "Other file type"
-    CandidateObservation.Kind.INACCESSIBLE -> "Inaccessible"
-    CandidateObservation.Kind.BLOCKED_BY_LINK -> "Blocked by parent link"
-    CandidateObservation.Kind.BLOCKED_BY_NON_DIRECTORY -> "Parent is not a directory"
-    CandidateObservation.Kind.UNKNOWN -> "Unknown"
-}
+private fun state(entry: SetupDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: "not checked"
 
 private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
     lines.add(Line(membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), palette.text, true))
@@ -340,9 +323,8 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
         lines.add(Line("Saved target: " + literal(r.targetPath.toString())))
         lines.add(
             Line(
-                "Saved policies: both directories: " + bothLabel(r.whenSourceAndTargetDirectoriesExist) +
-                    "; only target: " + onlyTargetLabel(r.whenOnlyTargetExists) +
-                    "; adopt target: " + adoptingLabel(r.whenAdoptingTarget),
+                "Saved rules: Both exist: " + bothExistLabel(r.whenSourceAndTargetDirectoriesExist, r.whenAdoptingTarget) +
+                    " · Only target: " + onlyTargetLabel(r.whenOnlyTargetExists),
             ),
         )
         lines.add(Line("Saved archive root: " + literal(r.archiveRoot.toString())))
@@ -350,11 +332,11 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     entry.draft?.let { r ->
         lines.add(Line("Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString())))
     }
-    lines.add(Line("Metadata: " + state(entry)))
+    lines.add(Line("State: " + state(entry)))
     if (entry.discovery?.observation?.kind == CandidateObservation.Kind.MISSING) {
         lines.add(Line("Not found under the source root. You can configure it before the app creates it."))
         lines.add(Line("On Apply, if source and target are both missing: create the target directory and source link."))
-        lines.add(Line("If only the target exists: follow the row's policy (Prompt by default, or Adopt target)."))
+        lines.add(Line("If only the target exists: follow the row's Only target rule (Ask each time unless you change it)."))
         lines.add(Line("Save writes configuration only. Apply checks the paths again."))
     }
     lines.add(Line("Size: not estimated · Ownership: not evaluated"))
@@ -363,7 +345,7 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
         if (observation.kind != CandidateObservation.Kind.PENDING) lines.add(Line("Observed: " + observation.observedAt))
         observation.rawLinkTarget?.let { path -> lines.add(Line("Link text: " + literal(path.toString()) + " · Target not checked")) }
         observation.diagnostics.forEach { d ->
-            lines.add(Line("Metadata note: " + literal(d.detail) + " · " + literal(d.path.toString())))
+            lines.add(Line("Note: " + literal(d.detail) + " · " + literal(d.path.toString())))
         }
         candidate.ancestors.forEach { path -> lines.add(Line("Overlaps catalog parent: " + literal(path.toString()))) }
         draft.discovery?.candidates.orEmpty().filter { c -> candidate.catalog.sourcePath in c.ancestors }.forEach { c ->
@@ -373,9 +355,9 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     lines.add(
         Line(
             when {
-                entry.configured != null -> "Inspection only. Saved target and policies remain authoritative."
-                entry.draft != null -> "Target and policies remain editable in Row details."
-                draft.canAdd(entry) -> "Adding uses a matching target path and Prompt policies."
+                entry.configured != null -> "Saved target and rules stay as they are."
+                entry.draft != null -> "Target and rules can be changed in the row's details."
+                draft.canAdd(entry) -> "Adding uses a matching target path; its rules ask each time."
                 else -> "Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."
             },
         ),
@@ -400,7 +382,7 @@ private fun sourceName(source: CandidateSource): String =
 
 private fun sourceState(status: CandidateDiscovery.SourceStatus): String = when (status) {
     CandidateDiscovery.SourceStatus.CURRENT -> "current"
-    CandidateDiscovery.SourceStatus.PENDING -> "pending"
+    CandidateDiscovery.SourceStatus.PENDING -> "checking…"
     CandidateDiscovery.SourceStatus.FAILED -> "unavailable"
 }
 

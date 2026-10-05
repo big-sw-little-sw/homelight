@@ -28,8 +28,8 @@ class ApplyViewTest {
             val text = render(ApplyModel.Confirmation(plan), 0, 80, 24)
             assertTrue(text.contains("No changes to apply"), text)
             assertTrue(text.contains("1/Enter/n/Esc: Workspace"), text)
-            assertFalse(text.contains("actions completed"), text)
-            assertFalse(text.contains("Confirm apply"), text)
+            assertFalse(text.contains("changes done"), text)
+            assertFalse(text.contains("y: Apply"), text)
             assertFalse(text.contains("Not started"), text)
             assertFalse(text.contains("○"), text)
         }
@@ -52,9 +52,9 @@ class ApplyViewTest {
         for (width in intArrayOf(80, 120)) {
             val text = render(ApplyModel.Confirmation(plan), 1, width, 24)
             assertTrue(text.contains("[2: Review]"), text)
-            assertTrue(text.contains("destructive"), text)
-            assertTrue(text.contains("y: Confirm destructive plan"), text)
-            assertTrue(text.contains("n/Esc/1: Cancel review"), text)
+            assertTrue(text.contains("delete or replace data"), text)
+            assertTrue(text.contains("y: Apply"), text)
+            assertTrue(text.contains("n/Esc/1: Cancel"), text)
             assertTrue(text.contains("/home/cache"), text)
             assertTrue(text.contains("/local/cache"), text)
             assertTrue(text.contains("2 planned changes"), text)
@@ -69,11 +69,11 @@ class ApplyViewTest {
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"))
         val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 1, 80, 24)
-        assertTrue(text.contains("Plan stale"), text)
+        assertTrue(text.contains("the disk changed while applying"), text)
         assertTrue(text.contains("✔"), text)
         assertTrue(text.contains("✖"), text)
         assertTrue(text.contains("Source changed"), text)
-        assertTrue(text.contains("r: Re-plan"), text)
+        assertTrue(text.contains("r: Check again"), text)
         assertTrue(text.contains("Enter: Workspace"), text)
     }
 
@@ -87,7 +87,7 @@ class ApplyViewTest {
         val text = render(ApplyModel.Running.of(plan, steps), 0, 80, 24)
         assertTrue(text.contains("⠋"), text)
         assertTrue(text.contains("○"), text)
-        assertTrue(text.contains("q: Quit options"), text)
+        assertTrue(text.contains("q: Quit"), text)
         val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
         assertTrue(nextFrame.contains("⠙"), nextFrame)
         assertTrue(nextFrame.contains("○"), nextFrame)
@@ -116,8 +116,8 @@ class ApplyViewTest {
                     val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, list(selected),
                         0, REVIEW_DETAILS, viewport = viewport), size[0], size[1])
                     assertTrue(screen.contains("Action details"), screen)
-                    assertTrue(screen.contains("r: Re-plan"), screen)
-                    assertFalse(screen.contains("before any mutation"), screen)
+                    assertTrue(screen.contains("r: Check again"), screen)
+                    assertFalse(screen.contains("no longer matches the reviewed plan"), screen)
                     evidence.append(WorkspaceViewTest.rightPane(screen, size[0]))
                     viewport.scroll(1)
                 }
