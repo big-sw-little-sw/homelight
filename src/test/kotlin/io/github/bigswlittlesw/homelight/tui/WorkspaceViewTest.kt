@@ -39,7 +39,7 @@ class WorkspaceViewTest {
         assertEquals(5, WorkspaceView.visibleItems(model, false).size)
         assertEquals(6, WorkspaceView.visibleItems(model, true).size)
         val app = HomeLightApp(session)
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         app.handleKeyEvent(KeyEvent.ofChar('2', KEY_BINDINGS))
         session.confirmApply(Executor(Runnable::run)).join()
@@ -63,7 +63,7 @@ class WorkspaceViewTest {
         val source = model.items.first().relocation.sourcePath
         val choices = model.items.first().availableResolutions
         assertEquals(4, choices.size)
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         for (choice in 0 until choices.size) {
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
                 val screen = render(app.render(), size[0], size[1])
@@ -76,7 +76,7 @@ class WorkspaceViewTest {
                 assertTrue(details.contains(choices[choice].label), details)
                 assertTrue(details.replace(" ", "").contains(choices[choice].description.replace(" ", "")), screen)
             }
-            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+            if (choice < choices.size - 1) app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         }
         app.handleKeyEvent(KeyEvent.ofChar(' ', KEY_BINDINGS))
         val loaded = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())

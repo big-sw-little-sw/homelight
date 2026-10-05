@@ -198,7 +198,7 @@ class HomeLightAppTest {
             progress.set(ApplyModel.Running.of(plan, steps))
             app.render()
             assertEquals(active, app.selectedIndex())
-            app.handleKeyEvent(KeyEvent.ofChar(if (active == 0) 'j' else 'k', KEY_BINDINGS))
+            app.handleKeyEvent(KeyEvent.ofKey(if (active == 0) KeyCode.DOWN else KeyCode.UP, KEY_BINDINGS))
             val inspected: Int = app.selectedIndex()
             app.render()
             assertEquals(inspected, app.selectedIndex())
@@ -212,7 +212,7 @@ class HomeLightAppTest {
         progress.set(result)
         app.render()
         assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         app.render()
         assertEquals(0, app.selectedIndex())
 
@@ -254,8 +254,8 @@ class HomeLightAppTest {
         // Repeated frames with two running steps keep following the first, rather than alternating.
         app.render()
         assertEquals(0, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         app.render()
         assertEquals(2, app.selectedIndex())
 
@@ -341,8 +341,8 @@ class HomeLightAppTest {
 
         assertEquals(0, app.selectedIndex())
 
-        // Move down with 'j'
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        // Move down
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
         // Move down with DOWN key
@@ -353,21 +353,26 @@ class HomeLightAppTest {
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
-        // Move up with 'k'
-        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
+        // Move up
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
-        // Jump to end with 'G'
-        app.handleKeyEvent(KeyEvent.ofChar('G', KEY_BINDINGS))
+        // Jump to end
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.END, KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
-        // Jump to start with 'g'
-        app.handleKeyEvent(KeyEvent.ofChar('g', KEY_BINDINGS))
+        // Jump to start
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.HOME, KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
         // Cannot move before 0
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
+
+        // The former vim keys are not navigation
+        for (letter in "jJGlL") app.handleKeyEvent(KeyEvent.ofChar(letter, KEY_BINDINGS))
+        assertEquals(0, app.selectedIndex())
+        assertEquals(PaneFocus.MASTER, app.paneFocus())
     }
 
     @Test
@@ -380,7 +385,7 @@ class HomeLightAppTest {
         assertEquals(0, app.selectedIndex())
 
         // Moving down stays at 0 because only 1 active item is visible
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
         // Press 'c' to toggle showInSync to true
@@ -388,9 +393,9 @@ class HomeLightAppTest {
         assertTrue(app.showInSync)
 
         // Now all 3 items are navigable
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.selectedIndex())
 
         // Press SPACE to toggle showInSync back to false
@@ -499,29 +504,29 @@ class HomeLightAppTest {
         assertEquals(PaneFocus.MASTER, app.paneFocus())
         assertEquals(0, app.selectedIndex())
 
-        // Press 'l' (vim right) to move focus to DETAIL pane
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        // Right moves focus to the DETAIL pane
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex)
 
-        // Press 'j' to move down resolution options
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        // Down moves through the resolution options
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(1, app.detailSelectedIndex)
 
-        // Press 'j' again
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        // Down again
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.detailSelectedIndex)
 
-        // Press 'k' to move back up
-        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
+        // Up moves back
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         assertEquals(1, app.detailSelectedIndex)
 
-        // Press 'h' (vim left) to return to MASTER pane
-        app.handleKeyEvent(KeyEvent.ofChar('h', KEY_BINDINGS))
+        // Left returns to the MASTER pane
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
         // In MASTER pane, move down to second relocation
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(1, app.selectedIndex())
 
         // Focus DETAIL pane with RIGHT arrow
@@ -587,14 +592,14 @@ class HomeLightAppTest {
         assertEquals(0, app.selectedIndex())
         assertEquals(PaneFocus.MASTER, app.paneFocus())
 
-        // Focus detail pane with 'l'
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        // Focus the detail pane with Right
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
         assertEquals(0, app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
         // Move past ADOPT_AND_ARCHIVE_SOURCE to choice 2: LEAVE_UNCHANGED (Unchanged)
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(2, app.detailSelectedIndex)
 
         // Select it (Space)
@@ -611,23 +616,23 @@ class HomeLightAppTest {
             assertEquals(2, app.detailSelectedIndex)
         }
 
-        // Return to master list with 'h'
-        app.handleKeyEvent(KeyEvent.ofChar('h', KEY_BINDINGS))
+        // Return to the master list with Left
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.LEFT, KEY_BINDINGS))
         assertEquals(PaneFocus.MASTER, app.paneFocus())
         assertEquals(1, app.selectedIndex())
 
         // Move up to unresolved conflict item (source2 is at index 0)
-        app.handleKeyEvent(KeyEvent.ofChar('k', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.UP, KEY_BINDINGS))
         assertEquals(0, app.selectedIndex())
 
-        // Move into detail pane with 'l'
-        app.handleKeyEvent(KeyEvent.ofChar('l', KEY_BINDINGS))
+        // Move into the detail pane with Right
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.RIGHT, KEY_BINDINGS))
         assertEquals(PaneFocus.DETAIL, app.paneFocus())
 
         // Select choice 3: DISCARD_BOTH (index 3)
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
-        app.handleKeyEvent(KeyEvent.ofChar('j', KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
+        app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS))
         assertEquals(3, app.detailSelectedIndex)
         app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS))
 

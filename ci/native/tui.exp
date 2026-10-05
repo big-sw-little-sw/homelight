@@ -87,8 +87,8 @@ expect {
 }
 pump 1
 
-send "j"; set k1 [pump 0.5]
-send "k"; set k2 [pump 0.5]
+send "\033\[B"; set k1 [pump 0.5]
+send "\033\[A"; set k2 [pump 0.5]
 check keys [expr {$k1 > 0 && $k2 > 0}] "$k1+$k2"
 
 foreach size {{24 80} {30 120} {50 140}} {

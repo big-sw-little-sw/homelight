@@ -60,7 +60,7 @@ internal object WorkspaceView {
                     focus == PaneFocus.DETAIL, 0,
                 ),
                 viewport.help(
-                    if (focus == PaneFocus.DETAIL) "↑/↓: Scroll · Tab/Esc: Back" else "Tab/l: Details",
+                    if (focus == PaneFocus.DETAIL) "↑/↓: Scroll · Tab/Esc: Back" else "Tab/→: Details",
                     (if (missing) "i: Manual setup · " else "") + "r: Reload · q: Quit",
                 ),
             )
@@ -107,7 +107,7 @@ internal object WorkspaceView {
             )
             val navigation = if (focus == PaneFocus.DETAIL)
                 (if (choices) "↑/↓: Choose · Space/Enter: Select" else "↑/↓: Scroll") + " · Tab/Esc: Back"
-            else "↑/↓: Select · Tab/l: Details · c: In sync"
+            else "↑/↓: Select · Tab/→: Details · c: In sync"
             val review = when {
                 retained -> "2: Results"
                 !session.isPlanReady() -> ""

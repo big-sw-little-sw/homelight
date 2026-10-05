@@ -106,10 +106,10 @@ class CandidateSetupTest {
         }
     }
 
-    @Test fun pathFieldsTakeVimLettersAsTextAndKeepFocus() {
+    @Test fun pathFieldsTakeCommandLettersAsTextAndKeepFocus() {
         val root = fixture()
-        // Vim navigation (h j k l g G), delete forward (x) and quit (q Q) letters.
-        val letters = "hjklgGxqQ"
+        // Quit (q Q), setup commands (a b d e r u) and the former vim keys (h j k l g G x).
+        val letters = "qQabderuhjklgGx"
         val app = HomeLightApp(HomeLightSession(root.resolve("config.json")))
         key(app, 'i'); clear(app); type(app, "/$letters")
         down(app); type(app, letters); down(app); type(app, letters)
@@ -139,21 +139,20 @@ class CandidateSetupTest {
         assertFalse(screen.contains("Discard setup draft?"), screen)
     }
 
-    @Test fun vimPagingChordsAndDeleteForwardDoNotActOutsideTextFields() {
+    @Test fun ctrlAndAltChordsDoNotActAsLetterCommands() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val app = app(root, workers); locations(app, root, root.resolve("shared.json"))
             key(app, 'a'); type(app, "manual"); escape(app)
-            for (chord in listOf('d', 'u')) ctrl(app, chord)
-            key(app, 'x')
+            ctrl(app, 'd'); ctrl(app, 'u'); alt(app, 'd')
             val table = render(app)
             assertTrue(table.contains("❯ manual"), table)
             assertFalse(table.contains("Relocation removed"), table)
             enter(app); down(app); down(app)
-            ctrl(app, 'd'); key(app, 'x')
-            assertTrue(render(app).contains("Edit relocation 1"), "Ctrl+D on a policy does not remove the row")
+            ctrl(app, 'd'); alt(app, 'd')
+            assertTrue(render(app).contains("Edit relocation 1"), "Ctrl+D and Alt+D on a policy do not remove the row")
             escape(app); key(app, 'b'); await(workers, app)
-            ctrl(app, 'u'); ctrl(app, 'd'); key(app, 'x')
+            ctrl(app, 'u'); alt(app, 'u'); ctrl(app, 'd')
             val list = render(app)
             assertTrue(list.contains("1 usually-unnecessary directory hidden"), list)
             assertTrue(list.contains("1 in draft"), list)
@@ -352,7 +351,7 @@ class CandidateSetupTest {
         val draft = SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf(relocation))
         val browser = CandidateBrowser()
         WorkspaceViewTest.render(browser.render(draft), 80, 24)
-        browser.key(KeyEvent.ofChar('j', KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
+        browser.key(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
         val text = WorkspaceViewTest.render(browser.render(draft), 120, 30)
         assertTrue(text.contains("Configured"))
         assertTrue(text.contains("Saved target:"))
@@ -385,7 +384,7 @@ class CandidateSetupTest {
             val draft = SetupDraft(root.resolve("home"), root.resolve("local"), null, listOf(relocation))
             val browser = CandidateBrowser()
             WorkspaceViewTest.render(browser.render(draft), 80, 24)
-            browser.key(KeyEvent.ofChar('j', KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
+            browser.key(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
             val text = WorkspaceViewTest.render(browser.render(draft), 200, 30)
             val line = text.lines().first { it.contains("Saved policies: ") }
                 .substringAfter("Saved policies: ").substringBefore('│').trimEnd()
@@ -485,7 +484,7 @@ class CandidateSetupTest {
             app.handleKeyEvent(KeyEvent.ofKey(KeyCode.HOME, KEY_BINDINGS))
             repeat(100) {
                 if (render(app).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
-                key(app, 'j')
+                down(app)
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(app))
         }
@@ -508,6 +507,7 @@ class CandidateSetupTest {
         fun type(app: HomeLightApp, value: String) { value.forEach { c -> key(app, c) } }
         fun clear(app: HomeLightApp) { key(app, '\u0015') }
         fun ctrl(app: HomeLightApp, key: Char) { app.handleKeyEvent(KeyEvent.ofChar(key, KeyModifiers.CTRL, KEY_BINDINGS)) }
+        fun alt(app: HomeLightApp, key: Char) { app.handleKeyEvent(KeyEvent.ofChar(key, KeyModifiers.ALT, KEY_BINDINGS)) }
         fun down(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS)) }
         fun enter(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS)) }
         fun escape(app: HomeLightApp) { app.handleKeyEvent(KeyEvent.ofKey(KeyCode.ESCAPE, KEY_BINDINGS)) }
