@@ -32,7 +32,7 @@ class WorkspaceViewTest {
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val summary = WorkspaceView.summary(model.items)
         assertEquals(
-            listOf(listOf("6 relocations", "⚡ 3 actionable", "⚠ 1 conflict", "✖ 0 blocked"), listOf("✔ 1 in sync", "─ 1 unchanged")),
+            listOf(listOf("6 relocations", "⚡ 3 to change", "⚠ 1 needs a choice", "✖ 0 blocked"), listOf("✔ 1 in sync", "─ 1 left as is")),
             summary.counts.map { row -> row.map { it.text } },
         )
         assertTrue(summary.risks.contains("1 with warnings"), summary.toString())
@@ -47,7 +47,7 @@ class WorkspaceViewTest {
         assertTrue(result.succeeded())
         ui.press(KeyCode.ENTER)
         val refreshed = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
-        assertEquals(listOf("✔ 5 in sync", "─ 1 unchanged"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
+        assertEquals(listOf("✔ 5 in sync", "─ 1 left as is"), WorkspaceView.summary(refreshed.items).counts.last().map { it.text })
         ui.press('2')
         assertSame(result, session.applyModel())
         ui.press('r')
@@ -71,10 +71,10 @@ class WorkspaceViewTest {
                 assertTrue(screen.contains("❯ (○)"), screen)
                 assertTrue(screen.contains("Review unavailable"), screen)
                 assertTrue(screen.contains("q: Quit"), screen)
-                assertTrue(screen.contains("1 unchanged"), screen)
+                assertTrue(screen.contains("1 left as is"), screen)
                 val details = rightPane(screen, size[0])
-                assertTrue(details.contains(choices[choice].label), details)
-                assertTrue(details.replace(" ", "").contains(choices[choice].description.replace(" ", "")), screen)
+                assertTrue(details.contains(choiceLabel(choices[choice])), details)
+                assertTrue(details.replace(" ", "").contains(choiceDescription(choices[choice]).replace(" ", "")), screen)
             }
             if (choice < choices.size - 1) ui.press(KeyCode.DOWN)
         }
@@ -108,9 +108,9 @@ class WorkspaceViewTest {
             val item = model.items.first()
             assertTrue(all.toString().contains(item.relocation.sourcePath.toString()), all.toString())
             assertTrue(all.toString().contains(item.relocation.targetPath.toString()))
-            assertTrue(all.toString().contains("Saved policy:"))
-            assertTrue(all.toString().replace(" ", "").contains("Draft(notsaved):None;usingsavedpolicy"))
-            assertTrue(all.toString().contains("Expected outcome:"))
+            assertTrue(all.toString().contains("Your rule:"))
+            assertTrue(all.toString().replace(" ", "").contains("Yourchoice(notsaved):none;yourruleapplies"))
+            assertTrue(all.toString().contains("Will do:"))
             assertTrue(all.toString().contains("archive-destination-distinguishing-suffix"))
         }
     }
@@ -122,17 +122,17 @@ class WorkspaceViewTest {
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val policy = WorkspaceView.policy(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
             WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE), item)
-        assertEquals("Adopt target; discard source.", policy)
+        assertEquals("keep target, delete source.", policy)
     }
 
     @ParameterizedTest
     @CsvSource(
-        "PROMPT, PROMPT, Prompt.",
-        "LEAVE_UNCHANGED, PROMPT, Leave unchanged.",
-        "DISCARD, PROMPT, Discard both.",
-        "ADOPT, PROMPT, Adopt target; prompt for source.",
-        "ADOPT, DISCARD_SOURCE, Adopt target; discard source.",
-        "ADOPT, ARCHIVE_SOURCE, Adopt target; archive source.",
+        "PROMPT, PROMPT, ask each time.",
+        "LEAVE_UNCHANGED, PROMPT, leave both as they are.",
+        "DISCARD, PROMPT, 'delete both, start empty.'",
+        "ADOPT, PROMPT, 'keep target, ask about source.'",
+        "ADOPT, DISCARD_SOURCE, 'keep target, delete source.'",
+        "ADOPT, ARCHIVE_SOURCE, 'keep target, archive source.'",
     )
     fun bothDirectoriesPolicyUsesTheConfigurationWords(
         both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget, expected: String,
@@ -146,8 +146,8 @@ class WorkspaceViewTest {
 
     @ParameterizedTest
     @CsvSource(
-        "PROMPT, Prompt before adopting the existing target.",
-        "ADOPT_TARGET, Adopt target and create a source link.",
+        "PROMPT, ask each time.",
+        "ADOPT_TARGET, 'keep target, link source.'",
     )
     fun onlyTargetPolicyUsesTheConfigurationWords(onlyTarget: WhenOnlyTargetExists, expected: String) {
         val root = temporary.toRealPath()
@@ -166,10 +166,10 @@ class WorkspaceViewTest {
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
         val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
-        assertTrue(screen.contains("[Unchanged] "), screen)
-        assertTrue(screen.contains("Saved policy: Leave unchanged."), screen)
-        assertTrue(screen.contains("Expected outcome: No changes; source and target left unchanged by choice."), screen)
-        assertTrue(screen.contains("(●) Leave source and target unchanged"), screen)
+        assertTrue(screen.contains("[Left as is] "), screen)
+        assertTrue(screen.contains("Your rule: leave both as they are."), screen)
+        assertTrue(screen.contains("Will do: nothing; source and target are left as they are."), screen)
+        assertTrue(screen.contains("(●) Leave both as they are"), screen)
         assertFalse(screen.contains("unmanaged") || screen.contains("Skipped"), screen)
     }
 
