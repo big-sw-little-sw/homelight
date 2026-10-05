@@ -20,6 +20,9 @@ internal class DetailViewport {
 
     data class Line(val text: String, val color: Color = palette.text, val bold: Boolean = false)
 
+    /** Lines and the index of the one the pane keeps in view while a choice among them is focused. */
+    data class Anchored(val lines: List<Line>, val anchor: Int)
+
     /**
      * Resolves overflow after the reader renders, so help reflects this frame's size. While a dialog is open and
      * takes every key, help is not `shown` and its two lines stay blank.

@@ -285,7 +285,7 @@ class ConfigurationEvaluationTest {
         assertEquals(RelocationOutcome.CONVERGED, item.plan.outcome)
         assertTrue(item.plan.actions.any { it is ReconciliationAction.MigrateDirectoryForPublication })
         assertTrue(item.plan.actions.any { it is ReconciliationAction.ReplaceDirectoryWithSymlink })
-        assertTrue(item.hasDestructiveActions())
+        assertFalse(item.deletesData(), "a checked copy replaces the source")
         assertFalse(item.hasConflict())
         assertFalse(Files.isSymbolicLink(root.resolve("home/cache")))
         assertFalse(Files.exists(root.resolve("local/cache")))
@@ -329,7 +329,7 @@ class ConfigurationEvaluationTest {
         assertTrue(archived.items.single().plan.actions.any { it is ReconciliationAction.ArchiveDirectory })
         val discarded = evaluator.choose(loaded(), item.relocation.sourcePath, DecisionChoice.DISCARD_BOTH).items.single()
         assertEquals(PlanBadge.DISCARD, discarded.badge())
-        assertTrue(discarded.hasDestructiveActions())
+        assertTrue(discarded.deletesData())
         assertFalse(discarded.plan.diagnostics.isEmpty())
     }
 
@@ -341,7 +341,7 @@ class ConfigurationEvaluationTest {
         val item = loaded().items.single()
         assertEquals(PlanBadge.IN_SYNC, item.badge())
         assertEquals(RelocationOutcome.CONVERGED, item.plan.outcome)
-        assertFalse(item.hasDestructiveActions())
+        assertFalse(item.deletesData())
     }
 
     private fun loaded(): ConfigurationEvaluation.Loaded {

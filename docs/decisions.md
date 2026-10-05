@@ -358,6 +358,19 @@ The source is set aside as `<source parent>/.homelight-replaced-<source name>-<S
 - `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]` The plan asks for the adopt-target decision instead, and keeps the set-aside tree until the link exists.
 - `[skipped: recognizing a published target whose source was not yet set aside, add when a crash between publication and replacement is reported]` A crash there leaves two whole directories, reported as "both exist" exactly as a failure after publication already is (B5). A saved `discard` rule would delete both whole copies; no name or marker distinguishes this case from two directories the user made.
 
+## 2026-10-05: Workspace Details say the decision once and warn only for deletions
+
+Workspace Details (#110) replace the "Your rule" and "Your choice (not saved)" pair with one `Decision:` line that says what will happen and where it comes from, for example `Decision: ask each time (your configuration)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have no such line. `Archive:` appears under Paths only when the rule or choice archives the source; while archiving is only offered, the archive choice names its destination (#107). A blocked row now shows the planner's reason after `Will do`, which already pointed to "the problem below".
+
+`⚠ This deletes data for good.` and the summary's `deletes data` count cover only data that is not kept elsewhere: deleting a source while keeping the target, deleting both, or deleting what an interrupted replacement left behind. A verified Move no longer carries a warning: it replaces the source with a link only after the copy is checked, and its `Will do` line already says so. Review keeps its per-step ⚠ on every step that deletes or replaces something, because it lists exact steps.
+
+- `[skipped: plain-language reasons for blocked rows, add when the planner's reasons are reworded for JSON output too]` The reasons are shared with JSON, so Details shows them as written.
+- `[skipped: a softer Review warning for a verified "Replace source with a link" step, add when the Review walkthrough finds it alarming]`
+- `[skipped: keeping the Decision line in view when Details takes focus, add when users miss it]` Focusing Details still scrolls to the focused choice (#108).
+- `[skipped: List<Line> or Anchored builders in Setup and Browse, add when #114 and #115 replace those screens]`
+
+Rejected: a softer warning line on a Move ("Replaces the source with a link after a verified copy."), because it repeats the `Will do` line.
+
 ## How to add decisions
 
 Use this format:
