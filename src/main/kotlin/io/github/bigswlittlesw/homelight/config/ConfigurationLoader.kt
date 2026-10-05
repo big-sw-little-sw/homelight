@@ -13,8 +13,8 @@ import java.nio.file.Path
  * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
  * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
  * missing target is the source's path under `source-root` (default `~`) placed under `target-root`; a missing
- * archive root is [defaultArchiveRoot]; staging-root must be under target-root. Environment variables and
- * system properties never override values.
+ * archive root is [defaultArchiveRoot]; staging-root must be under target-root; relocations must not overlap
+ * through a symlink ([aliasedRelocationProblem]). Environment variables and system properties never override values.
  */
 class ConfigurationLoader {
     /**
@@ -57,6 +57,7 @@ class ConfigurationLoader {
                 Relocation(expand(it.sourcePath.toString()), expand(it.targetPath.toString()), stagingRoot = stagingRoot)
             })
         }
+        aliasedRelocationProblem(relocations)?.let { problem -> throw ConfigurationException(problem.message) }
         val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
             resolve(value, "homelight.ignored-source-paths[$i]")
         }

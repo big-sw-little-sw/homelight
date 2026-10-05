@@ -426,6 +426,28 @@ class ConfigurationLoaderTest {
             assertThrows<ConfigurationException> { ConfigurationLoader().load(missing) }.message)
     }
 
+    /**
+     * `local` links to `real-local`, so each pair below is one place under two spellings (#128). Overlap visible as
+     * written stays with the planner, so such a file still loads. The fixture is not resolved with `toRealPath()`.
+     */
+    @Test fun rejectsRelocationsThatOverlapThroughASymlink() {
+        val real = Files.createDirectory(temporary.resolve("real-local"))
+        val local = Files.createSymbolicLink(temporary.resolve("local"), real)
+        val home = temporary.resolve("home")
+        fun config(vararg pairs: Pair<Path, Path>) = """{"homelight": {"target-root": "$local", "relocations": [""" +
+            pairs.joinToString { (source, target) -> """{"source-path": "$source", "target-path": "$target"}""" } + "]}}"
+
+        val sameTarget = failure(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to real.resolve("x"))).orEmpty()
+        val sourceIsTarget = failure(config(local.resolve("cache") to real.resolve("cache"))).orEmpty()
+        val nested = failure(config(home.resolve("a") to local.resolve("x"), real.resolve("x/inner") to home.resolve("b"))).orEmpty()
+
+        assertTrue(sameTarget.matches(Regex("duplicate target path: .*/real-local/x \\(through a symlink\\)")), sameTarget)
+        assertTrue(sourceIsTarget.matches(Regex("source and target paths overlap: .*/real-local/cache \\(through a symlink\\)")),
+            sourceIsTarget)
+        assertTrue(nested.startsWith("relocation paths overlap: ") && nested.endsWith("(through a symlink)"), nested)
+        assertEquals(2, load(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to local.resolve("x"))).relocations.size)
+    }
+
     private fun load(json: String): HomeLightConfiguration = ConfigurationLoader().load(write(json))
 
     private fun failure(json: String): String? {

@@ -320,6 +320,18 @@ The executor reports an action as failed only for an I/O failure or an expected 
 
 - `[skipped: a stack trace for a bug that escapes execute, add when a bug report needs more than its message]`
 
+## 2026-10-04: Existing ancestors may be symlinks; overlap compares real paths
+
+An existing ancestor of a path HomeLight works on may be a symlink to a directory, such as `/var` on macOS or `/home -> /var/home` on Fedora Atomic. Every directory HomeLight creates must be real, and so must the source, the target and the staging root themselves; their guards still inspect them without following links. `EnsureDirectory` follows the same rule, so an existing symlinked parent is accepted rather than refused.
+
+Overlap compares each path's real spelling: the real path of its longest existing ancestor plus the remaining components, never following the path itself, because a source may be the link HomeLight created. The loader checks configured relocations this way and refuses overlap that appears only through a symlink; overlap visible as written stays a plan diagnostic. The executor's grouping compares claims this way at execute time. The planner stays pure: it runs again for every Workspace choice, and filesystem reads there could block on a slow mount.
+
+- `[skipped: real-path check of an archive path against its own relocation, add when an archive root reached through a symlink is reported]`
+- `[skipped: re-checking aliased overlap in preflight, add when ancestor links are seen to change between review and apply]`
+- `[skipped: removing toRealPath() from cli and application test fixtures, add when those tests next change]`
+
+Rejected: resolving in the planner (I/O in a pure step that runs on each choice); storing real paths in the configuration (links and displayed paths would change spelling).
+
 ## How to add decisions
 
 Use this format:
