@@ -31,9 +31,17 @@ class ReconciliationPlanner {
         val relocation = state.relocation
         val source = relocation.sourcePath
         val target = relocation.targetPath
-        return when (state.source.sourceStateForTarget(target)) {
-            RelocationSourceState.CORRECT_SYMLINK -> if (state.target.state == PathState.DIRECTORY)
-                outcome(state, listOf(ReconciliationAction.NoOp(source))) else unsupportedTarget(state)
+        val sourceState = state.source.sourceStateForTarget(target)
+        val replacedSourceLeft = state.replacedSource?.state == PathState.DIRECTORY
+        if (replacedSourceLeft && sourceState == RelocationSourceState.DIRECTORY) {
+            return blocked(state, "an interrupted replacement left the original source at ${replacedSource(state)}")
+        }
+        return when (sourceState) {
+            RelocationSourceState.CORRECT_SYMLINK -> when {
+                state.target.state != PathState.DIRECTORY -> unsupportedTarget(state)
+                replacedSourceLeft -> deleteReplacedSource(state)
+                else -> outcome(state, listOf(ReconciliationAction.NoOp(source)))
+            }
             RelocationSourceState.ABSENT -> when (state.target.state) {
                 PathState.ABSENT -> outcome(
                     state, listOf(
@@ -76,6 +84,20 @@ private fun migrateSourceForPublication(state: RelocationState): RelocationPlan 
             ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath),
         ),
     )
+}
+
+private fun replacedSource(state: RelocationState): Path =
+    replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath)
+
+/** See [replacedSourcePath] for why deleting it is safe. */
+private fun deleteReplacedSource(state: RelocationState): RelocationPlan {
+    val path = replacedSource(state)
+    val warning = ReconciliationDiagnostic(
+        ReconciliationDiagnostic.Severity.WARNING, path,
+        "REPLACED_SOURCE_LEFT", "an interrupted replacement left the original source here; it will be deleted",
+    )
+    val actions = listOf(ReconciliationAction.DeleteDirectory(path))
+    return RelocationPlan(state.relocation, RelocationOutcome.CONVERGED, actions, listOf(warning))
 }
 
 private fun onlyTargetExists(state: RelocationState): RelocationPlan =

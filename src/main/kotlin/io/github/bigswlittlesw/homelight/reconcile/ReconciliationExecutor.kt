@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
 class ReconciliationExecutor internal constructor(
     private val concurrency: Int,
-    /** A test seam, called with the staged copy's path as staged publication reaches each [StagingStep]. */
-    private val stagingStep: (StagingStep, Path) -> Unit,
+    /** A test seam, called as an action reaches each [Step]. */
+    private val step: (Step, Path) -> Unit,
 ) {
     constructor(concurrency: Int = RELOCATION_CONCURRENCY) : this(concurrency, { _, _ -> })
 
@@ -41,6 +41,10 @@ class ReconciliationExecutor internal constructor(
             checkObservation(state.relocation.sourcePath, state.source, diagnostics)
             checkObservation(state.relocation.targetPath, state.target, diagnostics)
             state.archiveDestination?.let { archive -> checkObservation(archive.path, archive.observation, diagnostics) }
+            state.replacedSource?.let { observation ->
+                val path = replacedSourcePath(state.relocation.sourcePath, state.relocation.targetPath)
+                checkObservation(path, observation, diagnostics)
+            }
         }
         return diagnostics
     }
@@ -178,7 +182,7 @@ class ReconciliationExecutor internal constructor(
         }
         ensureDirectories(targetParent)
         ensureRealDirectory(stagingRoot)
-        StagingOperation.open(stagingRoot, action.target, stagingStep).use { operation ->
+        StagingOperation.open(stagingRoot, action.target, step).use { operation ->
             operation.stage(action.path)
             requireState(action.path, PathState.DIRECTORY)
             requireState(action.target, PathState.ABSENT)
@@ -186,8 +190,11 @@ class ReconciliationExecutor internal constructor(
         }
     }
 
-    /** Points in staged publication at which [stagingStep] is called; each one is after the step it names. */
-    internal enum class StagingStep { LOCKED, COPIED, PUBLISHED }
+    /**
+     * Points at which [step] is called, each after the step it names. Staged publication passes its staged copy's
+     * path, source replacement the [replacedSourcePath].
+     */
+    internal enum class Step { LOCKED, COPIED, PUBLISHED, SOURCE_SET_ASIDE, LINKED }
 
     private fun deleteDirectory(action: ReconciliationAction.DeleteDirectory) {
         requireState(action.path, PathState.DIRECTORY)
@@ -206,14 +213,28 @@ class ReconciliationExecutor internal constructor(
         replaceWithLink(action.path, action.target)
     }
 
+    /**
+     * Changes the source only in atomic steps (#132): it is renamed aside to its [replacedSourcePath], the link is
+     * moved into its place, and only then is the renamed tree deleted. A crash or failure therefore leaves the whole
+     * source at its path, or nothing there and the whole source aside, or the link there and the rest of the source
+     * aside. None of these is a partial source next to the target. The planner deletes what is left aside only once
+     * the link is in place.
+     */
     private fun replaceDirectoryWithSymlink(action: ReconciliationAction.ReplaceDirectoryWithSymlink) {
+        val aside = replacedSourcePath(action.path, action.target)
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.DIRECTORY)
+        requireState(aside, PathState.ABSENT)
         replaceWithLink(action.path, action.target) {
             requireState(action.path, PathState.DIRECTORY)
             requireState(action.target, PathState.DIRECTORY)
-            deleteTree(action.path)
+            // ATOMIC_MOVE may replace an empty directory at the destination, so check again right before it.
+            requireState(aside, PathState.ABSENT)
+            Files.move(action.path, aside, StandardCopyOption.ATOMIC_MOVE)
+            step(Step.SOURCE_SET_ASIDE, aside)
         }
+        step(Step.LINKED, aside)
+        deleteTree(aside)
     }
 
     private fun replaceSymlink(action: ReconciliationAction.ReplaceSymlink) {

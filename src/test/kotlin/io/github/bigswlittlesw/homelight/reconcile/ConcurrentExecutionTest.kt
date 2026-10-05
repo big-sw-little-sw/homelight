@@ -7,7 +7,7 @@ import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionExecution
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionStatus
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ExecutionOutcome
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.StagingStep
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.Step
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -109,8 +109,8 @@ class ConcurrentExecutionTest {
      * changing T's operation or freeing its lock, and both publish another target through the same staging root.
      */
     @ParameterizedTest
-    @EnumSource(StagingStep::class)
-    internal fun anInFlightTargetIsLockedWhileOtherTargetsShareItsStagingRoot(step: StagingStep) {
+    @EnumSource(Step::class, names = ["LOCKED", "COPIED", "PUBLISHED"])
+    internal fun anInFlightTargetIsLockedWhileOtherTargetsShareItsStagingRoot(step: Step) {
         Files.createDirectories(root.resolve("store"))
         val staging = root.resolve("store/.homelight-staging")
         val target = root.resolve("store/paused")
@@ -132,7 +132,7 @@ class ConcurrentExecutionTest {
             val before = snapshot(copy)
             // Once T is published, its own guard refuses first.
             fun refusal(lockMessage: String) =
-                if (step == StagingStep.PUBLISHED) "expected absent at $target but found directory" else lockMessage
+                if (step == Step.PUBLISHED) "expected absent at $target but found directory" else lockMessage
             ForeignStagingProcess().use { foreign ->
                 assertEquals(refusal("another HomeLight is publishing $target"), foreign.migrate(rival, target))
                 assertEquals(before, snapshot(copy))

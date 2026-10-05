@@ -349,6 +349,15 @@ This replaces UUID-named operations, the `target` marker, the claimed-names set,
 - The same target staged by two processes now fails fast with an environment failure, instead of the loser failing on drift after a full copy.
 - The on-disk layout changes. Nothing has been released, so there is no migration.
 
+## 2026-10-04: A source is replaced by its link in atomic steps
+
+Replacing a source directory with its link (#132, bug B6) renames the source aside within its own parent, moves the link into its place, and only then deletes the renamed tree. Each step is one rename, so a crash leaves the whole source at its path, or nothing there and the whole source aside, or the link there with the rest of the source aside. It never leaves a partial source next to the target, which the next plan used to report as "both exist" and a saved `discard` rule would then delete together with the target.
+
+The source is set aside as `<source parent>/.homelight-replaced-<source name>-<SHA-256 of the target's absolute normalized path>`. A directory at exactly that name is recognized only while the source is a link to that target and the target is a directory: the plan then deletes it (a `delete-directory` step with a `REPLACED_SOURCE_LEFT` warning) and never treats it as a source. The hash ties the name to the target that holds the content, so after the relocation moves to another target the name no longer matches. While the source is absent the set-aside tree is kept, and the usual only-target plan applies; once the link exists, the next plan deletes it. While the source is a directory again (an application may recreate it), the relocation is blocked until the user deals with the set-aside tree. Deletion still never follows links and never changes permissions, so an entry that cannot be deleted now stays in the set-aside tree, beside the link, rather than in the source.
+
+- `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]` The plan asks for the adopt-target decision instead, and keeps the set-aside tree until the link exists.
+- `[skipped: recognizing a published target whose source was not yet set aside, add when a crash between publication and replacement is reported]` A crash there leaves two whole directories, reported as "both exist" exactly as a failure after publication already is (B5). A saved `discard` rule would delete both whole copies; no name or marker distinguishes this case from two directories the user made.
+
 ## How to add decisions
 
 Use this format:
