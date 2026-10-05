@@ -3,17 +3,17 @@ package io.github.bigswlittlesw.homelight.config
 import java.nio.file.Path
 
 /**
- * A source location, storage destination, and state-specific reconciliation decisions.
- * A null decision has not been made.
+ * A source location, storage destination, and state-specific reconciliation rules. A rule left unset is
+ * [WhenSourceAndTargetDirectoriesExist.PROMPT] (or its peer): the user decides each time.
  *
  * `archiveRoot` is where archive-source moves the source; the source keeps its full path below it.
  */
 data class Relocation(
     val sourcePath: Path,
     val targetPath: Path,
-    val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist? = null,
-    val whenOnlyTargetExists: WhenOnlyTargetExists? = null,
-    val whenAdoptingTarget: WhenAdoptingTarget? = null,
+    val whenSourceAndTargetDirectoriesExist: WhenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.PROMPT,
+    val whenOnlyTargetExists: WhenOnlyTargetExists = WhenOnlyTargetExists.PROMPT,
+    val whenAdoptingTarget: WhenAdoptingTarget = WhenAdoptingTarget.PROMPT,
     val archiveRoot: Path = defaultArchiveRoot(sourcePath),
     val stagingRoot: Path? = null,
 )
