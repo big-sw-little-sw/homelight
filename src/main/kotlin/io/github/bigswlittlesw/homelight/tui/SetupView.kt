@@ -37,6 +37,8 @@ internal class SetupView(
     var closed = false
         private set
     private var locationsChanged = false
+    // Any text typed into a field, kept or not: Esc from the first fields asks before losing it.
+    private var edited = false
     private var sourceRoot: String = System.getProperty("user.home")
     private var targetRoot = ""
     private var sharedList = ""
@@ -156,37 +158,63 @@ internal class SetupView(
      */
     fun screenHelp(): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
-        val editing = listOf(KeyHint("Type", "Edit"), KeyHint("Ctrl-U", "Clear"))
+        val nextField = KeyHint("↑/↓", "Field", description = "Move to the next or previous field")
+        val editing = listOf(
+            KeyHint("Type", "Edit", description = "Type into the field"), KeyHint("Ctrl-U", "Clear", description = "Clear the field"),
+        )
+        val discard = KeyHint("q", "Discard", description = "Discard the configuration; asks first")
         fun help(where: String, navigation: List<KeyHint>, commands: List<KeyHint>) =
             ScreenHelp(place(CONFIGURATION_NAME, where), PURPOSE_CONFIGURATION, Step.CONFIGURE, navigation, commands)
         return when (mode) {
             Mode.LOCATIONS -> help(
                 LOCATION_FIELDS[field],
-                listOf(KeyHint("↑/↓", "Field")) + editing + scroll,
-                listOf(KeyHint("Enter", "Relocations"), KeyHint("Esc", "Cancel without writing"), TEXT_FIELD_HELP_KEY),
-            )
-            Mode.TABLE -> help(
-                RELOCATIONS_NAME,
-                if (draft.rows.isEmpty()) listOf(KeyHint("e", "Edit locations"), KeyHint("Esc", "Back"), scroll)
-                else listOf(
-                    KeyHint("↑/↓", "Row"), KeyHint("Enter", "Details"), KeyHint("d", "Remove"), KeyHint("e", "Locations"),
-                    KeyHint("Esc", "Back"), scroll,
-                ),
-                // "b: Browse" is short so that this line and `?: Help` fit 80 columns.
+                listOf(nextField) + editing + scroll,
                 listOf(
-                    KeyHint("a", "Add manual"), KeyHint("b", "Browse"), KeyHint("v", "Validate"), KeyHint("s", "Save"),
-                    HELP_KEY, KeyHint("q", "Discard"),
+                    KeyHint("Enter", "Relocations", description = "Go on to the relocations; nothing is saved yet"),
+                    KeyHint(
+                        "Esc", "Cancel without writing", description = "Close Configuration; asks first if you typed anything",
+                    ),
+                    TEXT_FIELD_HELP_KEY,
                 ),
             )
-            Mode.ROW -> help(
-                RELOCATION_FIELDS[field],
-                listOf(scroll),
-                if (textField()) listOf(KeyHint("↑/↓", "Field")) + editing + KeyHint("Esc", "Table") + TEXT_FIELD_HELP_KEY
-                else listOf(
-                    KeyHint("↑/↓", "Field"), KeyHint("Space", "Change rule"), KeyHint("d", "Remove"), KeyHint("Esc", "Table"),
-                    HELP_KEY, KeyHint("q", "Discard", inHelpArea = false),
-                ),
-            )
+            Mode.TABLE -> {
+                val locations = "Back to the storage locations"
+                help(
+                    RELOCATIONS_NAME,
+                    if (draft.rows.isEmpty()) listOf(
+                        KeyHint("e", "Edit locations", description = locations), KeyHint("Esc", "Back", description = locations),
+                        scroll,
+                    )
+                    else listOf(
+                        KeyHint("↑/↓", "Row", description = "Select a relocation"),
+                        KeyHint("Enter", "Details", description = "Edit the selected relocation"),
+                        KeyHint("d", "Remove", description = "Remove the selected relocation"),
+                        KeyHint("e", "Locations", description = locations), KeyHint("Esc", "Back", description = locations),
+                        scroll,
+                    ),
+                    // "b: Browse" is short so that this line and `?: Help` fit 80 columns.
+                    listOf(
+                        KeyHint("a", "Add manual", description = "Add a relocation by typing its path"),
+                        KeyHint("b", "Browse", description = "Browse suggestions to add"),
+                        KeyHint("v", "Validate", description = "Check the configuration without saving it"),
+                        KeyHint("s", "Save", description = "Save the configuration file; it never replaces an existing one"),
+                        HELP_KEY, discard,
+                    ),
+                )
+            }
+            Mode.ROW -> {
+                val table = KeyHint("Esc", "Table", description = "Back to the relocation list")
+                help(
+                    RELOCATION_FIELDS[field],
+                    listOf(scroll),
+                    if (textField()) listOf(nextField) + editing + table + TEXT_FIELD_HELP_KEY
+                    else listOf(
+                        nextField, KeyHint("Space", "Change rule", description = "Switch the rule to its next value"),
+                        KeyHint("d", "Remove", description = "Remove this relocation"), table,
+                        HELP_KEY, discard.copy(inHelpArea = false),
+                    ),
+                )
+            }
             Mode.CANDIDATES -> browser.screenHelp(draft)
         }
     }
@@ -199,7 +227,7 @@ internal class SetupView(
                 Mode.CANDIDATES -> if (!browser.back()) changeMode(Mode.TABLE)
                 Mode.ROW -> changeMode(Mode.TABLE)
                 Mode.TABLE -> changeMode(Mode.LOCATIONS)
-                Mode.LOCATIONS -> close()
+                Mode.LOCATIONS -> if (edited || draft.rows.isNotEmpty()) discard = true else close()
             }
             return
         }
@@ -251,6 +279,7 @@ internal class SetupView(
         if (current == next) return
         when (field) { 0 -> sourceRoot = next; 1 -> targetRoot = next; else -> sharedList = next }
         locationsChanged = true
+        edited = true
         // Invalidate immediately, including an edit away from and back to a root.
         discovery?.cancel()
         draft.roots(draft.sourceRoot, draft.targetRoot)
@@ -317,7 +346,7 @@ internal class SetupView(
                     value.copy(archiveRoot = archive)
                 }
             }
-            if (next != value) { draft.edit(row, next); invalidated() }
+            if (next != value) { draft.edit(row, next); edited = true; invalidated() }
         } catch (error: IllegalArgumentException) { message = "Invalid path: " + error.message }
     }
 

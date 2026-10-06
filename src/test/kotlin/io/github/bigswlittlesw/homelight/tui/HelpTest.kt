@@ -21,13 +21,24 @@ class HelpTest {
     @Test
     fun thisScreenListsEveryKeyTheHelpLinesShow() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
-        checkThisScreen(ui, WORKSPACE_NAME, PURPOSE_WORKSPACE, Step.WORKSPACE, "c", "PageUp/PageDown")
+        checkThisScreen(
+            ui, WORKSPACE_NAME, PURPOSE_WORKSPACE, Step.WORKSPACE, "c", "PageUp/PageDown",
+            pinned = mapOf(
+                "q" to "Quit HomeLight; asks first if choices are not applied or changes are running",
+                "↑/↓" to "Select a relocation",
+            ),
+        )
         ui.press(KeyCode.TAB)
         checkThisScreen(ui, place(WORKSPACE_NAME, DETAILS_NAME), PURPOSE_WORKSPACE, Step.WORKSPACE, "↑/↓", "←")
         ui.press(KeyCode.ENTER)
         ui.press(KeyCode.ESCAPE)
         ui.press('a')
         checkThisScreen(ui, REVIEW_NAME, PURPOSE_REVIEW, Step.REVIEW, "y", "Home/End")
+
+        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        setup.press('i')
+        setup.press(KeyCode.ENTER)
+        checkThisScreen(setup, place(CONFIGURATION_NAME, RELOCATIONS_NAME), PURPOSE_CONFIGURATION, Step.CONFIGURE, "s")
 
         val empty = Files.writeString(
             temporary.resolve("empty.json"), "{\"homelight\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
@@ -37,10 +48,14 @@ class HelpTest {
 
     /**
      * Opens Help over the screen as it is and checks This screen: the place in the pane's title, the purpose, the
-     * current step, and a `key  action` row for each key the help lines show (Help's own key aside) and for the
-     * `extra` keys they leave out. Then Esc must return to the screen exactly as it was.
+     * current step, the "Keys on" heading and its lead-in, and a `key  description` row for each key the help lines
+     * show (Help's own key aside) and for the `extra` keys they leave out. `pinned` maps keys to the exact description
+     * their row must have. Then Esc must return to the screen exactly as it was.
      */
-    private fun checkThisScreen(ui: HeadlessTui, place: String, purpose: String, step: Step, vararg extra: String) {
+    private fun checkThisScreen(
+        ui: HeadlessTui, place: String, purpose: String, step: Step, vararg extra: String,
+        pinned: Map<String, String> = mapOf(),
+    ) {
         val before = ui.screen(80, 24)
         val focused = ui.focused()
         val shown = helpLines(before).filter { it != "?: Help" }
@@ -54,28 +69,30 @@ class HelpTest {
         assertTrue(rows[2].startsWith("┌$place─"), help)
         val text = paneText(help)
         assertTrue(text.contains(purpose), help)
-        assertTrue(text.contains("$YOU_ARE_HERE: Configure › Workspace › Review › Apply › Results"), help)
-        assertTrue(text.contains(MOVE_AROUND) && text.contains(DO_KEYS), help)
+        assertTrue(text.contains("$STEP: Configure › Workspace › Review › Apply › Results"), help)
+        assertTrue(text.contains(keysOn(place) + " " + KEYS_LEAD_IN), help)
+        assertTrue(paneRows(help).contains(MOVE_AROUND) && paneRows(help).contains(DO_KEYS), help)
         assertFalse(paneRows(help).any { it.startsWith("? ") }, "Help's own key is left out: $help")
         assertEquals(stepLabel(step), markedStep(ui), help)
-        fun listed(keys: String, action: String?) = paneRows(help).any { row ->
-            row.startsWith("$keys ") && (action == null || row.substringAfter("$keys ").trim() == action)
-        }
+        // A key row is the key, padding of at least two cells, then its description.
+        fun description(keys: String) =
+            paneRows(help).firstOrNull { row -> row.startsWith("$keys  ") }?.substringAfter("$keys ")?.trim()
         for (hint in shown) {
-            val (keys, action) = hint.split(": ", limit = 2)
-            assertTrue(listed(keys, action), "$place lists $hint: $help")
+            val keys = hint.substringBefore(": ")
+            assertFalse(description(keys).isNullOrEmpty(), "$place lists $hint: $help")
         }
-        for (keys in extra) assertTrue(listed(keys, null), "$place lists $keys: $help")
+        for (keys in extra) assertFalse(description(keys).isNullOrEmpty(), "$place lists $keys: $help")
+        for ((keys, expected) in pinned) assertEquals(expected, description(keys), "$place: $keys")
         ui.press(KeyCode.ESCAPE)
         assertEquals(focused, ui.focused(), place)
         assertEquals(before, ui.screen(80, 24), place)
     }
 
-    /** The step in the focus color on the "You are here" row of the open Help screen. */
+    /** The step in the focus color on the "Step:" row of the open Help screen. */
     private fun markedStep(ui: HeadlessTui): String {
         val buffer = ui.frame(100, 80)
         val screen = ui.screen(100, 80).lines()
-        val y = screen.indexOfFirst { it.contains("$YOU_ARE_HERE:") }
+        val y = screen.indexOfFirst { it.contains("$STEP:") }
         val row = screen[y]
         fun cells(label: String): List<dev.tamboui.style.Style> {
             val x = row.indexOf(" $label", row.indexOf(":")) + 1
@@ -177,8 +194,12 @@ class HelpTest {
         assertTrue(fits[28].isBlank(), fits.joinToString("\n"))
         assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
         val help = ui.screen(100, 60)
-        assertTrue(help.lines()[2].startsWith("┌" + place(CONFIGURATION_NAME, "Target root") + "─"), help)
+        val targetRoot = place(CONFIGURATION_NAME, "Target root")
+        assertTrue(help.lines()[2].startsWith("┌$targetRoot─"), help)
+        assertTrue(paneText(help).contains(keysOn(targetRoot) + " " + KEYS_LEAD_IN), help)
         assertFalse(paneRows(help).any { it.startsWith("F1 ") }, "Help's own key is left out: $help")
+        val esc = paneRows(help).single { it.startsWith("Esc ") }.substringAfter("Esc ").trim()
+        assertEquals("Close Configuration; asks first if you typed anything", esc)
         ui.press(KeyCode.F1)
         assertEquals(field, ui.screen(80, 24))
     }

@@ -138,19 +138,30 @@ internal object ApplyView {
         val navigation = when {
             model is ApplyModel.Idle -> listOf()
             focused != REVIEW_DETAILS -> listOf(
-                KeyHint("↑/↓", "Inspect"), KeyHint("Tab/→", "Details"), PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+                KeyHint("↑/↓", "Inspect", description = "Select a step to see its details"),
+                KeyHint("Tab/→", "Details", description = "Move to the selected step's details"),
+                PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
             )
-            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List")) +
-                (if (model is ApplyModel.Confirmation) listOf() else listOf(KeyHint("Esc", "Back")))
+            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List", description = "Back to the list of steps")) +
+                (if (model is ApplyModel.Confirmation) listOf()
+                else listOf(KeyHint("Esc", "Back", description = "Back to the list of steps")))
         }
         val commands = when (model) {
-            is ApplyModel.Idle -> listOf(KeyHint("1", "Workspace"), HELP_KEY, QUIT_KEY)
+            is ApplyModel.Idle -> listOf(KeyHint("1", "Workspace", description = "Go to the Workspace"), HELP_KEY, QUIT_KEY)
             is ApplyModel.Confirmation ->
-                if (!model.plan.hasChanges()) listOf(KeyHint("1/Enter/n/Esc", "Workspace"), HELP_KEY, QUIT_KEY)
-                else listOf(KeyHint("y", "Apply"), KeyHint("n/Esc/1", "Cancel"), HELP_KEY, QUIT_KEY)
+                if (!model.plan.hasChanges()) listOf(
+                    KeyHint("1/Enter/n/Esc", "Workspace", description = "Back to the Workspace"), HELP_KEY, QUIT_KEY,
+                )
+                else listOf(
+                    KeyHint("y", "Apply", description = "Apply the plan; this changes files on disk"),
+                    KeyHint("n/Esc/1", "Cancel", description = "Back to the Workspace; nothing changes"), HELP_KEY, QUIT_KEY,
+                )
             // Once HomeLight will exit when the apply finishes, `q` does nothing.
             is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
-            is ApplyModel.Result -> listOf(KeyHint("1/Enter", "Workspace"), CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY)
+            is ApplyModel.Result -> listOf(
+                KeyHint("1/Enter", "Workspace", description = "Back to the Workspace; the results stay until you check again"),
+                CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY,
+            )
         }
         fun help(name: String, purpose: String, step: Step) = ScreenHelp(
             if (focused == REVIEW_DETAILS) place(name, ACTION_DETAILS_NAME) else name, purpose, step, navigation, commands,

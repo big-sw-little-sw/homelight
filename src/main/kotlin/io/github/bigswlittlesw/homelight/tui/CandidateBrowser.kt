@@ -126,34 +126,39 @@ internal class CandidateBrowser {
     /** Browse's purpose and keys in its current state, for its help lines and the Help screen. */
     fun screenHelp(draft: SetupDraft): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
-        val back = KeyHint("Esc", "Back")
-        val refresh = KeyHint("r", "Refresh")
+        val refresh = KeyHint("r", "Refresh", description = "Read the suggestion lists again")
+        val discard = KeyHint("q", "Discard", description = "Discard the configuration; asks first")
         if (diagnostics || details) {
             val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
             return ScreenHelp(
                 place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
-                listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, back),
-                listOfNotNull(entryKey, refresh, HELP_KEY, KeyHint("q", "Discard draft")),
+                listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, KeyHint("Esc", "Back", description = "Back to the suggestions")),
+                listOfNotNull(entryKey, refresh, HELP_KEY, discard.copy(action = "Discard draft")),
             )
         }
         val items = items(draft, entriesByPath(draft))
         val listedFocus = focus != null && items.any { same(it, focus) }
         val hidden = hiddenCount(draft)
         val enter = when {
-            focus is Item.Directory -> KeyHint("Enter", "Inspect")
-            listedFocus -> KeyHint("Enter", "Expand/collapse")
+            focus is Item.Directory -> KeyHint("Enter", "Inspect", description = "See why it is suggested and by which list")
+            listedFocus -> KeyHint("Enter", "Expand/collapse", description = "Show or hide the group's directories")
             else -> null
         }
         return ScreenHelp(
             place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
             listOfNotNull(
-                KeyHint("↑/↓", "Move").takeIf { items.isNotEmpty() }, focusedEntry(draft)?.let { listAction(it, draft) },
-                enter, back, HOME_END_KEYS.takeIf { items.isNotEmpty() }, scroll,
+                KeyHint("↑/↓", "Move", description = "Select a suggestion").takeIf { items.isNotEmpty() },
+                focusedEntry(draft)?.let { listAction(it, draft) }, enter,
+                KeyHint("Esc", "Back", description = "Back to the relocation list"), HOME_END_KEYS.takeIf { items.isNotEmpty() },
+                scroll,
             ),
             listOfNotNull(
-                refresh, KeyHint("i", "Sources"),
-                KeyHint("u", (if (reveal) "Hide " else "Show ") + hidden).takeIf { hidden > 0 }, HELP_KEY,
-                KeyHint("q", "Discard"),
+                refresh, KeyHint("i", "Sources", description = "See whether each suggestion list was read"),
+                KeyHint(
+                    "u", (if (reveal) "Hide " else "Show ") + hidden,
+                    description = (if (reveal) "Hide" else "Show") + " the suggestions marked usually not needed",
+                ).takeIf { hidden > 0 },
+                HELP_KEY, discard,
             ),
         )
     }
@@ -300,15 +305,15 @@ private fun compact(path: String): String {
 
 private fun action(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
     entry.configured != null -> null
-    entry.draft != null -> KeyHint("e", "Edit draft row")
-    draft.canAdd(entry) -> KeyHint("a", "Add to draft")
+    entry.draft != null -> KeyHint("e", "Edit draft row", description = "Edit its relocation")
+    draft.canAdd(entry) -> KeyHint("a", "Add to draft", description = "Add it to the configuration")
     else -> null
 }
 
 private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
     entry.configured != null -> null
-    entry.draft != null -> KeyHint("e", "Edit")
-    draft.canAdd(entry) -> KeyHint("Space/a", "Add")
+    entry.draft != null -> KeyHint("e", "Edit", description = "Edit its relocation")
+    draft.canAdd(entry) -> KeyHint("Space/a", "Add", description = "Add the suggestion to the configuration")
     else -> null
 }
 

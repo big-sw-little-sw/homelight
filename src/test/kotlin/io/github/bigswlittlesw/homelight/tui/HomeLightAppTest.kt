@@ -56,6 +56,30 @@ class HomeLightAppTest {
         assertFalse(Files.exists(root.resolve("home/.cache/tool")), "saving must not relocate")
     }
 
+    /** Esc from Configuration's first fields closes at once when nothing was typed, and asks first otherwise. */
+    @Test
+    fun escapeFromTheLocationsAsksOnlyAfterTyping(@TempDir temporary: Path) {
+        val untouched = HeadlessTui(HomeLightSession(temporary.resolve("a.json")))
+        untouched.press('i')
+        untouched.press(KeyCode.DOWN)
+        untouched.press(KeyCode.ESCAPE)
+        assertTrue(untouched.screen(80, 24).contains("[1: Workspace]"))
+
+        val typed = HeadlessTui(HomeLightSession(temporary.resolve("b.json")))
+        typed.press('i')
+        typed.press(KeyCode.DOWN)
+        type(typed, "/srv")
+        typed.press(KeyCode.ESCAPE)
+        val dialog = typed.screen(80, 24)
+        assertTrue(dialog.contains("╔$DISCARD_SETUP_TITLE"), dialog)
+        typed.press('n')
+        assertTrue(typed.screen(80, 24).contains("Target root: /srv"))
+        typed.press(KeyCode.ESCAPE)
+        typed.press('y')
+        assertTrue(typed.screen(80, 24).contains("[1: Workspace]"))
+        assertFalse(Files.exists(temporary.resolve("b.json")))
+    }
+
     @Test
     fun setupTableKeepsRowsWhileLocationsAreEditedAndConfirmsDraftDiscard(@TempDir temporary: Path) {
         val ui = HeadlessTui(HomeLightSession(temporary.resolve("config.json")))

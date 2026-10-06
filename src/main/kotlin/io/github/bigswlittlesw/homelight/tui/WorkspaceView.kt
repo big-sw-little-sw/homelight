@@ -124,7 +124,8 @@ internal object WorkspaceView {
                 // Without a configuration that loads, the next step is to configure.
                 WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID, Step.CONFIGURE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, SCROLL_DETAILS_KEYS),
-                listOfNotNull(KeyHint("i", "Create configuration").takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
+                listOfNotNull(KeyHint("i", "Create configuration", description = "Create a configuration file; nothing is written until you save")
+                    .takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
             )
         }
         val retained = session.applyModel() is ApplyModel.Result
@@ -132,22 +133,37 @@ internal object WorkspaceView {
             val items = visibleItems(model, showInSync)
             val item = items.getOrNull(selection(list, items))
             val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
-            (if (choices) listOf(KeyHint("↑/↓", "Choose"), KeyHint("Space/Enter", "Select"), HOME_END_KEYS)
+            (if (choices) listOf(
+                KeyHint("↑/↓", "Choose", description = "Move between the choices"),
+                KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice, for the next apply only"),
+                HOME_END_KEYS,
+            )
             else listOf(SCROLL_KEY, SCROLL_ENDS_KEYS)) +
-                listOf(SCROLL_DETAILS_KEYS, KeyHint("Tab/Esc", "Back"), KeyHint("←", "Back", inHelpArea = false))
+                listOf(
+                    SCROLL_DETAILS_KEYS, KeyHint("Tab/Esc", "Back", description = "Back to the relocation list"),
+                    KeyHint("←", "Back", inHelpArea = false, description = "Back to the relocation list"),
+                )
         } else listOf(
-            KeyHint("↑/↓", "Select"), KeyHint("Tab/→", "Details"), KeyHint("Enter", "Details", inHelpArea = false),
+            KeyHint("↑/↓", "Select", description = "Select a relocation"),
+            KeyHint("Tab/→", "Details", description = "Move to Details for the selected relocation"),
+            KeyHint("Enter", "Details", inHelpArea = false, description = "Move to Details for the selected relocation"),
             PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
         )
         val review = when {
-            retained -> listOf(KeyHint("2", "Results"))
+            retained -> listOf(KeyHint("2", "Results", description = "Show what the last apply did"))
             !session.isPlanReady() -> listOf()
-            model.plan.hasChanges() -> listOf(KeyHint("a", "Review & apply"), KeyHint("2", "Review"))
-            else -> listOf(KeyHint("2", "Review"))
+            model.plan.hasChanges() -> listOf(
+                KeyHint("a", "Review & apply", description = "Review the plan; nothing changes until you press y there"),
+                KeyHint("2", "Review", description = "Open Review, as a does"),
+            )
+            else -> listOf(KeyHint("2", "Review", description = "Open Review; there is nothing to apply"))
         }
         val inSync = toggledInSync(model)
         // The list title shows `c`, so the help lines leave it out.
-        val toggle = KeyHint("c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false)
+        val toggle = KeyHint(
+            "c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false,
+            description = (if (showInSync) "Hide" else "Show") + " the relocations already in sync",
+        )
         return ScreenHelp(
             if (focused == WORKSPACE_DETAILS) place(WORKSPACE_NAME, DETAILS_NAME) else WORKSPACE_NAME,
             if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE, Step.WORKSPACE,

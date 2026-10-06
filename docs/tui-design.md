@@ -61,7 +61,9 @@ Entry points:
   screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
   never exits.
 - `q` quits from any list. Inside a text field it types `q`. With unsaved
-  configuration changes, `q` and Esc-to-close ask before discarding. With
+  configuration changes, `q` and Esc-to-close ask before discarding; Esc from
+  Configuration's first fields closes at once only when nothing was typed and
+  there are no relocations. With
   one-time choices not applied yet, or during an apply, `q` asks first (see
   Quit).
 - One app key handler, keyed by the focused id, handles what TamboUI elements
@@ -169,10 +171,18 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
 `⌂ HOMELIGHT  [Help]`, then a TamboUI tab bar with two tabs:
 
 1. **This screen**: a pane titled with the place, the purpose line, then
-   `You are here: Configure › Workspace › Review › Apply › Results` with the
-   current step bold in the focus color (Configuration and Browse are
-   Configure; Applying is Apply), then the keys in two groups, "Move around"
-   and "Do", as `key  action`. Help's own key is left out.
+   `Step: Configure › Workspace › Review › Apply › Results` with the current
+   step bold in the focus color (Configuration and Browse are Configure;
+   Applying is Apply). Then the heading `Keys on <place>`, the line "They work
+   after you go back (Esc or q). In Help they do nothing.", and the keys in two
+   groups, "Move around" and "Do", each title directly above its keys, as
+   `key  description`. Help's own keys are only on its help lines.
+
+   A key's `description` defaults to its help-line `action`. Where the short
+   label needs its screen to make sense, the description names what the key
+   acts on and whether it asks first, for example `↑/↓  Select a relocation`
+   or `q  Quit HomeLight; asks first if choices are not applied or changes are
+   running`. One `KeyHint` holds both, so the two places share one source.
 2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
    TamboUI's Markdown element in the palette's colors. The guide is the only
    copy of its text; nothing in the code repeats it.

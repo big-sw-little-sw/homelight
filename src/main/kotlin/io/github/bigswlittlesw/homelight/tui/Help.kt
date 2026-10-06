@@ -8,11 +8,14 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.TabsElement
 
 /**
- * A key as help shows it, `keys: action`. A hint not [inHelpArea] is listed only on the Help screen. A hint that
- * [scrolls] is left out of the help lines while the pane has nothing to scroll.
+ * A key as help shows it: the help lines show `keys: action`, and Help's This screen tab shows `keys  description`,
+ * which names what the key acts on where the short label needs its screen to make sense. A hint not [inHelpArea] is
+ * listed only on the Help screen. A hint that [scrolls] is left out of the help lines while the pane has nothing to
+ * scroll.
  */
 internal data class KeyHint(
     val keys: String, val action: String, val inHelpArea: Boolean = true, val scrolls: Boolean = false,
+    val description: String = action,
 ) {
     val text: String get() = "$keys: $action"
 }
@@ -70,36 +73,40 @@ internal fun helpTabId(tab: HelpTab): String = when (tab) {
 }
 
 /**
- * The This screen tab as Markdown: the purpose, "You are here" with the current step in bold (the focus color), then
- * the keys in two groups. Each key is a code span, which keeps keys such as `[/]` literal, padded so the actions line
- * up; a trailing `\` breaks the line. Help's own key is left out: the reader is already here.
+ * The This screen tab as Markdown: the purpose; the step line, with the current step emphasized (bold in the focus
+ * color); then the keys of `screen`, which work once the reader goes back, in two groups. Each group is one paragraph
+ * led by its bold title, so no blank row follows the title. Each key is a code span, which keeps keys such as `[/]`
+ * literal, padded so the descriptions line up; a trailing `\` breaks the line. Help's own keys are left out: they
+ * are on Help's help lines.
  */
 private fun thisScreen(screen: ScreenHelp): String {
     val steps = Step.entries.joinToString(" › ") { step ->
-        if (step == screen.step) "**" + stepLabel(step) + "**" else stepLabel(step)
+        if (step == screen.step) "*" + stepLabel(step) + "*" else stepLabel(step)
     }
     val navigation = screen.navigation.filter { it.action != HELP_KEY.action }
     val commands = screen.commands.filter { it.action != HELP_KEY.action }
     val width = (navigation + commands).maxOfOrNull { CharWidth.of(it.keys) } ?: 0
     fun group(title: String, hints: List<KeyHint>): String = if (hints.isEmpty()) "" else
-        "\n\n### " + title + "\n\n" + hints.joinToString("\\\n") { hint ->
-            "`" + hint.keys + " ".repeat(width - CharWidth.of(hint.keys) + 2) + "`" + hint.action
+        "\n\n**" + title + "**\\\n" + hints.joinToString("\\\n") { hint ->
+            "`" + hint.keys + " ".repeat(width - CharWidth.of(hint.keys) + 2) + "`" + hint.description
         }
-    return screen.purpose + "\n\n" + YOU_ARE_HERE + ": " + steps + group(MOVE_AROUND, navigation) + group(DO_KEYS, commands) + "\n"
+    return screen.purpose + "\n\n" + STEP + ": " + steps + "\n\n### " + keysOn(screen.name) + "\n\n" + KEYS_LEAD_IN +
+        group(MOVE_AROUND, navigation) + group(DO_KEYS, commands) + "\n"
 }
 
 /** The guide's headings and emphasis in the palette's roles; the rest keeps TamboUI's defaults. */
-private fun guideStyles(): MarkdownStyles = styles(Style.EMPTY.fg(palette.text).bold())
+private fun guideStyles(): MarkdownStyles = styles(emphasis = Style.EMPTY.italic())
 
-/** As the guide, but bold marks the current step, in the focus color. */
-private fun thisScreenStyles(): MarkdownStyles = styles(Style.EMPTY.fg(palette.focus).bold())
+/** As the guide, but emphasis marks the current step: bold, so it shows without color, in the focus color. */
+private fun thisScreenStyles(): MarkdownStyles = styles(emphasis = Style.EMPTY.fg(palette.focus).bold())
 
-private fun styles(strong: Style): MarkdownStyles = MarkdownStyles.builder()
+private fun styles(emphasis: Style): MarkdownStyles = MarkdownStyles.builder()
     .heading(1, Style.EMPTY.fg(palette.brand).bold())
     .heading(2, Style.EMPTY.fg(palette.focus).bold())
     .heading(3, Style.EMPTY.fg(palette.text).bold())
     .heading(4, Style.EMPTY.fg(palette.text).bold())
-    .strong(strong)
+    .strong(Style.EMPTY.fg(palette.text).bold())
+    .emphasis(emphasis)
     .inlineCode(Style.EMPTY.fg(palette.change))
     .codeBlock(Style.EMPTY.fg(palette.text))
     .link(Style.EMPTY.fg(palette.focus).underlined())

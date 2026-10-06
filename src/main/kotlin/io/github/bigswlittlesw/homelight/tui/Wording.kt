@@ -208,7 +208,9 @@ internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned 
 internal const val HELP_TITLE = "Help"
 internal const val THIS_SCREEN_TAB = "This screen"
 internal const val GUIDE_TAB = "Guide"
-internal const val YOU_ARE_HERE = "You are here"
+internal const val STEP = "Step"
+internal fun keysOn(place: String) = "Keys on $place"
+internal const val KEYS_LEAD_IN = "They work after you go back (Esc or q). In Help they do nothing."
 internal const val MOVE_AROUND = "Move around"
 internal const val DO_KEYS = "Do"
 internal const val HELP_HINT = "Press ? for help."
@@ -263,10 +265,13 @@ internal fun backTo(place: String) = "Back to " + place.substringBefore(" › ")
 internal val HELP_KEY = KeyHint("?", "Help")
 /** Help's key in a text field, where `?` types. */
 internal val TEXT_FIELD_HELP_KEY = KeyHint("F1", "Help")
-internal val QUIT_KEY = KeyHint("q", "Quit")
-internal val CHECK_AGAIN_KEY = KeyHint("r", "Check again")
+internal val QUIT_KEY =
+    KeyHint("q", "Quit", description = "Quit HomeLight; asks first if choices are not applied or changes are running")
+internal val CHECK_AGAIN_KEY = KeyHint(
+    "r", "Check again", description = "Read the configuration and the disk again and make a new plan; forgets choices",
+)
 internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll", scrolls = true)
-internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false)
+internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false, description = "Move a page in the list")
 internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
 internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
 internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)
