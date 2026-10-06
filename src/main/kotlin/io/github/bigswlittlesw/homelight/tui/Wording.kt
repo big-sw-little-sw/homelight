@@ -257,6 +257,8 @@ internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Suggestion 
 internal val RELOCATION_FIELDS =
     listOf("Source path", "Target path", "Both exist", "Only target", "Source when keeping target", "Archive root")
 internal fun place(vararg parts: String) = parts.joinToString(" › ")
+/** Where Help goes back to: the screen in the `place` its This screen pane is titled with. */
+internal fun backTo(place: String) = "Back to " + place.substringBefore(" › ")
 
 internal val HELP_KEY = KeyHint("?", "Help")
 /** Help's key in a text field, where `?` types. */

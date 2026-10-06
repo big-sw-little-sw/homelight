@@ -55,12 +55,11 @@ internal fun helpScreen(
         HelpTab.THIS_SCREEN -> viewport.markdown(screen.name, thisScreen(screen), thisScreenStyles(), helpTabId(tab), interactive)
         HelpTab.GUIDE -> viewport.markdown(GUIDE_TAB, guide, guideStyles(), helpTabId(tab), interactive)
     }
-    // Help passes `q` to the screen behind, so it shows that screen's `q`, or none where `q` does nothing there.
-    val quit = screen.commands.firstOrNull { it.keys == "q" }?.copy(inHelpArea = true)
+    // `?` and F1 go back too; the line names Esc and q, and where they go.
     val own = ScreenHelp(
         HELP_TITLE, "", screen.step,
         listOf(SCROLL_KEY, KeyHint("PageUp/PageDown", "Page", scrolls = true), KeyHint("Home/End", "Top/bottom", scrolls = true)),
-        listOfNotNull(KeyHint("Tab/←/→", "Other tab"), KeyHint("?/F1/Esc", "Back"), quit),
+        listOf(KeyHint("Tab/←/→", "Other tab"), KeyHint("Esc/q", backTo(screen.name))),
     )
     return Toolkit.column(header, tabs, pane, viewport.help(own, interactive)).fill()
 }

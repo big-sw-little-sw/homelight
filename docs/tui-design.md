@@ -33,7 +33,7 @@ not screens.
 | Review | The exact plan to apply, then progress and results in place | `1`, or `n`/Esc before confirming |
 | Configuration | Create or edit the configuration file | Esc from the list closes it |
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
-| Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | `?`, F1 or Esc returns where you were |
+| Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | Esc, `q`, `?` or F1 returns where you were |
 
 Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
 `[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
@@ -170,9 +170,9 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
 
 1. **This screen**: a pane titled with the place, the purpose line, then
    `You are here: Configure › Workspace › Review › Apply › Results` with the
-   current step in the focus color (Configuration and Browse are Configure;
-   Applying is Apply), then the keys in two groups, "Move around" and "Do",
-   as `key  action`. Help's own key is left out.
+   current step bold in the focus color (Configuration and Browse are
+   Configure; Applying is Apply), then the keys in two groups, "Move around"
+   and "Do", as `key  action`. Help's own key is left out.
 2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
    TamboUI's Markdown element in the palette's colors. The guide is the only
    copy of its text; nothing in the code repeats it.
@@ -183,19 +183,24 @@ HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
 help.`). From Configuration it opens on This screen, text field or not.
 
 Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
-`[`/`]` scroll the open tab, and each tab keeps its scroll position; `?`, F1 or
-Esc return exactly where the user was, with focus and selection kept. `q` does
-what it does on the screen behind (Discard over Configuration, Quit elsewhere)
-and is hidden where it does nothing there. Every other key does nothing. An
-apply keeps running behind Help.
+`[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
+`?` and F1 all go back exactly where the user was, with focus and selection
+kept. As in less, man and other help screens, `q` never quits from Help and
+never opens a screen's discard question; Ctrl+C goes back too. Every other key
+does nothing. An apply keeps running behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit`. When the open tab has nothing
-to scroll, the first line is empty: every scroll key is left out, as on any
-screen.
+`Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
+in the This screen pane's title, for example `Back to Configuration`. `?` and
+F1 also go back but are not listed: they are how the reader opened Help. When
+the open tab has nothing to scroll, the first line is empty: every scroll key is
+left out, as on any screen.
 
 The tab bar shows the open tab bold in the focus color and the other dim
-(`TabsElement` highlight style).
+(`TabsElement` highlight style). Bold marks the open tab and the current step
+without color too: HomeLight keeps bold in the basic palette, and neither it nor
+TamboUI drops styles for `NO_COLOR`, so no extra marker is needed.
+
 
 TamboUI moves focus on Tab before any handler sees it, so the open tab follows
 focus: the open tab's pane has that tab's focus id and the tab bar has the

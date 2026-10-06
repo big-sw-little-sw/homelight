@@ -77,10 +77,17 @@ class HelpTest {
         val screen = ui.screen(100, 80).lines()
         val y = screen.indexOfFirst { it.contains("$YOU_ARE_HERE:") }
         val row = screen[y]
-        return Step.entries.map(::stepLabel).single { label ->
+        fun cells(label: String): List<dev.tamboui.style.Style> {
             val x = row.indexOf(" $label", row.indexOf(":")) + 1
-            buffer.get(x, y).style().fg().orElse(null) == palette.focus
+            return label.indices.map { i -> buffer.get(x + i, y).style() }
         }
+        // Without color (a monochrome terminal) the step must still stand out: only the current one is bold.
+        val bold = Step.entries.map(::stepLabel).filter { label ->
+            cells(label).all { dev.tamboui.style.Modifier.BOLD in it.effectiveModifiers() }
+        }
+        val colored = Step.entries.map(::stepLabel).filter { label -> cells(label).all { it.fg().orElse(null) == palette.focus } }
+        assertEquals(colored, bold, row)
+        return bold.single()
     }
 
     @Test
@@ -92,7 +99,7 @@ class HelpTest {
         val thisScreen = ui.screen(80, 24)
         val rows = thisScreen.lines()
         assertTrue(rows[22].startsWith("↑/↓/[/]: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom"), thisScreen)
-        assertTrue(rows[23].startsWith("Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit"), thisScreen)
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Workspace", rows[23].trimEnd(), thisScreen)
 
         assertTabBar(ui, open = THIS_SCREEN_TAB, other = GUIDE_TAB)
         ui.press(KeyCode.TAB)
@@ -130,7 +137,10 @@ class HelpTest {
         val openCell = buffer.get(bar.indexOf(open), 1).style()
         assertEquals(palette.focus, openCell.fg().orElse(null), bar)
         assertTrue(dev.tamboui.style.Modifier.BOLD in openCell.effectiveModifiers(), bar)
-        assertEquals(palette.dim, buffer.get(bar.indexOf(other), 1).style().fg().orElse(null), bar)
+        val otherCell = buffer.get(bar.indexOf(other), 1).style()
+        assertEquals(palette.dim, otherCell.fg().orElse(null), bar)
+        // Without color the open tab still stands out: only it is bold.
+        assertFalse(dev.tamboui.style.Modifier.BOLD in otherCell.effectiveModifiers(), bar)
     }
 
     @Test
@@ -165,37 +175,41 @@ class HelpTest {
         // At this size This screen fits, so no scroll key is offered.
         val fits = ui.screen(120, 30).lines()
         assertTrue(fits[28].isBlank(), fits.joinToString("\n"))
-        assertTrue(fits[29].startsWith("Tab/←/→: Other tab · ?/F1/Esc: Back"), fits.joinToString("\n"))
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
         val help = ui.screen(100, 60)
         assertTrue(help.lines()[2].startsWith("┌" + place(CONFIGURATION_NAME, "Target root") + "─"), help)
         assertFalse(paneRows(help).any { it.startsWith("F1 ") }, "Help's own key is left out: $help")
-        // `q` types in the field behind, so Help does not pass it on.
-        ui.press('q')
-        assertFalse(ui.app.exitRequested())
         ui.press(KeyCode.F1)
         assertEquals(field, ui.screen(80, 24))
     }
 
+    /** As in less, man and other help screens, `q` leaves Help: it never quits HomeLight or discards a draft. */
     @Test
-    fun qInHelpDoesWhatItDoesOnTheScreenBehind() {
+    fun qInHelpGoesBack() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val workspace = ui.screen(80, 24)
         ui.press('?')
         ui.press('q')
-        assertTrue(ui.app.exitRequested())
+        assertFalse(ui.app.exitRequested())
+        assertEquals(workspace, ui.screen(80, 24))
 
         val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
         setup.press('i')
         setup.press(KeyCode.ENTER)
+        val table = setup.screen(80, 24)
         setup.press('?')
         val help = setup.screen(80, 24)
-        assertTrue(help.lines()[23].startsWith("Tab/←/→: Other tab · ?/F1/Esc: Back · q: Discard"), help)
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", help.lines()[23].trimEnd(), help)
         setup.press('q')
-        val dialog = setup.screen(80, 24)
-        assertTrue(dialog.contains("╔$DISCARD_SETUP_TITLE"), dialog)
+        assertEquals(table, setup.screen(80, 24), "no discard question")
         assertFalse(setup.app.exitRequested())
-        setup.press('y')
-        val workspace = setup.screen(80, 24)
-        assertTrue(workspace.contains("[1: Workspace]"), workspace)
+
+        // From a text field too, where `q` would type: Help takes it, and the field is unchanged.
+        setup.press('e')
+        val locations = setup.screen(80, 24)
+        setup.press(KeyCode.F1)
+        setup.press('q')
+        assertEquals(locations, setup.screen(80, 24))
     }
 
     @Test
