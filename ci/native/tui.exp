@@ -94,12 +94,13 @@ check keys [expr {$k1 > 0 && $k2 > 0}] "$k1+$k2"
 
 # Help renders Markdown, and its Guide tab the embedded guide; if either failed in Native Image,
 # the TUI would exit. The TUI redraws only the cells that change, so the match is text on Help's
-# own help line, which no other screen has. The match has no space: an unchanged space cell is
+# own help line (`?/F1/Esc: Back`), which no other screen has; its scroll line is empty when the
+# tab fits. The match has no space: an unchanged space cell is
 # skipped, which would split it.
 send "?"
 set timeout 5
 expect {
-  -re {Top/bottom} { puts -nonewline $lf $expect_out(buffer); check help 1 shown }
+  -re {F1/Esc} { puts -nonewline $lf $expect_out(buffer); check help 1 shown }
   timeout { check help 0 missing }
 }
 pump 1
