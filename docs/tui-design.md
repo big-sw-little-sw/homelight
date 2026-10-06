@@ -186,8 +186,10 @@ Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/
 `[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
 `?` and F1 all go back exactly where the user was, with focus and selection
 kept. As in less, man and other help screens, `q` never quits from Help and
-never opens a screen's discard question; Ctrl+C goes back too. Every other key
-does nothing. An apply keeps running behind Help.
+never opens a screen's discard question. Ctrl+C quits through the usual path, as
+everywhere: the quit question with unapplied choices, the discard question over
+a Configuration draft, the exit-when-finished dialog during an apply. Every
+other key does nothing. An apply keeps running behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
 `Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen

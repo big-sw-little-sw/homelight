@@ -175,12 +175,13 @@ internal class HomeLightApp(
 
     /**
      * Help switches tabs, scrolls and goes back; every other key of the screen behind does nothing, so a key typed
-     * while reading changes nothing. `q` goes back too, as in less, man and other help screens: it never quits from
-     * Help.
+     * while reading changes nothing. `q` goes back too, as in less, man and other help screens. Ctrl+C quits as it
+     * does everywhere: through the screen behind, so a draft or an apply still gets its question.
      */
     private fun helpKey(key: KeyEvent) {
         val viewport = helpViewports.getValue(helpTab)
         when {
+            key.isCtrlC() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
             key.isChar('?') || key.isKey(KeyCode.F1) || key.isKey(KeyCode.ESCAPE) || key.isQuit() -> closeHelp()
             key.isLeft() || key.isRight() ->
                 focus.setFocus(helpTabId(if (helpTab == HelpTab.GUIDE) HelpTab.THIS_SCREEN else HelpTab.GUIDE))

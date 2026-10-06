@@ -212,6 +212,30 @@ class HelpTest {
         assertEquals(locations, setup.screen(80, 24))
     }
 
+    /** Ctrl+C quits from Help as it does everywhere, so a draft or unapplied choices still get their question. */
+    @Test
+    fun ctrlCInHelpQuitsThroughTheUsualQuestions() {
+        val plain = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        plain.press('?')
+        plain.ctrl('c')
+        assertTrue(plain.app.exitRequested(), "no choices, nothing running: it quits at once")
+
+        val choices = HeadlessTui(HomeLightSession(conflictConfiguration(temporary.resolve("second"))))
+        choices.press(KeyCode.TAB)
+        choices.press(KeyCode.ENTER)
+        choices.press('?')
+        choices.ctrl('c')
+        assertFalse(choices.app.exitRequested())
+        assertTrue(choices.screen(80, 24).contains("╔$QUIT_TITLE"))
+
+        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        setup.press('i')
+        setup.press(KeyCode.F1)
+        setup.ctrl('c')
+        assertFalse(setup.app.exitRequested())
+        assertTrue(setup.screen(80, 24).contains("╔$DISCARD_SETUP_TITLE"))
+    }
+
     @Test
     fun theGuideIsForUsers() {
         val guide = userGuide()
@@ -281,8 +305,8 @@ class HelpTest {
     private fun paneText(screen: String): String = paneRows(screen).joinToString(" ").replace(Regex("\\s+"), " ")
 
     /** One relocation that needs a choice, one to move and one in sync. */
-    private fun conflictConfiguration(): Path {
-        val root = temporary.toRealPath()
+    private fun conflictConfiguration(directory: Path = temporary): Path {
+        val root = Files.createDirectories(directory).toRealPath()
         for (path in listOf("home/both", "local/both", "home/move", "local/synced")) Files.createDirectories(root.resolve(path))
         Files.createSymbolicLink(root.resolve("home/synced"), root.resolve("local/synced"))
         val relocations = listOf("both", "move", "synced").joinToString(",\n") { name ->
