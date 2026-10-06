@@ -160,6 +160,54 @@ class HelpTest {
         assertFalse(dev.tamboui.style.Modifier.BOLD in otherCell.effectiveModifiers(), bar)
     }
 
+    /** At either edge of either tab the scroll keys do nothing; only Tab and ←/→ switch tabs. */
+    @Test
+    fun scrollKeysAtAnEdgeKeepTheTab() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        ui.press('?')
+        for (tab in listOf(HELP_THIS_SCREEN, HELP_GUIDE)) {
+            assertEquals(tab, ui.focused())
+            for (key in listOf(KeyCode.HOME, KeyCode.UP, KeyCode.PAGE_UP, KeyCode.END, KeyCode.DOWN, KeyCode.PAGE_DOWN)) {
+                ui.press(key)
+                assertEquals(tab, ui.focused(), "$key")
+            }
+            ui.press(KeyCode.TAB)
+        }
+        // A tab that fits has nothing to scroll: each key is at both edges at once.
+        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        setup.press('i')
+        setup.press(KeyCode.F1)
+        setup.screen(120, 30)
+        for (key in listOf(KeyCode.UP, KeyCode.DOWN, KeyCode.PAGE_UP, KeyCode.PAGE_DOWN, KeyCode.HOME, KeyCode.END)) {
+            setup.press(key)
+            assertEquals(HELP_THIS_SCREEN, setup.focused(), "$key")
+        }
+    }
+
+    /**
+     * Without mouse capture a terminal sends the wheel as arrow keys, and a trackpad's sideways drift as ←/→, in quick
+     * bursts. Those ←/→ must not switch tabs at an edge or anywhere else; a separate press still does.
+     */
+    @Test
+    fun aWheelsBurstOfArrowsNeverSwitchesTabs() {
+        var now = 0L
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()), clock = { now })
+        fun wheel(vararg keys: KeyCode) = keys.forEach { key -> now += 8_000_000; ui.press(key) }
+        fun pause() { now += 1_000_000_000 }
+        ui.press('?')
+        wheel(KeyCode.UP, KeyCode.UP, KeyCode.RIGHT, KeyCode.UP, KeyCode.LEFT, KeyCode.UP)
+        assertEquals(HELP_THIS_SCREEN, ui.focused(), "past the top of This screen")
+        pause()
+        ui.press(KeyCode.TAB)
+        assertEquals(HELP_GUIDE, ui.focused())
+        ui.press(KeyCode.END)
+        wheel(KeyCode.DOWN, KeyCode.DOWN, KeyCode.LEFT, KeyCode.DOWN, KeyCode.RIGHT, KeyCode.RIGHT)
+        assertEquals(HELP_GUIDE, ui.focused(), "past the bottom of Guide")
+        pause()
+        ui.press(KeyCode.RIGHT)
+        assertEquals(HELP_THIS_SCREEN, ui.focused(), "a separate press still switches")
+    }
+
     @Test
     fun aFirstRunOpensTheGuide() {
         val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))

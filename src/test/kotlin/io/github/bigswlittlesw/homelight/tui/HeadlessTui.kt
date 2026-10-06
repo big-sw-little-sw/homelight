@@ -27,11 +27,13 @@ internal class HeadlessTui(
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
     private val width: Int = 80,
     private val height: Int = 24,
+    // By default every reading is a second after the last, so each key is a separate press, never a wheel's burst.
+    clock: () -> Long = generateSequence(0L) { it + 1_000_000_000L }.iterator()::next,
 ) {
     val focus = FocusManager()
     private val router = EventRouter(focus, ElementRegistry())
     private val context = DefaultRenderContext(focus, router).apply { setBindings(KEY_BINDINGS) }
-    val app = HomeLightApp(session, focus, startSetup, discoveryFactory)
+    val app = HomeLightApp(session, focus, startSetup, discoveryFactory, clock)
 
     init {
         router.addGlobalHandler(app.keyHandler)

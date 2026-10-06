@@ -218,6 +218,13 @@ TamboUI moves focus on Tab before any handler sees it, so the open tab follows
 focus: the open tab's pane has that tab's focus id and the tab bar has the
 other's.
 
+The mouse wheel only scrolls. HomeLight does not capture the mouse, so a
+terminal in its alternate screen sends the wheel as ↑/↓ and a trackpad's
+sideways drift as ←/→, in quick bursts. A ← or → that comes within 150 ms of
+another arrow the app sees is taken as part of such a burst and ignored, so it
+neither switches Help's tab nor moves between panes; a separate press still
+does. Lists take ↑/↓ themselves, so there the app sees only bursts of ←/→.
+
 `homelight guide` prints the same guide as Markdown; `homelight --help` ends
 with its online address.
 
