@@ -177,9 +177,10 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
    TamboUI's Markdown element in the palette's colors. The guide is the only
    copy of its text; nothing in the code repeats it.
 
-Help opens on This screen, except before there is a configuration file: then it
-opens on Guide, and the empty Workspace says `New to HomeLight? Press ? to read
-the guide.` (with no relocations it says `Press ? for help.`).
+Help opens on This screen, except from the empty Workspace before there is a
+configuration file: then it opens on Guide, and that Workspace says `New to
+HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
+help.`). From Configuration it opens on This screen, text field or not.
 
 Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
 `[`/`]` scroll the open tab, and each tab keeps its scroll position; `?`, F1 or
@@ -189,7 +190,12 @@ and is hidden where it does nothing there. Every other key does nothing. An
 apply keeps running behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit`.
+`Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit`. When the open tab has nothing
+to scroll, the first line is empty: every scroll key is left out, as on any
+screen.
+
+The tab bar shows the open tab bold in the focus color and the other dim
+(`TabsElement` highlight style).
 
 TamboUI moves focus on Tab before any handler sees it, so the open tab follows
 focus: the open tab's pane has that tab's focus id and the tab bar has the
@@ -290,7 +296,7 @@ app uses. `~` and `${USER}` stay as written.
   (`~/.m2`). `a` adds a row with the source root filled in; `d` removes the
   selected row; `b` opens Browse.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Candidate list (optional)** with help "A file of directories to suggest, for
+  **Suggestion list (optional)** with help "A file of directories to suggest, for
   example one shared across machines. Built-in suggestions are always included."
   A Resolved section shows each as an absolute path, updated as you type.
 - Relocation fields: **Source**, **Target** (blank derives it from the target

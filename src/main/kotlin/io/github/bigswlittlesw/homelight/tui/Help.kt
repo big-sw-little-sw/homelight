@@ -7,8 +7,13 @@ import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.TabsElement
 
-/** A key as help shows it, `keys: action`. A hint not [inHelpArea] is listed only on the Help screen. */
-internal data class KeyHint(val keys: String, val action: String, val inHelpArea: Boolean = true) {
+/**
+ * A key as help shows it, `keys: action`. A hint not [inHelpArea] is listed only on the Help screen. A hint that
+ * [scrolls] is left out of the help lines while the pane has nothing to scroll.
+ */
+internal data class KeyHint(
+    val keys: String, val action: String, val inHelpArea: Boolean = true, val scrolls: Boolean = false,
+) {
     val text: String get() = "$keys: $action"
 }
 
@@ -42,7 +47,8 @@ internal fun helpScreen(
         Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$HELP_TITLE]").fg(palette.focus).bold(),
     )
     val other = if (tab == HelpTab.THIS_SCREEN) HelpTab.GUIDE else HelpTab.THIS_SCREEN
-    val tabs = TabsElement(THIS_SCREEN_TAB, GUIDE_TAB).selected(tab.ordinal).highlightColor(palette.focus)
+    val tabs = TabsElement(THIS_SCREEN_TAB, GUIDE_TAB).selected(tab.ordinal)
+        .highlightStyle(Style.EMPTY.fg(palette.focus).bold()).fg(palette.dim)
         .id(helpTabId(other)).focusable(interactive).length(1)
     val viewport = viewports.getValue(tab)
     val pane = when (tab) {
@@ -53,7 +59,7 @@ internal fun helpScreen(
     val quit = screen.commands.firstOrNull { it.keys == "q" }?.copy(inHelpArea = true)
     val own = ScreenHelp(
         HELP_TITLE, "", screen.step,
-        listOf(SCROLL_KEY, KeyHint("PageUp/PageDown", "Page"), KeyHint("Home/End", "Top/bottom")),
+        listOf(SCROLL_KEY, KeyHint("PageUp/PageDown", "Page", scrolls = true), KeyHint("Home/End", "Top/bottom", scrolls = true)),
         listOfNotNull(KeyHint("Tab/←/→", "Other tab"), KeyHint("?/F1/Esc", "Back"), quit),
     )
     return Toolkit.column(header, tabs, pane, viewport.help(own, interactive)).fill()

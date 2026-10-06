@@ -94,8 +94,10 @@ class HelpTest {
         assertTrue(rows[22].startsWith("↑/↓/[/]: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom"), thisScreen)
         assertTrue(rows[23].startsWith("Tab/←/→: Other tab · ?/F1/Esc: Back · q: Quit"), thisScreen)
 
+        assertTabBar(ui, open = THIS_SCREEN_TAB, other = GUIDE_TAB)
         ui.press(KeyCode.TAB)
         assertEquals(HELP_GUIDE, ui.focused())
+        assertTabBar(ui, open = GUIDE_TAB, other = THIS_SCREEN_TAB)
         val guide = ui.screen(80, 24)
         assertTrue(guide.lines()[2].startsWith("┌$GUIDE_TAB─"), guide)
         assertTrue(paneText(guide).contains("HomeLight frees space in your home directory."), guide)
@@ -119,6 +121,16 @@ class HelpTest {
         assertEquals(before, ui.screen(80, 24))
         assertEquals(1, ui.app.selectedIndex(), "the selection is kept")
         assertEquals(WORKSPACE_LIST, ui.focused())
+    }
+
+    /** The open tab is bold in the focus color; the other is dim. */
+    private fun assertTabBar(ui: HeadlessTui, open: String, other: String) {
+        val buffer = ui.frame(80, 24)
+        val bar = ui.screen(80, 24).lines()[1]
+        val openCell = buffer.get(bar.indexOf(open), 1).style()
+        assertEquals(palette.focus, openCell.fg().orElse(null), bar)
+        assertTrue(dev.tamboui.style.Modifier.BOLD in openCell.effectiveModifiers(), bar)
+        assertEquals(palette.dim, buffer.get(bar.indexOf(other), 1).style().fg().orElse(null), bar)
     }
 
     @Test
@@ -148,7 +160,12 @@ class HelpTest {
 
         ui.press(KeyCode.F1)
         assertTrue(ui.screen(80, 24).startsWith("⌂ HOMELIGHT  [Help]"))
-        ui.press(KeyCode.TAB)
+        // Still no configuration file, but Help opened from Configuration starts on This screen.
+        assertEquals(HELP_THIS_SCREEN, ui.focused())
+        // At this size This screen fits, so no scroll key is offered.
+        val fits = ui.screen(120, 30).lines()
+        assertTrue(fits[28].isBlank(), fits.joinToString("\n"))
+        assertTrue(fits[29].startsWith("Tab/←/→: Other tab · ?/F1/Esc: Back"), fits.joinToString("\n"))
         val help = ui.screen(100, 60)
         assertTrue(help.lines()[2].startsWith("┌" + place(CONFIGURATION_NAME, "Target root") + "─"), help)
         assertFalse(paneRows(help).any { it.startsWith("F1 ") }, "Help's own key is left out: $help")
@@ -189,6 +206,23 @@ class HelpTest {
         assertFalse(guide.contains("issue", ignoreCase = true), "no issues")
         val wide = guide.lines().filter { it.length > 78 }
         assertTrue(wide.isEmpty(), "lines over 78 columns: $wide")
+    }
+
+    /** TamboUI wraps between a code span and the punctuation after it, which would leave the punctuation alone. */
+    @Test
+    fun noGuideLineStartsWithPunctuationAtEitherSize() {
+        val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))
+        ui.press('?')
+        for ((width, height) in listOf(80 to 24, 120 to 30)) {
+            // Page through at the real size, so the wrap width leaves room for the scrollbar as it does on screen.
+            ui.press(KeyCode.HOME)
+            val rows = generateSequence(paneRows(ui.screen(width, height))) { page ->
+                ui.press(KeyCode.PAGE_DOWN)
+                paneRows(ui.screen(width, height)).takeIf { it != page }
+            }.flatten().toList()
+            val orphans = rows.map { it.trimStart() }.filter { Regex("^[.,;:)](\\s|$)").containsMatchIn(it) }
+            assertTrue(orphans.isEmpty(), "at ${width}x$height: $orphans")
+        }
     }
 
     @Test

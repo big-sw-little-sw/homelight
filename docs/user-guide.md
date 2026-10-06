@@ -5,7 +5,7 @@ as caches, to other storage and leaves a link at the old path, so programs
 still find them.
 
 It always shows you its plan first. Nothing on disk changes until you press
-`y`.
+y.
 
 ## What it does
 

@@ -153,10 +153,14 @@ internal class HomeLightApp(
         return helpScreen(screenHelp(), guide, helpTab, helpViewports, interactive)
     }
 
-    /** Help opens on the guide until there is a configuration file, so a first run starts by reading it. */
+    /**
+     * From the empty Workspace before there is a configuration file, Help opens on the guide, so a first run starts by
+     * reading it. Elsewhere, Configuration included, it opens on This screen.
+     */
     private fun openHelp() {
         helpOpen = true
-        val firstRun = session.evaluation().let { it is ConfigurationEvaluation.Missing || it is ConfigurationEvaluation.Unconfigured }
+        val firstRun = setup == null && activeScreen == Screen.WORKSPACE &&
+            session.evaluation().let { it is ConfigurationEvaluation.Missing || it is ConfigurationEvaluation.Unconfigured }
         helpTab = if (firstRun) HelpTab.GUIDE else HelpTab.THIS_SCREEN
         // This screen changes with the screen behind; the guide keeps where the reader left it.
         helpViewports.getValue(HelpTab.THIS_SCREEN).reset()

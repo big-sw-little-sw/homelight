@@ -38,15 +38,14 @@ internal class DetailViewport {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.heightOnly(2)
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
                 if (!shown) return
-                val navigation = note ?: helpLine(keys.navigation)
-                val commands = helpLine(keys.commands)
+                // Never advertise a key that does nothing now: scroll keys show only while the pane overflows, and
+                // `[`/`]` join ↑/↓ then, or follow the line when ↑/↓ does something else.
                 val overflows = maximum > 0
-                val keys = when {
-                    !navigation.startsWith("↑/↓: Scroll") -> if (overflows) "$navigation · [/]: Scroll" else navigation
-                    overflows -> navigation.replace("↑/↓: Scroll", "↑/↓/[/]: Scroll")
-                    else -> navigation.removePrefix("↑/↓: Scroll").removePrefix(" · ")
-                }
-                wrappedText(keys + "\n" + commands, palette.dim).render(frame, area, context)
+                val hints = keys.navigation.filter { overflows || !it.scrolls }
+                    .map { hint -> if (overflows && hint == SCROLL_KEY) KeyHint("↑/↓/[/]", hint.action) else hint }
+                val brackets = KeyHint("[/]", "Scroll").takeIf { overflows && SCROLL_KEY !in keys.navigation }
+                val navigation = listOfNotNull(note ?: helpLine(hints).ifEmpty { null }, brackets?.text).joinToString(" · ")
+                wrappedText(navigation + "\n" + helpLine(keys.commands), palette.dim).render(frame, area, context)
             }
         }
         return Help()

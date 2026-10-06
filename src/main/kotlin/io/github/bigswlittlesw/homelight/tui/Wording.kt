@@ -253,7 +253,7 @@ internal const val DETAILS_NAME = "Details"
 internal const val ACTION_DETAILS_NAME = "Action details"
 internal const val RELOCATIONS_NAME = "Relocations"
 /** Configuration's fields, as its pane labels them; Help names the focused one. */
-internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Shared candidate list (optional)")
+internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Suggestion list (optional)")
 internal val RELOCATION_FIELDS =
     listOf("Source path", "Target path", "Both exist", "Only target", "Source when keeping target", "Archive root")
 internal fun place(vararg parts: String) = parts.joinToString(" › ")
@@ -263,7 +263,7 @@ internal val HELP_KEY = KeyHint("?", "Help")
 internal val TEXT_FIELD_HELP_KEY = KeyHint("F1", "Help")
 internal val QUIT_KEY = KeyHint("q", "Quit")
 internal val CHECK_AGAIN_KEY = KeyHint("r", "Check again")
-internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll")
+internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll", scrolls = true)
 internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false)
 internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
 internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
