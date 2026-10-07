@@ -34,12 +34,6 @@ internal const val REVIEW_LIST = "review-list"
 internal const val REVIEW_DETAILS = "review-details"
 internal const val SETUP_SCREEN = "setup"
 internal const val DIALOG = "dialog"
-/**
- * In nanoseconds, the gap below which an arrow key in Help counts as part of a mouse wheel's burst. Wheel arrows come
- * within milliseconds of each other; a person's separate presses, and a held key's first repeat, come later.
- */
-internal const val WHEEL_BURST = 150_000_000L
-
 internal const val HELP_THIS_SCREEN = "help-this-screen"
 internal const val HELP_GUIDE = "help-guide"
 
@@ -54,8 +48,6 @@ internal class HomeLightApp(
     private val focus: FocusManager,
     startSetup: Boolean = false,
     private val discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
-    // Nanoseconds; tests drive it to tell a wheel's burst of arrow keys from a key press.
-    private val clock: () -> Long = System::nanoTime,
 ) {
     internal var activeScreen = Screen.WORKSPACE
         private set
@@ -84,8 +76,6 @@ internal class HomeLightApp(
     private var helpOpen = false
     private var focusBeforeHelp: String? = null
     private var helpTab = HelpTab.THIS_SCREEN
-    // When Help last read an arrow key, on [clock].
-    private var lastArrow: Long? = null
     // One per tab, so each keeps its scroll position.
     private val helpViewports = HelpTab.entries.associateWith { DetailViewport() }
     private val guide: String by lazy { userGuide() }
@@ -184,33 +174,16 @@ internal class HomeLightApp(
     }
 
     /**
-     * Whether `key` is ← or → from a mouse wheel or trackpad, which must not switch Help's tab or move between panes.
-     *
-     * HomeLight does not capture the mouse, so the terminal's own text selection keeps working. A terminal in its
-     * alternate screen then turns the wheel into arrow keys, and a trackpad's sideways drift while scrolling into ←/→.
-     * A wheel sends arrows in a burst; a person's ← or → does not come within [WHEEL_BURST] of another arrow. This sees
-     * only the arrows no focused element took: Help's panes take none, while a list takes ↑/↓ itself.
-     */
-    private fun wheelSideways(key: KeyEvent): Boolean {
-        if (!(key.isUp() || key.isDown() || key.isLeft() || key.isRight())) return false
-        val now = clock()
-        val burst = lastArrow?.let { last -> now - last < WHEEL_BURST } == true
-        lastArrow = now
-        return burst && (key.isLeft() || key.isRight())
-    }
-
-    /**
-     * Help switches tabs, scrolls and goes back; every other key of the screen behind does nothing, so a key typed
-     * while reading changes nothing. `q` goes back too, as in less, man and other help screens. Ctrl+C quits as it
-     * does everywhere: through the screen behind, so a draft or an apply still gets its question.
+     * Help scrolls and goes back, and TamboUI switches its tab on Tab (see [helpScreen]). Every other key does nothing,
+     * so a key typed while reading changes nothing. That includes ←/→: terminals send wheel and trackpad scrolling as
+     * arrow keys, so sideways drift would switch tabs. `q` goes back too, as in less, man and other help screens.
+     * Ctrl+C quits as it does everywhere: through the screen behind, so a draft or an apply still gets its question.
      */
     private fun helpKey(key: KeyEvent) {
         val viewport = helpViewports.getValue(helpTab)
         when {
             key.isCtrlC() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
             key.isChar('?') || key.isKey(KeyCode.F1) || key.isKey(KeyCode.ESCAPE) || key.isQuit() -> closeHelp()
-            key.isLeft() || key.isRight() ->
-                focus.setFocus(helpTabId(if (helpTab == HelpTab.GUIDE) HelpTab.THIS_SCREEN else HelpTab.GUIDE))
             key.isUp() || key.isChar('[') -> viewport.scroll(-1)
             key.isDown() || key.isChar(']') -> viewport.scroll(1)
             key.isPageUp() || key.isPageDown() -> viewport.scrollPage(if (key.isPageUp()) -1 else 1)
@@ -254,7 +227,6 @@ internal class HomeLightApp(
     }
 
     private fun handleKey(key: KeyEvent) {
-        if (wheelSideways(key)) return
         if (helpOpen) { helpKey(key); return }
         // F1 opens Help everywhere; in a setup text field `?` is typed like any other character.
         if (key.isKey(KeyCode.F1) || key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }

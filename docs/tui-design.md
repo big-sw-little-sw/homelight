@@ -192,7 +192,8 @@ configuration file: then it opens on Guide, and that Workspace says `New to
 HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
 help.`). From Configuration it opens on This screen, text field or not.
 
-Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
+Keys: only Tab switches tabs (not `1`/`2`, and not ←/→, which do nothing in
+Help); ↑/↓, PageUp/PageDown, Home/End and
 `[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
 `?` and F1 all go back exactly where the user was, with focus and selection
 kept. As in less, man and other help screens, `q` never quits from Help and
@@ -202,7 +203,7 @@ a Configuration draft, the exit-when-finished dialog during an apply. Every
 other key does nothing. An apply keeps running behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
+`Tab: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
 in the This screen pane's title, for example `Back to Configuration`. `?` and
 F1 also go back but are not listed: they are how the reader opened Help. When
 the open tab has nothing to scroll, the first line is empty: every scroll key is
@@ -218,12 +219,10 @@ TamboUI moves focus on Tab before any handler sees it, so the open tab follows
 focus: the open tab's pane has that tab's focus id and the tab bar has the
 other's.
 
-The mouse wheel only scrolls. HomeLight does not capture the mouse, so a
-terminal in its alternate screen sends the wheel as ↑/↓ and a trackpad's
-sideways drift as ←/→, in quick bursts. A ← or → that comes within 150 ms of
-another arrow the app sees is taken as part of such a burst and ignored, so it
-neither switches Help's tab nor moves between panes; a separate press still
-does. Lists take ↑/↓ themselves, so there the app sees only bursts of ←/→.
+HomeLight does not capture the mouse, so a terminal in its alternate screen
+sends wheel and trackpad scrolling as arrow keys, sideways scrolling as ←/→.
+Help ignores ←/→ so that scrolling never switches tabs; Tab alone is
+predictable.
 
 `homelight guide` prints the same guide as Markdown; `homelight --help` ends
 with its online address.

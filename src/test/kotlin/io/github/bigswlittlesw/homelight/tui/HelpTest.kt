@@ -108,7 +108,7 @@ class HelpTest {
     }
 
     @Test
-    fun tabAndArrowsSwitchTabsAndEachKeepsItsScroll() {
+    fun tabSwitchesTabsAndEachKeepsItsScroll() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
         ui.press(KeyCode.DOWN)
         val before = ui.screen(80, 24)
@@ -116,7 +116,7 @@ class HelpTest {
         val thisScreen = ui.screen(80, 24)
         val rows = thisScreen.lines()
         assertTrue(rows[22].startsWith("↑/↓/[/]: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom"), thisScreen)
-        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Workspace", rows[23].trimEnd(), thisScreen)
+        assertEquals("Tab: Other tab · Esc/q: Back to Workspace", rows[23].trimEnd(), thisScreen)
 
         assertTabBar(ui, open = THIS_SCREEN_TAB, other = GUIDE_TAB)
         ui.press(KeyCode.TAB)
@@ -130,9 +130,9 @@ class HelpTest {
         // A page keeps one line of context: the last line of the first page is now the first.
         assertEquals(paneRows(guide).last(), paneRows(paged).first(), paged)
 
-        ui.press(KeyCode.LEFT)
+        ui.press(KeyCode.TAB)
         assertEquals(thisScreen, ui.screen(80, 24))
-        ui.press(KeyCode.RIGHT)
+        ui.press(KeyCode.TAB)
         assertEquals(paged, ui.screen(80, 24), "the guide keeps its scroll position")
         ui.press(KeyCode.END)
         assertTrue(paneText(ui.screen(80, 24)).contains("homelight guide | less"))
@@ -160,7 +160,7 @@ class HelpTest {
         assertFalse(dev.tamboui.style.Modifier.BOLD in otherCell.effectiveModifiers(), bar)
     }
 
-    /** At either edge of either tab the scroll keys do nothing; only Tab and ←/→ switch tabs. */
+    /** At either edge of either tab the scroll keys do nothing; only Tab switches tabs. */
     @Test
     fun scrollKeysAtAnEdgeKeepTheTab() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
@@ -185,27 +185,23 @@ class HelpTest {
     }
 
     /**
-     * Without mouse capture a terminal sends the wheel as arrow keys, and a trackpad's sideways drift as ←/→, in quick
-     * bursts. Those ←/→ must not switch tabs at an edge or anywhere else; a separate press still does.
+     * Terminals send wheel and trackpad scrolling as arrow keys while HomeLight does not capture the mouse, so
+     * sideways drift arrives as ←/→. In Help they do nothing: the tab and its scroll position stay.
      */
     @Test
-    fun aWheelsBurstOfArrowsNeverSwitchesTabs() {
-        var now = 0L
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()), clock = { now })
-        fun wheel(vararg keys: KeyCode) = keys.forEach { key -> now += 8_000_000; ui.press(key) }
-        fun pause() { now += 1_000_000_000 }
+    fun leftAndRightKeepTheTabAndItsScroll() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
         ui.press('?')
-        wheel(KeyCode.UP, KeyCode.UP, KeyCode.RIGHT, KeyCode.UP, KeyCode.LEFT, KeyCode.UP)
-        assertEquals(HELP_THIS_SCREEN, ui.focused(), "past the top of This screen")
-        pause()
-        ui.press(KeyCode.TAB)
-        assertEquals(HELP_GUIDE, ui.focused())
-        ui.press(KeyCode.END)
-        wheel(KeyCode.DOWN, KeyCode.DOWN, KeyCode.LEFT, KeyCode.DOWN, KeyCode.RIGHT, KeyCode.RIGHT)
-        assertEquals(HELP_GUIDE, ui.focused(), "past the bottom of Guide")
-        pause()
-        ui.press(KeyCode.RIGHT)
-        assertEquals(HELP_THIS_SCREEN, ui.focused(), "a separate press still switches")
+        for (tab in listOf(HELP_THIS_SCREEN, HELP_GUIDE)) {
+            ui.press(KeyCode.DOWN)
+            val scrolled = ui.screen(80, 24)
+            for (key in listOf(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.RIGHT, KeyCode.LEFT)) {
+                ui.press(key)
+                assertEquals(tab, ui.focused(), "$key")
+                assertEquals(scrolled, ui.screen(80, 24), "$key")
+            }
+            ui.press(KeyCode.TAB)
+        }
     }
 
     @Test
@@ -240,7 +236,7 @@ class HelpTest {
         // At this size This screen fits, so no scroll key is offered.
         val fits = ui.screen(120, 30).lines()
         assertTrue(fits[28].isBlank(), fits.joinToString("\n"))
-        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
+        assertEquals("Tab: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
         val help = ui.screen(100, 60)
         val targetRoot = place(CONFIGURATION_NAME, "Target root")
         assertTrue(help.lines()[2].startsWith("┌$targetRoot─"), help)
@@ -268,7 +264,7 @@ class HelpTest {
         val table = setup.screen(80, 24)
         setup.press('?')
         val help = setup.screen(80, 24)
-        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", help.lines()[23].trimEnd(), help)
+        assertEquals("Tab: Other tab · Esc/q: Back to Configuration", help.lines()[23].trimEnd(), help)
         setup.press('q')
         assertEquals(table, setup.screen(80, 24), "no discard question")
         assertFalse(setup.app.exitRequested())

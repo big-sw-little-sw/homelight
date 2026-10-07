@@ -62,7 +62,7 @@ internal fun helpScreen(
     val own = ScreenHelp(
         HELP_TITLE, "", screen.step,
         listOf(SCROLL_KEY, KeyHint("PageUp/PageDown", "Page", scrolls = true), KeyHint("Home/End", "Top/bottom", scrolls = true)),
-        listOf(KeyHint("Tab/←/→", "Other tab"), KeyHint("Esc/q", backTo(screen.name))),
+        listOf(KeyHint("Tab", "Other tab"), KeyHint("Esc/q", backTo(screen.name))),
     )
     return Toolkit.column(header, tabs, pane, viewport.help(own, interactive)).fill()
 }
