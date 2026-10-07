@@ -92,7 +92,9 @@ class BrowseTest {
             key(ui, 'u')
             assertTrue(render(ui).contains("1 usually not needed, shown"))
             escape(ui)
-            assertTrue(render(ui).contains("home/manual┃"), render(ui))
+            // Back on the list with the row still there; a long path is shortened in the middle, so match its end.
+            assertEquals(CONFIG_LIST, ui.focused())
+            assertTrue(Regex("home/manual *┃").containsMatchIn(render(ui)), render(ui))
             ui.app.closeEditor()
         }
     }
