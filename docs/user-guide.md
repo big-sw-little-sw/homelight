@@ -89,9 +89,11 @@ directory. It changes only what is not in sync yet.
 ### If HomeLight can't read your configuration
 
 If the file has a mistake, the Workspace says `HomeLight can't read`, the
-file's name, and what is wrong, for example:
+file's name, and what is wrong, such as one of these:
 
 ```
+target-root is missing. Add it under "homelight".
+Line 2: relocations[0].source-path should be text, but it is a number.
 homelight.target-root: Use a full path, or one starting with ~/
 ```
 

@@ -125,13 +125,22 @@ internal fun resolvePath(value: String, name: String): Path {
     return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
 }
 
-/** Text that is not JSON in plain words; JSON in the wrong shape keeps kotlinx's words. Both lead with the position. */
+/**
+ * A rejected file in plain words where [JsonProblem] has them, else in kotlinx's. Text that is not JSON leads with
+ * its line and column; a value in valid JSON leads with its line when known (user decision), since the column of a
+ * value or key is less exact. Keys are named below `homelight`, as the file's reader sees them.
+ */
 private fun problem(exception: JsonInputException): String {
-    val position = "line ${exception.line}, column ${exception.column}"
-    return when {
-        exception.syntaxProblem != null -> "It isn't valid JSON: $position ${exception.syntaxProblem}."
-        exception.line > 0 -> position.replaceFirstChar { it.uppercase() } + ": " + exception.message
-        else -> exception.message
+    val line = if (exception.line > 0) "Line ${exception.line}: " else ""
+    val name = exception.path.removePrefix("homelight.")
+    return when (val problem = exception.problem) {
+        is JsonProblem.Syntax ->
+            "It isn't valid JSON: line ${exception.line}, column ${exception.column} ${problem.words}."
+        is JsonProblem.WrongKind ->
+            line + name.ifEmpty { "The file" } + " should be ${problem.expected}, but it is ${problem.found}."
+        is JsonProblem.MissingKey ->
+            "${problem.key} is missing. Add it " + (if (name.isEmpty()) "at the top of the file." else "under \"$name\".")
+        null -> line + exception.message
     }
 }
 

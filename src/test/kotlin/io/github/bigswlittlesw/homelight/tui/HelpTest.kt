@@ -351,10 +351,14 @@ class HelpTest {
         val cases = mapOf(
             "homelight" to listOf("It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"h\".", "correct that line"),
             """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "existing": "move"}]}}""" to listOf(
-                "Line 1, column 80: Encountered an unknown key 'existing' at homelight.relocations[0]", "correct that line",
+                "Line 1: Encountered an unknown key 'existing' at homelight.relocations[0]", "correct that line",
             ),
             """{"homelight": {"target-root": "local"}}""" to
                 listOf("homelight.target-root: Use a full path, or one starting with ~/", "correct that setting"),
+            """{"homelight": {"relocations": []}}""" to
+                listOf("target-root is missing. Add it under \"homelight\".", "correct that setting"),
+            """{"homelight": {"target-root": 5}}""" to
+                listOf("Line 1: target-root should be text, but it is a number.", "correct that line"),
         )
         for ((content, expected) in cases) {
             val (problem, correct) = expected

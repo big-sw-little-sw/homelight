@@ -72,10 +72,14 @@ class HomeLightCommandTest {
             "malformed.json" to ("{\"homelight\": {\"target-root\": \"unclosed\n" to explained("malformed.json",
                 "It isn't valid JSON: line 1, column 40 should have a double quote (\") but the line ends there.",
                 "correct that line")),
-            // Fixed paths, so the column does not depend on the temporary directory.
+            "missing-key.json" to ("""{"homelight": {"relocations": []}}""" to explained("missing-key.json",
+                "target-root is missing. Add it under \"homelight\".", "correct that setting")),
+            "wrong-kind.json" to ("""{"homelight": {"target-root": "/local",
+                "relocations": [{"source-path": 5}]}}""" to explained("wrong-kind.json",
+                "Line 2: relocations[0].source-path should be text, but it is a number.", "correct that line")),
             "unknown-key.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}""" to explained(
-                "unknown-key.json", "Line 2, column 80: Encountered an unknown key 'existing' at homelight.relocations[0]",
+                "unknown-key.json", "Line 2: Encountered an unknown key 'existing' at homelight.relocations[0]",
                 "correct that line")),
             "bad-enum.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "sometimes"}]}}""" to

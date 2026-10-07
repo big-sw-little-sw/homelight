@@ -43,8 +43,7 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun rejectsAPolicyObject() {
-        assertEquals("Line 2, column 89: Expected beginning of the string, but got {"
-            + " at homelight.relocations[0].when-adopting-target", failure("""
+        assertEquals("Line 2: relocations[0].when-adopting-target should be text, but it is an object.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": {"policy": "archive-source"}}]}}
             """))
@@ -56,20 +55,17 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun reportsMissingRequiredKeysByPath() {
-        assertEquals("Field 'target-root' is required for type with serial name 'homelight', but it was missing at homelight",
+        assertEquals("target-root is missing. Add it under \"homelight\".",
             failure("""{"homelight": {"relocations": []}}"""))
-        assertEquals("Field 'source-path' is required for type with serial name 'relocation', but it was missing"
-            + " at homelight.relocations[0]",
+        assertEquals("source-path is missing. Add it under \"relocations[0]\".",
             failure("""{"homelight": {"target-root": "/local", "relocations": [{"target-path": "/local/cache"}]}}"""))
-        assertEquals("Field 'homelight' is required for type with serial name 'configuration', but it was missing",
-            failure("{}"))
+        assertEquals("homelight is missing. Add it at the top of the file.", failure("{}"))
     }
 
     @Test fun rejectsNullForARequiredValue() {
-        assertEquals("Line 1, column 31: Expected string literal but 'null' literal was found at homelight.target-root",
+        assertEquals("Line 1: target-root should be text, but it is null.",
             failure("""{"homelight": {"target-root": null}}"""))
-        assertEquals("Line 1, column 15: Expected start of the object '{', but had 'n' instead at homelight",
-            failure("""{"homelight": null}"""))
+        assertEquals("Line 1: homelight should be an object in { }, but it is null.", failure("""{"homelight": null}"""))
     }
 
     @Test fun rejectsBlankPaths() {
@@ -85,26 +81,26 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun reportsValuesOfTheWrongTypeWithPositionAndPath() {
-        assertEquals("Line 2, column 18: Expected beginning of the string, but got [ at homelight.target-root", failure("""
+        assertEquals("Line 2: target-root should be text, but it is a list.", failure("""
             {"homelight": {
               "target-root": ["/local"]}}
             """))
-        assertEquals("Line 1, column 31: Expected quotation mark '\"', but had '5' instead at homelight.target-root",
+        assertEquals("Line 1: target-root should be text, but it is a number.",
             failure("""{"homelight": {"target-root": 5}}"""))
-        assertEquals("Line 1, column 56: Expected start of the array '[', but had '\"' instead at homelight.relocations",
+        assertEquals("Line 1: relocations should be a list in [ ], but it is text.",
             failure("""{"homelight": {"target-root": "/local", "relocations": "/home/cache"}}"""))
-        assertEquals("Line 1, column 57: Expected start of the object '{', but had '\"' instead at homelight.relocations[0]",
+        assertEquals("Line 1: relocations[0] should be an object in { }, but it is text.",
             failure("""{"homelight": {"target-root": "/local", "relocations": ["/home/cache"]}}"""))
-        assertEquals("Line 1, column 15: Expected start of the object '{', but had '\"' instead at homelight",
-            failure("""{"homelight": "/local"}"""))
+        assertEquals("Line 1: homelight should be an object in { }, but it is text.", failure("""{"homelight": "/local"}"""))
+        assertEquals("Line 1: The file should be an object in { }, but it is a list.", failure("[]"))
     }
 
     @Test fun rejectsUnknownKeysAtEveryLevel() {
-        assertEquals("Line 1, column 3: Encountered an unknown key 'other'",
+        assertEquals("Line 1: Encountered an unknown key 'other'",
             failure("""{"other": 1, "homelight": {"target-root": "/local"}}"""))
-        assertEquals("Line 1, column 42: Encountered an unknown key 'target' at homelight",
+        assertEquals("Line 1: Encountered an unknown key 'target' at homelight",
             failure("""{"homelight": {"target-root": "/local", "target": "/local"}}"""))
-        assertEquals("Line 2, column 66: Encountered an unknown key 'existing' at homelight.relocations[0]", failure("""
+        assertEquals("Line 2: Encountered an unknown key 'existing' at homelight.relocations[0]", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}
             """))
@@ -112,7 +108,7 @@ class ConfigurationLoaderTest {
         assertTrue(failure("""{"homelight": {"target-root": "/local", "discovery": {"suggestion-list": "/s.json"}}}""").orEmpty()
             .endsWith("Encountered an unknown key 'discovery' at homelight"))
         // The removed key is unknown too.
-        assertEquals("Line 2, column 66: Encountered an unknown key 'source-archive-root' at homelight.relocations[0]", failure("""
+        assertEquals("Line 2: Encountered an unknown key 'source-archive-root' at homelight.relocations[0]", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "source-archive-root": "/archive"}]}}
             """))
@@ -174,14 +170,15 @@ class ConfigurationLoaderTest {
         }
     }
 
-    /** Valid JSON of the wrong kind is not a syntax error, so kotlinx's words stay. */
-    @Test fun reportsJsonOfTheWrongKindInKotlinxWords() {
-        assertEquals("Line 1, column 15: Expected start of the object '{', but had 'EOF' instead at homelight",
-            failure("{\"homelight\": [\n"))
-        assertEquals("Line 1, column 31: Expected quotation mark '\"', but had 't' instead at homelight.target-root",
-            failure("""{"homelight": {"target-root": true}}"""))
-        assertEquals("Line 1, column 15: Expected start of the object '{', but had 'n' instead at homelight",
-            failure("""{"homelight": null}"""))
+    /** Valid JSON of the wrong kind is not a syntax error: it names the key, and the line without a column. */
+    @Test fun reportsJsonOfTheWrongKindByKeyAndLine() {
+        assertEquals("Line 1: homelight should be an object in { }, but it is a list.", failure("{\"homelight\": [\n"))
+        assertEquals("Line 1: target-root should be text, but it is true.", failure("""{"homelight": {"target-root": true}}"""))
+        // An unknown enum value keeps kotlinx's words; kotlinx gives no line for it.
+        assertEquals("when-only-target-exists does not contain element with name 'sometimes'" +
+            " at homelight.relocations[0].when-only-target-exists", failure("""
+            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-only-target-exists": "sometimes"}]}}
+            """))
     }
 
     @Test fun anInvalidFileNamesItsPathAndTheLineAtFault() {
@@ -397,8 +394,7 @@ class ConfigurationLoaderTest {
 
     /** A rule has a default instead of null, so `null` is a wrong value type, as for `source-root`. */
     @Test fun rejectsANullRule() {
-        assertEquals("Line 1, column 112: Expected string literal but 'null' literal was found at " +
-            "homelight.relocations[0].when-adopting-target", failure("""
+        assertEquals("Line 1: relocations[0].when-adopting-target should be text, but it is null.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "when-adopting-target": null}]}}
             """))
     }
