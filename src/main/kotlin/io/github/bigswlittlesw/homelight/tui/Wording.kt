@@ -402,6 +402,22 @@ internal const val NOT_CHECKED = "not checked"
 internal fun notAdded(reason: String) = "Not added. $reason. Prior choices are unchanged."
 internal const val SELECT_SUGGESTION = "Select a suggestion or a group"
 internal const val ADD_SUGGESTION = "Add the directory to the configuration"
+internal const val ADD_GROUP = "Add every directory shown in the group that can be added"
+internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
+/**
+ * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
+ * `overlapped` names, for each skipped row, the relocation it overlaps when known.
+ */
+internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int): String? {
+    if (overlapped.isEmpty() && unaddable == 0) return null
+    val overlap = when {
+        overlapped.isEmpty() -> null
+        overlapped.size == 1 -> "Skipped 1 that overlaps " + (overlapped.single() ?: "a directory in the configuration") + "."
+        else -> "Skipped ${overlapped.size} that overlap directories in the configuration."
+    }
+    val cannot = if (unaddable == 0) null else "Skipped $unaddable that can't be added."
+    return listOfNotNull("Added $added.", overlap, cannot).joinToString(" ")
+}
 internal const val REMOVE_SUGGESTION = "Take the directory out of the configuration; saving writes the change"
 internal const val EDIT_SUGGESTION = "Edit its relocation in Configuration"
 internal const val INSPECT_SUGGESTION = "See why it is suggested and by which list"

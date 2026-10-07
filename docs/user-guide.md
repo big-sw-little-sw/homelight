@@ -106,9 +106,16 @@ Below them, the suggestions are grouped by app. Each directory has a mark:
 - `−` it cannot be added, for example because it is a link. Its note says
   why.
 
-`Space` on a `[x]` row takes it out again. Adding and removing change only
-what Configuration shows: the file changes when you press `s`. Press `e` on
-a `[x]` row to change its target or rules.
+`Space` on a `[x]` row takes it out again. A directory you take out stays
+in the list until you leave Browse, so `Space` can add it back. Adding and
+removing change only what Configuration shows: the file changes when you
+press `s`. Press `e` on a `[x]` row to change its target or rules.
+
+An app's row has a mark too: `[x]` when all its directories are in your
+configuration, `[ ]` when none are, and `[~]` when some are. `Space` on it
+adds all its directories that are shown and can be added, or takes them all
+out when the mark is `[x]`. If some could not be added, Browse says so, for
+example `Added 3. Skipped 1 that overlaps ~/.cache.`
 
 A list can mark a directory **usually not needed**. Browse hides a directory
 when every list that names it says so, and counts what it hid. Press `u` to

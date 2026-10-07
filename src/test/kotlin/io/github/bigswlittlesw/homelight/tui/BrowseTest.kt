@@ -124,8 +124,6 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
-            key(ui, ' ')
-            assertEquals(0, added(ui), "App headings cannot add children")
             choose(ui, ".m2")
             val before = render(ui)
             key(ui, ' ')
@@ -356,8 +354,8 @@ class BrowseTest {
     }
 
     /**
-     * The tree's selection follows its item: checking again and `u` keep it, and when the item is hidden the row at
-     * its place is selected until it is listed again.
+     * The tree's selection follows its item: checking again and `u` keep it. When the item is hidden, the row at its
+     * place is selected and stays selected when the item is listed again.
      */
     @Test fun selectionFollowsItsItemThroughCheckAgainAndU() {
         val root = fixture()
@@ -370,11 +368,98 @@ class BrowseTest {
             assertTrue(selected(render(ui), "[ ] .cache/example"), render(ui))
             key(ui, 'u')
             assertFalse(render(ui).contains(".cache/example"), render(ui))
-            key(ui, 'u')
-            assertTrue(selected(render(ui), "[ ] .cache/example"), render(ui))
-            // Adding a row above does not move the selection off its item.
-            choose(ui, "datasets"); ui.press(KeyCode.UP); ui.press(KeyCode.UP); key(ui, ' '); ui.press(KeyCode.DOWN); ui.press(KeyCode.DOWN)
             assertTrue(selected(render(ui), "[ ] datasets"), render(ui))
+            key(ui, 'u')
+            assertTrue(selected(render(ui), "[ ] datasets"), render(ui))
+            // Adding a row above does not move the selection off its item.
+            ui.press(KeyCode.UP); ui.press(KeyCode.UP); key(ui, ' '); ui.press(KeyCode.DOWN); ui.press(KeyCode.DOWN)
+            assertTrue(selected(render(ui), "[ ] datasets"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** A configured directory no list suggests stays listed, in its place, after Space takes it out, until Browse closes. */
+    @Test fun aRemovedRowStaysListedUntilBrowseCloses() {
+        val root = fixture()
+        Files.createDirectories(root.resolve("home/manual"))
+        val config = Files.writeString(
+            root.resolve("config.json"),
+            """
+            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+              "relocations": [{"source-path": "${root.resolve("home/manual")}"}, {"source-path": "${root.resolve("home/zz-last")}"}]}}
+            """.trimIndent(),
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            assertTrue(render(ui).contains("[Configuration › Browse]"), render(ui))
+            choose(ui, "manual")
+            val before = render(ui).lines().indexOfFirst { it.contains("manual") }
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "[ ] manual"), render(ui))
+            assertEquals(before, render(ui).lines().indexOfFirst { it.contains("manual") }, render(ui))
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "[x] manual"), render(ui))
+            key(ui, ' '); escape(ui)
+            assertTrue(render(ui).contains("1 unsaved change"), render(ui))
+            key(ui, 'b')
+            assertFalse(render(ui).contains("manual"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * Space on an app group adds every directory shown in it that can be added, or takes them all out when all are
+     * in; the group reads `[ ]`, `[~]` or `[x]`. Each directory counts as one unsaved change.
+     */
+    @Test fun spaceOnAGroupAddsOrRemovesItsDirectories() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "Other directories")
+            assertTrue(selectedGroup(render(ui), "[ ] Other directories"), render(ui))
+            assertTrue(render(ui).contains("Space: Add all"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "[x] Other directories"), render(ui))
+            assertEquals(6, added(ui))
+            assertTrue(render(ui).contains("Space: Remove all"), render(ui))
+            // Taking one out leaves the group partly in the configuration.
+            down(ui); key(ui, ' '); ui.press(KeyCode.UP)
+            assertTrue(selectedGroup(render(ui), "[~] Other directories"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "[x] Other directories"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "[ ] Other directories"), render(ui))
+            assertEquals(0, added(ui))
+            // A new file: the three storage locations are the only changes, then each added directory counts.
+            escape(ui)
+            assertTrue(render(ui).contains("3 unsaved changes"), render(ui))
+            key(ui, 'b'); key(ui, ' ')
+            escape(ui)
+            assertTrue(render(ui).contains("9 unsaved changes"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** Space on a group skips rows that overlap and rows that cannot be added, and says so. */
+    @Test fun spaceOnAGroupSaysWhatItSkipped() {
+        val root = fixture()
+        Files.writeString(root.resolve("home/not-a-directory"), "file")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "uv")
+            key(ui, ' ')
+            val uv = all(ui)
+            assertTrue(uv.contains("Added 1. Skipped 1 that overlaps ${root.resolve("home/.local/share/uv")}."), uv)
+            assertTrue(selected(uv, "[x] .local/share/uv") || uv.contains("[x] .local/share/uv"), uv)
+            assertTrue(uv.contains("[ ] .local/share/uv/tools"), uv)
+            chooseGroup(ui, "Other directories")
+            key(ui, ' ')
+            val other = render(ui)
+            assertTrue(other.contains("Added 5. Skipped 1 that can't be added."), other)
+            assertTrue(selectedGroup(other, "[x] Other directories"), other)
             ui.app.closeEditor()
         }
     }
@@ -538,6 +623,16 @@ class BrowseTest {
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(ui))
         }
+        fun chooseGroup(ui: HeadlessTui, name: String) {
+            ui.press(KeyCode.HOME)
+            repeat(100) {
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯▼ \\[.\\] " + Pattern.quote(name) + " \\(.*")) }) return
+                down(ui)
+            }
+            fail<Unit>("Could not focus " + name + "\n" + render(ui))
+        }
+        /** Whether the selected group row of `screen` reads `row`: its marker and name. */
+        fun selectedGroup(screen: String, row: String): Boolean = screen.lines().any { it.contains("❯▼ $row (") }
         /** Whether the selected tree row of `screen` reads `row`: its marker and path. */
         fun selected(screen: String, row: String): Boolean =
             screen.lines().any { line -> line.matches(Regex(".*❯[├└]─ " + Pattern.quote(row) + "(?: +.*|┃.*)")) }

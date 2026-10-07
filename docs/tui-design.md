@@ -413,11 +413,20 @@ screen never says "candidate" or "draft".
   directories`), one child row per directory. Enter on an app collapses or
   expands it. The selection follows an item: checking again, `u`, adding and
   removing never move it to another row. When the selected row is hidden,
-  the row at its place is selected until it is listed again.
+  the row at its place is selected and stays selected. Rows keep the place
+  they were first listed in.
 - Markers: `[ ]` not in the configuration, `[x]` in it (saved earlier or added
   now), `−` cannot be added. Space toggles; removing a row only edits the
-  configuration on screen, and `s` in Configuration writes it. `e` on a `[x]`
-  row edits it in Configuration.
+  configuration on screen, and `s` in Configuration writes it. A row taken out
+  stays listed as `[ ]` until Browse closes, even when no list suggests it.
+  `e` on a `[x]` row edits it in Configuration.
+- An app row is marked by its directories that are in the configuration or
+  can be added: `[x]` all, `[ ]` none, `[~]` some, `−` none of either. Space
+  on `[ ]` or `[~]` adds every shown directory in it that can be added, each
+  as it would be one by one, so one that overlaps is skipped; Space on `[x]`
+  takes them all out. Each directory is one unsaved change. When rows were
+  skipped, a line says so: `Added 3. Skipped 1 that overlaps ~/.cache.`,
+  `Skipped 1 that can't be added.`
 - Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
   directory`, `can't read: <reason>`, `usually not needed`.
 - When both lists name a directory, your list wins: its app group and advice

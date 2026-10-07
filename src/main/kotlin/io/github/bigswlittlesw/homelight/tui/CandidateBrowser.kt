@@ -27,6 +27,12 @@ internal sealed interface BrowseAction {
     /** Remove the relocation at `row` from the draft. */
     data class Remove(val row: Int) : BrowseAction
 
+    /** Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried. */
+    data class AddAll(val sources: List<Path>, val unaddable: Int) : BrowseAction
+
+    /** Remove the relocations at `rows` from the draft. */
+    data class RemoveAll(val rows: List<Int>) : BrowseAction
+
     /** Edit the relocation at `row` in the draft. */
     data class Edit(val row: Int) : BrowseAction
 }
@@ -36,7 +42,9 @@ internal sealed interface BrowseAction {
  * state one key away. App expansion, the selected row and draft membership are independent states.
  *
  * The selection follows an item, not a position: Browse keeps the selected item and sets the tree's index from it on
- * every frame, so checking again, `u` and a row added or removed never move it to another item.
+ * every frame, so checking again, `u` and a row added or removed never move it to another item. When the item is no
+ * longer listed, the row at its place becomes the selected item. Rows keep the order they were first listed in, so
+ * a row taken out and kept listed (see [BrowseDraft]) stays where it was.
  *
  * The focused Browse screen offers each key to the tree inside it before the app sees it. The tree passes every key
  * to `keys`, the app's handler, so its own moves, expand, collapse and toggle never run: Space and Enter keep their
@@ -52,16 +60,20 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
 
     private enum class View { LIST, DETAILS, LISTS }
 
+    /** How many of a group's directories are in the configuration, counting only those that are in it or can be. */
+    private enum class GroupState { ALL, SOME, NONE, EMPTY }
+
     private val viewport = DetailViewport()
     private val tree = TreeElement<Item>().guideStyle(GuideStyle.UNICODE).indentWidth(2).highlightSymbol("❯")
         .highlightStyle(Style.EMPTY.bold())
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .onKeyEvent(keys)
     private val collapsed = mutableSetOf<String?>()
-    // The item the user selected. While it is not listed (hidden, or not suggested until a check finishes) the row at
-    // its last position is selected instead, and the item comes back when it is listed again.
     private var focus: Item? = null
+    // The selected row's index in the last frame, where the selection goes when its item is no longer listed.
     private var shown = 0
+    // Every source path in the order Browse first listed it.
+    private val order = linkedSetOf<Path>()
     private var view = View.LIST
     private var reveal = false
     private var message = ""
@@ -92,11 +104,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
 
     /** The tree of suggestions, its selection set from [focus]; or a line saying there are none yet. */
     private fun suggestions(draft: BrowseDraft): Element {
-        val entries = entriesByPath(draft)
+        val entries = listed(draft)
         val groups = groups(draft, entries)
         val rows = rows(groups)
         if (rows.isEmpty()) return wrappedText(NO_SUGGESTIONS, palette.dim)
         shown = selectedIndex(rows)
+        focus = rows[shown]
+        val members = groups.toMap()
         val nodes = groups.map { (app, members) ->
             TreeNode.of<Item>("", Item.Group(app)).expanded(app !in collapsed).apply {
                 members.forEach { entry -> add(TreeNode.of<Item>("", Item.Directory(path(entry))).leaf()) }
@@ -105,7 +119,9 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         // Rebuilt every frame, so rows follow the draft and discovery; the tree keeps only its scroll offset.
         return tree.roots(*nodes.toTypedArray()).selected(shown).nodeRenderer { node ->
             when (val item = node.data()) {
-                is Item.Group -> Toolkit.text(literal(groupLabel(item.app, node.children().size))).fg(palette.text).bold()
+                is Item.Group -> Toolkit.text(
+                    groupMark(groupState(members.getValue(item.app), draft)) + " " + literal(groupLabel(item.app, node.children().size)),
+                ).fg(palette.text).bold()
                 is Item.Directory -> directoryRow(entries.getValue(item.path), draft)
                 null -> null
             }
@@ -140,7 +156,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 help(
                     listOf(
                         KeyHint("↑/↓", "Move", description = SELECT_SUGGESTION).takeIf { item != null },
-                        entry?.let { toggleKey(it, draft) }, entry?.let(::editKey),
+                        entry?.let { toggleKey(it, draft) } ?: (item as? Item.Group)?.let { groupKey(groupState(members(it, draft), draft)) },
+                        entry?.let(::editKey),
                         when (item) {
                             is Item.Directory -> KeyHint("Enter", "Inspect", description = INSPECT_SUGGESTION)
                             is Item.Group -> KeyHint("Enter", "Expand/collapse", description = EXPAND_GROUP)
@@ -177,6 +194,18 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         val entry = (item as? Item.Directory)?.let { entry(draft, it.path) }
         val row = entry?.row
         when {
+            key.isChar(' ') && item is Item.Group -> {
+                message = ""
+                val members = members(item, draft)
+                return when (groupState(members, draft)) {
+                    GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
+                    GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
+                        members.filter { it.row == null && draft.canAdd(it) }.map(::path),
+                        unaddable = members.count { it.row == null && !draft.canAdd(it) },
+                    )
+                    GroupState.EMPTY -> null
+                }
+            }
             key.isChar(' ') && entry != null -> {
                 focus = item
                 message = ""
@@ -207,6 +236,14 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         message = refusal?.let(::notAdded).orEmpty()
     }
 
+    /**
+     * After [BrowseAction.AddAll]: `added` were added, and each of `overlapped` was not, naming the relocation it
+     * overlaps when known. Says so only when something was skipped.
+     */
+    fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int) {
+        message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable).orEmpty()
+    }
+
     fun back(): Boolean {
         if (view == View.LIST) return false
         view = View.LIST; message = ""; viewport.reset(); return true
@@ -222,7 +259,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     }
 
     private fun move(draft: BrowseDraft, to: (index: Int, last: Int) -> Int) {
-        val rows = rows(groups(draft, entriesByPath(draft)))
+        val rows = rows(groups(draft, listed(draft)))
         if (rows.isEmpty()) return
         focus = rows[to(selectedIndex(rows), rows.size - 1).coerceIn(0, rows.size - 1)]
         message = ""
@@ -233,7 +270,42 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         rows.indexOf(focus).takeIf { it >= 0 } ?: shown.coerceIn(0, maxOf(0, rows.size - 1))
 
     /** The selected row, which keys act on; null when there are no suggestions. */
-    private fun selected(draft: BrowseDraft): Item? = rows(groups(draft, entriesByPath(draft))).let { it.getOrNull(selectedIndex(it)) }
+    private fun selected(draft: BrowseDraft): Item? = rows(groups(draft, listed(draft))).let { it.getOrNull(selectedIndex(it)) }
+
+    /** The listed entries, each in the place it was first listed. */
+    private fun listed(draft: BrowseDraft): Map<Path, BrowseDraft.Entry> {
+        val entries = entriesByPath(draft)
+        order.addAll(entries.keys)
+        val place = order.withIndex().associate { (i, path) -> path to i }
+        return entries.entries.sortedBy { place.getValue(it.key) }.associate { it.key to it.value }
+    }
+
+    /** The directories a group row stands for: those listed under it, collapsed or not. */
+    private fun members(group: Item.Group, draft: BrowseDraft): List<BrowseDraft.Entry> =
+        groups(draft, listed(draft)).firstOrNull { it.first == group.app }?.second.orEmpty()
+
+    private fun groupState(members: List<BrowseDraft.Entry>, draft: BrowseDraft): GroupState {
+        val counted = members.filter { it.row != null || draft.canAdd(it) }
+        return when {
+            counted.isEmpty() -> GroupState.EMPTY
+            counted.all { it.row != null } -> GroupState.ALL
+            counted.none { it.row != null } -> GroupState.NONE
+            else -> GroupState.SOME
+        }
+    }
+
+    private fun groupMark(state: GroupState): String = when (state) {
+        GroupState.ALL -> "[x]"
+        GroupState.SOME -> "[~]"
+        GroupState.NONE -> "[ ]"
+        GroupState.EMPTY -> " − "
+    }
+
+    private fun groupKey(state: GroupState): KeyHint? = when (state) {
+        GroupState.ALL -> KeyHint("Space", "Remove all", description = REMOVE_GROUP)
+        GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = ADD_GROUP)
+        GroupState.EMPTY -> null
+    }
 
     /** The listed entries, grouped by the app of their first definition, which is your list's when it names one. */
     private fun groups(draft: BrowseDraft, entries: Map<Path, BrowseDraft.Entry>): List<Pair<String?, List<BrowseDraft.Entry>>> =

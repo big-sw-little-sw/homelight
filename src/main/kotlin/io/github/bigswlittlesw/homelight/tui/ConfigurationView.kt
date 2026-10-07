@@ -94,6 +94,8 @@ internal class ConfigurationView private constructor(
     private val detailsArea = DetailViewport()
     private val browser = CandidateBrowser(keys)
     private var browsing = false
+    // Sources taken out in this Browse visit; see [BrowseDraft].
+    private var kept = setOf<Path>()
     private var suggestions: Suggestions? = null
 
     var closed = false
@@ -110,7 +112,12 @@ internal class ConfigurationView private constructor(
         )
         // Browse keeps its own selection, so the screen is one focusable while it is open.
         if (browsing) {
-            return Toolkit.column(header, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE).focusable(interactive)
+            val browseHeader = Toolkit.row(
+                Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+                Toolkit.text("[" + place(CONFIGURATION_NAME, BROWSE_NAME) + "]").fg(palette.focus).bold(),
+            )
+            return Toolkit.column(browseHeader, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE)
+                .focusable(interactive)
         }
         pull()
         val row = selectedRow()
@@ -427,6 +434,7 @@ internal class ConfigurationView private constructor(
         val path = (listed as? Resolved.Found)?.path
         if (current.request != CandidateDiscovery.Request.of(root.path, path)) current.check(root.path, path)
         browsing = true
+        kept = setOf()
         message = ""
         focus.setFocus(CONFIG_BROWSE)
     }
@@ -450,8 +458,14 @@ internal class ConfigurationView private constructor(
         }
         when (val action = browser.key(key, browseDraft())) {
             null -> {}
-            is BrowseAction.Add -> browser.added(addSuggestion(action.source))
-            is BrowseAction.Remove -> remove(action.row + 1)
+            is BrowseAction.Add -> browser.added(addRefusal(action.source)?.message)
+            is BrowseAction.Remove -> removeRows(listOf(action.row))
+            is BrowseAction.RemoveAll -> removeRows(action.rows)
+            is BrowseAction.AddAll -> {
+                // Each add sees the ones before it, so two suggestions in one group that overlap add only the first.
+                val refusals = action.sources.map { source -> addRefusal(source) }
+                browser.addedGroup(refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable)
+            }
             is BrowseAction.Edit -> {
                 leaveBrowse()
                 list.selected(action.row + 1)
@@ -460,8 +474,11 @@ internal class ConfigurationView private constructor(
         }
     }
 
+    /** Why Browse could not add a source: the overlap's message, and the relocation it overlaps when that is another. */
+    private data class Refusal(val message: String, val other: Path?)
+
     /** Adds `source` as written in Browse, and returns why not when it would overlap a relocation. */
-    private fun addSuggestion(source: Path): String? {
+    private fun addRefusal(source: Path): Refusal? {
         val row = RelocationFile(displayPath(source))
         val relocations = (draft.relocations + row).mapNotNull { relocation ->
             val resolved = resolve(relocation)
@@ -469,16 +486,24 @@ internal class ConfigurationView private constructor(
             val target = (resolved.target as? Resolved.Found)?.path
             if (path == null || target == null) null else Relocation(path, target)
         }
-        relocationProblem(relocations)?.let { return it.message }
+        // The new row is last, so a problem between two rows names the earlier one, the relocation it overlaps.
+        relocationProblem(relocations)?.let { return Refusal(it.message, it.source.takeIf { other -> other != source }) }
         edit(draft.relocations + row, origins + null)
         return null
+    }
+
+    /** Takes the draft rows at `rows` out, keeping their sources listed in Browse until it closes. */
+    private fun removeRows(rows: List<Int>) {
+        kept = kept + rows.mapNotNull { row -> (resolve(draft.relocations[row]).source as? Resolved.Found)?.path }
+        // From the last, so each index still names its row.
+        rows.sortedDescending().forEach { row -> remove(row + 1) }
     }
 
     private fun browseDraft(): BrowseDraft {
         // Browse opens only after a check starts, which sets the request.
         val request = checkNotNull(suggestions?.request)
         val sources = draft.relocations.map { (resolve(it).source as? Resolved.Found)?.path }
-        return BrowseDraft(request.root, sources, suggestions?.result())
+        return BrowseDraft(request.root, sources, suggestions?.result(), kept)
     }
 
     /** Takes the shown row's typed text into the draft, field by field, when it differs. */
