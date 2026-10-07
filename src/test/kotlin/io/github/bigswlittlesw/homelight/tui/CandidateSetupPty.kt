@@ -15,7 +15,7 @@ object CandidateSetupPty {
         SetupDiscoveryFixture().use { fixture ->
             fixture.realTime = true
             if (args.size > 1) { fixture.block = true; fixture.releaseFile = Path.of(args[1]) }
-            runTui(HomeLightSession(Path.of(args[0])), startSetup = true, discoveryFactory = fixture::get)
+            runTui(HomeLightSession(Path.of(args[0])), openConfiguration = true, discoveryFactory = fixture::get)
         }
     }
 }

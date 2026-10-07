@@ -96,6 +96,8 @@ step conflict-apply -c "$R/conflict.json" apply --json --yes
 step apply-no-yes -c "$R/config.json" apply --json
 step tui-non-tty -c "$R/config.json" status
 step init-existing -c "$R/config.json" init
+step config-existing -c "$R/config.json" config
+step config-malformed -c "$R/malformed.json" config
 step apply-yes -c "$R/config.json" apply --json --yes
 step status-after -c "$R/config.json" status --json
 step plan-after -c "$R/config.json" plan --json

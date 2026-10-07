@@ -39,8 +39,16 @@ class HelpTest {
 
         val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
         setup.press('i')
-        setup.press(KeyCode.ENTER)
-        checkThisScreen(setup, place(CONFIGURATION_NAME, RELOCATIONS_NAME), PURPOSE_CONFIGURATION, Step.CONFIGURE, "s")
+        checkThisScreen(setup, place(CONFIGURATION_NAME, TARGET_ROOT_LABEL), PURPOSE_CONFIGURATION, Step.CONFIGURE, "←/→", "Home/End")
+        setup.press(KeyCode.ESCAPE)
+        checkThisScreen(
+            setup, CONFIGURATION_NAME, PURPOSE_CONFIGURATION, Step.CONFIGURE, "PageUp/PageDown",
+            pinned = mapOf("s" to "Create the configuration file, then check again"),
+        )
+        setup.press('a')
+        setup.press(KeyCode.DOWN)
+        setup.press(KeyCode.DOWN)
+        checkThisScreen(setup, place(CONFIGURATION_NAME, BOTH_EXIST_LABEL), PURPOSE_CONFIGURATION, Step.CONFIGURE)
 
         val empty = Files.writeString(
             temporary.resolve("empty.json"), "{\"homelight\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
@@ -60,8 +68,9 @@ class HelpTest {
     ) {
         val before = ui.screen(80, 24)
         val focused = ui.focused()
-        val shown = helpLines(before).filter { it != "?: Help" }
-        ui.press('?')
+        val shown = helpLines(before).filter { it != "?: Help" && it != "F1: Help" }
+        // F1 opens Help from a text field too, where `?` would type.
+        ui.press(KeyCode.F1)
         assertEquals(HELP_THIS_SCREEN, ui.focused(), place)
         // Tall enough to show the whole tab.
         val help = ui.screen(100, 80)
@@ -303,10 +312,9 @@ class HelpTest {
     fun f1OpensHelpFromATextFieldWhereQuestionMarkTypes() {
         val ui = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
         ui.press('i')
-        ui.press(KeyCode.DOWN)
         ui.type("/srv/what?")
         val field = ui.screen(80, 24)
-        assertTrue(field.contains("Target root: /srv/what?"), field)
+        assertTrue(field.contains("  /srv/what?"), field)
         assertFalse(field.contains("[Help]"), field)
         assertTrue(helpLines(field).contains("F1: Help"), field)
         assertFalse(helpLines(field).contains("?: Help"), field)
@@ -325,7 +333,7 @@ class HelpTest {
         assertTrue(paneText(help).contains(keysOn(targetRoot) + " " + KEYS_LEAD_IN), help)
         assertFalse(paneRows(help).any { it.startsWith("F1 ") }, "Help's own key is left out: $help")
         val esc = paneRows(help).single { it.startsWith("Esc ") }.substringAfter("Esc ").trim()
-        assertEquals("Close Configuration; asks first if you typed anything", esc)
+        assertEquals("Back to the list", esc)
         ui.press(KeyCode.F1)
         assertEquals(field, ui.screen(80, 24))
     }
@@ -342,7 +350,8 @@ class HelpTest {
 
         val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
         setup.press('i')
-        setup.press(KeyCode.ENTER)
+        setup.type("/srv")
+        setup.press(KeyCode.ESCAPE)
         val table = setup.screen(80, 24)
         setup.press('?')
         val help = setup.screen(80, 24)
@@ -352,7 +361,7 @@ class HelpTest {
         assertFalse(setup.app.exitRequested())
 
         // From a text field too, where `q` would type: Help takes it, and the field is unchanged.
-        setup.press('e')
+        setup.press(KeyCode.ENTER)
         val locations = setup.screen(80, 24)
         setup.press(KeyCode.F1)
         setup.press('q')
@@ -377,6 +386,7 @@ class HelpTest {
 
         val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
         setup.press('i')
+        setup.type("/srv")
         setup.press(KeyCode.F1)
         setup.ctrl('c')
         assertFalse(setup.app.exitRequested())

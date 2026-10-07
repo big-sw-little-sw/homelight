@@ -37,10 +37,10 @@ Configure → Workspace → Review → Apply → Results
 ```
 
 1. **Configure.** Run `homelight`. The first time, there is no configuration
-   file yet: press `i` to open **Configuration**. Say where storage is, then
-   add the directories to move. Type them in, or press `b` to browse
-   suggestions. Press `s` to save. Saving writes the configuration file and
-   nothing else.
+   file yet: press `i` to open **Configuration**. Type where storage is in
+   **Target root**, then add the directories to move: press `a` and type
+   one in, or press `b` to browse suggestions. Press `s` to save. Saving
+   writes the configuration file and nothing else.
 2. **Check the plan on the Workspace (`1`).** Each directory you added is a
    *relocation*. The Workspace shows what is there now and what HomeLight
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
@@ -59,8 +59,22 @@ Configure → Workspace → Review → Apply → Results
 
 ### Change the configuration later
 
-Edit the configuration file, `~/.homelight.json` (or the file you gave with
-`--config`), then press `r` in HomeLight to check again.
+Press `e` on the Workspace to open Configuration, change it, and press `s`.
+HomeLight checks again and shows the new plan.
+
+- Select **Storage locations** or a relocation in the list on the left, and
+  press `Enter` to change its fields. `Esc` goes back to the list.
+- `a` adds a relocation and `d` removes the selected one. Nothing changes in
+  the file until you press `s`.
+- Saving asks first, because it replaces the whole file. Comments in the
+  file are not kept.
+- If the file changed after you opened Configuration, for example because you
+  edited it by hand, HomeLight does not replace it. Your changes stay on
+  screen: press `q`, then `y`, then `e` to start again from the file.
+
+`homelight config` opens Configuration directly. The configuration file is
+`~/.homelight.json`, or the file you gave with `--config`. You can also edit
+it by hand, then press `r` in HomeLight to check again.
 
 Run HomeLight again whenever you like, for example after you add a
 directory. It changes only what is not in sync yet.
@@ -134,7 +148,7 @@ To use a list, enter its path in Configuration's **Suggestion list** field,
 or add it to the configuration file:
 
 ```json
-"discovery": {"shared-list": "/net/team/homelight/suggestions.json"}
+"discovery": {"suggestion-list": "/net/team/homelight/suggestions.json"}
 ```
 
 The path must be absolute or start with `~/`. Each person keeps their own
@@ -172,8 +186,8 @@ you can reverse a change by hand:
   contents.
 - **Deleted:** HomeLight cannot recover it. Restore it from a backup.
 
-Remove the relocation from the configuration file first, or HomeLight plans to
-move it again.
+Remove the relocation from the configuration first, or HomeLight plans to
+move it again: press `e`, select it, press `d`, then `s`.
 
 ## Reference
 

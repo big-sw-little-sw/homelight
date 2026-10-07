@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
-import io.github.bigswlittlesw.homelight.config.ConfigurationDraft
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
@@ -244,7 +243,7 @@ class ReconciliationPlannerTest {
         )
         for (relocations in invalidSets) {
             val expected = assertThrows<IllegalArgumentException> {
-                validateConfiguration(ConfigurationDraft.of(local, relocations))
+                validateConfiguration(relocations)
             }.message
             val diagnostic = ReconciliationPlanner().plan(states(relocations)).diagnostics.single()
             assertEquals(expected, diagnostic.message)

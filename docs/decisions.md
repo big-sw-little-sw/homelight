@@ -464,6 +464,26 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`
 - `[skipped: a status line in a relocation's Details (for example "2 of 3 steps done"), add when the step marks are not enough]`
 
+## 2026-10-06: Configuration edits the file's own shape
+
+#114 replaces setup with the one Configuration editor decided on 2026-10-04. `SetupView` became `ConfigurationView` (rung 2: same screen, same Browse, same discard dialog), and `SetupDraft` with its relative rows, path rules, `configured` join, `[=]` marker, `outsideRoot` and LOCATIONS mode is gone.
+
+- **Draft:** a `HomeLightFile` (rung 2). Each relocation also keeps the index of the loaded row it came from, changed only by add and remove, so `N unsaved changes` counts an edited row once and a field typed back to its old value as no change. Fields the screen does not show (`staging-root`, `ignored-source-paths`) ride along untouched.
+- **One owner for path rules:** the loader. `ConfigurationLoader.read` returns the file and the bytes it read (for the replace check, #113). The publisher takes a `HomeLightFile`, checks it with the loader's own conversion plus `validateConfiguration`, and writes paths as given, so `~` and `${USER}` survive. `ConfigurationDraft` and `configurationFile` are deleted (rung 1). The Resolved section uses the loader's `resolvePath` and `derivedTarget`, named with the screen's labels, so its messages are plain.
+- **Fields:** TamboUI text inputs, each with its own focus id; Tab moves through list and fields, ↑/↓ between fields, Esc back to the list (rung 4). TamboUI has a `Select` widget but no element for it, so a ten-line element renders the widget (rung 6). `s` saves from the list and Selects; in a text field it types.
+- **Help:** a field's note moved from the help area into the Details pane under the fields, which fixes the wrap that pushed the commands line out at 80x24; a test checks both help lines on every focus. F1 is listed in text fields.
+- **Saving:** a new file is created directly; an existing one goes through the replace dialog and `ConfigurationPublisher.replace`. "Changed since it was loaded" is its own exception type (`ConfigurationChangedException`) and message, which keeps the draft and says how to start again. After a save the Workspace checks again and says the next step below its panes, until the next key it handles.
+- **Invalid files (decision):** `e` opens only a file that loads. `e` is not offered on an invalid file, and `homelight init` and `config` refuse it with the loader's message and exit 1. Most broken files are JSON errors the editor could not show anyway, and the Workspace already says why the file is broken.
+- **Entry:** `config` is a picocli alias of `init` (rung 4); both open a loaded file for editing or a new one.
+- **Config key:** `discovery.shared-list` is now `discovery.suggestion-list`, matching "suggestion list" on screen and in the guide. Nothing is released, so there is no compatibility shim.
+- **Browse:** rows from the file are ordinary draft rows (`[x]`), `e` edits any of them, and adding a suggestion still refuses an overlap. Its #115 work (Space toggle, Lists lines, renames) is not done here.
+- Paths stay resolved as the loader always did: a relative path is taken from the working directory. The Resolved section shows where it lands.
+- `[skipped: opening an invalid file in Configuration, add when users ask to fix a broken file from the editor]`
+- `[skipped: per-row changed/new markers, add when users lose track of edits in long lists]`
+- `[skipped: Tab completion for paths, add when typing paths becomes a complaint]`
+- `[skipped: the mouse wheel over Configuration's list and fields, add when users ask; it scrolls Details and Browse]`
+- `[skipped: label beside value at wide sizes, add when the fields pane feels sparse at 120 columns]`
+
 ## How to add decisions
 
 Use this format:

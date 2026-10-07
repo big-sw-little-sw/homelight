@@ -12,7 +12,7 @@ The project is at the initial design and implementation stage. Configuration loa
 
 ```text
 homelight
-homelight init
+homelight init      (or: homelight config)
 homelight plan
 homelight apply
 homelight status
@@ -58,14 +58,14 @@ launcher. It installs the application with `installDist` and runs it:
 ./homelight apply --config /path/to/.homelight.json --json --yes
 ```
 
-The default configuration path is `~/.homelight.json`. `homelight init` writes it;
+The default configuration path is `~/.homelight.json`. `homelight init` (or `homelight config`) creates or changes it in the TUI, keeping `~` and `${USER}` as typed but not comments;
 hand-written files may use `//` and `/* */` comments and trailing commas:
 
 ```json
 {
   "homelight": {
     "target-root": "/local/home/${USER}",
-    "discovery": {"shared-list": "/net/team/homelight/candidates.json"},
+    "discovery": {"suggestion-list": "/net/team/homelight/candidates.json"},
     "relocations": [
       // Target defaults to target-root plus the path under source-root.
       {"source-path": "~/.m2"},

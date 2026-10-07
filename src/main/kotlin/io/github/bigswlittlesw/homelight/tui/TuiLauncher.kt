@@ -28,14 +28,16 @@ internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb termin
  *
  * A bug propagates once the terminal is restored, and the CLI reports it as an internal error.
  */
-internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, startSetup: Boolean = false): Int {
+internal fun launchTui(
+    configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter, openConfiguration: Boolean = false,
+): Int {
     // Since JDK 22, System.console() may return a console when input or output is redirected.
     terminalRefusal(System.console()?.isTerminal == true, System.getenv("TERM"))?.let { refusal ->
         errorOutput.println(refusal)
         return 2
     }
     try {
-        runTui(HomeLightSession(configPath, debugStepDelayMillis), startSetup = startSetup)
+        runTui(HomeLightSession(configPath, debugStepDelayMillis), openConfiguration = openConfiguration)
         return 0
     } catch (_: DumbTerminalException) {
         errorOutput.println(DUMB_TERMINAL)
@@ -50,14 +52,17 @@ internal fun launchTui(configPath: Path, debugStepDelayMillis: Long, errorOutput
 private fun isTerminalFailure(exception: Exception): Boolean = exception is IOException
     || exception is UncheckedIOException || exception is RuntimeIOException || exception is TerminalIOException
 
-/** Opens manual setup only for a missing configuration; it never edits an existing file. */
-internal fun launchInit(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
+/**
+ * Opens Configuration: on the file when it loads, on a new file when there is none. A file HomeLight cannot read is
+ * refused, as `e` refuses it on the Workspace: it is fixed by hand.
+ */
+internal fun launchConfiguration(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
     val evaluation = ConfigurationEvaluation().load(configPath)
-    if (evaluation is ConfigurationEvaluation.Loaded || evaluation is ConfigurationEvaluation.Invalid) {
-        errorOutput.println("Configuration already exists or is unreadable; init only creates a missing configuration.")
+    if (evaluation is ConfigurationEvaluation.Invalid) {
+        errorOutput.println(cannotEdit(evaluation.message))
         return 1
     }
-    return launchTui(configPath, debugStepDelayMillis, errorOutput, startSetup = true)
+    return launchTui(configPath, debugStepDelayMillis, errorOutput, openConfiguration = true)
 }
 
 /** Returns why the TUI must not start, judged before any terminal is opened. */
@@ -80,7 +85,7 @@ internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig =
 
 /** Runs the TUI on [config]'s backend, or the system terminal when it has none, until the user exits. */
 internal fun runTui(
-    session: HomeLightSession, config: TuiConfig = TuiConfig.defaults(), startSetup: Boolean = false,
+    session: HomeLightSession, config: TuiConfig = TuiConfig.defaults(), openConfiguration: Boolean = false,
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
 ) {
     val configured = tuiConfig(config)
@@ -92,7 +97,7 @@ internal fun runTui(
         builder.backend(systemBackend())
     }
     ToolkitRunner.create(builder.build()).use { runner ->
-        val app = HomeLightApp(session, runner.focusManager(), startSetup, discoveryFactory)
+        val app = HomeLightApp(session, runner.focusManager(), openConfiguration, discoveryFactory)
         runner.eventRouter().addGlobalHandler(app.keyHandler)
         try {
             runner.run(Supplier<Element> {
@@ -103,7 +108,7 @@ internal fun runTui(
                 view
             })
         } finally {
-            app.closeSetup()
+            app.closeEditor()
             session.awaitExecution()
         }
     }

@@ -20,13 +20,14 @@ import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
 import io.github.bigswlittlesw.homelight.application.userGuide
+import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import java.nio.file.Path
 
 /**
  * Key handlers read navigation from this set: arrows, Home/End and PageUp/PageDown, with no letter aliases, so
  * navigation never takes a key a text field could type. `q`, `Q` and Ctrl+C are still quit and Space is still
- * select, so setup's text fields take typed characters before any binding.
+ * select, so Configuration's text fields take typed characters before any binding.
  */
 internal val KEY_BINDINGS: Bindings = BindingSets.standard()
 
@@ -35,7 +36,8 @@ internal const val WORKSPACE_LIST = "workspace-list"
 internal const val WORKSPACE_DETAILS = "workspace-details"
 internal const val REVIEW_LIST = "review-list"
 internal const val REVIEW_DETAILS = "review-details"
-internal const val SETUP_SCREEN = "setup"
+internal const val CONFIG_LIST = "config-list"
+internal const val CONFIG_BROWSE = "config-browse"
 internal const val DIALOG = "dialog"
 internal const val HELP_THIS_SCREEN = "help-this-screen"
 internal const val HELP_GUIDE = "help-guide"
@@ -44,12 +46,13 @@ internal const val HELP_GUIDE = "help-guide"
  * Owns navigation and inspection; the session owns decisions and guarded execution.
  *
  * Focus is TamboUI's: the focused element takes its own keys first (a list moves its selection, a dialog answers),
- * and [keyHandler] gets every key it leaves. `discoveryFactory` gives each reopened setup its own discovery lifetime.
+ * and [keyHandler] gets every key it leaves. `discoveryFactory` gives each opened Configuration its own discovery
+ * lifetime. With `openConfiguration`, HomeLight starts on Configuration, as `homelight init` and `config` do.
  */
 internal class HomeLightApp(
     val session: HomeLightSession,
     private val focus: FocusManager,
-    startSetup: Boolean = false,
+    openConfiguration: Boolean = false,
     private val discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
 ) {
     internal var activeScreen = Screen.WORKSPACE
@@ -76,7 +79,9 @@ internal class HomeLightApp(
     private val reviewDetails = DetailViewport()
     private var exitIntent = ExitIntent.STAY
     private var focusBeforeDialog: String? = null
-    private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
+    private var editor: ConfigurationView? = null
+    // Said on the Workspace after Configuration closes, until the next key the app handles (moving in a list keeps it).
+    private var notice: DetailViewport.Line? = null
     private var helpOpen = false
     private var focusBeforeHelp: String? = null
     private var helpTab = HelpTab.THIS_SCREEN
@@ -91,7 +96,8 @@ internal class HomeLightApp(
         syncInSyncSetting()
         // Set on every screen change rather than left to the runner, which focuses the first focusable only after a
         // frame has rendered without focus.
-        focus.setFocus(if (startSetup) SETUP_SCREEN else WORKSPACE_LIST)
+        focus.setFocus(WORKSPACE_LIST)
+        if (openConfiguration) openEditor()
     }
 
     /**
@@ -113,13 +119,13 @@ internal class HomeLightApp(
 
     internal fun render(): Element {
         settleDeferredExit()
-        // The discard dialog closes setup without a key reaching handleKey.
-        dropClosedSetup()
-        val dialog = setup?.dialog() ?: quitDialog()
+        // The discard and replace dialogs close Configuration without a key reaching handleKey.
+        dropClosedEditor()
+        val dialog = editor?.dialog() ?: quitDialog()
         val interactive = dialog == null
         val view = when {
             helpOpen -> renderHelp(interactive)
-            else -> setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+            else -> editor?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
         }
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
         if (exitIntent == ExitIntent.AFTER_EXECUTION) {
@@ -146,7 +152,7 @@ internal class HomeLightApp(
     }
 
     /** The screen behind Help, with the focus it had when Help opened. */
-    private fun screenHelp(): ScreenHelp = setup?.screenHelp() ?: when (activeScreen) {
+    private fun screenHelp(): ScreenHelp = editor?.screenHelp(focusBeforeHelp) ?: when (activeScreen) {
         Screen.WORKSPACE -> WorkspaceView.screenHelp(session, workspaceList, showInSync, focusBeforeHelp)
         Screen.APPLY ->
             ApplyView.screenHelp(session.applyModel(), focusBeforeHelp, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
@@ -167,7 +173,7 @@ internal class HomeLightApp(
      */
     private fun openHelp() {
         helpOpen = true
-        val firstRun = setup == null && activeScreen == Screen.WORKSPACE &&
+        val firstRun = editor == null && activeScreen == Screen.WORKSPACE &&
             session.evaluation().let { it is ConfigurationEvaluation.Missing || it is ConfigurationEvaluation.Unconfigured }
         helpTab = if (firstRun) HelpTab.GUIDE else HelpTab.THIS_SCREEN
         // This screen changes with the screen behind; the guide keeps where the reader left it.
@@ -190,7 +196,7 @@ internal class HomeLightApp(
     private fun helpKey(key: KeyEvent) {
         val viewport = helpViewports.getValue(helpTab)
         when {
-            key.isCtrlC() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
+            key.isCtrlC() -> editor?.let { current -> current.key(key); dropClosedEditor() } ?: requestQuit()
             key.isChar('?') || key.isKey(KeyCode.F1) || key.isKey(KeyCode.ESCAPE) || key.isQuit() -> closeHelp()
             key.isLeft() || key.isRight() ->
                 focus.setFocus(helpTabId(if (helpTab == HelpTab.GUIDE) HelpTab.THIS_SCREEN else HelpTab.GUIDE))
@@ -216,7 +222,7 @@ internal class HomeLightApp(
         when {
             exitIntent == ExitIntent.EXIT -> {}
             helpOpen -> helpViewports.getValue(helpTab).takeIf { it.contains(x, y) }?.scroll(delta)
-            setup != null -> setup?.wheel(x, y, delta)
+            editor != null -> editor?.wheel(x, y, delta)
             activeScreen == Screen.APPLY -> when {
                 reviewDetails.contains(x, y) -> reviewDetails.scroll(delta)
                 reviewDetails.besideOnTheLeft(x, y) -> if (delta < 0) reviewTree.selectPrevious() else reviewTree.selectNext()
@@ -244,7 +250,7 @@ internal class HomeLightApp(
         if (detailsFocused && !detailsWereFocused) workspaceDetails.followChoice()
         detailsWereFocused = detailsFocused
         return WorkspaceView.render(
-            session, workspaceList, showInSync, focus.focusedId(), interactive, detailSelectedIndex, workspaceDetails,
+            session, workspaceList, showInSync, focus.focusedId(), interactive, detailSelectedIndex, workspaceDetails, notice,
         )
     }
 
@@ -266,21 +272,23 @@ internal class HomeLightApp(
 
     private fun handleKey(key: KeyEvent) {
         if (helpOpen) { helpKey(key); return }
-        // F1 opens Help everywhere; in a setup text field `?` is typed like any other character.
-        if (key.isKey(KeyCode.F1) || key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
-        setup?.let { current ->
+        // F1 opens Help everywhere. A focused text field types `?` itself, so `?` arrives here only from elsewhere.
+        if (key.isKey(KeyCode.F1) || key.isChar('?')) { openHelp(); return }
+        editor?.let { current ->
             current.key(key)
-            dropClosedSetup()
+            dropClosedEditor()
             return
         }
+        notice = null
         if (key.isKey(KeyCode.ESCAPE)) { back(); return }
         if (key.isQuit()) { requestQuit(); return }
         if (exitIntent == ExitIntent.EXIT) return
-        if (key.isCharIgnoreCase('i') && (session.evaluation() is ConfigurationEvaluation.Missing ||
-                session.evaluation() is ConfigurationEvaluation.Unconfigured)
+        val evaluation = session.evaluation()
+        val missing = evaluation is ConfigurationEvaluation.Missing || evaluation is ConfigurationEvaluation.Unconfigured
+        if (key.isCharIgnoreCase('i') && missing ||
+            key.isCharIgnoreCase('e') && evaluation is ConfigurationEvaluation.Loaded && activeScreen == Screen.WORKSPACE
         ) {
-            setup = SetupView(session, discoveryFactory)
-            focus.setFocus(SETUP_SCREEN)
+            openEditor()
             return
         }
         if (key.isChar('1')) { switchScreen(Screen.WORKSPACE); return }
@@ -369,19 +377,36 @@ internal class HomeLightApp(
         settleDeferredExit()
     }
 
-    private fun dropClosedSetup() {
-        if (setup?.closed != true) return
-        setup = null
+    /** Opens Configuration on the file as it is on disk now, or says why it cannot. */
+    private fun openEditor() {
+        if (session.isApplying() || !session.executionSettled()) return
+        editor = try {
+            ConfigurationView.open(session, focus, discoveryFactory)
+        } catch (error: ConfigurationException) {
+            notice = DetailViewport.Line(cannotOpen(error.message.orEmpty()), palette.warn)
+            null
+        }
+    }
+
+    /** After Configuration closes: a save checks again and says the next step; a discard changes nothing. */
+    private fun dropClosedEditor() {
+        val closed = editor?.takeIf { it.closed } ?: return
+        editor = null
+        if (closed.saved) {
+            refresh()
+            notice = DetailViewport.Line(WorkspaceView.savedNotice(session.evaluation()), palette.ok)
+        }
         // Discarding from Help over Configuration returns to the Workspace, not to Help about it.
         helpOpen = false
+        activeScreen = Screen.WORKSPACE
         workspaceDetails.reset()
         syncInSyncSetting()
         focus.setFocus(WORKSPACE_LIST)
     }
 
-    internal fun closeSetup() {
-        setup?.close()
-        setup = null
+    internal fun closeEditor() {
+        editor?.close()
+        editor = null
     }
 
     private fun settleDeferredExit() {
@@ -465,6 +490,9 @@ internal class HomeLightApp(
         }
         workspaceList.selected(workspaceSelection(visibleItems()))
     }
+
+    // Read only by tests: Configuration's help for the focused element, while it is open.
+    internal fun configurationHelp(): ScreenHelp? = editor?.screenHelp(focus.focusedId())
 
     // Read only by tests.
     internal fun selectedIndex(): Int =
