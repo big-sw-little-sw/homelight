@@ -485,6 +485,20 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: Tab completion for paths, add when typing paths becomes a complaint]`
 - `[skipped: the mouse wheel over Configuration's list and fields, add when users ask; it scrolls Details and Browse]`
 
+## 2026-10-06: Browse is a tree of suggestions with a toggle and its lists on top
+
+#115 finishes Browse inside Configuration (tui-design §8). It supersedes `[skipped: TreeElement for Browse, add when its selection can follow an item rather than a position]` from 2026-10-04.
+
+- **Tree (rung 4):** apps are parent rows and directories children in TamboUI's `TreeElement`, set up as Review's (one-cell `❯`, `indentWidth(2)`, bold selected row). It replaces the hand-built group rows. Browse keeps the selected item and sets the tree's index from it on every frame, so the selection follows the item through Check again, `u`, adding and removing. When the selected item is not listed (hidden, or not suggested until a check finishes), the row at its place is selected, and keys act on that row, until the item is listed again.
+- **Spike, all passed:** the focused Browse screen offers every key to the tree inside it, so the tree's `onKeyEvent` passes every key to the app's handler, as Review's does (rung 2); the tree's own moves, expand, collapse and toggle never run, and Space and Enter keep their meaning. At 80 columns a row keeps its marker, a 30-cell path and a note such as `not created yet` beside the scrollbar. The app takes every mouse event first, so the wheel over the tree moves its selection a row and clicks do nothing. Each has a test.
+- **Space toggles** `[ ]` and `[x]` (decision 2026-10-04). Removing goes through Configuration's own remove (rung 2), so it edits only the draft. `a` no longer adds in Browse (rung 1: Space does it).
+- **Lists lines (rung 2, 3):** the discovery snapshot already has each list's state; the shared-list thread now also reads the file's modification time (`Files.getLastModifiedTime`) after the read, so the UI thread never touches the file.
+- **Your list wins (rung 2):** `CandidateCatalog.merge` puts the shared list's definitions first within each candidate, so the first definition's app and advice are the row's, and Details lists yours first. Hiding is unchanged: hidden only when every list that names a directory marks it usually not needed.
+- **Words:** "suggestion list", "Built-in list", "Your list", "Suggested by", `r: Check again`, `i: Lists`, "Details", "Suggestion lists"; no "candidate" or "draft" on screen. Every string is in `Wording.kt`.
+- `[skipped: showing [x] rows inside a collapsed group, add when users collapse groups that hold rows they added]` A collapsed group hides all its rows; its count stays.
+- `[skipped: PageUp/PageDown in Browse, add when suggestion lists grow past a few screens]`
+- `[skipped: the year in "file updated", add when lists older than a year are common]`
+
 ## How to add decisions
 
 Use this format:

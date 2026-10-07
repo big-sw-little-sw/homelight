@@ -49,7 +49,7 @@ class CandidateDiscovery internal constructor(
     private var request: Request? = null
     // Outcomes as of the refresh. The shared entry is resolved against `sharedRead` when read.
     private val sources = LinkedHashMap<CandidateSource, SourceOutcome>()
-    private var sharedRead: Attempt<CandidateCatalog.Snapshot>? = null
+    private var sharedRead: Attempt<SharedFile>? = null
     private var anchor: Attempt<CandidateMetadata.Anchor>? = null
     private val inspections = HashMap<Path, Attempt<CandidateObservation>>()
     // Paths handed to a batch in this generation, so a path both lists name is inspected once.
@@ -128,7 +128,10 @@ class CandidateDiscovery internal constructor(
         val started = clock()
         sharedRead = Attempt.Running(started)
         Thread.ofVirtual().name("homelight-shared-list").start {
-            val result = catching { CandidateParser().parse(source, root, sharedReader(location)) }
+            val result = catching {
+                val bytes = sharedReader(location)
+                SharedFile(CandidateParser().parse(source, root, bytes), modified(location))
+            }
             synchronized(this@CandidateDiscovery) {
                 // Freed together with the publish, so an immediate refresh cannot mistake a finished read for a stuck one.
                 workers.sharedRead.set(false)
@@ -137,7 +140,7 @@ class CandidateDiscovery internal constructor(
         }
     }
 
-    private fun publishShared(generation: Long, source: CandidateSource, done: Attempt.Done<CandidateCatalog.Snapshot>) {
+    private fun publishShared(generation: Long, source: CandidateSource, done: Attempt.Done<SharedFile>) {
         sharedRead = done
         val paths = schedule(sharedOutcome(sources.getValue(source), done))
         if (paths.isNotEmpty()) workers.chain { inspectBatch(generation, paths) }
@@ -185,14 +188,15 @@ class CandidateDiscovery internal constructor(
         if (it.source.kind == CandidateSource.Kind.SHARED) sharedOutcome(it, sharedRead) else it
     }
 
-    private fun sharedOutcome(pending: SourceOutcome, attempt: Attempt<CandidateCatalog.Snapshot>?): SourceOutcome {
+    private fun sharedOutcome(pending: SourceOutcome, attempt: Attempt<SharedFile>?): SourceOutcome {
         if (attempt == null) return pending
         if (expired(attempt, SOURCE_NANOS)) {
             return failed(pending.source, listOf(), SourceProblem(SourceProblem.Kind.DEADLINE, "Source response deadline exceeded"))
         }
         return when (attempt) {
             is Attempt.Running -> pending
-            is Attempt.Done -> resolved(pending.source, attempt.result)
+            is Attempt.Done -> resolved(pending.source, attempt.result.map { it.catalog })
+                .copy(modified = attempt.result.getOrNull()?.modified)
         }
     }
 
@@ -241,10 +245,11 @@ class CandidateDiscovery internal constructor(
         enum class Kind { MISSING, UNREADABLE, NOT_REGULAR, IO_ERROR, DEADLINE, PREVIOUS_PENDING }
     }
 
+    /** `modified` is when your list's file last changed, when it was read; the built-in list has none. */
     data class SourceOutcome(
         val source: CandidateSource, val catalog: CandidateCatalog.Snapshot?,
         val status: SourceStatus, val diagnostics: List<CandidateDiagnostic>,
-        val problems: List<SourceProblem>,
+        val problems: List<SourceProblem>, val modified: Instant? = null,
     )
 
     data class Candidate(
@@ -256,6 +261,9 @@ class CandidateDiscovery internal constructor(
         val generation: Long, val request: Request?, val sources: List<SourceOutcome>,
         val candidates: List<Candidate>, val rootFailure: Diagnostic?,
     )
+
+    /** Your list as read: its parse and when the file last changed, or null when that could not be read. */
+    private data class SharedFile(val catalog: CandidateCatalog.Snapshot, val modified: Instant?)
 
     /** One piece of background I/O. Times come from the injected clock. */
     private sealed interface Attempt<out T> {
@@ -305,6 +313,17 @@ private fun readShared(location: Path): ByteArray {
     }
     return Files.newInputStream(location).use { it.readNBytes(CandidateParser.MAX_BYTES + 1) }
 }
+
+// On the shared-list thread, after the read, so a slow stat is bounded by the same deadline. Only shown, so a
+// failure leaves it out rather than failing the list.
+private fun modified(location: Path): Instant? =
+    try {
+        Files.getLastModifiedTime(location).toInstant()
+    } catch (_: IOException) {
+        null
+    } catch (_: SecurityException) {
+        null
+    }
 
 // Only an Exception is an outcome of the work; an Error still propagates.
 private inline fun <T> catching(work: () -> T): Result<T> =

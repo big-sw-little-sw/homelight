@@ -369,8 +369,8 @@ show (such as `ignored-source-paths`) are kept.
   path, or one starting with ~/`.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
   **Suggestion list** (placeholder `optional`) with help "A file of directories
-  to suggest, for example one shared across machines. Built-in suggestions are
-  always included."
+  to suggest in Browse, for example one shared on a team drive. Built-in
+  suggestions are always included."
 - Relocation fields: **Source**, **Target** (blank derives it from the target
   root; a source outside the source root needs one), **Both exist**, **Only
   target**, **Archive root** (blank means the default beside the source).
@@ -399,25 +399,42 @@ show (such as `ignored-source-paths`) are kept.
 
 ## 8. Browse
 
-- Two **Lists** lines at the top, always: the built-in list (`built in · 9
-  suggestions`) and the candidate list (location, count, `file updated 28 Sep`
-  from the file's modification time). A list that failed says why on its line;
-  `i` shows full detail.
-- One row per directory, grouped by app. Markers: `[ ]` not in the
-  configuration, `[x]` in it (saved earlier or added now), `−` cannot be added.
-  Space toggles; removing a row only edits the draft.
+The feature is the **suggestion list**: the built-in list and your list. The
+screen never says "candidate" or "draft".
+
+- Two **Lists** lines at the top, always: `Built-in list · 9 suggestions` and
+  `Your list · ~/team/suggestions.json · 4 suggestions · file updated 28 Sep`
+  (the file's modification time, read with the list). Without a list of your
+  own the second line says so. A list that was not used says why on its line
+  (`not used: file not found`); `i` opens **Suggestion lists** with the full
+  detail.
+- The suggestions are TamboUI's tree in a panel titled **Browse**: one parent
+  row per app (`▼ Build tools (1)`, directories no list groups under `Other
+  directories`), one child row per directory. Enter on an app collapses or
+  expands it. The selection follows an item: checking again, `u`, adding and
+  removing never move it to another row. When the selected row is hidden,
+  the row at its place is selected until it is listed again.
+- Markers: `[ ]` not in the configuration, `[x]` in it (saved earlier or added
+  now), `−` cannot be added. Space toggles; removing a row only edits the
+  configuration on screen, and `s` in Configuration writes it. `e` on a `[x]`
+  row edits it in Configuration.
 - Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
   directory`, `can't read: <reason>`, `usually not needed`.
-- When both lists name a directory, the candidate list wins: its app group and
-  advice show on the row; Details also shows the built-in advice.
-- Directories every applicable list marks usually not needed are hidden and
-  counted; `u` shows them. Rows already in the configuration are never hidden.
-- `r` checks again: rows read `checking…` until checked. A refresh never changes
-  the configuration draft.
+- When both lists name a directory, your list wins: its app group and advice
+  show on the row. Details shows every list's advice, yours first.
+- A directory is hidden only when every list that names it marks it usually
+  not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
+  Rows already in the configuration are never hidden.
+- `r` is **Check again**: it reads the lists again and rows read `checking…`
+  until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size
   reads `not estimated` and ownership `not evaluated` until those features exist.
-- Enter opens a directory's details: state, list attribution, full path, overlap
-  with other suggestions.
+- Enter on a directory opens **Details**: whether it is in the configuration,
+  state, full path, overlap with other suggestions (`Also suggested, inside
+  it: …`), then **Suggested by** with each list's group, advice and reason, or
+  `No list suggests it.`
+- The mouse wheel over the tree moves its selection a row; over Details or
+  Suggestion lists it scrolls them. Clicks do nothing.
 
 ## 9. Wording
 

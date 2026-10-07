@@ -52,7 +52,14 @@ class CandidateDiscoveryTest {
             assertEquals(listOf(temporary.resolve(".local/share/uv")), child.ancestors)
             val maven = row(result, temporary.resolve(".m2"))
             assertEquals(2, maven.catalog.definitions.size)
-            assertEquals(shared.toString(), maven.catalog.definitions.get(1).source.location)
+            // Your list's definition comes first, so its app and advice win.
+            assertEquals(shared.toString(), maven.catalog.definitions.first().source.location)
+            // The Lists line shows when your list's file last changed.
+            assertEquals(
+                Files.getLastModifiedTime(shared).toInstant(),
+                result.sources.single { it.source.kind == CandidateSource.Kind.SHARED }.modified,
+            )
+            assertNull(result.sources.single { it.source.kind == CandidateSource.Kind.BUNDLED }.modified)
         }
     }
 

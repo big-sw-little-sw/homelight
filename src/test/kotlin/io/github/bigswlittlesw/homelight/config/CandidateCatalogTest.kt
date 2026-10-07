@@ -335,21 +335,22 @@ class CandidateCatalogTest {
         assertTrue(malformed.diagnostics.first().line > 0)
     }
 
-    @Test fun retainsAllAttributionAndLiteralReasonsWithoutPrecedence() {
+    /** Every definition is kept; within a candidate the shared list's come first, so its app and advice win. */
+    @Test fun retainsAllAttributionAndLiteralReasonsWithSharedFirst() {
         val bundled = fixture(CandidateCatalog.BUNDLED, "bundled.json")
         val shared = fixture(SHARED, "shared.json")
         val merged = CandidateCatalog.merge(listOf(bundled, shared))
         assertEquals(11, merged.candidates.size)
         val maven = merged.candidates.first()
-        assertEquals(listOf(bundled.definitions.first(), shared.definitions.first()), maven.definitions)
-        assertEquals(listOf("Maven", "Build tools"), maven.definitions.map(CandidateDefinition::app))
-        assertEquals(listOf(CandidateDefinition.Advice.CONSIDER, CandidateDefinition.Advice.USUALLY_UNNECESSARY),
+        assertEquals(listOf(shared.definitions.first(), bundled.definitions.first()), maven.definitions)
+        assertEquals(listOf("Build tools", "Maven"), maven.definitions.map(CandidateDefinition::app))
+        assertEquals(listOf(CandidateDefinition.Advice.USUALLY_UNNECESSARY, CandidateDefinition.Advice.CONSIDER),
                 maven.definitions.map(CandidateDefinition::advice))
         val uv = merged.candidates.get(1)
-        assertEquals(".cache//uv", uv.definitions.get(1).originalPath)
-        assertNull(uv.definitions.first().advice)
-        assertEquals(2, uv.definitions.get(1).recordIndex)
-        assertEquals("apps[1].directories[0]", uv.definitions.get(1).location)
+        assertEquals(".cache//uv", uv.definitions.first().originalPath)
+        assertNull(uv.definitions.get(1).advice)
+        assertEquals(2, uv.definitions.first().recordIndex)
+        assertEquals("apps[1].directories[0]", uv.definitions.first().location)
         assertEquals(13, merged.candidates.sumOf { c -> c.definitions.size })
 
         val reason = "  literal \${HOME} <b>reason</b>\n\u001b[31m  "

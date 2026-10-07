@@ -7,6 +7,10 @@ import dev.tamboui.tui.event.MouseButton
 import dev.tamboui.tui.event.MouseEvent
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.userGuide
+import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
+import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.homelight.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -54,6 +58,44 @@ class HelpTest {
             temporary.resolve("empty.json"), "{\"homelight\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
         )
         checkThisScreen(HeadlessTui(HomeLightSession(empty)), WORKSPACE_NAME, PURPOSE_NO_RELOCATIONS, Step.WORKSPACE, "r")
+    }
+
+    /** Help › This screen stays true in every Browse view: on a group, on a row to add or remove, in details and lists. */
+    @Test
+    fun thisScreenListsBrowseKeysInEveryView() {
+        val home = Files.createDirectories(temporary.resolve("home"))
+        Files.createDirectories(home.resolve(".m2"))
+        val shared = Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), temporary.resolve("shared.json"))
+        val config = Files.writeString(
+            temporary.resolve("config.json"),
+            """{"homelight": {"source-root": "$home", "target-root": "${temporary.resolve("local")}", "suggestion-list": "$shared",
+              "relocations": []}}""",
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            ui.press('e')
+            ui.press('b')
+            pollUntil("Discovery did not settle") {
+                val result = workers.workers.last().snapshot()
+                result.sources.none { it.status == CandidateDiscovery.SourceStatus.PENDING } &&
+                    result.candidates.none { it.observation.kind == CandidateObservation.Kind.PENDING }
+            }
+            val browse = place(CONFIGURATION_NAME, BROWSE_NAME)
+            checkThisScreen(
+                ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "Home/End",
+                pinned = mapOf("Enter" to EXPAND_GROUP, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
+            )
+            ui.press(KeyCode.DOWN)
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_SUGGESTION, "Enter" to INSPECT_SUGGESTION))
+            ui.press(' ')
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to REMOVE_SUGGESTION, "e" to EDIT_SUGGESTION))
+            ui.press(KeyCode.ENTER)
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "[/]", pinned = mapOf("Esc" to BACK_TO_SUGGESTIONS))
+            ui.press(KeyCode.ESCAPE)
+            ui.press('i')
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "[/]", pinned = mapOf("Esc" to BACK_TO_SUGGESTIONS))
+            ui.app.closeEditor()
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.element.Size
 import dev.tamboui.toolkit.element.StyledElement
 import dev.tamboui.toolkit.elements.ListElement
+import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.toolkit.focus.FocusManager
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
@@ -53,6 +54,8 @@ internal class ConfigurationView private constructor(
     private val session: HomeLightSession,
     private val focus: FocusManager,
     private val discoveryFactory: () -> CandidateDiscovery,
+    /** The app's key handler, which Browse's tree passes every key to (see [CandidateBrowser]). */
+    keys: KeyEventHandler,
     /** The file as opened. A new file starts from an empty draft, so typing into it counts as a change. */
     private val loaded: HomeLightFile,
     /** The bytes the file was read from, which a replace compares; null for a new file. */
@@ -89,7 +92,7 @@ internal class ConfigurationView private constructor(
     // Only for its help lines, which therefore never offer a scroll key: in a text field `[` and `]` type.
     private val helpArea = DetailViewport()
     private val detailsArea = DetailViewport()
-    private val browser = CandidateBrowser()
+    private val browser = CandidateBrowser(keys)
     private var browsing = false
     private var suggestions: Suggestions? = null
 
@@ -272,9 +275,9 @@ internal class ConfigurationView private constructor(
         }
     }
 
-    /** The mouse wheel at `x`, `y` scrolls the pane under it; the list and fields ignore it. */
+    /** The mouse wheel at `x`, `y` scrolls Details, or acts in Browse; the list and fields ignore it. */
     fun wheel(x: Int, y: Int, delta: Int) {
-        if (browsing) browser.wheel(x, y, delta)
+        if (browsing) browser.wheel(x, y, delta, browseDraft())
         else if (detailsArea.contains(x, y)) detailsArea.scroll(delta)
     }
 
@@ -437,7 +440,7 @@ internal class ConfigurationView private constructor(
     private fun browseKey(key: KeyEvent) {
         if (key.isKey(KeyCode.ESCAPE)) { if (!browser.back()) leaveBrowse(); return }
         if (key.isQuit()) { requestClose(); return }
-        // As in the list: Ctrl+U must not reveal hidden suggestions.
+        // As in the list: Ctrl+U must not show hidden suggestions.
         if (key.hasCtrl() || key.hasAlt()) return
         if (key.isCharIgnoreCase('r')) {
             // Browse opens only with a check under way, so there is a request to repeat.
@@ -448,6 +451,7 @@ internal class ConfigurationView private constructor(
         when (val action = browser.key(key, browseDraft())) {
             null -> {}
             is BrowseAction.Add -> browser.added(addSuggestion(action.source))
+            is BrowseAction.Remove -> remove(action.row + 1)
             is BrowseAction.Edit -> {
                 leaveBrowse()
                 list.selected(action.row + 1)
@@ -589,11 +593,13 @@ internal class ConfigurationView private constructor(
          *
          * @throws ConfigurationException when the file cannot be read as JSON in the configuration's shape
          */
-        fun open(session: HomeLightSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery): ConfigurationView {
+        fun open(
+            session: HomeLightSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery, keys: KeyEventHandler,
+        ): ConfigurationView {
             val view = if (Files.isRegularFile(session.configPath)) {
                 val file = ConfigurationLoader().read(session.configPath)
-                ConfigurationView(session, focus, discoveryFactory, file.file, file.bytes)
-            } else ConfigurationView(session, focus, discoveryFactory, HomeLightFile(targetRoot = ""), null)
+                ConfigurationView(session, focus, discoveryFactory, keys, file.file, file.bytes)
+            } else ConfigurationView(session, focus, discoveryFactory, keys, HomeLightFile(targetRoot = ""), null)
             // A new file needs its target root first; an existing one opens on its list.
             focus.setFocus(if (view.loadedBytes == null) Field.TARGET_ROOT.id else CONFIG_LIST)
             return view
