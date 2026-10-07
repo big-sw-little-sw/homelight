@@ -4,12 +4,20 @@ import dev.tamboui.buffer.Buffer
 import dev.tamboui.layout.Rect
 import dev.tamboui.terminal.Frame
 import dev.tamboui.toolkit.element.RenderContext
+import dev.tamboui.toolkit.event.EventResult
 import io.github.bigswlittlesw.homelight.application.ApplyModel
+import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.homelight.fs.PathObservation
+import io.github.bigswlittlesw.homelight.fs.PathState
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
+import io.github.bigswlittlesw.homelight.reconcile.RelocationState
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -68,7 +76,8 @@ class ApplyViewTest {
         val steps = listOf(
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"))
-        val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 1, 80, 24)
+        // Row 2 is the failed step, under its relocation and the completed step.
+        val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 2, 80, 24)
         assertTrue(text.contains("the disk changed while applying"), text)
         assertTrue(text.contains("✔"), text)
         assertTrue(text.contains("✖"), text)
@@ -88,22 +97,23 @@ class ApplyViewTest {
             ApplyModel.Step(changing, changing.actions.last(), ApplyModel.StepStatus.RUNNING, "Running"),
             ApplyModel.Step(inSync, inSync.actions.first(), ApplyModel.StepStatus.PENDING, "Not started"))
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
-            val text = render(ApplyModel.Running.of(plan, steps), 0, size[0], size[1])
+            val text = lightBorders(render(ApplyModel.Running.of(plan, steps), 1, size[0], size[1]))
             // Only what is happening: neither destination can be reached while applying.
             assertTrue(text.contains("⌂ HOMELIGHT  [Applying]"), text)
             assertFalse(text.contains("Workspace"), text)
             assertTrue(text.contains("Applying. Leave HomeLight running until it finishes."), text)
             assertTrue(text.contains("1 of 2 changes done · 1 running · 0 failed"), text)
-            assertTrue(text.contains("━"), text)
-            // The relocation and its running step both spin; the done step is checked.
-            assertTrue(lightBorders(text).contains("│⠙ /home/cache"), text)
-            assertTrue(text.contains("❯ ✔ Copy to target and check"), text)
-            assertTrue(text.contains("  ⠙ Replace source with a link ⚠ "), text)
-            assertTrue(lightBorders(text).contains("│─ /home/npm (in sync)"), text)
+            assertTrue(render(ApplyModel.Running.of(plan, steps), 1, size[0], size[1]).contains("━"), text)
+            // The relocation and its running step both spin; the done step is checked. Steps hang off their
+            // relocation's guide, and the pointer has its own column.
+            assertTrue(text.contains("│ ▼ ⠙ /home/cache"), text)
+            assertTrue(text.contains("│❯├─✔ Copy to target and check"), text)
+            assertTrue(text.contains("│ └─⠙ Replace source with a link ⚠"), text)
+            // An in-sync relocation is one row, its mark in line with the others.
+            assertTrue(text.contains("│   ─ /home/npm (in sync)"), text)
             assertFalse(text.contains("Already in sync"), text)
-            // Selected, the in-sync row's pointer takes its mark's cell.
-            val selected = render(ApplyModel.Running.of(plan, steps), 2, size[0], size[1])
-            assertTrue(lightBorders(selected).contains("│❯ /home/npm (in sync)"), selected)
+            val selected = lightBorders(render(ApplyModel.Running.of(plan, steps), 3, size[0], size[1]))
+            assertTrue(selected.contains("│❯  ─ /home/npm (in sync)"), selected)
             assertTrue(text.contains("q: Quit"), text)
         }
         val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
@@ -122,15 +132,15 @@ class ApplyViewTest {
             ApplyModel.Step(first, first.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"),
             ApplyModel.Step(second, second.actions.first(), ApplyModel.StepStatus.PENDING, "Not run"))
         val text = render(ApplyModel.Result.of(plan, steps, null, listOf(), true), 1, 120, 30)
-        assertTrue(lightBorders(text).contains("│✖ /home/cache"), text)
-        assertTrue(lightBorders(text).contains("│○ /home/other"), text)
+        assertTrue(lightBorders(text).contains("│ ▼ ✖ /home/cache"), text)
+        assertTrue(lightBorders(text).contains("│ ▼ ○ /home/other"), text)
         assertTrue(text.contains("1 of 3 changes done · 1 failed · 1 not run"), text)
         assertTrue(text.contains("[1: Workspace]  [2: Results]"), text)
 
         val done = steps.map { it.copy(status = ApplyModel.StepStatus.COMPLETED) }
-        val finished = render(ApplyModel.Result.of(plan, done, null, listOf(), false), 0, 120, 30)
-        assertTrue(lightBorders(finished).contains("│✔ /home/cache"), finished)
-        assertTrue(lightBorders(finished).contains("│✔ /home/other"), finished)
+        val finished = render(ApplyModel.Result.of(plan, done, null, listOf(), false), 1, 120, 30)
+        assertTrue(lightBorders(finished).contains("│ ▼ ✔ /home/cache"), finished)
+        assertTrue(lightBorders(finished).contains("│ ▼ ✔ /home/other"), finished)
     }
 
     @Test
@@ -167,9 +177,10 @@ class ApplyViewTest {
                 viewport.reset()
                 val evidence = StringBuilder()
                 repeat(180) {
-                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, list(selected),
+                    // Row 0 is the relocation; its steps follow.
+                    val screen = WorkspaceViewTest.render(ApplyView.render(Path.of("/config.json"), result, list(selected + 1),
                         0, REVIEW_DETAILS, viewport = viewport), size[0], size[1])
-                    assertTrue(screen.contains("Action details"), screen)
+                    assertTrue(screen.contains("Details"), screen)
                     assertTrue(screen.contains("r: Check again"), screen)
                     assertFalse(screen.contains("no longer matches the reviewed plan"), screen)
                     evidence.append(WorkspaceViewTest.rightPane(screen, size[0]))
@@ -198,8 +209,50 @@ class ApplyViewTest {
         assertFalse(linkLines.map(DetailViewport.Line::text).any { it == "Target: /local/cache" }, linkLines.toString())
     }
 
+    @Test
+    fun aRelocationRowShowsTheReviewedDecisionAndItsPaths() {
+        val relocation = Relocation(Path.of("/home/both"), Path.of("/local/both"),
+            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE,
+            archiveRoot = Path.of("/archive"))
+        val archive = ReconciliationAction.ArchiveDirectory(relocation.sourcePath, Path.of("/archive/both"))
+        val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED,
+            listOf(archive, ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath)), listOf())
+        val directory = PathObservation(PathState.DIRECTORY)
+        val plan = ReconciliationPlan(listOf(relocationPlan), listOf(),
+            listOf(RelocationState(relocation, directory, directory)))
+        val rows = ApplyView.rows(pendingSteps(plan))
+        assertEquals(3, rows.size)
+
+        val lines = ApplyView.details(rows[0], plan).map(DetailViewport.Line::text)
+        assertEquals(listOf("/home/both", "Decision: keep target, archive source", "", "Paths", "Source: /home/both",
+            "Target: /local/both", "Archive: /archive/both"), lines)
+        assertEquals("Archive source", ApplyView.details(rows[1], plan).first().text)
+        // With no reviewed observation there is no rule to name; the paths remain.
+        val unobserved = ApplyView.details(rows[0], plan.copy(expectedStates = listOf())).map(DetailViewport.Line::text)
+        assertFalse(unobserved.any { it.startsWith("Decision:") }, unobserved.toString())
+        assertTrue(unobserved.contains("Target: /local/both"), unobserved.toString())
+    }
+
+    @Test
+    fun theLongestStepLabelFitsBesideTheScrollbarAt80Columns() {
+        val relocations = (1..8).map { i ->
+            val relocation = Relocation(Path.of("/home/cache-$i"), Path.of("/local/cache-$i"))
+            RelocationPlan(relocation, RelocationOutcome.CONVERGED,
+                listOf(ReconciliationAction.MigrateDirectoryForPublication(relocation.sourcePath, relocation.targetPath),
+                    ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath)),
+                listOf())
+        }
+        val text = render(ApplyModel.Confirmation(ReconciliationPlan(relocations, listOf())), 2, 80, 24)
+        val rows = text.lines().filter { it.startsWith("┃") }.map { it.substringBeforeLast('┃') + '┃' }
+        // 24 rows do not fit, so the scrollbar takes the pane's last inner column.
+        assertTrue(rows.any { it.endsWith("█┃") }, text)
+        assertTrue(rows.any { it.contains("┃❯└─○ Replace source with a link ⚠") }, text)
+        val replacing = rows.filter { it.contains("Replace source") }
+        assertTrue(replacing.size > 1 && replacing.all { it.contains("Replace source with a link ⚠") }, text)
+    }
+
     private companion object {
-        fun list(selected: Int) = ApplyView.list().selected(selected)
+        fun list(selected: Int) = ApplyView.tree { EventResult.UNHANDLED }.selected(selected)
 
         fun plan(): ReconciliationPlan {
             val relocation = Relocation(Path.of("/home/cache"), Path.of("/local/cache"))

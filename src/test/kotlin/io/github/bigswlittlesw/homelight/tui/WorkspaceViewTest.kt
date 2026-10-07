@@ -122,7 +122,8 @@ class WorkspaceViewTest {
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val rule = WorkspaceView.rule(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
-            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE), item)
+            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE),
+            item.sourceObservation.state, item.targetObservation.state)
         assertEquals("Keep target, delete source", rule)
     }
 
@@ -142,7 +143,7 @@ class WorkspaceViewTest {
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
         val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, whenAdoptingTarget = adopting)
-        assertEquals(expected, WorkspaceView.rule(relocation, item))
+        assertEquals(expected, WorkspaceView.rule(relocation, item.sourceObservation.state, item.targetObservation.state))
     }
 
     @ParameterizedTest
@@ -158,7 +159,8 @@ class WorkspaceViewTest {
         val config = Files.writeString(root.resolve("config.json"),
             "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, HomeLightSession(config).evaluation()).items.single()
-        assertEquals(expected, WorkspaceView.rule(Relocation(source, target, whenOnlyTargetExists = onlyTarget), item))
+        val relocation = Relocation(source, target, whenOnlyTargetExists = onlyTarget)
+        assertEquals(expected, WorkspaceView.rule(relocation, item.sourceObservation.state, item.targetObservation.state))
     }
 
     @Test

@@ -55,7 +55,8 @@ internal class HomeLightApp(
     internal var activeScreen = Screen.WORKSPACE
         private set
     private val workspaceList = WorkspaceView.list()
-    private val reviewList = ApplyView.list()
+    // Keys the tree does not move its selection with come straight here, before TamboUI's expand and collapse.
+    private val reviewTree = ApplyView.tree { key -> keyHandler.handle(key) }
     private var reviewedSource: Path? = null
     var detailSelectedIndex = 0
         private set
@@ -67,12 +68,12 @@ internal class HomeLightApp(
     private var shownResult: ApplyModel.Result? = null
     // What the details panes show. The lists move their selection themselves, so a frame compares against these.
     private var detailsSource: Path? = null
-    private var detailsStep = 0
+    private var detailsRow = 0
     private var detailsWereFocused = false
     // Where the user was on Workspace, restored when Review or Results returns there.
     private var workspaceFocus: String? = null
     private val workspaceDetails = DetailViewport()
-    private val actionDetails = DetailViewport()
+    private val reviewDetails = DetailViewport()
     private var exitIntent = ExitIntent.STAY
     private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
@@ -217,8 +218,8 @@ internal class HomeLightApp(
             helpOpen -> helpViewports.getValue(helpTab).takeIf { it.contains(x, y) }?.scroll(delta)
             setup != null -> setup?.wheel(x, y, delta)
             activeScreen == Screen.APPLY -> when {
-                actionDetails.contains(x, y) -> actionDetails.scroll(delta)
-                actionDetails.besideOnTheLeft(x, y) -> moveSelection(reviewList, ApplyView.steps(session.applyModel()).size, delta)
+                reviewDetails.contains(x, y) -> reviewDetails.scroll(delta)
+                reviewDetails.besideOnTheLeft(x, y) -> if (delta < 0) reviewTree.selectPrevious() else reviewTree.selectNext()
             }
             workspaceDetails.contains(x, y) -> workspaceDetails.scroll(delta)
             workspaceDetails.besideOnTheLeft(x, y) -> moveSelection(workspaceList, visibleItems().size, delta)
@@ -228,7 +229,6 @@ internal class HomeLightApp(
     private fun moveSelection(list: ListElement<Any>, size: Int, delta: Int) {
         if (size > 0) list.selected((list.selected() + delta).coerceIn(0, size - 1))
     }
-
 
     /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
     private fun unappliedChoiceCount(): Int = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.size ?: 0
@@ -252,14 +252,14 @@ internal class HomeLightApp(
         val model = session.applyModel()
         if (model is ApplyModel.Result && model !== shownResult) {
             shownResult = model
-            finishedSelection(model.steps)?.let(reviewList::selected)
+            finishedSelection(ApplyView.rows(model.steps))?.let(reviewTree::selected)
         }
-        if (reviewList.selected() != detailsStep) {
-            detailsStep = reviewList.selected()
-            actionDetails.reset()
+        if (reviewTree.selected() != detailsRow) {
+            detailsRow = reviewTree.selected()
+            reviewDetails.reset()
         }
         return ApplyView.render(
-            session.configPath, model, reviewList, spinnerFrame++, focus.focusedId(), interactive, actionDetails,
+            session.configPath, model, reviewTree, spinnerFrame++, focus.focusedId(), interactive, reviewDetails,
             quitting = exitIntent == ExitIntent.AFTER_EXECUTION,
         )
     }
@@ -338,8 +338,8 @@ internal class HomeLightApp(
         val details = focus.focusedId() == REVIEW_DETAILS
         if (!details && key.isRight()) focus.setFocus(REVIEW_DETAILS)
         else if (details && key.isLeft()) focus.setFocus(REVIEW_LIST)
-        else if (key.isChar('[') || key.isChar(']')) actionDetails.scroll(if (key.isChar(']')) 1 else -1)
-        else if (details && (key.isUp() || key.isDown())) actionDetails.scroll(if (key.isUp()) -1 else 1)
+        else if (key.isChar('[') || key.isChar(']')) reviewDetails.scroll(if (key.isChar(']')) 1 else -1)
+        else if (details && (key.isUp() || key.isDown())) reviewDetails.scroll(if (key.isUp()) -1 else 1)
         else if (model is ApplyModel.Running || exitIntent == ExitIntent.AFTER_EXECUTION) return
         else if (model is ApplyModel.Confirmation) {
             if (key.isChar('y') && model.plan.hasChanges()) session.confirmApply()
@@ -397,8 +397,8 @@ internal class HomeLightApp(
             selectedPlanItem()?.let { reviewedSource = it.relocation.sourcePath }
             workspaceFocus = focus.focusedId()
             if (session.applyModel() is ApplyModel.Confirmation) {
-                reviewList.selected(0)
-                actionDetails.reset()
+                reviewTree.selected(0)
+                reviewDetails.reset()
             }
             focus.setFocus(REVIEW_LIST)
         } else {
@@ -468,12 +468,16 @@ internal class HomeLightApp(
 
     // Read only by tests.
     internal fun selectedIndex(): Int =
-        if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(visibleItems())
+        if (activeScreen == Screen.APPLY) reviewTree.selected() else workspaceSelection(visibleItems())
 }
 
-/** Where Review's selection moves once when an apply finishes: the first failure, or else the last completed step. */
-internal fun finishedSelection(steps: List<ApplyModel.Step>): Int? {
-    val failed = steps.indexOfFirst { it.status == ApplyModel.StepStatus.FAILED }
+/**
+ * The row Review's selection moves to once when an apply finishes: the first failed step, or else the last completed
+ * step. Relocation rows are never chosen: a step says what happened.
+ */
+internal fun finishedSelection(rows: List<PlanRow>): Int? {
+    fun status(row: PlanRow): ApplyModel.StepStatus? = (row as? PlanRow.StepRow)?.step?.status
+    val failed = rows.indexOfFirst { status(it) == ApplyModel.StepStatus.FAILED }
     if (failed >= 0) return failed
-    return steps.indexOfLast { it.status == ApplyModel.StepStatus.COMPLETED }.takeIf { it >= 0 }
+    return rows.indexOfLast { status(it) == ApplyModel.StepStatus.COMPLETED }.takeIf { it >= 0 }
 }

@@ -448,6 +448,23 @@ A crash between publishing the target and setting the source aside leaves two wh
 
 - `[skipped: crash recovery between copying and linking, add when users report "both exist" after an interrupted apply]`
 
+## 2026-10-06: Review's plan is a TamboUI tree
+
+Review, Applying and Results draw the plan with TamboUI's `TreeElement` (#150, rung 4) instead of a list whose items were one relocation line plus its first action. Each relocation is a parent row, always expanded, and its actions are children; every row is selectable. Selecting a relocation shows its path, `Decision: <rule>` and its paths (Source, Target, Archive) in Details, which is now titled `Details` for both kinds of row. The tree counts lines, not items, so the trailing blank cell that kept TamboUI's scrollbar off two-line items is gone. Marks, spinner, colours and the once-at-finish selection rule from #111 are unchanged; the finish rule picks step rows only.
+
+Spike, recorded in the PR: our keys keep their meaning, "Replace source with a link ⚠" fits beside the scrollbar at 80 columns, the selection holds during apply, and the wheel moves the selection while clicks do nothing. Each has a test.
+
+- Keys: `TreeElement` handles ←/→ (collapse/expand), Enter and Space (toggle) itself when focused. Its `onKeyEvent` hook runs first, so the tree passes every key except ↑/↓, PageUp/PageDown and Home/End straight to HomeLight's key handler (rung 6, one lambda). → still opens Details, ← does nothing in the tree, Enter still leaves Results, and nothing collapses. No key changed, so the help lines and Help › This screen keep their keys; only the descriptions now say "a relocation or a step" and "the plan".
+- Mouse: HomeLight's handler already takes every mouse event before TamboUI's elements, so the tree's own wheel (three rows) and click handling never run. The wheel over the tree moves its selection one row with `selectPrevious`/`selectNext`.
+- Width: the pointer `❯` is the tree's one-cell highlight symbol and guides use `indentWidth(2)`, so a step label gets 28 cells at 80 columns beside the scrollbar. A two-cell pointer cut the label by one cell.
+- The tree always draws `▼` before a parent. An in-sync relocation has no children, so it gets no `▼` and is indented two cells to keep the marks in one column.
+- The tree's highlight style applies to the symbol and the whole row, so `❯` cannot take the focus colour without recolouring the row's marks. The selected row is bold instead, and `❯` is in the text colour.
+- Review's Decision line comes from the reviewed plan: its relocation (with any one-time choice applied) and the observations the plan was made from, so Results keep it after the disk changes. `WorkspaceView.rule` now takes the two observed states instead of a Workspace row (rung 2).
+- `[skipped: TamboUI's own tree keys (collapse a relocation with ←, toggle with Enter), add when plans are long enough that users ask to fold them]`
+- `[skipped: saying whether Review's decision is a saved rule or a one-time choice, add when a walkthrough misses it; the Workspace already says]`
+- `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`
+- `[skipped: a status line in a relocation's Details (for example "2 of 3 steps done"), add when the step marks are not enough]`
+
 ## How to add decisions
 
 Use this format:

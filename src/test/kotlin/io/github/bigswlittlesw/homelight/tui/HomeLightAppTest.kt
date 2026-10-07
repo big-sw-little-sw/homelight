@@ -4,6 +4,8 @@ import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
+import dev.tamboui.tui.event.MouseButton
+import dev.tamboui.tui.event.MouseEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
@@ -207,12 +209,13 @@ class HomeLightAppTest {
         val (plan, firstPlan, secondPlan) = twoRelocations(Path.of("/home/second"), Path.of("/local/second"))
         val (pending, completed, failed) =
             listOf(ApplyModel.StepStatus.PENDING, ApplyModel.StepStatus.COMPLETED, ApplyModel.StepStatus.FAILED)
-        fun selection(vararg statuses: ApplyModel.StepStatus) = finishedSelection(steps(plan) { statuses[it] })
+        // Rows: /home/first, its two steps, /home/second, its step.
+        fun selection(vararg statuses: ApplyModel.StepStatus) = finishedSelection(ApplyView.rows(steps(plan) { statuses[it] }))
 
-        assertEquals(1, selection(completed, failed, pending))
-        assertEquals(0, selection(failed, completed, failed))
-        assertEquals(2, selection(completed, completed, completed))
-        assertEquals(1, selection(completed, completed, pending))
+        assertEquals(2, selection(completed, failed, pending))
+        assertEquals(1, selection(failed, completed, failed))
+        assertEquals(4, selection(completed, completed, completed))
+        assertEquals(2, selection(completed, completed, pending))
         assertNull(selection(pending, pending, pending))
         assertEquals(listOf(firstPlan, firstPlan, secondPlan), steps(plan) { pending }.map { it.relocation })
     }
@@ -233,9 +236,10 @@ class HomeLightAppTest {
         val ui = HeadlessTui(HomeLightSession(config, debugStepDelayMillis = 150))
         ui.press('a')
         val steps = ApplyView.steps(ui.app.session.applyModel())
+        val rows = ApplyView.rows(steps)
         ui.press(KeyCode.END)
         ui.press(KeyCode.UP)
-        val chosen = steps.size - 2
+        val chosen = rows.size - 2
         assertEquals(chosen, ui.app.selectedIndex())
         ui.press('y')
 
@@ -251,7 +255,8 @@ class HomeLightAppTest {
         assertTrue(mostRunning > 1, "relocations should run at once")
         ui.app.session.awaitExecution()
         val result = ui.screen(120, 30)
-        assertEquals(steps.size - 1, ui.app.selectedIndex(), result)
+        // The last row is the last relocation's last step.
+        assertEquals(rows.size - 1, ui.app.selectedIndex(), result)
         assertTrue(result.contains("${steps.count { it.action.mutatesFilesystem }} of ${steps.count { it.action.mutatesFilesystem }} changes done"), result)
         // The jump happens once: afterwards the user's selection stands.
         ui.press(KeyCode.HOME)
@@ -260,35 +265,100 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun reviewSelectionMovesWithTheListAndKeepsActionsSelectable(@TempDir temporary: Path) {
-        val root = temporary.toRealPath()
-        val names = listOf("one", "two")
-        val relocations = names.joinToString(",\n") { name ->
-            "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
-        }
-        Files.createDirectories(root.resolve("home"))
-        val config = Files.writeString(root.resolve("config.json"),
-            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
-        val ui = HeadlessTui(HomeLightSession(config))
+    fun reviewSelectionMovesThroughRelocationAndStepRows(@TempDir temporary: Path) {
+        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
         ui.press('a')
-        val steps = ApplyView.steps(ui.app.session.applyModel())
+        val rows = ApplyView.rows(ApplyView.steps(ui.app.session.applyModel()))
         assertEquals(REVIEW_LIST, ui.focused())
         assertEquals(0, ui.app.selectedIndex())
-        // Each relocation's line rides on its first action, so every row the list selects is an action.
-        for (i in 1 until steps.size) {
+        for (i in 1 until rows.size) {
             ui.press(KeyCode.DOWN)
             assertEquals(i, ui.app.selectedIndex())
         }
         ui.press(KeyCode.DOWN)
-        assertEquals(steps.size - 1, ui.app.selectedIndex())
+        assertEquals(rows.size - 1, ui.app.selectedIndex())
         ui.press(KeyCode.HOME)
         assertEquals(0, ui.app.selectedIndex())
+        // A relocation row shows the relocation in Details; a step row shows the step.
+        assertTrue(WorkspaceViewTest.rightPane(ui.screen(120, 30), 120).contains("Paths"))
         ui.press(KeyCode.END)
-        assertEquals(steps.size - 1, ui.app.selectedIndex())
+        assertEquals(rows.size - 1, ui.app.selectedIndex())
         val screen = ui.screen(120, 30)
-        assertTrue(screen.contains("❯ ○ Link source to target"), screen)
+        assertTrue(screen.contains("❯└─○ Link source to target"), screen)
+        assertTrue(WorkspaceViewTest.rightPane(screen, 120).startsWith("Link source to target"), screen)
         // A path ends its row, shortened in the middle when it does not fit.
-        for (name in names) assertTrue(Regex("home/$name +│").containsMatchIn(lightBorders(screen)), screen)
+        for (name in listOf("one", "two")) assertTrue(Regex("home/$name *│").containsMatchIn(lightBorders(screen)), screen)
+    }
+
+    /**
+     * The plan tree moves its selection with the arrows, PageUp/PageDown and Home/End. TamboUI's own tree keys never
+     * run: ←, Space and Enter do not collapse a relocation, → opens Details, and Enter still leaves Results.
+     */
+    @Test
+    fun theReviewTreeKeepsReviewKeysAndStaysExpanded(@TempDir temporary: Path) {
+        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
+        ui.press('a')
+        val rows = ApplyView.rows(ApplyView.steps(ui.app.session.applyModel()))
+        val start = ui.screen()
+        for (key in listOf(KeyCode.LEFT, KeyCode.ENTER)) {
+            ui.press(key)
+            assertEquals(start, ui.screen(), "$key")
+        }
+        ui.press(' ')
+        assertEquals(start, ui.screen())
+        assertEquals(REVIEW_LIST, ui.focused())
+        ui.press(KeyCode.PAGE_DOWN)
+        assertEquals(rows.size - 1, ui.app.selectedIndex())
+        ui.press(KeyCode.PAGE_UP)
+        assertEquals(0, ui.app.selectedIndex())
+        ui.press(KeyCode.RIGHT)
+        assertEquals(REVIEW_DETAILS, ui.focused())
+        ui.press(KeyCode.LEFT)
+        assertEquals(REVIEW_LIST, ui.focused())
+
+        ui.press('y')
+        ui.app.session.awaitExecution()
+        assertTrue(ui.screen().contains("[2: Results]"))
+        ui.press(KeyCode.ENTER)
+        assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
+    }
+
+    /** The wheel over the tree moves its selection one row; clicks on it neither focus it nor collapse a relocation. */
+    @Test
+    fun theWheelMovesTheReviewSelectionAndClicksChangeNothing(@TempDir temporary: Path) {
+        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
+        ui.press('a')
+        val top = ui.screen().lines().indexOfFirst { it.contains("Plan") } + 1
+        ui.press(MouseEvent.scrollDown(3, top + 1))
+        assertEquals(1, ui.app.selectedIndex())
+        ui.press(MouseEvent.scrollUp(3, top + 1))
+        assertEquals(0, ui.app.selectedIndex())
+        ui.press(KeyCode.TAB)
+        assertEquals(REVIEW_DETAILS, ui.focused())
+        val start = ui.screen()
+        // The first row is a relocation: the pointer column, its `▼` and its mark.
+        for (x in listOf(1, 2, 4)) {
+            for (event in listOf(MouseEvent.press(MouseButton.LEFT, x, top), MouseEvent.release(MouseButton.LEFT, x, top))) {
+                ui.press(event)
+                assertEquals(REVIEW_DETAILS, ui.focused(), "$event")
+                assertEquals(start, ui.screen(), "$event")
+            }
+        }
+        ui.press(MouseEvent.scrollDown(3, top))
+        assertEquals(1, ui.app.selectedIndex())
+        assertEquals(REVIEW_DETAILS, ui.focused())
+    }
+
+    @Test
+    fun aRelocationRowNamesTheOneTimeChoiceAsItsDecision(@TempDir temporary: Path) {
+        val ui = HeadlessTui(session(temporary, conflicts = listOf("both")))
+        ui.press(KeyCode.TAB)
+        ui.press(KeyCode.ENTER)
+        ui.press('a')
+        assertEquals(0, ui.app.selectedIndex())
+        val details = WorkspaceViewTest.rightPane(ui.screen(120, 30), 120)
+        assertTrue(details.contains("Decision: keep target, delete source"), details)
+        assertFalse(details.contains("your configuration"), details)
     }
 
     @Test
@@ -692,6 +762,17 @@ class HomeLightAppTest {
             val secondPlan = RelocationPlan(second, RelocationOutcome.CONVERGED,
                 listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
             return Triple(ReconciliationPlan(listOf(firstPlan, secondPlan), listOf()), firstPlan, secondPlan)
+        }
+
+        /** A configuration of two relocations whose sources are missing: each plans a target folder and a link. */
+        fun twoMissingSources(temporary: Path): Path {
+            val root = temporary.toRealPath()
+            val relocations = listOf("one", "two").joinToString(",\n") { name ->
+                "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
+            }
+            Files.createDirectories(root.resolve("home"))
+            return Files.writeString(root.resolve("config.json"),
+                "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
         }
 
         fun steps(plan: ReconciliationPlan, status: (Int) -> ApplyModel.StepStatus): List<ApplyModel.Step> =

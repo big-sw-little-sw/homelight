@@ -129,8 +129,9 @@ ones.
 
 - Master-detail panes: about 45% list, the rest details. The focused pane has a
   thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
-  and are dim. The border shape shows focus without color. Lists sit in a
-  TamboUI panel, because the list element offers no thick border.
+  and are dim. The border shape shows focus without color. Lists and Review's
+  plan tree sit in a TamboUI panel, because their elements offer no thick
+  border.
 - `❯` marks the selected row or focused field. A text field shows its cursor.
 - Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
@@ -279,20 +280,41 @@ all in sync, left as is by rule, blocked (state the repair).
 
 ## 6. Review, applying and results
 
-**Review** lists the exact plan as a tree: relocation rows, each with its action
-rows. Summary: `5 planned changes · 2 delete or replace data`. `y` confirms a
-plan with changes; `n`/Esc/`1` cancel and keep the Workspace state. A plan with
-no changes says `No changes to apply`, has no confirmation, and Enter/`1`/Esc
+**Review** lists the exact plan as a tree (TamboUI `TreeElement`): each
+relocation is a parent row, always expanded, with its action rows under it.
+Summary: `5 planned changes · 2 delete or replace data`. `y` confirms a plan
+with changes; `n`/Esc/`1` cancel and keep the Workspace state. A plan with no
+changes says `No changes to apply`, has no confirmation, and Enter/`1`/Esc
 return.
+
+```
+┏Plan━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ▼ ✔ ~/.cache/tool-a              ┃
+┃ ├─✔ Copy to target and check     ┃
+┃❯└─⠙ Replace source with a link ⚠ ┃
+┃   ─ ~/.npm (in sync)             ┃
+```
+
+- `❯` has its own one-cell column. TamboUI draws `▼` before a relocation with
+  action rows and the guides `├─`/`└─` (indent 2) before each action, so marks
+  line up in one column. An in-sync relocation is one row, two cells in to keep
+  that column. At 80 columns the longest label, `Replace source with a link ⚠`,
+  fits beside the scrollbar.
+- Every row is selectable. Details (titled `Details`) show a relocation row's
+  path, `Decision: <rule>` when a rule governs the reviewed case, and its paths
+  (Source, Target, and Archive when a step archives); an action row shows the
+  action and its paths. Review's Decision line names no origin: the reviewed
+  plan already has any one-time choice applied.
+- The tree takes ↑/↓, PageUp/PageDown and Home/End. Every other key goes to the
+  app first, so relocations never collapse: → opens Details, ← does nothing in
+  the tree, and Enter keeps its screen meaning. The wheel moves the selection
+  one row and clicks do nothing, as on the other lists (§3).
 
 **Applying** updates the same tree in place:
 
 - Each relocation row carries its own mark: spinner while any of its actions
   runs, `✔` when all are done, `✖` if any failed, `○` otherwise. Action rows
-  use the same glyphs. A relocation row starts at the left edge with its mark
-  (`✔ ~/.cache/uv`); its action rows sit two cells in, after the `❯` pointer
-  slot. An in-sync relocation is one row at the left edge; when selected, `❯`
-  takes its mark's cell.
+  use the same glyphs.
 - The selection stays where the user put it. It never follows running steps.
 - Header line `Applying. Leave HomeLight running until it finishes.`, then a
   TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·

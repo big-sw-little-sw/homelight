@@ -271,12 +271,12 @@ internal object WorkspaceView {
                 add(Line(choiceDescription(option, archive.takeUnless { archiving })))
             }
             add(Line(""))
-            add(Line("Paths", palette.text, true))
-            add(Line("Source: $source"))
-            add(Line("Target: " + item.relocation.targetPath))
+            add(Line(PATHS, palette.text, true))
+            add(Line(sourceLine(source)))
+            add(Line(targetLine(item.relocation.targetPath)))
             item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
                 ?.let { path -> add(Line("Current link destination: $path")) }
-            if (archiving && archive != null) add(Line("Archive: $archive"))
+            if (archiving && archive != null) add(Line(archiveLine(archive)))
             leftBehind(item)?.let { path -> add(Line("Left behind: $path")) }
         }
         return Anchored(lines, anchor)
@@ -298,7 +298,7 @@ internal object WorkspaceView {
      */
     private fun decision(item: PlanRelocationItem, chosen: DecisionChoice?): String? {
         if (chosen != null) return choiceDecision(chosen)
-        return rule(item.relocation, item)?.let(::ruleDecision)
+        return rule(item.relocation, item.sourceObservation.state, item.targetObservation.state)?.let(::ruleDecision)
     }
 
     private fun consequence(item: PlanRelocationItem): String {
@@ -337,17 +337,16 @@ internal object WorkspaceView {
         }
     }
 
-    /** The rule that governs the case observed now, in the configuration's words, or null when none does. */
-    fun rule(relocation: Relocation, item: PlanRelocationItem): String? {
-        val source = item.sourceObservation.state
-        val target = item.targetObservation.state
-        return when {
-            target != PathState.DIRECTORY -> null
-            source == PathState.ABSENT -> onlyTargetLabel(relocation.whenOnlyTargetExists)
-            source == PathState.DIRECTORY ->
-                bothExistLabel(relocation.whenSourceAndTargetDirectoriesExist, relocation.whenAdoptingTarget)
-            else -> null
-        }
+    /**
+     * The rule that governs the case where `source` and `target` are in these states, in the configuration's words,
+     * or null when none does.
+     */
+    fun rule(relocation: Relocation, source: PathState, target: PathState): String? = when {
+        target != PathState.DIRECTORY -> null
+        source == PathState.ABSENT -> onlyTargetLabel(relocation.whenOnlyTargetExists)
+        source == PathState.DIRECTORY ->
+            bothExistLabel(relocation.whenSourceAndTargetDirectoriesExist, relocation.whenAdoptingTarget)
+        else -> null
     }
 
     private fun color(badge: PlanBadge): Color = when (badge) {
