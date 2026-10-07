@@ -43,7 +43,7 @@ internal fun inspectRelocations(
     }
 
 /**
- * Finds what would stop the executor from making or using each folder the planner may plan to need: the parents of
+ * Finds what would stop the executor from making or using each folder a plan may need: the parents of
  * the source, target and [archive] destination, which `EnsureDirectory` creates, and the staging root.
  *
  * This is the executor's rule (see `ensureDirectories`): walking down from the filesystem root, every path that
