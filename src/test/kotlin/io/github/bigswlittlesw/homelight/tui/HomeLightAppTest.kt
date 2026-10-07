@@ -71,12 +71,18 @@ class HomeLightAppTest {
         ui.press('y')
 
         var mostRunning = 0
-        while (ui.app.session.isApplying()) {
+        while (true) {
             val running = ui.app.session.applyModel() as? ApplyModel.Running ?: break
             mostRunning = maxOf(mostRunning, running.steps.count { it.status == ApplyModel.StepStatus.RUNNING })
             val screen = ui.screen(120, 30)
+            // The result can be published between the read above and the render, which then makes the finishing jump.
+            // The header shows which model the render used; only a running render must keep the selection.
+            if (!screen.contains("[Applying]")) {
+                assertInstanceOf(ApplyModel.Result::class.java, ui.app.session.applyModel(), screen)
+                break
+            }
             assertEquals(chosen, ui.app.selectedIndex(), screen)
-            assertTrue(screen.contains("[Applying]") && !screen.contains("Workspace"), screen)
+            assertFalse(screen.contains("Workspace"), screen)
             Thread.sleep(10)
         }
         assertTrue(mostRunning > 1, "relocations should run at once")
