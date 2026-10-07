@@ -46,7 +46,9 @@ Configure → Workspace → Review → Apply → Results
    *relocation*. The Workspace shows what is there now and what HomeLight
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
    needs your choice: select it, press `Tab`, pick a choice and press
-   `Enter`.
+   `Enter`. A relocation marked `[Blocked]` cannot be done as things are, for
+   example because a file is where its archive folder should be. Its
+   Details say what is in the way: fix that, then press `r`.
 3. **Review (`2`).** Press `a` to see every step HomeLight will take, listed
    under the relocation it belongs to. Select a relocation to see its decision
    and paths, or a step to see what it does. Nothing has changed yet. Press
@@ -56,7 +58,9 @@ Configure → Workspace → Review → Apply → Results
    changes first, then exits.
 5. **Results (`2`).** Each step shows whether it worked. Press `r` to check
    again: the Workspace then shows each relocation as it is now, normally
-   `[In sync]`.
+   `[In sync]`. If a step finds something different from the plan, HomeLight
+   stops there and the steps after it do not run. Select the failed step to
+   see what it found, then press `r`.
 
 ### Change the configuration later
 

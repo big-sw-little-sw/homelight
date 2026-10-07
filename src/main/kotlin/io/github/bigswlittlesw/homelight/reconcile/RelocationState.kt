@@ -4,12 +4,16 @@ import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.realSpelling
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 
 /**
  * Filesystem observations used to plan one relocation without touching disk.
  * `archiveDestination` is null when it was not observed; archive-source is then blocked.
  * `replacedSource` is the observation at [replacedSourcePath]; null when it was not observed, which plans as absent.
+ * `notFolders` maps each folder an action may create or work in to what is in its way (see [inspectFolders]); a
+ * folder with no entry plans as usable.
  */
 data class RelocationState(
     val relocation: Relocation,
@@ -17,9 +21,60 @@ data class RelocationState(
     val target: PathObservation,
     val archiveDestination: ArchiveDestination? = null,
     val replacedSource: PathObservation? = null,
+    val notFolders: Map<Path, NotAFolder> = mapOf(),
 ) {
     /** The no-follow observation of the source's archive destination, chosen by [inspectArchiveDestinations]. */
     data class ArchiveDestination(val path: Path, val observation: PathObservation)
+
+    /** What exists at [path], at or above a folder an action needs, where the action needs a folder. */
+    data class NotAFolder(val path: Path, val observation: PathObservation)
+}
+
+/** Observes everything the planner reads for [relocations], in the order given. */
+internal fun inspectRelocations(
+    relocations: List<Relocation>, inspect: (Path) -> PathObservation,
+): List<RelocationState> =
+    relocations.zip(inspectArchiveDestinations(relocations, inspect)) { relocation, archive ->
+        RelocationState(
+            relocation, inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
+            inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
+            inspectFolders(relocation, archive.path, inspect),
+        )
+    }
+
+/**
+ * Finds what would stop the executor from making or using each folder the planner may plan to need: the parents of
+ * the source, target and [archive] destination, which `EnsureDirectory` creates, and the staging root.
+ *
+ * This is the executor's rule (see `ensureDirectories`): walking down from the filesystem root, every path that
+ * exists must be a folder, through links, until one is missing. The staging root itself must be a real folder, not a
+ * link to one. An existing path where the walk stops is in the way.
+ *
+ * When the staging root is also one of the parents, the parents' rule wins, so a plan that needs only the parent is
+ * never blocked by the stricter rule. A migration then still finds a linked staging root when it runs.
+ */
+internal fun inspectFolders(
+    relocation: Relocation, archive: Path, inspect: (Path) -> PathObservation,
+): Map<Path, RelocationState.NotAFolder> {
+    val stagingRoot = effectiveStagingRoot(relocation.targetPath, relocation.stagingRoot)
+    val parents = listOfNotNull(relocation.sourcePath.parent, relocation.targetPath.parent, archive.parent)
+    val folders = mapOf(stagingRoot to notAFolder(stagingRoot, real = true, inspect)) +
+        parents.associateWith { parent -> notAFolder(parent, real = false, inspect) }
+    return folders.mapNotNull { (folder, inTheWay) -> inTheWay?.let { folder to it } }.toMap()
+}
+
+/** The walk [inspectFolders] describes, for one folder; [real] refuses a link at the folder itself. */
+private fun notAFolder(folder: Path, real: Boolean, inspect: (Path) -> PathObservation): RelocationState.NotAFolder? {
+    val absolute = folder.toAbsolutePath().normalize()
+    var current = absolute.root
+    for (name in absolute) {
+        current = current.resolve(name)
+        val options = if (real && current == absolute) arrayOf(LinkOption.NOFOLLOW_LINKS) else arrayOf()
+        if (Files.isDirectory(current, *options)) continue
+        val observation = inspect(current)
+        return if (observation.state == PathState.ABSENT) null else RelocationState.NotAFolder(current, observation)
+    }
+    return null
 }
 
 /**

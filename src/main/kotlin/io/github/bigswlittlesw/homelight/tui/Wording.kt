@@ -268,7 +268,8 @@ internal const val CONFIRM = "Nothing has changed yet. Press y to apply this pla
 internal const val CONFIRM_DESTRUCTIVE = "Nothing has changed yet. Some steps delete or replace data for good."
 internal const val APPLYING = "Applying. Leave HomeLight running until it finishes."
 internal const val REFUSED = "Nothing changed: the disk no longer matches the reviewed plan. Check again."
-internal const val STALE = "Stopped: the disk changed while applying. Check the failed and not-run steps, then check again."
+internal const val STALE = "Stopped: a step found something different from the plan. The steps after it did not run. " +
+    "See the failed step's details, then press r to check again."
 internal const val DONE = "Done. Checked again; results are kept until you check again."
 internal const val WORKER_STOPPED =
     "Stopped unexpectedly; some changes may have been made. Check the steps, then check again."

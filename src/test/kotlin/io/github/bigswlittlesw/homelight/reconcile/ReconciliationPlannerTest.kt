@@ -155,6 +155,78 @@ class ReconciliationPlannerTest {
     }
 
     @Test
+    fun blocksArchivingWhenTheArchiveLocationIsNotAFolder(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val archiveRoot = root.resolve("archive")
+        val cases = mapOf<String, () -> Unit>(
+            "is a file, not a folder" to { Files.writeString(archiveRoot, "a file") },
+            "is a link, not a folder" to {
+                Files.createSymbolicLink(archiveRoot, Files.writeString(root.resolve("file"), "a file"))
+            },
+            "is a broken link, not a folder" to { Files.createSymbolicLink(archiveRoot, root.resolve("missing")) },
+        )
+        for ((words, make) in cases) {
+            make()
+
+            assertEquals(listOf(ReconciliationAction.Blocked(source, "$archiveRoot $words")),
+                    plan(archiving(source, target, archiveRoot)).actions(), words)
+            Files.delete(archiveRoot)
+        }
+    }
+
+    @Test
+    fun blocksOnTheFirstPathThatIsNotAFolderAboveAMissingTarget(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val file = Files.writeString(root.resolve("local"), "a file")
+
+        val moving = plan(Relocation(source, root.resolve("local/deeper/cache")))
+        val creating = plan(Relocation(root.resolve("home/new"), root.resolve("local/deeper/new")))
+
+        for (plan in listOf(moving, creating)) {
+            assertEquals("$file is a file, not a folder",
+                    plan.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
+        }
+    }
+
+    @Test
+    fun blocksAdoptingWhenTheSourceFolderIsAFile(@TempDir root: Path) {
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val file = Files.writeString(root.resolve("home"), "a file")
+
+        val plan = plan(Relocation(file.resolve("cache"), target, whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET))
+
+        assertEquals(listOf(ReconciliationAction.Blocked(file.resolve("cache"), "$file is a file, not a folder")),
+                plan.actions())
+    }
+
+    @Test
+    fun aStagingRootMustBeARealFolderButOtherFoldersMayBeLinks(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val storage = Files.createDirectories(root.resolve("storage"))
+        val linked = Files.createSymbolicLink(root.resolve("local"), storage)
+        val stagingRoot = root.resolve("staging")
+
+        val throughLinks = plan(Relocation(source, linked.resolve("cache"), stagingRoot = linked.resolve("staging")))
+        Files.createSymbolicLink(stagingRoot, Files.createDirectories(root.resolve("elsewhere")))
+        val linkedStaging = plan(Relocation(source, linked.resolve("cache"), stagingRoot = stagingRoot))
+
+        assertFalse(throughLinks.hasBlockedActions(), throughLinks.actions().toString())
+        assertEquals("$stagingRoot is a link, not a folder",
+                linkedStaging.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
+    }
+
+    @Test
+    fun aFolderInTheWayDoesNotBlockAPlanThatDoesNotNeedIt(@TempDir root: Path) {
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val source = Files.createSymbolicLink(Files.createDirectories(root.resolve("home")).resolve("cache"), target)
+        Files.writeString(root.resolve("home/.homelight-archive"), "a file")
+        Files.writeString(root.resolve("local/.homelight-staging"), "a file")
+
+        assertEquals(listOf(ReconciliationAction.NoOp(source)), plan(Relocation(source, target)).actions())
+    }
+
+    @Test
     fun refusesFilesAndTargetSymlinks(@TempDir root: Path) {
         val fileSource = Files.writeString(root.resolve("source-file"), "value")
         val filePlan = plan(Relocation(fileSource, root.resolve("target")))
@@ -262,12 +334,7 @@ class ReconciliationPlannerTest {
         private fun archiveTargets(plan: ReconciliationPlan): List<Path> =
             plan.actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().map { it.target }
 
-        private fun states(relocations: List<Relocation>): List<RelocationState> {
-            val inspector = PathInspector()
-            return relocations.zip(inspectArchiveDestinations(relocations, inspector::inspect)) { relocation, archive ->
-                RelocationState(relocation, inspector.inspect(relocation.sourcePath),
-                        inspector.inspect(relocation.targetPath), archive)
-            }
-        }
+        private fun states(relocations: List<Relocation>): List<RelocationState> =
+            inspectRelocations(relocations, PathInspector()::inspect)
     }
 }

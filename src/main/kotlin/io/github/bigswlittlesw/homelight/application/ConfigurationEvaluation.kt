@@ -11,8 +11,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState
-import io.github.bigswlittlesw.homelight.reconcile.inspectArchiveDestinations
-import io.github.bigswlittlesw.homelight.reconcile.replacedSourcePath
+import io.github.bigswlittlesw.homelight.reconcile.inspectRelocations
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -96,14 +95,7 @@ class ConfigurationEvaluation(
     /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
     fun loadRequired(configPath: Path, override: ConfigurationLoader.PathOverride? = null): Loaded {
         val configuration = loader.load(configPath, override)
-        val archives = inspectArchiveDestinations(configuration.relocations, inspect)
-        val observations = configuration.relocations.zip(archives) { relocation, archive ->
-            RelocationState(
-                relocation,
-                inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
-                inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
-            )
-        }
+        val observations = inspectRelocations(configuration.relocations, inspect)
         val savedPlan = plan(observations)
         // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
         // their diagnostics. groupBy keeps sources in first-seen order.

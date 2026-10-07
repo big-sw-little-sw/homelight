@@ -79,7 +79,8 @@ class ApplyViewTest {
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"))
         // Row 2 is the failed step, under its relocation and the completed step.
         val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 2, 80, 24)
-        assertTrue(text.contains("the disk changed while applying"), text)
+        assertTrue(text.contains("Stopped: a step found something different from the plan."), text)
+        assertTrue(text.contains("press r to check again"), text)
         assertTrue(text.contains("✔"), text)
         assertTrue(text.contains("✖"), text)
         assertTrue(text.contains("Source changed"), text)

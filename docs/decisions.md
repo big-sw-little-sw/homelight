@@ -516,6 +516,19 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - This drops `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`.
 - `[skipped: folding a relocation's steps, add when plans are long enough that users ask to fold them]` replaces the tree-keys item of 2026-10-06.
 
+## 2026-10-07: The planner blocks a folder that is not a folder
+
+#163, from the #160 walkthrough: with the archive location replaced by a file, the plan was accepted and the apply stopped at "Create parent folder", and Results blamed a disk change that had happened before `y`.
+
+- **Plan-time check (rung 2, the executor's own rule):** inspection now also walks each folder a step may create or work in, the way `ensureDirectories` does: the parents of the source, target and archive destination, and the staging root. Walking down from the filesystem root, every existing path must be a folder through links; the staging root itself must be a real folder. The first existing path where the walk stops is kept in `RelocationState.notFolders`, by the folder that needs it. The planner stays free of I/O: after planning a relocation, it blocks it when a folder one of its actions needs (`EnsureDirectory`, or a migration's target parent and staging root) has an entry. A plan that needs none of those folders, such as one already in sync, is not blocked by them.
+- **Reasons in plain words:** `<path> is a file, not a folder`, `is a link, not a folder`, `is a broken link, not a folder`, `can't be read, so HomeLight can't tell if it is a folder`, or `is not a folder`. They show on the Workspace as `Problem: …` and in `plan --json` as a blocked action's `reason`.
+- **One inspection:** `inspectRelocations` builds every `RelocationState`, for `ConfigurationEvaluation` and the planner tests (rung 2).
+- **Stop message:** `Stopped: a step found something different from the plan. The steps after it did not run. See the failed step's details, then press r to check again.` replaces "the disk changed while applying", which guessed a cause. The failed step's Details keep the exact problem.
+- Executor preconditions now checked at plan time: every `EnsureDirectory` path, and a migration's target parent and staging root (each walked as above, the staging root without following a link at its end). Already checked before: the state of the source, target, archive destination and replaced source, which `CreateDirectory`, `ArchiveDirectory`, `CreateSymlink`, `DeleteDirectory` and the replacements guard.
+- `[skipped: a plan-time check that the staging root is on the target's filesystem and that both support POSIX permissions, add when a user's apply stops on either]`
+- `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported; the step still stops with the new message]`
+- `[skipped: a stricter check when a configured staging root is also a source, target or archive parent; the parents' rule wins, add when someone configures one that way]`
+
 ## How to add decisions
 
 Use this format:

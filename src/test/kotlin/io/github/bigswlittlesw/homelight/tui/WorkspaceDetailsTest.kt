@@ -46,6 +46,9 @@ class WorkspaceDetailsTest {
         both("kept", ", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"")
         Files.writeString(home.resolve("blocked"), "a file")
         add("blocked")
+        val archiveFile = Files.writeString(root.resolve("archive-file"), "a file")
+        both("filed", ", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"archive-source\"" +
+            ", \"archive-root\": \"$archiveFile\"")
         add("unreadable")
         Files.createSymbolicLink(home.resolve("leftover"), Files.createDirectories(local.resolve("leftover")))
         Files.createDirectories(replacedSourcePath(home.resolve("leftover"), local.resolve("leftover")))
@@ -134,6 +137,9 @@ class WorkspaceDetailsTest {
         val unreadable = details("unreadable")
         assertTrue(screen("unreadable", 200, 80).contains("[Can't read]"))
         assertTrue(unreadable.contains("Problem: source cannot be inspected."), unreadable)
+        val filed = details("filed")
+        assertTrue(filed.contains("Will do: nothing until you fix the problem below, then check again."), filed)
+        assertTrue(squeezed(filed).contains(squeezed("Problem: ${root.resolve("archive-file")} is a file, not a folder.")), filed)
     }
 
     @Test
