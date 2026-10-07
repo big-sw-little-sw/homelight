@@ -283,7 +283,7 @@ class HelpTest {
         ui.press(KeyCode.ENTER)
         ui.press('a')
         val review = ui.screen(80, 24).lines().first { it.contains("Plan") }
-        assertTrue(review.startsWith("┏Plan") && review.contains("┌Action details"), review)
+        assertTrue(review.startsWith("┏Plan") && review.contains("┌Details"), review)
     }
 
     @Test

@@ -2,37 +2,63 @@ package io.github.bigswlittlesw.homelight.tui
 
 import dev.tamboui.style.Color
 import dev.tamboui.style.Style
-import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.StyledElement
-import dev.tamboui.toolkit.elements.ListElement
+import dev.tamboui.toolkit.elements.TreeElement
+import dev.tamboui.toolkit.event.EventResult
+import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.spinner.SpinnerState
+import dev.tamboui.widgets.tree.GuideStyle
+import dev.tamboui.widgets.tree.TreeNode
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import java.nio.file.Path
+
+/** One row of Review's plan tree: a relocation with its steps, or one of those steps. */
+internal sealed interface PlanRow {
+    data class RelocationRow(val plan: RelocationPlan, val steps: List<ApplyModel.Step>) : PlanRow {
+        /** The step rows under it: none for an in-sync relocation, whose single step changes nothing. */
+        val children: List<StepRow>
+            get() = if (steps.size == 1 && steps.single().action is ReconciliationAction.NoOp) listOf() else steps.map(::StepRow)
+    }
+
+    data class StepRow(val step: ApplyModel.Step) : PlanRow
+}
 
 /** Renders the review and results screen. The object names the screen; it holds no state. */
 internal object ApplyView {
     private val SPINNER_FRAMES = arrayOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 
     /**
-     * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
-     * offset. A relocation's first step carries the relocation's own line, so the selection is always an action.
+     * The plan tree. One instance lives across frames: TamboUI keeps its selection and scroll offset. Every relocation
+     * stays expanded, so the selection is an index into [rows].
+     *
+     * The tree moves its selection on ↑/↓, PageUp/PageDown and Home/End. Every other key goes to `others` first, so
+     * TamboUI's expand, collapse and toggle on ←/→, Enter and Space never run: → still opens Details and Enter still
+     * leaves Results. The pointer is one cell wide, so at 80 columns "Replace source with a link ⚠" fits beside the
+     * scrollbar.
      */
-    fun list(): ListElement<Any> = ListElement<Any>().id(REVIEW_LIST)
+    fun tree(others: KeyEventHandler): TreeElement<PlanRow> = TreeElement<PlanRow>().id(REVIEW_LIST)
+        .guideStyle(GuideStyle.UNICODE).indentWidth(2).highlightSymbol("❯").highlightStyle(Style.EMPTY.bold())
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
-        .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
+        .onKeyEvent { key ->
+            if (key.isUp() || key.isDown() || key.isPageUp() || key.isPageDown() || key.isHome() || key.isEnd()) {
+                EventResult.UNHANDLED
+            } else others.handle(key)
+        }
 
     /**
      * `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen.
      * `quitting` is true once HomeLight will exit when the apply finishes, so `q` no longer does anything.
      */
     fun render(
-        config: Path, model: ApplyModel, list: ListElement<Any>, spinnerFrame: Int = 0, focused: String? = REVIEW_LIST,
-        interactive: Boolean = true, viewport: DetailViewport = DetailViewport(), quitting: Boolean = false,
+        config: Path, model: ApplyModel, tree: TreeElement<PlanRow>, spinnerFrame: Int = 0,
+        focused: String? = REVIEW_LIST, interactive: Boolean = true, viewport: DetailViewport = DetailViewport(),
+        quitting: Boolean = false,
     ): Element {
         val brand = Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold()
         // While applying, neither destination is reachable, so the header names only what is happening.
@@ -52,32 +78,15 @@ internal object ApplyView {
         }
         val plan = reviewed.plan
         val steps = steps(model)
-        val selected = list.selected().coerceIn(0, maxOf(0, steps.size - 1))
-        val byRelocation = steps.groupBy { it.relocation }
-        val rows = steps.mapIndexed { i, step ->
-            val pointer = if (i == selected) "❯ " else "  "
-            val own = byRelocation.getValue(step.relocation)
-            val path = displayPath(step.relocation.relocation.sourcePath)
-            when {
-                i > 0 && steps[i - 1].relocation == step.relocation -> actionRow(pointer, step, spinnerFrame)
-                // An in-sync relocation is its own single row, at the relocation column: there is no step to show
-                // under it. Selected, the pointer takes its mark's cell, so the row does not shift.
-                own.size == 1 && step.action is ReconciliationAction.NoOp -> markedRow(
-                    "", if (i == selected) Toolkit.text("❯").fg(palette.focus) else mark(step.status, false, spinnerFrame),
-                    inSyncRow(path), palette.dim,
-                )
-                else -> Toolkit.column(
-                    markedRow("", mark(relocationStatus(own), own.any { it.action.mutatesFilesystem }, spinnerFrame),
-                        path, palette.text, bold = true),
-                    actionRow(pointer, step, spinnerFrame),
-                ).length(2)
-            }
-        }
-        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
-        // Framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
-        val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
-        val detailLines = if (steps.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
-        else details(steps[selected]) +
+        val rows = rows(steps)
+        val selected = tree.selected().coerceIn(0, maxOf(0, rows.size - 1))
+        // Rebuilt every frame, so the marks follow the model; the tree keeps only its selection and scroll offset.
+        tree.roots(*nodes(rows).toTypedArray()).nodeRenderer { node -> node.data()?.let { rowElement(it, spinnerFrame) } }
+            .focusable(interactive).fill()
+        // Framed by a panel, which can show focus with a thick border; TreeElement offers only rounded.
+        val treePane = framed(Toolkit.panel(REVIEW_LIST_TITLE, tree), focused == REVIEW_LIST)
+        val detailLines = if (rows.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
+        else details(rows[selected], reviewed) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
@@ -125,8 +134,8 @@ internal object ApplyView {
             }
             add(
                 Toolkit.row(
-                    listPane.percent(45),
-                    viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
+                    treePane.percent(45),
+                    viewport.render(DETAILS_NAME, detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
             add(viewport.help(screenHelp(model, focused, quitting), interactive))
@@ -139,13 +148,13 @@ internal object ApplyView {
         val navigation = when {
             model is ApplyModel.Idle -> listOf()
             focused != REVIEW_DETAILS -> listOf(
-                KeyHint("↑/↓", "Inspect", description = "Select a step to see its details"),
-                KeyHint("Tab/→", "Details", description = "Move to the selected step's details"),
+                KeyHint("↑/↓", "Inspect", description = "Select a relocation or a step to see its details"),
+                KeyHint("Tab/→", "Details", description = "Move to the selected row's details"),
                 PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
             )
-            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List", description = "Back to the list of steps")) +
+            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List", description = "Back to the plan")) +
                 (if (model is ApplyModel.Confirmation) listOf()
-                else listOf(KeyHint("Esc", "Back", description = "Back to the list of steps")))
+                else listOf(KeyHint("Esc", "Back", description = "Back to the plan")))
         }
         val commands = when (model) {
             is ApplyModel.Idle -> listOf(KeyHint("1", "Workspace", description = "Go to the Workspace"), HELP_KEY, QUIT_KEY)
@@ -165,7 +174,7 @@ internal object ApplyView {
             )
         }
         fun help(name: String, purpose: String, step: Step) = ScreenHelp(
-            if (focused == REVIEW_DETAILS) place(name, ACTION_DETAILS_NAME) else name, purpose, step, navigation, commands,
+            if (focused == REVIEW_DETAILS) place(name, DETAILS_NAME) else name, purpose, step, navigation, commands,
         )
         return when (model) {
             is ApplyModel.Idle -> help(REVIEW_NAME, NOTHING_TO_REVIEW, Step.REVIEW)
@@ -183,6 +192,35 @@ internal object ApplyView {
         is ApplyModel.Result -> model.steps
     }
 
+    /** What Details shows for the selected row of the `reviewed` plan. */
+    fun details(row: PlanRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> = when (row) {
+        is PlanRow.RelocationRow -> relocationDetails(row, reviewed)
+        is PlanRow.StepRow -> details(row.step)
+    }
+
+    /**
+     * The relocation's path, the decision that shaped its steps and its paths. The decision is the one-time choice
+     * the plan was reviewed with, or else the saved rule for what the reviewed plan observed. Both come from the
+     * snapshot, so Results keep them after the apply forgets the choices and the disk changes.
+     */
+    private fun relocationDetails(row: PlanRow.RelocationRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> {
+        val relocation = row.plan.relocation
+        val observed = reviewed.plan.expectedStates.firstOrNull { it.relocation.sourcePath == relocation.sourcePath }
+        val decision = reviewed.choice(relocation.sourcePath)?.let(::choiceDecision)
+            ?: observed?.let { WorkspaceView.rule(relocation, it.source.state, it.target.state) }?.let(::ruleDecision)
+        val archive = row.steps.firstNotNullOfOrNull { (it.action as? ReconciliationAction.ArchiveDirectory)?.destination }
+        return listOfNotNull(
+            DetailViewport.Line(displayPath(relocation.sourcePath), palette.text, true),
+            if (row.children.isEmpty()) DetailViewport.Line(actionLabel(row.steps.single().action), palette.dim, false) else null,
+            decision?.let { DetailViewport.Line(it) },
+            DetailViewport.Line(""),
+            DetailViewport.Line(PATHS, palette.text, true),
+            DetailViewport.Line(sourceLine(relocation.sourcePath)),
+            DetailViewport.Line(targetLine(relocation.targetPath)),
+            archive?.let { DetailViewport.Line(archiveLine(it)) },
+        )
+    }
+
     fun details(step: ApplyModel.Step): List<DetailViewport.Line> = buildList {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
@@ -191,9 +229,9 @@ internal object ApplyView {
         add(DetailViewport.Line(affectedPath(action)))
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))
         val relocation = step.relocation.relocation
-        if (action.path != relocation.sourcePath) add(DetailViewport.Line("Source: " + relocation.sourcePath))
+        if (action.path != relocation.sourcePath) add(DetailViewport.Line(sourceLine(relocation.sourcePath)))
         if (action.path != relocation.targetPath && action.destination != relocation.targetPath) {
-            add(DetailViewport.Line("Target: " + relocation.targetPath))
+            add(DetailViewport.Line(targetLine(relocation.targetPath)))
         }
     }
 
@@ -223,26 +261,46 @@ internal object ApplyView {
         } + destination
     }
 
-    // Indented under its relocation line by the pointer's two cells only: at 80 columns a deeper indent would cut the
-    // longest label, "Replace source with a link ⚠", once the scrollbar's cell is kept free.
-    private fun actionRow(pointer: String, step: ApplyModel.Step, spinnerFrame: Int): StyledElement<*> = markedRow(
-        pointer, mark(step.status, step.action.mutatesFilesystem, spinnerFrame),
-        actionLabel(step.action) + (if (step.action.destructive) " ⚠" else ""), color(step),
-    )
+    /** The tree's rows in display order: each relocation, then its step rows. */
+    fun rows(steps: List<ApplyModel.Step>): List<PlanRow> = steps.groupBy { it.relocation }.flatMap { (plan, own) ->
+        val relocation = PlanRow.RelocationRow(plan, own)
+        listOf(relocation) + relocation.children
+    }
+
+    /** The tree's nodes for `rows`; flattened, they are `rows` again. Labels are unused: rows draw themselves. */
+    private fun nodes(rows: List<PlanRow>): List<TreeNode<PlanRow>> =
+        rows.filterIsInstance<PlanRow.RelocationRow>().map { relocation ->
+            TreeNode.of<PlanRow>("", relocation).expanded().apply {
+                relocation.children.forEach { child -> add(TreeNode.of<PlanRow>("", child).leaf()) }
+            }
+        }
 
     /**
-     * A list row: the pointer (none on a relocation line), a status mark, then the label, shortened in the middle.
-     *
-     * TamboUI reserves the scrollbar's column by counting items, not lines, so with two-line items the scrollbar can
-     * cover a row's last cell: the trailing space is what it covers.
+     * A relocation row: its mark and path. The tree draws `▼` before a relocation with step rows, so an in-sync
+     * relocation, which has none, starts two cells in to keep the marks in one column. A step row: its mark and label;
+     * the tree's guide (`├─`, `└─`) sits before it.
      */
+    private fun rowElement(row: PlanRow, spinnerFrame: Int): StyledElement<*> = when (row) {
+        is PlanRow.RelocationRow -> {
+            val path = displayPath(row.plan.relocation.sourcePath)
+            if (row.children.isEmpty()) markedRow(mark(row.steps.single().status, false, spinnerFrame), inSyncRow(path),
+                palette.dim, indent = 2)
+            else markedRow(mark(relocationStatus(row.steps), row.steps.any { it.action.mutatesFilesystem }, spinnerFrame),
+                path, palette.text, bold = true)
+        }
+        is PlanRow.StepRow -> markedRow(
+            mark(row.step.status, row.step.action.mutatesFilesystem, spinnerFrame),
+            actionLabel(row.step.action) + (if (row.step.action.destructive) " ⚠" else ""), color(row.step),
+        )
+    }
+
+    /** A status mark, then the label, shortened in the middle. */
     private fun markedRow(
-        prefix: String, mark: StyledElement<*>, label: String, color: Color, bold: Boolean = false,
+        mark: StyledElement<*>, label: String, color: Color, bold: Boolean = false, indent: Int = 0,
     ): StyledElement<*> {
-        val text = Toolkit.text("$label ").fg(color).ellipsisMiddle().fill()
+        val text = Toolkit.text(label).fg(color).ellipsisMiddle().fill()
         val cells = listOf(mark.length(2), if (bold) text.bold() else text)
-        val row = if (prefix.isEmpty()) cells else listOf(Toolkit.text(prefix).fg(palette.focus).length(CharWidth.of(prefix))) + cells
-        return Toolkit.row(*row.toTypedArray())
+        return Toolkit.row(*(if (indent == 0) cells else listOf(Toolkit.text("").length(indent)) + cells).toTypedArray())
     }
 
     /** TamboUI's spinner while running; otherwise the step's glyph. `changes` is false for steps that change nothing. */

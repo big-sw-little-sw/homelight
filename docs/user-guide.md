@@ -46,8 +46,10 @@ Configure → Workspace → Review → Apply → Results
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
    needs your choice: select it, press `Tab`, pick a choice and press
    `Enter`.
-3. **Review (`2`).** Press `a` to see every step HomeLight will take. Nothing
-   has changed yet. Press `y` to apply, or `n` to go back.
+3. **Review (`2`).** Press `a` to see every step HomeLight will take, listed
+   under the relocation it belongs to. Select a relocation to see its decision
+   and paths, or a step to see what it does. Nothing has changed yet. Press
+   `y` to apply, or `n` to go back.
 4. **Apply.** HomeLight makes the changes and shows each step as it runs.
    Leave it running until it finishes. If you press `q`, it finishes the
    changes first, then exits.

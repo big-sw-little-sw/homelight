@@ -177,6 +177,12 @@ internal fun ruleDecision(rule: String) = "Decision: " + rule.lowercase() + " (y
 internal fun choiceDecision(choice: DecisionChoice) =
     "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
 
+// The Paths section of Workspace and Review Details.
+internal const val PATHS = "Paths"
+internal fun sourceLine(path: Path) = "Source: $path"
+internal fun targetLine(path: Path) = "Target: $path"
+internal fun archiveLine(path: Path) = "Archive: $path"
+
 /** The Workspace list title: the in-sync rows `c` hides or shows, or none when `c` would change nothing. */
 internal fun relocationsTitle(inSync: Int, shown: Boolean): String = when {
     inSync == 0 -> "Relocations"
@@ -252,7 +258,6 @@ internal const val PURPOSE_CONFIGURATION =
 internal const val PURPOSE_BROWSE =
     "Suggestions from the built-in list and your list. Add the ones you want to move."
 internal const val DETAILS_NAME = "Details"
-internal const val ACTION_DETAILS_NAME = "Action details"
 internal const val RELOCATIONS_NAME = "Relocations"
 /** Configuration's fields, as its pane labels them; Help names the focused one. */
 internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Suggestion list (optional)")

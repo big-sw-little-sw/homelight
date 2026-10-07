@@ -5,6 +5,7 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import java.io.InterruptedIOException
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
@@ -14,8 +15,13 @@ internal val DEBUG_STEP_DELAY_MILLIS: LongRange = 0L..60_000L
 /**
  * One captured plan's preflight, execution, immutable progress, and retained result.
  * Capturing performs no I/O; starting never reloads or substitutes the plan.
+ *
+ * `choices` are the one-time choices the plan was made with; every snapshot carries them (see [ApplyModel.Reviewed]).
  */
-class ReviewedExecution(private val plan: ReconciliationPlan, private val debugStepDelayMillis: Long = 0) {
+class ReviewedExecution(
+    private val plan: ReconciliationPlan, private val debugStepDelayMillis: Long = 0,
+    private val choices: Map<Path, DecisionChoice> = mapOf(),
+) {
     // Guarded by this instance's monitor. The worker thread, and the executor's relocation threads when independent
     // relocations run at once, publish progress through it, so steps change in one serial order.
     private var snapshot: ApplyModel
@@ -26,7 +32,7 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
         require(debugStepDelayMillis in DEBUG_STEP_DELAY_MILLIS) {
             "debug step delay must be between ${DEBUG_STEP_DELAY_MILLIS.first} and ${DEBUG_STEP_DELAY_MILLIS.last} milliseconds"
         }
-        snapshot = ApplyModel.Confirmation(plan)
+        snapshot = ApplyModel.Confirmation.of(plan, choices)
     }
 
     @Synchronized
@@ -42,7 +48,7 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
     fun start(worker: Executor): CompletableFuture<Void?> {
         val completion = synchronized(this) {
             this.completion?.let { return it }
-            snapshot = ApplyModel.Running.of(plan, pendingSteps(plan))
+            snapshot = ApplyModel.Running.of(plan, pendingSteps(plan), choices)
             CompletableFuture<Void?>().also { this.completion = it }
         }
         // Scheduled outside the monitor: a direct executor (the CLI's) runs the plan on this thread, and relocation
@@ -97,7 +103,7 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
         }
         val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
         synchronized(this) {
-            snapshot = ApplyModel.Result.of(plan, steps, result, listOf(), stale)
+            snapshot = ApplyModel.Result.of(plan, steps, result, listOf(), stale, choices)
         }
     }
 
@@ -126,7 +132,7 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
                 ApplyModel.Step(relocation, action, status, message)
             } else step
         }
-        snapshot = ApplyModel.Running.of(running.plan, steps)
+        snapshot = ApplyModel.Running.of(running.plan, steps, choices)
     }
 
     @Synchronized
@@ -137,7 +143,7 @@ class ReviewedExecution(private val plan: ReconciliationPlan, private val debugS
                 step.copy(status = ApplyModel.StepStatus.FAILED, message = diagnostics.first())
             } else step
         }
-        snapshot = ApplyModel.Result.of(plan, steps, null, diagnostics, stale)
+        snapshot = ApplyModel.Result.of(plan, steps, null, diagnostics, stale, choices)
     }
 }
 
