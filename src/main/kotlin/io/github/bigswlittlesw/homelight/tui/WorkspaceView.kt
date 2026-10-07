@@ -43,10 +43,13 @@ internal object WorkspaceView {
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
 
-    /** `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen. */
+    /**
+     * `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen. A `notice`,
+     * such as the next step after a save, shows once below the panes.
+     */
     fun render(
         session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?, interactive: Boolean,
-        choice: Int, viewport: DetailViewport,
+        choice: Int, viewport: DetailViewport, notice: Line? = null,
     ): Element {
         val retained = session.applyModel() is ApplyModel.Result
         val header = Toolkit.row(
@@ -65,7 +68,7 @@ internal object WorkspaceView {
                 else -> NO_CONFIGURATION
             }
             val lines = listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)) +
-                (if (missing) listOf(Line(FIRST_RUN_HINT)) else listOf())
+                (if (missing) listOf(Line(FIRST_RUN_HINT)) else listOf()) + listOfNotNull(notice)
             return Toolkit.column(
                 header,
                 // The only pane, so it has focus unless a dialog is open.
@@ -105,7 +108,9 @@ internal object WorkspaceView {
                     listPane.percent(45), viewport.render("Details", lines, detailsFocused, details.anchor, WORKSPACE_DETAILS, interactive),
                 ).fill(),
             )
-            if (!session.isPlanReady() && !retained) add(
+            // The notice after a save already says the next step.
+            if (notice != null) add(wrappedText(notice.text, notice.color))
+            else if (!session.isPlanReady() && !retained) add(
                 wrappedText(
                     if (configured.items.any { it.isBlocked() }) FIX_TO_REVIEW else CHOOSE_TO_REVIEW,
                     palette.warn,
@@ -165,33 +170,48 @@ internal object WorkspaceView {
             "c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false,
             description = (if (showInSync) "Hide" else "Show") + " the relocations already in sync",
         )
+        val edit = KeyHint(
+            "e", "Edit", description = "Open Configuration to change the configuration file; nothing is saved until you press s there",
+        )
         return ScreenHelp(
             if (focused == WORKSPACE_DETAILS) place(WORKSPACE_NAME, DETAILS_NAME) else WORKSPACE_NAME,
             if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE, Step.WORKSPACE,
-            navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
+            navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, edit, HELP_KEY, QUIT_KEY),
         )
     }
 
     private fun selection(list: ListElement<Any>, items: List<PlanRelocationItem>): Int =
         list.selected().coerceIn(0, maxOf(0, items.size - 1))
 
+    /** What the Workspace says after Configuration saves and it has checked again: the next step. */
+    fun savedNotice(model: ConfigurationEvaluation.Evaluation): String {
+        if (model !is ConfigurationEvaluation.Loaded) return SAVED
+        val states = model.items.map(::state)
+        return savedNextStep(
+            states.count { it == State.CHANGE }, states.count { it == State.CHOOSE }, states.count { it == State.BLOCKED },
+        )
+    }
+
+    private enum class State { BLOCKED, CHOOSE, CHANGE, UNCHANGED, IN_SYNC }
+
+    /** Each relocation counts once, in the first of these that holds. */
+    private fun state(item: PlanRelocationItem): State = when {
+        item.isBlocked() -> State.BLOCKED
+        item.hasConflict() -> State.CHOOSE
+        item.plan.actions.any { it.mutatesFilesystem } -> State.CHANGE
+        item.plan.outcome == RelocationOutcome.UNCHANGED -> State.UNCHANGED
+        else -> State.IN_SYNC
+    }
+
     fun summary(items: List<PlanRelocationItem>): Summary {
-        var actionable = 0
-        var conflict = 0
-        var blocked = 0
-        var unchanged = 0
-        var synced = 0
-        var warnings = 0
-        var deleting = 0
-        for (item in items) {
-            if (item.isBlocked()) blocked++
-            else if (item.hasConflict()) conflict++
-            else if (item.plan.actions.any { it.mutatesFilesystem }) actionable++
-            else if (item.plan.outcome == RelocationOutcome.UNCHANGED) unchanged++
-            else synced++
-            if (item.hasWarnings()) warnings++
-            if (item.deletesData()) deleting++
-        }
+        val states = items.map(::state)
+        val actionable = states.count { it == State.CHANGE }
+        val conflict = states.count { it == State.CHOOSE }
+        val blocked = states.count { it == State.BLOCKED }
+        val unchanged = states.count { it == State.UNCHANGED }
+        val synced = states.count { it == State.IN_SYNC }
+        val warnings = items.count { it.hasWarnings() }
+        val deleting = items.count { it.deletesData() }
         return Summary(
             listOf(
                 listOf(

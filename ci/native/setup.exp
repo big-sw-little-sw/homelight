@@ -1,12 +1,14 @@
 #!/usr/bin/expect -f
-# Drives the TUI setup flow on a pty: discovery from the bundled candidate list, then cancel.
+# Drives the TUI's Configuration screen on a pty: a new file, discovery from the bundled candidate list, then
+# discard.
 #
 #   expect ci/native/setup.exp <logfile> <source-root> <target-root> <command...>
 #
 # <source-root> must contain a .m2 directory; the command must point at a missing config file
-# (`homelight -c <new.json> init`). Enters both roots, opens the candidate browser and expects the
-# bundled Maven candidate, which proves candidates.json is in the binary. Then discards the draft
-# and quits. Prints one line of key=value results; exit status 0 when every check passed.
+# (`homelight -c <new.json> init`). Configuration opens on Target root: types it, then the source
+# root above it, goes back to the list, opens Browse and expects the bundled Maven candidate, which
+# proves candidates.json is in the binary. Then discards the draft and quits. Prints one line of
+# key=value results; exit status 0 when every check passed.
 # Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
 encoding system iso8859-1
 set logfile [lindex $argv 0]
@@ -33,20 +35,21 @@ spawn -noecho /bin/sh
 set timeout 20
 expect "PROMPT> "
 send "$cmd; echo EXITCODE=\$?\r"
-step setup {Create configuration}
-# Source root: the directory holding .m2; then down to target root, Enter to Relocations.
-send "\025$source"
-after 300
-send "\033\[B"
-after 300
+step setup {\[Configuration\]}
+# Target root is focused; then up to Source root, clear it (Ctrl-U) and type the directory holding .m2.
 send $target
 after 300
-send "\r"
-step relocations {No relocations yet}
+send "\033\[A"
+after 300
+send "\025$source"
+after 300
+# Back to the list, then Browse.
+send "\033"
+after 300
 send "b"
 step discovery {Maven}
 send_log "\n@@QUIT@@\n"
-# Back to Relocations, discard the draft (q, then y to confirm), quit the workspace.
+# Back to the list, discard the draft (q, then y to confirm), quit the workspace.
 foreach key {"\033" q y q} {
   send $key
   after 300

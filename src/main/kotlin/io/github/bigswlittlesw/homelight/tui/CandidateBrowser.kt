@@ -6,13 +6,21 @@ import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
-import io.github.bigswlittlesw.homelight.application.SetupDraft
+import io.github.bigswlittlesw.homelight.application.BrowseDraft
 import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.CandidateSource
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
 import java.nio.file.Path
+
+/** What a Browse key asks of the Configuration draft. */
+internal sealed interface BrowseAction {
+    data class Add(val source: Path) : BrowseAction
+
+    /** Edit the relocation at `row` in the draft. */
+    data class Edit(val row: Int) : BrowseAction
+}
 
 /** App expansion, focused identity and draft membership are independent states. */
 internal class CandidateBrowser {
@@ -32,7 +40,7 @@ internal class CandidateBrowser {
     private var message = ""
 
     /** `interactive` is false while a dialog is open over the browser. */
-    fun render(draft: SetupDraft, interactive: Boolean = true): Element {
+    fun render(draft: BrowseDraft, interactive: Boolean = true): Element {
         val lines = mutableListOf<Line>()
         var anchor = -1
         val title: String
@@ -53,14 +61,8 @@ internal class CandidateBrowser {
             val unique = entriesByPath(draft)
             val items = items(draft, unique)
             if (focus == null && items.isNotEmpty()) focus = items.first()
-            val configured = unique.values.count { it.configured != null }
-            val inDraft = unique.values.count { it.configured == null && it.draft != null }
-            lines.add(
-                Line(
-                    "${unique.size} candidates · $inDraft in draft" + (if (configured == 0) "" else " · $configured configured"),
-                    palette.dim, false,
-                ),
-            )
+            val inDraft = unique.values.count { it.row != null }
+            lines.add(Line("${unique.size} candidates · $inDraft in draft", palette.dim, false))
             if (draft.discovery?.sources.orEmpty().any { it.status != CandidateDiscovery.SourceStatus.CURRENT }) {
                 lines.add(Line(sourceSummary(draft), palette.warn, false))
             }
@@ -71,7 +73,7 @@ internal class CandidateBrowser {
                     palette.warn, true,
                 ),
             )
-            if (items.isEmpty()) lines.add(Line("No candidates available yet. Esc returns to manual setup."))
+            if (items.isEmpty()) lines.add(Line("No candidates available yet. Esc returns to Configuration."))
             for (item in items) {
                 val selected = same(item, focus)
                 if (selected) anchor = lines.size
@@ -86,13 +88,12 @@ internal class CandidateBrowser {
                         val entry = unique.getValue(item.path) // directory items come from these keys
                         val path = compact(relative(draft, item.path))
                         val marker = when {
-                            entry.configured != null -> "[=]"
-                            entry.draft != null -> "[x]"
+                            entry.row != null -> "[x]"
                             draft.canAdd(entry) -> "[ ]"
                             else -> " − "
                         }
                         label = "  " + marker + " " + path + " ".repeat(maxOf(1, 32 - CharWidth.of(path))) + listNotes(entry)
-                        color = if (entry.draft != null) palette.ok else palette.text
+                        color = if (entry.row != null) palette.ok else palette.text
                     }
                 }
                 lines.add(
@@ -124,16 +125,16 @@ internal class CandidateBrowser {
     }
 
     /** Browse's purpose and keys in its current state, for its help lines and the Help screen. */
-    fun screenHelp(draft: SetupDraft): ScreenHelp {
+    fun screenHelp(draft: BrowseDraft): ScreenHelp {
         val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
         val refresh = KeyHint("r", "Refresh", description = "Read the suggestion lists again")
-        val discard = KeyHint("q", "Discard", description = "Discard the configuration; asks first")
+        val close = CLOSE_CONFIGURATION_KEY.copy(keys = "q")
         if (diagnostics || details) {
             val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
             return ScreenHelp(
                 place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, KeyHint("Esc", "Back", description = "Back to the suggestions")),
-                listOfNotNull(entryKey, refresh, HELP_KEY, discard.copy(action = "Discard draft")),
+                listOfNotNull(entryKey, refresh, HELP_KEY, close),
             )
         }
         val items = items(draft, entriesByPath(draft))
@@ -149,7 +150,7 @@ internal class CandidateBrowser {
             listOfNotNull(
                 KeyHint("↑/↓", "Move", description = "Select a suggestion").takeIf { items.isNotEmpty() },
                 focusedEntry(draft)?.let { listAction(it, draft) }, enter,
-                KeyHint("Esc", "Back", description = "Back to the relocation list"), HOME_END_KEYS.takeIf { items.isNotEmpty() },
+                KeyHint("Esc", "Back", description = "Back to the configuration list"), HOME_END_KEYS.takeIf { items.isNotEmpty() },
                 scroll,
             ),
             listOfNotNull(
@@ -158,7 +159,7 @@ internal class CandidateBrowser {
                     "u", (if (reveal) "Hide " else "Show ") + hidden,
                     description = (if (reveal) "Hide" else "Show") + " the suggestions marked usually not needed",
                 ).takeIf { hidden > 0 },
-                HELP_KEY, discard,
+                HELP_KEY, close,
             ),
         )
     }
@@ -168,21 +169,16 @@ internal class CandidateBrowser {
         if (viewport.contains(x, y)) viewport.scroll(delta)
     }
 
-    /** Handles a key and returns the index of a draft row to edit, or -1 to stay in the browser. */
-    fun key(key: KeyEvent, draft: SetupDraft): Int {
-        if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return -1 }
+    /** Handles a key, and returns what the draft should do about it: null when only Browse changes. */
+    fun key(key: KeyEvent, draft: BrowseDraft): BrowseAction? {
+        if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return null }
         if (!diagnostics) {
             val entry = focusedEntry(draft)
-            if (key.isCharIgnoreCase('e') && entry != null && entry.configured == null && entry.draft != null) {
-                val row = draft.rows.indexOfFirst { it === entry.draft }
-                if (row >= 0) return row
-            }
+            val row = entry?.row
+            if (key.isCharIgnoreCase('e') && row != null) return BrowseAction.Edit(row)
             if ((key.isCharIgnoreCase('a') || key.isChar(' ')) && entry != null && draft.canAdd(entry)) {
                 // focusedEntry matches entries by source path, so the path is set.
-                try { draft.add(checkNotNull(entry.sourcePath)); message = "" }
-                catch (error: IllegalArgumentException) { message = "Not added. " + error.message + ". Prior choices are unchanged." }
-                if (details) viewport.reset() else viewport.keepChoiceVisible()
-                return -1
+                return BrowseAction.Add(checkNotNull(entry.sourcePath))
             }
         }
         if (details || diagnostics) {
@@ -190,7 +186,7 @@ internal class CandidateBrowser {
             else if (key.isDown()) viewport.scroll(1)
             else if (key.isHome()) viewport.scroll(-Int.MAX_VALUE)
             else if (key.isEnd()) viewport.scroll(Int.MAX_VALUE)
-            return -1
+            return null
         }
         if (key.isCharIgnoreCase('i')) { diagnostics = true; viewport.reset(); message = "" }
         else if (key.isCharIgnoreCase('u') && hiddenCount(draft) > 0) { reveal = !reveal; viewport.reset() }
@@ -211,7 +207,13 @@ internal class CandidateBrowser {
                 focus = items[next]; message = ""; viewport.keepChoiceVisible()
             }
         }
-        return -1
+        return null
+    }
+
+    /** After [BrowseAction.Add]: `refusal` says why the draft did not take the suggestion, or is null when it did. */
+    fun added(refusal: String?) {
+        message = refusal?.let { "Not added. $it. Prior choices are unchanged." } ?: ""
+        if (details) viewport.reset() else viewport.keepChoiceVisible()
     }
 
     fun back(): Boolean {
@@ -219,7 +221,7 @@ internal class CandidateBrowser {
         details = false; diagnostics = false; message = ""; viewport.reset(); viewport.keepChoiceVisible(); return true
     }
 
-    private fun items(draft: SetupDraft, entriesByPath: Map<Path, SetupDraft.Entry>): List<Item> =
+    private fun items(draft: BrowseDraft, entriesByPath: Map<Path, BrowseDraft.Entry>): List<Item> =
         entriesByPath.values
             .filter { entry -> reveal || !hidden(entry, draft) }
             .groupBy { entry -> definitions(entry).firstNotNullOfOrNull { it.app } }
@@ -229,7 +231,7 @@ internal class CandidateBrowser {
                     entries.filter { app !in collapsed || member(it) }.map { Item.Directory(checkNotNull(it.sourcePath)) }
             }
 
-    private fun focusedEntry(draft: SetupDraft): SetupDraft.Entry? {
+    private fun focusedEntry(draft: BrowseDraft): BrowseDraft.Entry? {
         val focused = focus as? Item.Directory ?: return null
         return draft.entries().firstOrNull { it.sourcePath == focused.path }
     }
@@ -250,7 +252,7 @@ internal fun literal(text: String): String = buildString {
     }
 }
 
-internal fun attribution(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
+private fun attribution(lines: MutableList<Line>, entry: BrowseDraft.Entry, draft: BrowseDraft) {
     val current = definitions(entry)
     lines.add(Line("Advice is optional, not a safety assessment or a requirement.", palette.dim, false))
     if (current.isEmpty()) lines.add(Line("No current catalog attribution."))
@@ -264,11 +266,11 @@ internal fun attribution(lines: MutableList<Line>, entry: SetupDraft.Entry, draf
     }
 }
 
-private fun entriesByPath(draft: SetupDraft): Map<Path, SetupDraft.Entry> {
-    val entries = linkedMapOf<Path, SetupDraft.Entry>()
+private fun entriesByPath(draft: BrowseDraft): Map<Path, BrowseDraft.Entry> {
+    val entries = linkedMapOf<Path, BrowseDraft.Entry>()
     draft.entries().forEach { e -> e.sourcePath?.let { path -> entries.putIfAbsent(path, e) } }
     // Membership changes must not reorder the list while marking adjacent rows.
-    val ordered = linkedMapOf<Path, SetupDraft.Entry>()
+    val ordered = linkedMapOf<Path, BrowseDraft.Entry>()
     draft.discovery?.candidates?.forEach { c ->
         val path = c.catalog.sourcePath
         entries[path]?.let { ordered[path] = it }
@@ -277,18 +279,14 @@ private fun entriesByPath(draft: SetupDraft): Map<Path, SetupDraft.Entry> {
     return ordered
 }
 
-private fun definitions(entry: SetupDraft.Entry): List<CandidateDefinition> =
+private fun definitions(entry: BrowseDraft.Entry): List<CandidateDefinition> =
     entry.discovery?.catalog?.definitions ?: listOf()
 
-private fun member(entry: SetupDraft.Entry): Boolean = entry.configured != null || entry.draft != null
+private fun member(entry: BrowseDraft.Entry): Boolean = entry.row != null
 
-private fun membership(entry: SetupDraft.Entry): String = when {
-    entry.configured != null -> "Configured"
-    entry.draft != null -> "In draft"
-    else -> "Not added"
-}
+private fun membership(entry: BrowseDraft.Entry): String = if (entry.row != null) "In draft" else "Not added"
 
-private fun hidden(entry: SetupDraft.Entry, draft: SetupDraft): Boolean {
+private fun hidden(entry: BrowseDraft.Entry, draft: BrowseDraft): Boolean {
     val definitions = definitions(entry)
     return !member(entry) && definitions.isNotEmpty() && definitions.all { d ->
         d.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY &&
@@ -296,10 +294,10 @@ private fun hidden(entry: SetupDraft.Entry, draft: SetupDraft): Boolean {
     }
 }
 
-private fun hiddenCount(draft: SetupDraft): Int =
+private fun hiddenCount(draft: BrowseDraft): Int =
     draft.entries().filter { hidden(it, draft) }.map { it.sourcePath }.distinct().size
 
-private fun relative(draft: SetupDraft, path: Path): String =
+private fun relative(draft: BrowseDraft, path: Path): String =
     if (path.startsWith(draft.sourceRoot)) draft.sourceRoot.relativize(path).toString() else path.toString()
 
 private fun compact(path: String): String {
@@ -308,30 +306,27 @@ private fun compact(path: String): String {
 }
 
 
-private fun action(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
-    entry.configured != null -> null
-    entry.draft != null -> KeyHint("e", "Edit draft row", description = "Edit its relocation")
+private fun action(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = when {
+    entry.row != null -> KeyHint("e", "Edit draft row", description = "Edit its relocation")
     draft.canAdd(entry) -> KeyHint("a", "Add to draft", description = "Add it to the configuration")
     else -> null
 }
 
-private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
-    entry.configured != null -> null
-    entry.draft != null -> KeyHint("e", "Edit", description = "Edit its relocation")
+private fun listAction(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = when {
+    entry.row != null -> KeyHint("e", "Edit", description = "Edit its relocation")
     draft.canAdd(entry) -> KeyHint("Space/a", "Add", description = "Add the suggestion to the configuration")
     else -> null
 }
 
-private fun listNotes(entry: SetupDraft.Entry): String {
+private fun listNotes(entry: BrowseDraft.Entry): String {
     val notes = mutableListOf<String>()
-    if (entry.configured != null) notes.add("configured")
     if (entry.discovery?.observation?.kind != CandidateObservation.Kind.DIRECTORY) notes.add(state(entry))
     val advice = adviceSummary(entry)
     if (advice == " · Mixed advice" || advice == " · Usually not needed") notes.add(advice.substring(3).lowercase())
     return notes.joinToString(" · ")
 }
 
-private fun adviceSummary(entry: SetupDraft.Entry): String {
+private fun adviceSummary(entry: BrowseDraft.Entry): String {
     val values = definitions(entry).map { it.advice }.distinct()
     if (values.filterNotNull().size > 1) return " · Mixed advice"
     // One supplied value and one omitted value.
@@ -346,25 +341,12 @@ private fun advice(advice: CandidateDefinition.Advice?): String = when (advice) 
     null -> "Not supplied"
 }
 
-private fun state(entry: SetupDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: "not checked"
+private fun state(entry: BrowseDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: "not checked"
 
-private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft: SetupDraft) {
-    lines.add(Line(membership(entry) + (if (entry.outsideRoot) " · Outside this source root" else ""), palette.text, true))
+private fun detailLines(lines: MutableList<Line>, entry: BrowseDraft.Entry, draft: BrowseDraft) {
+    lines.add(Line(membership(entry), palette.text, true))
     // The browser finds entries by source path (focusedEntry, entriesByPath), so the path is set.
     lines.add(Line("Source: " + literal(checkNotNull(entry.sourcePath).toString())))
-    entry.configured?.let { r ->
-        lines.add(Line("Saved target: " + literal(r.targetPath.toString())))
-        lines.add(
-            Line(
-                "Saved rules: Both exist: " + bothExistLabel(r.whenSourceAndTargetDirectoriesExist, r.whenAdoptingTarget) +
-                    " · Only target: " + onlyTargetLabel(r.whenOnlyTargetExists),
-            ),
-        )
-        lines.add(Line("Saved archive root: " + literal(r.archiveRoot.toString())))
-    }
-    entry.draft?.let { r ->
-        lines.add(Line("Draft target: " + literal(draft.targetRoot.resolve(r.targetRelative).normalize().toString())))
-    }
     lines.add(Line("State: " + state(entry)))
     if (entry.discovery?.observation?.kind == CandidateObservation.Kind.MISSING) {
         lines.add(Line("Not found under the source root. You can configure it before the app creates it."))
@@ -388,10 +370,9 @@ private fun detailLines(lines: MutableList<Line>, entry: SetupDraft.Entry, draft
     lines.add(
         Line(
             when {
-                entry.configured != null -> "Saved target and rules stay as they are."
-                entry.draft != null -> "Target and rules can be changed in the row's details."
+                entry.row != null -> "Target and rules can be changed in the row's details."
                 draft.canAdd(entry) -> "Adding uses a matching target path; its rules ask each time."
-                else -> "Add needs a directory or missing path observed in this request. Manual entry is available from Relocations."
+                else -> "Add needs a directory or missing path observed in this request. To type a path instead, go back and press a."
             },
         ),
     )
@@ -419,11 +400,11 @@ private fun sourceState(status: CandidateDiscovery.SourceStatus): String = when 
     CandidateDiscovery.SourceStatus.FAILED -> "unavailable"
 }
 
-private fun sourceSummary(draft: SetupDraft): String =
+private fun sourceSummary(draft: BrowseDraft): String =
     draft.discovery?.sources?.joinToString(" · ") { s -> sourceName(s.source) + ": " + sourceState(s.status) }
         ?: "Discovery has not started"
 
-private fun sourceDetails(lines: MutableList<Line>, draft: SetupDraft) {
+private fun sourceDetails(lines: MutableList<Line>, draft: BrowseDraft) {
     lines.add(Line("Manual editing, saving and exit do not wait for discovery."))
     val result = draft.discovery ?: return
     for (source in result.sources) {
@@ -452,6 +433,6 @@ private fun problemAdvice(kind: CandidateDiscovery.SourceProblem.Kind): String =
     CandidateDiscovery.SourceProblem.Kind.UNREADABLE -> "The list could not be read. Check access permissions."
     CandidateDiscovery.SourceProblem.Kind.NOT_REGULAR -> "Choose a regular JSON file, not a directory or special file."
     CandidateDiscovery.SourceProblem.Kind.IO_ERROR -> "Reading the list failed. Retry when storage is available."
-    CandidateDiscovery.SourceProblem.Kind.DEADLINE -> "No response within five seconds. Manual setup remains available."
-    CandidateDiscovery.SourceProblem.Kind.PREVIOUS_PENDING -> "Previous read still pending; manual setup remains available."
+    CandidateDiscovery.SourceProblem.Kind.DEADLINE -> "No response within five seconds. You can still type paths in Configuration."
+    CandidateDiscovery.SourceProblem.Kind.PREVIOUS_PENDING -> "Previous read still pending. You can still type paths in Configuration."
 }

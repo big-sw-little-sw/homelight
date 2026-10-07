@@ -57,6 +57,18 @@ cat > "$R/bad-enum.json" <<EOF
   {"source-path": "$R/home/cache-a", "target-path": "$R/local/cache-a", "when-only-target-exists": "sometimes"}
 ]}}
 EOF
+# The suggestion list sits directly under homelight; the old discovery object is an unknown key.
+cat > "$R/suggestion-list.json" <<EOF
+{"homelight": {"target-root": "$R/local", "suggestion-list": "$R/suggestions.json", "relocations": [
+  {"source-path": "$R/home/cache-a", "target-path": "$R/local/cache-a"}
+]}}
+EOF
+cat > "$R/old-discovery.json" <<EOF
+{"homelight": {"target-root": "$R/local", "discovery": {"suggestion-list": "$R/suggestions.json"}}}
+EOF
+cat > "$R/relative-path.json" <<EOF
+{"homelight": {"target-root": "local", "relocations": [{"source-path": "$R/home/cache-a"}]}}
+EOF
 cat > "$R/missing-key.json" <<EOF
 {"homelight": {"relocations": [{"source-path": "$R/home/cache-a"}]}}
 EOF
@@ -89,6 +101,9 @@ step malformed -c "$R/malformed.json" plan --json
 step unknown-key -c "$R/unknown-key.json" plan --json
 step bad-enum -c "$R/bad-enum.json" plan --json
 step missing-key -c "$R/missing-key.json" plan --json
+step suggestion-list -c "$R/suggestion-list.json" status --json
+step old-discovery -c "$R/old-discovery.json" plan --json
+step relative-path -c "$R/relative-path.json" plan --json
 step status-json -c "$R/config.json" status --json
 step plan-json -c "$R/config.json" plan --json
 step plan-override -c "$R/config.json" plan --json --source-path "$R/home/other" --target-path "$R/local/other"
@@ -96,6 +111,8 @@ step conflict-apply -c "$R/conflict.json" apply --json --yes
 step apply-no-yes -c "$R/config.json" apply --json
 step tui-non-tty -c "$R/config.json" status
 step init-existing -c "$R/config.json" init
+step config-existing -c "$R/config.json" config
+step config-malformed -c "$R/malformed.json" config
 step apply-yes -c "$R/config.json" apply --json --yes
 step status-after -c "$R/config.json" status --json
 step plan-after -c "$R/config.json" plan --json

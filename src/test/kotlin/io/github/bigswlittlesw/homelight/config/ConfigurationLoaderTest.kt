@@ -108,8 +108,9 @@ class ConfigurationLoaderTest {
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}
             """))
-        assertEquals("Line 1, column 56: Encountered an unknown key 'shared' at homelight.discovery",
-            failure("""{"homelight": {"target-root": "/local", "discovery": {"shared": "/shared.json"}}}"""))
+        // The suggestion list moved to the top level; the old `discovery` object is unknown.
+        assertTrue(failure("""{"homelight": {"target-root": "/local", "discovery": {"suggestion-list": "/s.json"}}}""").orEmpty()
+            .endsWith("Encountered an unknown key 'discovery' at homelight"))
         // The removed key is unknown too.
         assertEquals("Line 2, column 66: Encountered an unknown key 'source-archive-root' at homelight.relocations[0]", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
@@ -209,7 +210,7 @@ class ConfigurationLoaderTest {
               "target-root": "/local",
               "staging-root": "/local/staging/../.staging",
               "ignored-source-paths": ["~/ignored"],
-              "discovery": {"shared-list": "/shared/candidates.json"},
+              "suggestion-list": "/shared/candidates.json",
               "relocations": [{"source-path": "~/cache", "target-path": null, "archive-root": null}]
             }}
             """)
@@ -221,7 +222,7 @@ class ConfigurationLoaderTest {
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
         assertEquals(Path.of("/shared/candidates.json"), configuration.sharedList)
         // A blank shared list is the documented "none" of parseSharedList.
-        assertNull(load("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": ""}}}""").sharedList)
+        assertNull(load("""{"homelight": {"target-root": "/local", "suggestion-list": ""}}""").sharedList)
     }
 
     @Test fun expandsUserAndRequiresAnExplicitTargetOutsideTheDefaultSourceRoot() {
@@ -276,7 +277,7 @@ class ConfigurationLoaderTest {
             {"homelight": {
               "target-root": "~/local/${'$'}{USER}",
               "staging-root": "~/local/.staging",
-              "discovery": {"shared-list": "~/shared.json"},
+              "suggestion-list": "~/shared.json",
               "ignored-source-paths": ["~/ignored"],
               "relocations": [
                 {"source-path": "~/a", "when-source-and-target-directories-exist": "prompt", "when-only-target-exists": "prompt",
@@ -340,7 +341,7 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun thePublisherLeavesOutPromptRulesAndWritesTheOthers() {
-        val prompt = Relocation(temporary.resolve("home/cache"), temporary.resolve("local/cache"))
+        val prompt = RelocationFile(temporary.resolve("home/cache").toString(), temporary.resolve("local/cache").toString())
         val decided = prompt.copy(
             whenSourceAndTargetDirectoriesExist = WhenSourceAndTargetDirectoriesExist.ADOPT,
             whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET,
@@ -348,9 +349,10 @@ class ConfigurationLoaderTest {
         )
         for ((name, relocation) in listOf("prompt" to prompt, "decided" to decided)) {
             val path = temporary.resolve("$name.json")
-            ConfigurationPublisher().saveNew(path, ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation)))
+            val file = HomeLightFile(targetRoot = temporary.resolve("local").toString(), relocations = listOf(relocation))
+            ConfigurationPublisher().saveNew(path, file)
             assertEquals(relocation == decided, Files.readString(path).contains("when-"), name)
-            assertEquals(relocation, ConfigurationLoader().load(path).relocations.single(), name)
+            assertEquals(relocation, ConfigurationLoader().read(path).file.relocations.single(), name)
         }
     }
 
@@ -360,18 +362,6 @@ class ConfigurationLoaderTest {
             "homelight.relocations[0].when-adopting-target", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "when-adopting-target": null}]}}
             """))
-    }
-
-    @Test fun thePublisherWritesASourceRootOnlyWhenItIsNotTheHomeDirectory() {
-        val relocation = Relocation(temporary.resolve("work/cache"), temporary.resolve("local/cache"))
-        val home = Path.of(System.getProperty("user.home"))
-        for (sourceRoot in listOf(home, temporary.resolve("work"))) {
-            val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), sourceRoot = sourceRoot)
-            val written = configurationFile(draft).homelight.sourceRoot
-            assertEquals(if (sourceRoot == home) DEFAULT_SOURCE_ROOT else sourceRoot.toString(), written)
-            val reloaded = decodeJson(ConfigurationFile.serializer(), encodeConfiguration(configurationFile(draft)))
-            assertEquals(written, reloaded.homelight.sourceRoot)
-        }
     }
 
     @Test fun writesOnlyTheSettingsThatAreSet() {
@@ -394,25 +384,50 @@ class ConfigurationLoaderTest {
             """.trimIndent(), encodeConfiguration(file))
     }
 
-    @Test fun loadsWhatThePublisherWritesAndOmitsTheDefaultArchiveRoot() {
-        val source = temporary.resolve("home/it's \"quoted\"")
+    @Test fun loadsWhatThePublisherWritesAndReadsTheBytesItLoaded() {
+        val source = temporary.resolve("home/it's \"quoted\"").toString()
         for (policy in WhenAdoptingTarget.entries) {
-            for (archiveRoot in listOf(defaultArchiveRoot(source), temporary.resolve("archive"))) {
-                val relocation = Relocation(source, temporary.resolve("local/it's"),
-                    WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy, archiveRoot)
-                val draft = ConfigurationDraft.of(temporary.resolve("local"), listOf(relocation), temporary.resolve("shared.json"))
-                val file = configurationFile(draft)
-                val written = file.homelight.relocations.single().archiveRoot
-                assertEquals(archiveRoot.takeIf { it != defaultArchiveRoot(source) }?.toString(), written)
-                val loaded = ConfigurationLoader().load(write(encodeConfiguration(file)))
-                assertEquals(HomeLightConfiguration.of(draft.targetRoot, draft.relocations, listOf(), draft.sharedList), loaded)
+            for (archiveRoot in listOf(null, temporary.resolve("archive").toString())) {
+                val file = HomeLightFile(
+                    targetRoot = temporary.resolve("local").toString(),
+                    suggestionList = temporary.resolve("shared.json").toString(),
+                    relocations = listOf(RelocationFile(source, temporary.resolve("local/it's").toString(),
+                        WhenSourceAndTargetDirectoriesExist.ADOPT, WhenOnlyTargetExists.PROMPT, policy, archiveRoot)),
+                )
+                val path = temporary.resolve("written-$policy-${archiveRoot != null}.json")
+                ConfigurationPublisher().saveNew(path, file)
+                val read = ConfigurationLoader().read(path)
+                assertEquals(file, read.file)
+                assertTrue(read.bytes.contentEquals(Files.readAllBytes(path)))
+                assertEquals(ConfigurationLoader().configuration(file), ConfigurationLoader().load(path))
             }
         }
     }
 
+    /** A relative path would depend on where HomeLight runs, so every path in the file is full or starts with `~/`. */
+    @Test fun refusesRelativePathsEverywhere() {
+        val relocation = """"relocations": [{"source-path": "/home/cache", "target-path": "/local/cache"}]"""
+        for ((key, text) in listOf(
+            "homelight.source-root" to """{"homelight": {"source-root": "home", "target-root": "/local"}}""",
+            "homelight.target-root" to """{"homelight": {"target-root": "local"}}""",
+            "homelight.target-root" to """{"homelight": {"target-root": "${'$'}{USER}/local"}}""",
+            "homelight.staging-root" to """{"homelight": {"target-root": "/local", "staging-root": "staging"}}""",
+            "homelight.relocations[0].source-path" to """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "cache"}]}}""",
+            "homelight.relocations[0].target-path" to
+                """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "cache"}]}}""",
+            "homelight.relocations[0].archive-root" to
+                """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache", "archive-root": "a"}]}}""",
+            "homelight.ignored-source-paths[0]" to """{"homelight": {"target-root": "/local", "ignored-source-paths": ["x"], $relocation}}""",
+            "homelight.suggestion-list" to """{"homelight": {"target-root": "/local", "suggestion-list": "list.json"}}""",
+        )) {
+            assertEquals("$key: $FULL_PATH", failure(text), text)
+        }
+        assertEquals(Path.of(System.getProperty("user.home"), "local"), load("""{"homelight": {"target-root": "~/local"}}""").targetRoot)
+    }
+
     @Test fun reportsRejectedPathValuesAgainstTheirKey() {
-        assertEquals("homelight.discovery.shared-list: Shared list must be an absolute filesystem path",
-            failure("""{"homelight": {"target-root": "/local", "discovery": {"shared-list": "relative.json"}}}"""))
+        assertEquals("homelight.suggestion-list: Use a full path, or one starting with ~/",
+            failure("""{"homelight": {"target-root": "/local", "suggestion-list": "relative.json"}}"""))
         assertEquals("homelight.source-root: Nul character not allowed",
             failure("""{"homelight": {"source-root": "/a\u0000b", "target-root": "/local"}}"""))
         assertEquals("homelight.relocations[0].source-path: Nul character not allowed", failure("""

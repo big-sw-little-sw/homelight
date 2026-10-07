@@ -221,7 +221,7 @@ class ConfigurationEvaluationTest {
             "bad enum" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
                 "{$relocation, \"when-only-target-exists\": \"sometimes\"}]}}",
             "missing key" to "{\"homelight\": {\"relocations\": []}}",
-            "relative shared-list" to "{\"homelight\": {\"target-root\": \"$root\", \"discovery\": {\"shared-list\": \"x.json\"}}}",
+            "relative suggestion-list" to "{\"homelight\": {\"target-root\": \"$root\", \"suggestion-list\": \"x.json\"}}",
             "NUL in a path" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
                 "{\"source-path\": \"/a\\u0000b\", \"target-path\": \"$target\"}]}}",
             "blank source-root" to "{\"homelight\": {\"source-root\": \" \", \"target-root\": \"$root\"}}",

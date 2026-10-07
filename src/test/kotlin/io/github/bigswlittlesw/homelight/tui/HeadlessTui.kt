@@ -24,7 +24,7 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
  */
 internal class HeadlessTui(
     session: HomeLightSession,
-    startSetup: Boolean = false,
+    openConfiguration: Boolean = false,
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
     private val width: Int = 80,
     private val height: Int = 24,
@@ -32,7 +32,7 @@ internal class HeadlessTui(
     val focus = FocusManager()
     private val router = EventRouter(focus, ElementRegistry())
     private val context = DefaultRenderContext(focus, router).apply { setBindings(KEY_BINDINGS) }
-    val app = HomeLightApp(session, focus, startSetup, discoveryFactory)
+    val app = HomeLightApp(session, focus, openConfiguration, discoveryFactory)
 
     init {
         router.addGlobalHandler(app.keyHandler)

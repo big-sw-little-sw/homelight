@@ -4,10 +4,10 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Rejects a draft with no relocations or whose relocations are unsafe together; see [relocationProblem]. */
-fun validateConfiguration(draft: ConfigurationDraft) {
-    require(draft.relocations.isNotEmpty()) { "Choose at least one relocation" }
-    relocationProblem(draft.relocations)?.let { throw IllegalArgumentException(it.message) }
+/** Rejects a configuration with no relocations, or whose relocations are unsafe together; see [relocationProblem]. */
+fun validateConfiguration(relocations: List<Relocation>) {
+    require(relocations.isNotEmpty()) { "Choose at least one relocation" }
+    relocationProblem(relocations)?.let { throw IllegalArgumentException(it.message) }
 }
 
 /** A broken relocation rule, reported against the [source] path of the relocation it concerns. */

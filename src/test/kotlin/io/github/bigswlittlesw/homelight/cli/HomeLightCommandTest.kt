@@ -67,7 +67,7 @@ class HomeLightCommandTest {
                 {"source-path": "$source", "target-path": "$local/cache", "existing": "move"}]}}""",
             "bad-enum.json" to """{"homelight": {"target-root": "$local", "relocations": [
                 {"source-path": "$source", "target-path": "$local/cache", "when-only-target-exists": "sometimes"}]}}""",
-            "relative-shared-list.json" to """{"homelight": {"target-root": "$local", "discovery": {"shared-list": "x.json"}}}""",
+            "relative-suggestion-list.json" to """{"homelight": {"target-root": "$local", "suggestion-list": "x.json"}}""",
             "nul-source-root.json" to """{"homelight": {"source-root": "/a\u0000b", "target-root": "$local"}}""",
         )
         for ((name, content) in configs) {
@@ -203,10 +203,21 @@ class HomeLightCommandTest {
     }
 
     @Test
-    fun initIsAnExecutableInteractiveEntry() {
-        val result = execute("init")
-        assertEquals(2, result.exitCode)
-        assertTrue(result.errorOutput.contains("interactive terminal"))
+    fun initAndConfigAreExecutableInteractiveEntries() {
+        for (name in listOf("init", "config")) {
+            val result = execute(name)
+            assertEquals(2, result.exitCode, name)
+            assertTrue(result.errorOutput.contains("interactive terminal"), name)
+        }
+    }
+
+    /** Configuration opens a file that loads, or a new one; a file HomeLight cannot read is fixed by hand. */
+    @Test
+    fun configRefusesAFileItCannotRead(@TempDir root: Path) {
+        val config = Files.writeString(root.resolve("config.json"), "{\"homelight\": [")
+        val result = execute("-c", config.toString(), "config")
+        assertEquals(1, result.exitCode)
+        assertTrue(result.errorOutput.contains("so Configuration cannot open it. Fix the file by hand: Line 1"), result.errorOutput)
     }
 
     @Test

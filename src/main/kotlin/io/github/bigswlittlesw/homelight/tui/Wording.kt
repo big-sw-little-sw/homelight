@@ -140,9 +140,76 @@ internal fun unappliedChoices(n: Int): List<String> = listOf(
 )
 internal const val QUITTING = "HomeLight will exit when the changes finish."
 
+// Configuration (tui-design §7).
 internal const val DISCARD_SETUP_TITLE = "Discard this configuration?"
 internal val DISCARD_SETUP_BODY = listOf("Nothing has been saved yet.", "Your storage locations and relocations will be lost.")
 internal const val DISCARD_SETUP_KEYS = "y: Discard · n/Esc: Keep editing"
+/** Asked before closing Configuration over an existing file with unsaved changes. */
+internal const val DISCARD_CHANGES_TITLE = "Discard your changes?"
+internal fun discardChangesBody(n: Int) =
+    listOf("The configuration file stays as it is.", "Your " + unsavedChanges(n) + " will be lost.")
+internal fun unsavedChanges(n: Int) = when (n) {
+    0 -> "no unsaved changes"
+    1 -> "1 unsaved change"
+    else -> "$n unsaved changes"
+}
+/** The line under Configuration's header: which file, whether it exists yet, and what is not saved. */
+internal fun configurationStatus(path: Path, existing: Boolean, unsaved: Int) =
+    displayPath(path) + " · " + (if (existing) "existing file" else "new file") + " · " + unsavedChanges(unsaved)
+internal const val CONFIGURATION_LIST_TITLE = "Storage and relocations"
+internal const val STORAGE_LOCATIONS = "Storage locations"
+internal const val NEW_RELOCATION = "New relocation"
+internal const val RESOLVED = "Resolved"
+internal const val TARGET_PLACEHOLDER = "blank: under the target root"
+internal const val ARCHIVE_PLACEHOLDER = "blank: beside the source"
+internal const val OPTIONAL_PLACEHOLDER = "optional"
+internal const val SAVE_FROM_TEXT_FIELD = "Esc, then s to save."
+internal const val NO_SUGGESTION_LIST = "none; Browse uses the built-in list"
+internal const val NEEDS_SOURCE = "waits for a valid Source"
+internal const val NEEDS_ROOTS = "waits for valid storage locations"
+internal const val OUTSIDE_SOURCE_ROOT = "the source is outside the source root, so type a Target"
+internal fun resolvedLine(label: String, value: String) = "$label: $value"
+
+// What the focused field means, shown under the fields.
+internal const val SOURCE_ROOT_HELP =
+    "The folder your sources are usually in, normally your home folder. A relocation with no Target keeps its " +
+        "place under this folder, inside the target root."
+internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use a full path, or one starting with ~/."
+internal const val SUGGESTION_LIST_HELP =
+    "A file of directories to suggest, for example one shared across machines. Built-in suggestions are always " +
+        "included."
+internal const val SOURCE_HELP = "The directory to move, for example ~/.cache/uv."
+internal const val TARGET_HELP =
+    "Where its contents go. Leave it blank for the same place under the target root; a source outside the source " +
+        "root needs one."
+internal const val ONLY_TARGET_HELP = "What to do when the target exists and the source does not."
+internal const val ARCHIVE_ROOT_HELP =
+    "Where Keep target, archive source moves the source. Leave it blank for a folder beside the source; it must " +
+        "be on the same disk as the source."
+internal const val BOTH_EXIST_HELP = "What to do when the source and the target both exist."
+internal const val DISCARD_BOTH_WARNING =
+    "⚠ Deletes both directories for good, then creates an empty target and links the source to it."
+
+// Saving Configuration.
+internal fun notSaved(reason: String) = "Not saved: $reason"
+internal fun notSavedIn(place: String, reason: String) = "Not saved. $place: $reason"
+internal const val CHANGED_SINCE_LOADED =
+    "Not saved: the configuration file changed after Configuration opened it. Your changes are still here. " +
+        "To start again from the file, press q, then y, then e."
+internal fun cannotOpen(reason: String) = "Cannot open Configuration: $reason"
+/** `homelight init` and `config` over a file that does not load; the TUI does not start. */
+internal fun cannotEdit(reason: String) =
+    "HomeLight cannot read the configuration file, so Configuration cannot open it. Fix the file by hand: $reason"
+internal fun cannotBrowse(reason: String) = "Fix the storage locations to browse: $reason"
+/** What the Workspace says after a save, once it has checked again (tui-design §1, Say the next step). */
+internal fun savedNextStep(toChange: Int, needChoice: Int, blocked: Int): String = when {
+    blocked > 0 -> "Saved. $FIX_TO_REVIEW"
+    needChoice > 0 -> "Saved. " + relocationCount(needChoice) + (if (needChoice == 1) " needs" else " need") +
+        " a choice: select it and press Tab."
+    toChange > 0 -> "Saved. " + relocationCount(toChange) + " will change: press a to review and apply."
+    else -> "Saved. Nothing needs to change."
+}
+internal const val SAVED = "Saved."
 
 /** Asked before saving over an existing configuration (tui-design §7); a new file is created without asking. */
 internal fun replaceConfigurationTitle(path: Path) = "Replace ${displayPath(path)}?"
@@ -243,7 +310,7 @@ internal const val PURPOSE_NO_CONFIGURATION =
 internal const val PURPOSE_INVALID =
     "HomeLight cannot read the configuration file; the message says why. Fix the file, then press r to check again."
 internal const val PURPOSE_NO_RELOCATIONS =
-    "The configuration lists no directories to move yet. Add them to the configuration file, then press r."
+    "The configuration lists no directories to move yet. Press e to open Configuration and add them."
 internal const val PURPOSE_WORKSPACE =
     "Each relocation and what HomeLight plans for it. Pick a choice where one is needed, then press a to review."
 internal const val PURPOSE_REVIEW =
@@ -254,15 +321,20 @@ internal const val PURPOSE_APPLYING =
 internal const val PURPOSE_RESULTS =
     "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
 internal const val PURPOSE_CONFIGURATION =
-    "Create the configuration file: where storage is and which directories to move. Saving changes nothing on disk."
+    "Create or change the configuration file: where storage is and which directories to move. Saving changes " +
+        "nothing on disk."
 internal const val PURPOSE_BROWSE =
     "Suggestions from the built-in list and your list. Add the ones you want to move."
 internal const val DETAILS_NAME = "Details"
-internal const val RELOCATIONS_NAME = "Relocations"
-/** Configuration's fields, as its pane labels them; Help names the focused one. */
-internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Suggestion list (optional)")
-internal val RELOCATION_FIELDS =
-    listOf("Source path", "Target path", "Both exist", "Only target", "Source when keeping target", "Archive root")
+// Configuration's fields, as its pane labels them; Help names the focused one.
+internal const val SOURCE_ROOT_LABEL = "Source root"
+internal const val TARGET_ROOT_LABEL = "Target root"
+internal const val SUGGESTION_LIST_NAME = "Suggestion list"
+internal const val SOURCE_LABEL = "Source"
+internal const val TARGET_LABEL = "Target"
+internal const val BOTH_EXIST_LABEL = "Both exist"
+internal const val ONLY_TARGET_LABEL = "Only target"
+internal const val ARCHIVE_ROOT_LABEL = "Archive root"
 internal fun place(vararg parts: String) = parts.joinToString(" › ")
 /** Where Help goes back to: the screen in the `place` its This screen pane is titled with. */
 internal fun backTo(place: String) = "Back to " + place.substringBefore(" › ")
@@ -275,6 +347,8 @@ internal val QUIT_KEY =
 internal val CHECK_AGAIN_KEY = KeyHint(
     "r", "Check again", description = "Read the configuration and the disk again and make a new plan; forgets choices",
 )
+internal val CLOSE_CONFIGURATION_KEY =
+    KeyHint("Esc/q", "Close", description = "Close Configuration; asks first if there are unsaved changes")
 internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll", scrolls = true)
 internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false, description = "Move a page in the list")
 internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)

@@ -16,7 +16,7 @@ fun parseSharedList(value: String): Path? {
 }
 
 fun normalizeSharedList(path: Path): Path {
-    require(path.isAbsolute) { "Shared list must be an absolute filesystem path" }
+    require(path.isAbsolute) { FULL_PATH }
     val text = path.toString()
     require(text.indexOf('$') < 0 && text.none { it.isISOControl() }) {
         "Shared list must not contain variables or controls"

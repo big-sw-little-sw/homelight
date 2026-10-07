@@ -36,14 +36,11 @@ class DiscoverySettingTest {
         var index = 0
         for (location in listOf(malformed, directory, missing)) {
             val path = temporary.resolve("config-" + index++ + ".json")
-            val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
-                    Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual")),
-                    Relocation(temporary.resolve("home/chosen"), temporary.resolve("target/chosen"))),
-                    location.parent.resolve("unused/../" + location.fileName))
-            ConfigurationPublisher().saveNew(path, draft)
+            val file = file(location.parent.resolve("unused/../" + location.fileName), "manual", "chosen")
+            ConfigurationPublisher().saveNew(path, file)
             val loaded = ConfigurationLoader().load(path)
             assertEquals(location, loaded.sharedList)
-            assertEquals(draft.relocations, loaded.relocations)
+            assertEquals(ConfigurationLoader().configuration(file).relocations, loaded.relocations)
             val evaluation = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java,
                     ConfigurationEvaluation().load(path))
             assertEquals(loaded.sharedList, evaluation.savedConfiguration.sharedList)
@@ -53,8 +50,7 @@ class DiscoverySettingTest {
                 assertFalse(text.contains(forbidden), text)
             }
             val second = temporary.resolve("roundtrip-$index.json")
-            ConfigurationPublisher().saveNew(second,
-                    ConfigurationDraft.of(loaded.targetRoot, loaded.relocations, loaded.sharedList))
+            ConfigurationPublisher().saveNew(second, ConfigurationLoader().read(path).file)
             assertEquals(text, Files.readString(second))
         }
         assertFalse(Files.exists(missing))
@@ -62,44 +58,45 @@ class DiscoverySettingTest {
     }
 
     @Test fun omittedAndBlankSettingRemainCompatibleAndDoNotCreateAnEmptySection() {
-        val draft = ConfigurationDraft.of(temporary.resolve("target"), listOf(
-                Relocation(temporary.resolve("home/manual"), temporary.resolve("target/manual"))))
+        val file = file(null, "manual")
         val path = temporary.resolve("old.json")
-        ConfigurationPublisher().saveNew(path, draft)
+        ConfigurationPublisher().saveNew(path, file)
         assertNull(ConfigurationLoader().load(path).sharedList)
         val text = Files.readString(path)
-        assertFalse(text.contains("\"discovery\""))
-        Files.writeString(path, text.replace("\"relocations\":", "\"discovery\": {\"shared-list\": \"   \"}, \"relocations\":"))
+        assertFalse(text.contains("suggestion-list"))
+        Files.writeString(path, text.replace("\"relocations\":", "\"suggestion-list\": \"   \", \"relocations\":"))
         assertNull(ConfigurationLoader().load(path).sharedList)
-        assertThrows<IllegalArgumentException> { ConfigurationPublisher().saveNew(
-                temporary.resolve("setting-only.json"), ConfigurationDraft.of(draft.targetRoot, listOf(), path)) }
+        assertThrows<IllegalArgumentException> {
+            ConfigurationPublisher().saveNew(temporary.resolve("setting-only.json"), file(path))
+        }
         assertFalse(Files.exists(temporary.resolve("setting-only.json")))
     }
 
     @Test fun concurrentPublicationKeepsOneWholeSettingAndRelocationPair() {
         val path = temporary.resolve("config.json")
-        val first = ConfigurationDraft.of(temporary.resolve("target"), listOf(
-                Relocation(temporary.resolve("home/a"), temporary.resolve("target/a"))), temporary.resolve("list-a"))
-        val second = ConfigurationDraft.of(temporary.resolve("target"), listOf(
-                Relocation(temporary.resolve("home/b"), temporary.resolve("target/b"))), temporary.resolve("list-b"))
+        val first = file(temporary.resolve("list-a"), "a")
+        val second = file(temporary.resolve("list-b"), "b")
         val gate = CyclicBarrier(2)
         Executors.newFixedThreadPool(2).use { pool ->
             val results = pool.invokeAll(listOf<Callable<Boolean>>(Callable { save(path, first, gate) }, Callable { save(path, second, gate) }))
             assertNotEquals(results.get(0).get(), results.get(1).get())
             val winner = if (results.get(0).get()) first else second
-            val loaded = ConfigurationLoader().load(path)
-            assertEquals(winner.sharedList, loaded.sharedList)
-            assertEquals(winner.relocations, loaded.relocations)
+            assertEquals(winner, ConfigurationLoader().read(path).file)
         }
-        assertEquals(1, first.relocations.size)
-        assertEquals(1, second.relocations.size)
         assertFalse(Files.exists(temporary.resolve("target")))
     }
 
+    /** A configuration with the suggestion list at `list` and one relocation per name, from `home` to `target`. */
+    private fun file(list: Path?, vararg names: String) = HomeLightFile(
+        targetRoot = temporary.resolve("target").toString(),
+        suggestionList = list?.toString(),
+        relocations = names.map { RelocationFile(temporary.resolve("home/$it").toString(), temporary.resolve("target/$it").toString()) },
+    )
+
     companion object {
-        private fun save(path: Path, draft: ConfigurationDraft, gate: CyclicBarrier): Boolean {
+        private fun save(path: Path, file: HomeLightFile, gate: CyclicBarrier): Boolean {
             gate.await()
-            try { ConfigurationPublisher().saveNew(path, draft); return true }
+            try { ConfigurationPublisher().saveNew(path, file); return true }
             catch (expected: ConfigurationException) { return false }
         }
     }

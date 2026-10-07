@@ -6,7 +6,7 @@
 # smoke: --version and plan --json on a small fixture.
 # cli:   smoke, then the compare.sh suite diffed against the JVM transcript from build.sh.
 # full:  cli, then the TUI under expect for each TERM in $TUI_TERMS, Ctrl-C quitting cleanly,
-#        TERM=dumb refused with exit 2, and the setup flow finding a bundled candidate (setup.exp).
+#        TERM=dumb refused with exit 2, and Configuration finding a bundled candidate in Browse (setup.exp).
 #        Needs expect and the terminfo entries for those TERMs (ncurses-term on Debian and Fedora).
 #
 # Logs go to results-dir (default: a new temporary directory). Every command gets an explicit
@@ -89,8 +89,8 @@ mkdir -p "$fx/home/.m2" "$fx/local"
 line=$(TERM=xterm-256color expect "$here/setup.exp" "$results/setup.log" "$fx/home" "$fx/local" \
   "$binary" -c "$fx/new.json" init)
 if [ $? -eq 0 ] && [ ! -e "$fx/new.json" ]; then
-  pass "TUI setup discovers bundled candidates: $line"
+  pass "TUI Configuration browses bundled candidates: $line"
 else
-  fail "TUI setup: $line"
+  fail "TUI Configuration: $line"
 fi
 exit $failed

@@ -60,10 +60,9 @@ Entry points:
 - Esc goes back one level: from a field to its list, from a list to close the
   screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
   never exits.
-- `q` quits from any list. Inside a text field it types `q`. With unsaved
-  configuration changes, `q` and Esc-to-close ask before discarding; Esc from
-  Configuration's first fields closes at once only when nothing was typed and
-  there are no relocations. With
+- `q` quits from any list. Inside a text field it types `q`. In
+  Configuration, `q` and Esc from its list close it: at once when the draft
+  equals the file as opened, otherwise after asking before discarding. With
   one-time choices not applied yet, or during an apply, `q` asks first (see
   Quit).
 - One app key handler, keyed by the focused id, handles what TamboUI elements
@@ -155,7 +154,7 @@ focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
 ### Choices and fields
 
 - Every choice among fixed values is a TamboUI `Select`: `‹ Keep target, archive
-  source ›`, ←/→ to change. At 80 columns the label sits above the value.
+  source ›`, ←/→ to change. Labels sit beside their fields, in a fixed column.
 - Text fields are TamboUI text inputs: ←/→, Home/End, Backspace, Delete, Ctrl-U
   clears. `[` and `]` type normally.
 
@@ -275,8 +274,13 @@ re-checks and says the next step.
 Below the panes, when review is unavailable, one line says why: `Choose what to do
 for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
 
-Empty states: no configuration (offer `i: Create configuration`), no relocations,
-all in sync, left as is by rule, blocked (state the repair).
+`e: Edit` opens Configuration on the file whenever it loads. A file HomeLight
+cannot read is fixed by hand: `e` is not offered, and `homelight init` and
+`config` refuse it with the loader's message.
+
+Empty states: no configuration (offer `i: Create configuration`), no relocations
+(press `e` to add them), all in sync, left as is by rule, blocked (state the
+repair).
 
 ## 6. Review, applying and results
 
@@ -342,30 +346,56 @@ again; results are kept until you check again.`). Results stay available through
 ## 7. Configuration
 
 The draft is the configuration file's own shape, validated by the same loader the
-app uses. `~` and `${USER}` stay as written.
+app uses. `~` and `${USER}` stay as written, and settings the screen does not
+show (such as `ignored-source-paths`) are kept.
 
-- Left list: `Storage locations`, then each relocation by source as written
-  (`~/.m2`). `a` adds a row with the source root filled in; `d` removes the
-  selected row; `b` opens Browse.
+- Left list (`Storage and relocations`): `Storage locations`, then each
+  relocation by source as written (`~/.m2`). `a` adds a row with the source
+  root filled in and focuses its Source; `d` removes the selected row; `b`
+  opens Browse; Enter, → or Tab move to the fields.
+- Right, top: the selected item's fields, one row each, the label in an
+  18-cell column beside the value (at 80x24 a field is 32 cells wide). Text
+  fields are TamboUI text inputs; Both exist and Only target are TamboUI
+  `Select`s (`‹ Ask each time ›`, ←/→ change). ↑/↓ move between fields, Esc
+  goes back to the list. A value longer than its field scrolls sideways while
+  typing, to keep the cursor in view, and shows its start again once the field
+  loses focus.
+- Right, bottom: **Details**, the focused field's help (in a text field also
+  `Esc, then s to save.`), then a **Resolved** section with each path as the
+  loader reads it (absolute, updated as you type), or why it cannot. It always
+  shows a field's whole value, and scrolls with the wheel, so long paths never
+  push a field away.
+- Every path must be full or start with `~/`; anything else reads `Use a full
+  path, or one starting with ~/`.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Suggestion list (optional)** with help "A file of directories to suggest, for
-  example one shared across machines. Built-in suggestions are always included."
-  A Resolved section shows each as an absolute path, updated as you type.
+  **Suggestion list** (placeholder `optional`) with help "A file of directories
+  to suggest, for example one shared across machines. Built-in suggestions are
+  always included."
 - Relocation fields: **Source**, **Target** (blank derives it from the target
-  root; a source outside the source root needs one), **Both exist** and **Only
-  target** as Selects, **Archive root** (blank means the default beside the
-  source). Field help explains the consequence of the focused field.
+  root; a source outside the source root needs one), **Both exist**, **Only
+  target**, **Archive root** (blank means the default beside the source).
 - **Both exist** values: Ask each time · Keep target, delete source · Keep
   target, archive source · Keep target, ask about source · Leave both as they
   are · Delete both, start empty. **Only target** values: Ask each time · Keep
   target, link source. A rule left at "Ask each time" is not written to the file.
-- Header: file path, `existing file`/`new file`, and `N unsaved changes` (the
-  draft compared with the file as loaded).
-- `s` saves. A new file is created directly. Replacing an existing file asks
-  first: `Replace ~/.homelight.json?`, noting that comments are not kept. Save
-  refuses if the file changed since it was loaded, keeps the draft and says so.
-  The write is atomic.
-- After saving: return to Workspace, check again, and say the next step.
+  Delete both, start empty shows a warning in Details.
+- Under the header: file path, `existing file`/`new file`, and `N unsaved
+  changes`: each storage location that differs from the file as opened, and
+  each relocation added, removed or edited. Changing a field back is no change.
+- `s` saves from the list or a Select (in a text field it types). The draft is
+  checked first: the first field the loader would reject is selected and named
+  (`Not saved. Storage locations › Target root: …`), and overlapping
+  relocations are refused as a whole. A new file is created directly.
+  Replacing an existing file asks first: `Replace ~/.homelight.json?`, noting
+  that comments are not kept. Save refuses if the file changed since it was
+  loaded, keeps the draft and says so: `Not saved: the configuration file
+  changed after Configuration opened it. Your changes are still here. To start
+  again from the file, press q, then y, then e.` The write is atomic.
+- After saving: return to Workspace, check again, and say the next step below
+  the panes, for example `Saved. 1 relocation will change: press a to review
+  and apply.` It stays until the next key the Workspace handles.
+- Help lines never carry a field's note, so both stay one row each at 80
+  columns on every focus. In a text field they offer `F1: Help`.
 
 ## 8. Browse
 
