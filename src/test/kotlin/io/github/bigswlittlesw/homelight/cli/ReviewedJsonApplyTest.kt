@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import picocli.CommandLine
 import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -115,7 +114,7 @@ class ReviewedJsonApplyTest {
             Path.of(System.getProperty("java.home"), "bin", "java").toString(),
             "-Xlog:class+init=info:file=$classes",
             "-cp", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
-            HomeLightCommand::class.java.name, "--config", config.toString(), "apply", "--json", "--yes")
+            "io.github.bigswlittlesw.homelight.cli.HomeLightCommandKt", "--config", config.toString(), "apply", "--json", "--yes")
             .redirectInput(ProcessBuilder.Redirect.from(root.resolve("stdin").toFile()))
             .redirectOutput(output.toFile()).redirectError(error.toFile())
         Files.createFile(root.resolve("stdin"))
@@ -261,15 +260,9 @@ class ReviewedJsonApplyTest {
 
     private companion object {
         fun execute(config: Path, worker: Executor, vararg options: String): Result {
-            val command = CommandLine(HomeLightCommand(), object : CommandLine.IFactory {
-                override fun <K> create(type: Class<K>): K =
-                    if (type == ApplyCommand::class.java) type.cast(ApplyCommand(worker))
-                    else CommandLine.defaultFactory().create(type)
-            })
             val output = StringWriter()
             val error = StringWriter()
-            command.setOut(PrintWriter(output, true))
-            command.setErr(PrintWriter(error, true))
+            val command = homeLightCommand(PrintWriter(output, true), PrintWriter(error, true), worker)
             val arguments = mutableListOf("--config", config.toString(), "apply")
             arguments.addAll(listOf(*options))
             val exitCode: Int = command.execute(*arguments.toTypedArray())

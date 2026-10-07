@@ -32,11 +32,9 @@ class PlanCommandTest {
         Files.writeString(config, json)
         val source = root.resolve("new-source")
         val target = root.resolve("new-target")
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
         val err = StringWriter()
-        command.setOut(PrintWriter(out, true))
-        command.setErr(PrintWriter(err, true))
+        val command = homeLightCommand(PrintWriter(out, true), PrintWriter(err, true))
 
         assertEquals(0, command.execute("plan", "-c", config.toString(), "--json",
             "--source-path", source.toString(), "--target-path", target.toString()))
@@ -51,8 +49,9 @@ class PlanCommandTest {
         assertTrue(Files.notExists(source))
         assertTrue(Files.notExists(target))
 
-        assertEquals(2, command.execute("plan", "-c", config.toString(), "--json", "--source-path", source.toString()))
-        assertTrue(err.toString().contains("must be provided together"))
+        val again = homeLightCommand(PrintWriter(out, true), PrintWriter(err, true))
+        assertEquals(2, again.execute("plan", "-c", config.toString(), "--json", "--source-path", source.toString()))
+        assertTrue(err.toString().contains("missing option --target-path"), err.toString())
     }
 
     @Test
@@ -71,9 +70,8 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
-        command.setOut(PrintWriter(out, true))
+        val command = homeLightCommand(PrintWriter(out, true))
 
         assertEquals(0, command.execute("plan", "--config", config.toString(), "--json"))
         val output = out.toString()
@@ -98,9 +96,8 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
-        command.setOut(PrintWriter(out, true))
+        val command = homeLightCommand(PrintWriter(out, true))
 
         assertEquals(0, command.execute("plan", "-c", config.toString(), "--json"))
         val output = out.toString()
@@ -125,9 +122,8 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
-        command.setOut(PrintWriter(out, true))
+        val command = homeLightCommand(PrintWriter(out, true))
 
         assertEquals(0, command.execute("--config", config.toString(), "plan", "--json"))
         val output = out.toString()
@@ -152,9 +148,8 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
-        command.setOut(PrintWriter(out, true))
+        val command = homeLightCommand(PrintWriter(out, true))
 
         assertEquals(0, command.execute("-c", config.toString(), "plan", "--json"))
         val output = out.toString()
@@ -179,9 +174,8 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
         val err = StringWriter()
-        command.setErr(PrintWriter(err, true))
+        val command = homeLightCommand(err = PrintWriter(err, true))
 
         assertEquals(2, command.execute("plan", "--config", config.toString()))
         assertTrue(err.toString().contains("HomeLight TUI requires an interactive terminal. Use --json for automation."))
@@ -189,9 +183,8 @@ class PlanCommandTest {
 
     @Test
     fun rendersUnconfiguredPlanAsJson() {
-        val command = HomeLightCommand.createCommandLine()
         val out = StringWriter()
-        command.setOut(PrintWriter(out, true))
+        val command = homeLightCommand(PrintWriter(out, true))
 
         assertEquals(0, command.execute("plan", "--config", ConfigurationLoader.DEFAULT_PATH.toString(), "--json"))
         assertTrue(out.toString().contains("\"relocations\":[]"))

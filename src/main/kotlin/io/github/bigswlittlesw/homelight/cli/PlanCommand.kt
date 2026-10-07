@@ -1,53 +1,45 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.core.MissingOption
+import com.github.ajalt.clikt.parameters.groups.OptionGroup
+import com.github.ajalt.clikt.parameters.groups.cooccurring
+import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.parameters.options.nullableFlag
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.path
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.tui.launchTui
-import picocli.CommandLine.Command
-import picocli.CommandLine.Model.CommandSpec
-import picocli.CommandLine.Option
-import picocli.CommandLine.ParameterException
-import picocli.CommandLine.ParentCommand
-import picocli.CommandLine.Spec
-import java.nio.file.Path
-import java.util.concurrent.Callable
+import java.io.PrintWriter
 
-@Command(name = "plan", description = ["Show the filesystem actions required to converge configured relocations."])
-internal class PlanCommand : Callable<Int> {
-    @ParentCommand
-    private lateinit var parent: HomeLightCommand
+internal class PlanCommand(private val out: PrintWriter, private val err: PrintWriter) : ExitCodeCommand("plan") {
+    private val shared by SharedOptions()
+    private val json by option("--json", help = "Emit JSON.").nullableFlag().once { it ?: false }
+    private val override by PathOverrideOptions().cooccurring()
 
-    @Option(names = ["--json"], description = ["Emit JSON."])
-    private var json = false
-
-    @Option(names = ["--source-path"], description = ["Override the source path for the first relocation."])
-    private var sourcePath: Path? = null
-
-    @Option(names = ["--target-path"], description = ["Override the target path for the first relocation."])
-    private var targetPath: Path? = null
-
-    @Spec
-    private lateinit var spec: CommandSpec
+    override fun help(context: Context) = "Show the filesystem actions required to converge configured relocations."
 
     override fun call(): Int {
-        val source = sourcePath
-        val target = targetPath
-        val override = when {
-            source != null && target != null -> ConfigurationLoader.PathOverride(source, target)
-            source == null && target == null -> null
-            else -> throw ParameterException(spec.commandLine(), "--source-path and --target-path must be provided together")
+        val settings = settings(shared)
+        if (!json) {
+            return launchTui(settings.config, settings.debugStepDelayMillis, err)
         }
-
-        val configPath = parent.config
-        if (json) {
-            val plan = if (isUnconfiguredDefault(configPath)) ReconciliationPlan(listOf(), listOf())
-            else ConfigurationEvaluation().loadRequired(configPath, override).plan
-            renderPlanJson(plan, spec.commandLine().out)
-            return 0
-        }
-
-        return launchTui(configPath, parent.debugStepDelayMillis, spec.commandLine().err)
+        val plan = if (isUnconfiguredDefault(settings.config)) ReconciliationPlan(listOf(), listOf())
+        else ConfigurationEvaluation().loadRequired(settings.config, override?.toPathOverride()).plan
+        renderPlanJson(plan, out)
+        return 0
     }
+}
+
+/** Both or neither: given one, Clikt reports the other as missing, a usage error. */
+private class PathOverrideOptions : OptionGroup() {
+    val sourcePath by option("--source-path", help = "Override the source path for the first relocation.").path()
+        .once(required = true) { it ?: throw MissingOption(option) }
+    val targetPath by option("--target-path", help = "Override the target path for the first relocation.").path()
+        .once(required = true) { it ?: throw MissingOption(option) }
+
+    fun toPathOverride() = ConfigurationLoader.PathOverride(sourcePath, targetPath)
 }

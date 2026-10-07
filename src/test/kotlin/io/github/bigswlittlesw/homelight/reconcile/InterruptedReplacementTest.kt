@@ -1,7 +1,8 @@
 package io.github.bigswlittlesw.homelight.reconcile
 
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.cli.HomeLightCommand
+import io.github.bigswlittlesw.homelight.cli.execute
+import io.github.bigswlittlesw.homelight.cli.homeLightCommand
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -151,9 +152,7 @@ class InterruptedReplacementTest {
     private fun plan(): ReconciliationPlan = ConfigurationEvaluation().loadRequired(config).plan
 
     private fun applyJsonYes(): Int {
-        val command = HomeLightCommand.createCommandLine()
-        command.setOut(PrintWriter(StringWriter(), true))
-        command.setErr(PrintWriter(StringWriter(), true))
+        val command = homeLightCommand(PrintWriter(StringWriter(), true), PrintWriter(StringWriter(), true))
         return command.execute("apply", "--json", "--yes", "--config", config.toString())
     }
 

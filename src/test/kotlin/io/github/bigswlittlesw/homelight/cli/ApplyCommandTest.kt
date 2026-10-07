@@ -249,8 +249,7 @@ class ApplyCommandTest {
         val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, json)
         val output = StringWriter()
-        val command = HomeLightCommand.createCommandLine()
-        command.setOut(PrintWriter(output, true))
+        val command = homeLightCommand(PrintWriter(output, true))
         return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
     }
 
@@ -258,8 +257,7 @@ class ApplyCommandTest {
         val config = Files.createTempFile(configDirectory, "homelight", ".json")
         Files.writeString(config, json)
         val output = StringWriter()
-        val command = HomeLightCommand.createCommandLine()
-        command.setOut(PrintWriter(output, true))
+        val command = homeLightCommand(PrintWriter(output, true))
         return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
     }
 
@@ -268,8 +266,7 @@ class ApplyCommandTest {
     private companion object {
         fun execute(vararg arguments: String): Result {
             val output = StringWriter()
-            val command = HomeLightCommand.createCommandLine()
-            command.setOut(PrintWriter(output, true))
+            val command = homeLightCommand(PrintWriter(output, true))
             return Result(command.execute(*arguments), output.toString())
         }
 

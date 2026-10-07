@@ -8,9 +8,7 @@ plugins {
 group = "io.github.bigswlittlesw"
 version = "1.0-SNAPSHOT"
 
-val mainClassName = "io.github.bigswlittlesw.homelight.cli.HomeLightCommand"
-
-val picocliCodegen = configurations.create("picocliCodegen")
+val mainClassName = "io.github.bigswlittlesw.homelight.cli.HomeLightCommandKt"
 
 repositories {
     mavenCentral()
@@ -27,32 +25,13 @@ dependencies {
     implementation(libs.tamboui.jline3.backend)
     // Renders the embedded user guide on the Help screen.
     implementation(libs.tamboui.toolkit.markdown)
-    implementation(libs.picocli)
+    // clikt-core, not clikt: the full artifact adds Mordant, a second terminal layer beside JLine.
+    implementation(libs.clikt.core)
     implementation(libs.kotlinx.serialization.json)
-    picocliCodegen(libs.picocli.codegen)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-// Native Image needs reflection metadata for the picocli command classes. picocli's annotation processor
-// cannot see Kotlin sources, so picocli-codegen generates the metadata from the compiled classes on every
-// build, at the path the processor used. This avoids kapt.
-val generatePicocliMetadata = tasks.register<JavaExec>("generatePicocliMetadata") {
-    description = "Generates the picocli reflection metadata for Native Image."
-    val outputDir = layout.buildDirectory.dir("generated/picocli-metadata")
-    val outputFile = outputDir.get()
-        .file("META-INF/native-image/picocli-generated/${project.group}/${project.name}/reflect-config.json").asFile
-    classpath(picocliCodegen, sourceSets.main.map { it.output.classesDirs }, configurations.runtimeClasspath)
-    mainClass = "picocli.codegen.aot.graalvm.ReflectionConfigGenerator"
-    args("--output", outputFile.path, mainClassName)
-    outputs.dir(outputDir)
-    doFirst { outputFile.parentFile.mkdirs() }
-}
-
-sourceSets.main {
-    resources.srcDir(generatePicocliMetadata)
 }
 
 tasks.processResources {

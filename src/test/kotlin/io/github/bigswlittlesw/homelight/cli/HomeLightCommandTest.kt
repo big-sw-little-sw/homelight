@@ -1,5 +1,9 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.guideUrl
 import io.github.bigswlittlesw.homelight.application.resolveVersion
@@ -12,14 +16,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import picocli.CommandLine.Command
-import picocli.CommandLine.Option
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
-import java.util.concurrent.Callable
 import java.util.concurrent.CompletionException
 
 class HomeLightCommandTest {
@@ -27,16 +28,30 @@ class HomeLightCommandTest {
     @Test
     fun acceptsVisualDelayAtRootAndOnEveryTuiCommand() {
         for (arguments in listOf(
-            arrayOf("--debug-step-delay-ms", "3000"),
+            arrayOf("--debug-step-delay-ms", "3000", "status"),
             arrayOf("status", "--debug-step-delay-ms", "3000"),
             arrayOf("plan", "--debug-step-delay-ms", "3000"),
             arrayOf("apply", "--debug-step-delay-ms", "3000"),
             arrayOf("init", "--debug-step-delay-ms", "3000"),
         )) {
-            val command = HomeLightCommand.createCommandLine()
-            command.parseArgs(*arguments)
-            val root: HomeLightCommand = command.getCommand()
-            assertEquals(3000L, root.debugStepDelayMillis)
+            val probe = DelayProbe(arguments.first { !it.startsWith("-") && it != "3000" })
+            val err = StringWriter()
+            // The probe stands in for the real command, so nothing opens the TUI.
+            val command = HomeLightCommand(PrintWriter(StringWriter()), PrintWriter(err)).subcommands(probe)
+            assertEquals(0, command.execute(*arguments), err.toString())
+            assertEquals(3000L, probe.delay, arguments.joinToString(" "))
+        }
+    }
+
+    /** Resolves the shared options like a real command, without opening the TUI. */
+    private class DelayProbe(name: String) : ExitCodeCommand(name) {
+        private val shared by SharedOptions()
+        var delay: Long? = null
+            private set
+
+        override fun call(): Int {
+            delay = settings(shared).debugStepDelayMillis
+            return 0
         }
     }
 
@@ -50,7 +65,8 @@ class HomeLightCommandTest {
         )) {
             val result = execute(*arguments)
             assertEquals(2, result.exitCode, result.errorOutput)
-            assertEquals("--debug-step-delay-ms must be between 0 and 60000", result.errorOutput.lines().first())
+            assertTrue(result.errorOutput.lines().contains(
+                "Error: invalid value for --debug-step-delay-ms: must be between 0 and 60000"), result.errorOutput)
             assertFalse(result.errorOutput.contains("Could not invoke"), result.errorOutput)
             assertEquals("", result.output)
         }
@@ -90,14 +106,13 @@ class HomeLightCommandTest {
         for (arguments in listOf(
             arrayOf("fail"), arrayOf("fail", "--json"), arrayOf("fail", "--worker"), arrayOf("fail", "--worker", "--json"),
         )) {
-            val commandLine = HomeLightCommand.createCommandLine().addSubcommand("fail", FailingCommand())
             val output = StringWriter()
             val errorOutput = StringWriter()
-            commandLine.setOut(PrintWriter(output, true))
-            commandLine.setErr(PrintWriter(errorOutput, true))
+            val command = homeLightCommand(PrintWriter(output, true), PrintWriter(errorOutput, true))
+                .subcommands(FailingCommand())
 
             val context = arguments.joinToString(" ") + ": " + errorOutput
-            assertEquals(70, commandLine.execute(*arguments), context)
+            assertEquals(70, command.execute(*arguments), context)
             assertEquals("Internal error (please report): IllegalStateException: unexpected\n",
                 errorOutput.toString().replace(System.lineSeparator(), "\n"), context)
             assertEquals("", output.toString(), context)
@@ -105,10 +120,9 @@ class HomeLightCommandTest {
     }
 
     /** The handler treats `--json` and a worker's wrapped bug the same way as a plain bug. */
-    @Command(name = "fail")
-    private class FailingCommand : Callable<Int> {
-        @Option(names = ["--json"]) private var json = false
-        @Option(names = ["--worker"]) private var worker = false
+    private class FailingCommand : ExitCodeCommand("fail") {
+        private val json by option("--json").flag()
+        private val worker by option("--worker").flag()
 
         override fun call(): Int {
             val bug = IllegalStateException("unexpected")
@@ -218,15 +232,6 @@ class HomeLightCommandTest {
         val result = execute("-c", config.toString(), "config")
         assertEquals(1, result.exitCode)
         assertTrue(result.errorOutput.contains("so Configuration cannot open it. Fix the file by hand: Line 1"), result.errorOutput)
-    }
-
-    @Test
-    fun shouldProvideVersionFromVersionProvider() {
-        val provider = HomeLightVersionProvider()
-        val version: Array<String> = provider.getVersion()
-
-        assertEquals(1, version.size)
-        assertEquals("homelight " + resolveVersion(), version[0])
     }
 
     @Test
@@ -367,13 +372,9 @@ class HomeLightCommandTest {
 
     private companion object {
         fun execute(vararg args: String): CapturedOutput {
-            val commandLine = HomeLightCommand.createCommandLine()
             val output = StringWriter()
             val errorOutput = StringWriter()
-            commandLine.setOut(PrintWriter(output, true))
-            commandLine.setErr(PrintWriter(errorOutput, true))
-
-            val exitCode: Int = commandLine.execute(*args)
+            val exitCode = homeLightCommand(PrintWriter(output, true), PrintWriter(errorOutput, true)).execute(*args)
             return CapturedOutput(exitCode, output.toString(), errorOutput.toString())
         }
     }

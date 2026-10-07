@@ -1,59 +1,51 @@
 package io.github.bigswlittlesw.homelight.cli
 
+import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.parameters.options.nullableFlag
+import com.github.ajalt.clikt.parameters.options.option
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.ReviewedExecution
 import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.homelight.tui.launchTui
-import picocli.CommandLine
-import picocli.CommandLine.Command
-import picocli.CommandLine.Option
-import picocli.CommandLine.ParentCommand
-import picocli.CommandLine.Spec
 import java.io.PrintWriter
-import java.util.concurrent.Callable
 import java.util.concurrent.CompletionException
 import java.util.concurrent.Executor
 
-// picocli creates the command through the no-arg constructor that the all-default primary
-// constructor generates.
-@Command(name = "apply", description = ["Review and apply a fully resolved reconciliation plan."])
-internal class ApplyCommand(private val worker: Executor = Executor { it.run() }) : Callable<Int> {
-    @ParentCommand
-    private lateinit var parent: HomeLightCommand
+internal class ApplyCommand(
+    private val out: PrintWriter, private val err: PrintWriter, private val worker: Executor,
+) : ExitCodeCommand("apply") {
+    private val shared by SharedOptions()
+    private val yes by option("--yes", help = "Confirm a resolved plan in JSON automation mode.")
+        .nullableFlag().once { it ?: false }
+    private val json by option("--json", help = "Emit JSON.").nullableFlag().once { it ?: false }
 
-    @Option(names = ["--yes"], description = ["Confirm a resolved plan in JSON automation mode."])
-    private var yes = false
-
-    @Option(names = ["--json"], description = ["Emit JSON."])
-    private var json = false
-
-    @Spec
-    private lateinit var spec: CommandLine.Model.CommandSpec
+    override fun help(context: Context) = "Review and apply a fully resolved reconciliation plan."
 
     override fun call(): Int {
-        val config = parent.config
+        val settings = settings(shared)
+        val config = settings.config
         if (!json) {
-            return launchTui(config, parent.debugStepDelayMillis, spec.commandLine().err)
+            return launchTui(config, settings.debugStepDelayMillis, err)
         }
         if (!yes) {
-            spec.commandLine().err.println("JSON apply requires --yes.")
-            return CommandLine.ExitCode.USAGE
+            err.println("JSON apply requires --yes.")
+            return USAGE_EXIT_CODE
         }
-        val output = spec.commandLine().out
         if (isUnconfiguredDefault(config)) {
-            renderApplyJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
-            return CommandLine.ExitCode.OK
+            renderApplyJson(ReconciliationExecutor.ExecutionResult(listOf()), out)
+            return 0
         }
         val plan = ConfigurationEvaluation().loadRequired(config).plan
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            renderPlanJson(plan, output)
+            renderPlanJson(plan, out)
             return 1
         }
         val execution = ReviewedExecution(plan)
         execution.start(worker)
-        return renderCompletion(execution, output)
+        return renderCompletion(execution, out)
     }
 }
 

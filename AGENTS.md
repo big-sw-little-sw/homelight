@@ -28,7 +28,7 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 8. **Use default and named arguments instead of overloads.** Write an extension function only when it reads as a domain operation on its receiver, not to scatter a type's behavior across files. Prefer top-level functions to an `object` that only holds utilities.
 
-9. **Keep visibility narrow.** Default to `private` or `internal`. Do not mark a class or member `open` unless something subclasses it. Do not use `@JvmStatic`, `@JvmField`, `@JvmName`, `@JvmRecord` or hand-written Java-style accessors unless a Java or JVM consumer needs them: `main`, picocli-annotated fields, or a Native Image constraint. Say which in a comment.
+9. **Keep visibility narrow.** Default to `private` or `internal`. Do not mark a class or member `open` unless something subclasses it. Do not use `@JvmStatic`, `@JvmField`, `@JvmName`, `@JvmRecord` or hand-written Java-style accessors unless a Java or JVM consumer needs them: `main` or a Native Image constraint. Say which in a comment.
 
 10. **Use Kotlin's string functions.** Where exact whitespace semantics matter for validation, use the documented Java-semantics helpers in `JavaStrings.kt` rather than adding new ones.
 

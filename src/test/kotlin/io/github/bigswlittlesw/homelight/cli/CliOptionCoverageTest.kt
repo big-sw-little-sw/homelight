@@ -95,13 +95,13 @@ class CliOptionCoverageTest {
             for (option in listOf("--help", "-h")) {
                 add(Case("root $option", listOf(option), Expect(0, out = "Usage: homelight", hidden = true)))
             }
-            for (command in commands - "guide") {
-                // Known bug on picocli: subcommands have no --help ("Unknown option: '--help'", exit 2), because the
-                // standard help options are not inherited.
-                add(Case("$command --help", listOf(command, "--help"), Expect(2, err = "Unknown option: '--help'",
+            for (command in commands) {
+                // Fixed by the port: under picocli, subcommands had no --help ("Unknown option: '--help'", exit 2).
+                // `config` is an alias, so its help names `init`.
+                val name = if (command == "config") "init" else command
+                add(Case("$command --help", listOf(command, "--help"), Expect(0, out = "Usage: homelight $name",
                     hidden = true)))
             }
-            add(Case("guide --help", listOf("guide", "--help"), Expect(2, err = "Unknown option: '--help'", hidden = true)))
             for (option in listOf("--version", "-V")) {
                 add(Case("root $option", listOf(option), Expect(0, out = "homelight ${resolveVersion()}")))
             }
@@ -219,10 +219,7 @@ class CliOptionCoverageTest {
     private fun run(args: List<String>): Run {
         val out = StringWriter()
         val err = StringWriter()
-        val commandLine = HomeLightCommand.createCommandLine()
-        commandLine.setOut(PrintWriter(out, true))
-        commandLine.setErr(PrintWriter(err, true))
-        val exit = commandLine.execute(*args.toTypedArray())
+        val exit = homeLightCommand(PrintWriter(out, true), PrintWriter(err, true)).execute(*args.toTypedArray())
         return Run(exit, out.toString(), err.toString())
     }
 

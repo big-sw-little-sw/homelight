@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.homelight.application
 
-import io.github.bigswlittlesw.homelight.cli.HomeLightCommand
+import io.github.bigswlittlesw.homelight.cli.execute
+import io.github.bigswlittlesw.homelight.cli.homeLightCommand
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.javaStrip
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -71,11 +72,9 @@ class DefaultConfigurationClassificationTest {
                     assertFalse(session.requestApply())
                 }
                 for (command in listOf("status", "plan", "apply")) {
-                    val cli = HomeLightCommand.createCommandLine()
                     val out = StringWriter()
                     val err = StringWriter()
-                    cli.setOut(PrintWriter(out, true))
-                    cli.setErr(PrintWriter(err, true))
+                    val cli = homeLightCommand(PrintWriter(out, true), PrintWriter(err, true))
                     val arguments = mutableListOf(command, "--config", config.toString(), "--json")
                     if (command.equals("apply")) {
                         arguments.add("--yes")
