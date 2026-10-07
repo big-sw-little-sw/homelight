@@ -1,0 +1,46 @@
+#!/usr/bin/expect -f
+# Applies a one-relocation plan in the TUI and times it, to prove --debug-step-delay-ms reaches the apply.
+#
+#   expect ci/native/delay.exp <logfile> <source-path> <command...>
+#
+# The command must open the Workspace on a plan that moves <source-path> (`homelight -c <config> apply`).
+# Sends `a` then `y`, then waits until <source-path> is a symlink, which the last step makes. Prints
+# `applied=<ms>`: the time from `y` until then. Quits with `q`. Exit status 0 when the apply finished.
+# Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
+encoding system iso8859-1
+set logfile [lindex $argv 0]
+set source [lindex $argv 1]
+set cmd [join [lrange $argv 2 end] " "]
+log_user 0
+log_file -a -noappend $logfile
+set stty_init "rows 30 cols 120"
+set env(PS1) "PROMPT> "
+
+spawn -noecho /bin/sh
+set timeout 20
+expect "PROMPT> "
+send "$cmd; echo EXITCODE=\$?\r"
+expect {
+  -re {HOMELIGHT|Review|Relocat} { }
+  timeout { puts "render=timeout"; exit 1 }
+}
+# The Workspace opens first: `a` shows Review, where `y` applies. Each key waits for the frame to settle.
+set timeout 1
+expect -re {$^}
+send "a"
+expect -re {$^}
+set start [clock milliseconds]
+send "y"
+set timeout 0.05
+set applied ""
+while {[clock milliseconds] - $start < 90000} {
+  expect -re {.+} { }
+  # The source is briefly missing while it moves.
+  if {![catch {file type $source} type] && $type eq "link"} { set applied [expr {[clock milliseconds] - $start}]; break }
+}
+send "q"
+set timeout 10
+expect -re {EXITCODE=([0-9]+)}
+if {$applied eq ""} { puts "applied=timeout"; exit 1 }
+puts "applied=$applied"
+exit 0
