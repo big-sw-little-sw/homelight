@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.homelight.config.intersects
 import io.github.bigswlittlesw.homelight.config.relocationProblem
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import io.github.bigswlittlesw.homelight.fs.PathState
+import io.github.bigswlittlesw.homelight.fs.SymlinkTargetAvailability
 import java.nio.file.Path
 
 /** Computes safe filesystem actions from observations and never mutates the filesystem. */
@@ -24,7 +25,7 @@ class ReconciliationPlanner {
                 states,
             )
         }
-        return ReconciliationPlan(states.map { plan(it) }, listOf(), states)
+        return ReconciliationPlan(states.map { state -> blockedByNotAFolder(state, plan(state)) }, listOf(), states)
     }
 
     private fun plan(state: RelocationState): RelocationPlan {
@@ -71,6 +72,51 @@ class ReconciliationPlanner {
             RelocationSourceState.INACCESSIBLE -> blocked(state, "source cannot be inspected")
             RelocationSourceState.OTHER -> blocked(state, "source has an unsupported filesystem state")
         }
+    }
+}
+
+/**
+ * Blocks [planned] when a folder one of its actions needs is in the way (see [inspectFolders]), so the apply does not
+ * stop at that step. The reason names the first such path, in action order.
+ */
+private fun blockedByNotAFolder(state: RelocationState, planned: RelocationPlan): RelocationPlan {
+    val folder = planned.actions.asSequence().flatMap(::neededFolders).firstOrNull(state.notFolders::containsKey)
+        ?: return planned
+    val inTheWay = state.notFolders.getValue(folder)
+    val stagingRoot = effectiveStagingRoot(state.relocation.targetPath, state.relocation.stagingRoot)
+    // Only the staging root must not be a link at all. Elsewhere a link to a folder is fine, so one in the way there
+    // leads to something else and gets the general reason.
+    val linkedStagingRoot = folder == stagingRoot && inTheWay.path == folder && inTheWay.observation.state == PathState.SYMLINK
+        && inTheWay.observation.symlinkTargetAvailability != SymlinkTargetAvailability.ABSENT
+    return blocked(
+        state,
+        if (linkedStagingRoot) "the staging folder must be a real folder, not a link: $folder" else notAFolderReason(inTheWay),
+    )
+}
+
+/**
+ * The folders the executor makes or works in for an action. Every other path an action uses is a source, target,
+ * archive destination or replaced source, whose observations the planner has already checked.
+ */
+private fun neededFolders(action: ReconciliationAction): List<Path> = when (action) {
+    is ReconciliationAction.EnsureDirectory -> listOf(action.path)
+    is ReconciliationAction.MigrateDirectoryForPublication -> listOfNotNull(action.target.parent, action.effectiveStagingRoot)
+    is ReconciliationAction.CreateDirectory, is ReconciliationAction.ArchiveDirectory,
+    is ReconciliationAction.DeleteDirectory, is ReconciliationAction.CreateSymlink,
+    is ReconciliationAction.ReplaceDirectoryWithSymlink, is ReconciliationAction.ReplaceSymlink,
+    is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> listOf()
+}
+
+private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): String {
+    val path = inTheWay.path
+    val observation = inTheWay.observation
+    return when (observation.state) {
+        PathState.FILE -> "$path is a file, not a folder"
+        PathState.SYMLINK ->
+            if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) "$path is a broken link, not a folder"
+            else "$path is a link, not a folder"
+        PathState.INACCESSIBLE -> "$path can't be read, so HomeLight can't tell if it is a folder"
+        PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> "$path is not a folder"
     }
 }
 

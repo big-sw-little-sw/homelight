@@ -12,7 +12,12 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationDiagnostic
 import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 
-/** An evaluated relocation item combining configuration, observations, dry-run actions, and available decisions. */
+/**
+ * An evaluated relocation item combining configuration, observations, dry-run actions, and available decisions.
+ *
+ * `choiceAvoidsFolder` is true when the plan is blocked only by a folder in the way and one of
+ * `availableResolutions` plans without that block.
+ */
 data class PlanRelocationItem(
     val relocation: Relocation,
     val sourceObservation: PathObservation,
@@ -20,6 +25,7 @@ data class PlanRelocationItem(
     val plan: RelocationPlan,
     val sourceState: RelocationSourceState,
     val availableResolutions: List<DecisionChoice>,
+    val choiceAvoidsFolder: Boolean = false,
 ) {
     fun badge(): PlanBadge {
         if (sourceObservation.state == PathState.INACCESSIBLE || targetObservation.state == PathState.INACCESSIBLE) {

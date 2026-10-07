@@ -269,7 +269,10 @@ The details pane answers, in this order:
    re-check, save or apply.
 3. **Will do:** the consequence of the current rule or choice. Without a choice:
    `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
-   reason. A row that deletes data adds `⚠ This deletes data for good.`
+   reason, such as `Problem: /scratch/archive is a file, not a folder.` when a
+   folder a step would create or work in is something else. When one of the
+   row's choices plans without that folder, the next line is `Or choose an
+   option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply, only when one is needed. While archiving
    is only offered, its choice names the destination: `Move the source to
    ~/.cache/.homelight-archive/… and replace it with a link to the target.`
@@ -370,7 +373,11 @@ then ends with what did not run: `3 of 8 changes done · 1 failed · 4 not run`.
 On finish the selection moves once to the first failure, or else the last
 completed action. Messages distinguish a plan
 refused before any change (`Nothing changed: the disk no longer matches the
-reviewed plan. Check again.`), a stop partway (`Stopped after some changes. Check
+reviewed plan. Check again.`), a step whose guard found something other than the
+plan (`Stopped: a step found something different from the plan. The steps after
+it did not run. See the failed step's details, then press r to check again.`;
+it does not guess when the disk changed, and the failed step's Details keep the
+exact problem), any other stop partway (`Stopped after some changes. Check
 the failed and not-run steps, then check again.`) and success (`Done. Checked
 again; results are kept until you check again.`). Results stay available through
 `2` until `r` or exit.
