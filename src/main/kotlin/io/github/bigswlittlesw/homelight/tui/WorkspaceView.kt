@@ -87,8 +87,9 @@ internal object WorkspaceView {
         }
         val inSync = toggledInSync(configured)
         // In the title, not a row, so the list's own selection never lands on it.
-        list.elements(*rows.toTypedArray()).title(relocationsTitle(inSync, showInSync))
-            .borderColor(if (focused == WORKSPACE_LIST) palette.focus else palette.dim).focusable(interactive)
+        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
+        // The list is framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
+        val listPane = framed(Toolkit.panel(relocationsTitle(inSync, showInSync), list), focused == WORKSPACE_LIST)
         val detailsFocused = focused == WORKSPACE_DETAILS
         val details = if (item == null) Anchored(listOf(Line(NO_RELOCATIONS), Line(HELP_HINT)), 0)
         else details(configured, item, choice, detailsFocused, retained)
@@ -101,7 +102,7 @@ internal object WorkspaceView {
             if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, palette.warn))
             add(
                 Toolkit.row(
-                    list.percent(45), viewport.render("Details", lines, detailsFocused, details.anchor, WORKSPACE_DETAILS, interactive),
+                    listPane.percent(45), viewport.render("Details", lines, detailsFocused, details.anchor, WORKSPACE_DETAILS, interactive),
                 ).fill(),
             )
             if (!session.isPlanReady() && !retained) add(

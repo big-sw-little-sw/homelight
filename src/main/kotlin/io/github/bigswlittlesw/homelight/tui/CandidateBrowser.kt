@@ -163,6 +163,11 @@ internal class CandidateBrowser {
         )
     }
 
+    /** The mouse wheel at `x`, `y` scrolls the pane under it; it never moves the focused suggestion. */
+    fun wheel(x: Int, y: Int, delta: Int) {
+        if (viewport.contains(x, y)) viewport.scroll(delta)
+    }
+
     /** Handles a key and returns the index of a draft row to edit, or -1 to stay in the browser. */
     fun key(key: KeyEvent, draft: SetupDraft): Int {
         if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return -1 }

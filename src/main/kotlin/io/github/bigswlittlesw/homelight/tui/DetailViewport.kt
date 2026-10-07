@@ -11,8 +11,10 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.element.Size
 import dev.tamboui.toolkit.element.StyledElement
+import dev.tamboui.toolkit.elements.Panel
 import dev.tamboui.toolkit.elements.ScrollbarElement
 import dev.tamboui.toolkit.markdown.MarkdownElement
+import dev.tamboui.widgets.block.BorderType
 
 /** Wraps at the actual pane width on every render, including resize and quit dialogs. */
 internal class DetailViewport {
@@ -20,6 +22,8 @@ internal class DetailViewport {
     private var maximum = 0
     // One line less than the pane's height, so a page keeps a line of context.
     private var page = 1
+    // Where the pane last rendered, so the mouse wheel can scroll the pane under the pointer.
+    private var area: Rect? = null
     private var followingChoice = false
     private var keepVisible = false
 
@@ -68,6 +72,7 @@ internal class DetailViewport {
         class Pane : StyledElement<Pane>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.UNKNOWN
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
+                this@DetailViewport.area = area
                 val inner = inner(area)
                 var width = inner.width()
                 val overflow = lines.sumOf { line -> wrap(line.text, width).size } > inner.height()
@@ -86,8 +91,7 @@ internal class DetailViewport {
                     val text = Toolkit.text(line.text).fg(line.color)
                     if (line.bold) text.bold() else text
                 }
-                Toolkit.panel(title, Toolkit.column(*rows.toTypedArray()).fill())
-                    .borderColor(if (focused) palette.focus else palette.dim).fill()
+                framed(Toolkit.panel(title, Toolkit.column(*rows.toTypedArray()).fill()), focused)
                     .render(frame, area, context)
                 if (overflow) scrollbar(frame, inner, wrapped.size, context)
             }
@@ -104,6 +108,7 @@ internal class DetailViewport {
         class MarkdownPane : StyledElement<MarkdownPane>() {
             override fun preferredSize(width: Int, height: Int, context: RenderContext): Size = Size.UNKNOWN
             override fun renderContent(frame: Frame, area: Rect, context: RenderContext) {
+                this@DetailViewport.area = area
                 val inner = inner(area)
                 val text = MarkdownElement.markdown(source).styles(styles).overflow(Overflow.WRAP_WORD)
                 fun rows(width: Int) = text.preferredSize(width, inner.height(), context).heightOr(0)
@@ -113,13 +118,20 @@ internal class DetailViewport {
                 if (overflow) { width = maxOf(1, width - 1); total = rows(width) }
                 measure(total, inner.height())
                 top = top.coerceIn(0, maximum)
-                Toolkit.panel(title).borderColor(palette.focus).fill().render(frame, area, context)
+                framed(Toolkit.panel(title), focused = true).render(frame, area, context)
                 text.scroll(top).render(frame, Rect(inner.x(), inner.y(), width, inner.height()), context)
                 if (overflow) scrollbar(frame, inner, total, context)
             }
         }
         return MarkdownPane().fill().id(id).focusable(focusable)
     }
+
+    /** Whether the pane last rendered over the cell at `x`, `y`. */
+    fun contains(x: Int, y: Int): Boolean = area?.contains(x, y) == true
+
+    /** Whether the cell at `x`, `y` is left of the pane and level with it, where a master-detail screen has its list. */
+    fun besideOnTheLeft(x: Int, y: Int): Boolean =
+        area?.let { pane -> x < pane.x() && y >= pane.y() && y < pane.y() + pane.height() } == true
 
     private fun inner(area: Rect): Rect =
         Rect(area.x() + 1, area.y() + 1, maxOf(1, area.width() - 2), maxOf(1, area.height() - 2))
@@ -186,3 +198,11 @@ internal fun wrap(text: String, width: Int): List<String> {
     }
     return result
 }
+
+/**
+ * A pane's frame. The focused pane's border is thick as well as in the focus color, so it shows without color; the
+ * others are plain and dim.
+ */
+internal fun framed(panel: Panel, focused: Boolean): Panel =
+    panel.borderType(if (focused) BorderType.THICK else BorderType.PLAIN)
+        .borderColor(if (focused) palette.focus else palette.dim).fill()

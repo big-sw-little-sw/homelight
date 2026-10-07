@@ -3,6 +3,8 @@ package io.github.bigswlittlesw.homelight.tui
 import dev.tamboui.markdown.MarkdownStyles
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.tui.event.KeyCode
+import dev.tamboui.tui.event.MouseButton
+import dev.tamboui.tui.event.MouseEvent
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.userGuide
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -66,7 +68,7 @@ class HelpTest {
         val rows = help.lines()
         assertTrue(rows[0].startsWith("⌂ HOMELIGHT  [Help]"), help)
         assertTrue(rows[1].contains(THIS_SCREEN_TAB) && rows[1].contains(GUIDE_TAB), help)
-        assertTrue(rows[2].startsWith("┌$place─"), help)
+        assertTrue(rows[2].startsWith("┏$place━"), help)
         val text = paneText(help)
         assertTrue(text.contains(purpose), help)
         assertTrue(text.contains("$STEP: Configure › Workspace › Review › Apply › Results"), help)
@@ -116,14 +118,14 @@ class HelpTest {
         val thisScreen = ui.screen(80, 24)
         val rows = thisScreen.lines()
         assertTrue(rows[22].startsWith("↑/↓/[/]: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom"), thisScreen)
-        assertEquals("Tab: Other tab · Esc/q: Back to Workspace", rows[23].trimEnd(), thisScreen)
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Workspace", rows[23].trimEnd(), thisScreen)
 
         assertTabBar(ui, open = THIS_SCREEN_TAB, other = GUIDE_TAB)
         ui.press(KeyCode.TAB)
         assertEquals(HELP_GUIDE, ui.focused())
         assertTabBar(ui, open = GUIDE_TAB, other = THIS_SCREEN_TAB)
         val guide = ui.screen(80, 24)
-        assertTrue(guide.lines()[2].startsWith("┌$GUIDE_TAB─"), guide)
+        assertTrue(guide.lines()[2].startsWith("┏$GUIDE_TAB━"), guide)
         assertTrue(paneText(guide).contains("HomeLight frees space in your home directory."), guide)
         ui.press(KeyCode.PAGE_DOWN)
         val paged = ui.screen(80, 24)
@@ -184,24 +186,104 @@ class HelpTest {
         }
     }
 
+    /** ← and → switch Help's tabs, like Tab, and each tab keeps its scroll position. */
+    @Test
+    fun leftAndRightSwitchTabsAndEachKeepsItsScroll() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        ui.press('?')
+        ui.press(KeyCode.DOWN)
+        val thisScreen = ui.screen(80, 24)
+        ui.press(KeyCode.RIGHT)
+        assertEquals(HELP_GUIDE, ui.focused())
+        ui.press(KeyCode.PAGE_DOWN)
+        val guide = ui.screen(80, 24)
+        ui.press(KeyCode.LEFT)
+        assertEquals(HELP_THIS_SCREEN, ui.focused())
+        assertEquals(thisScreen, ui.screen(80, 24))
+        ui.press(KeyCode.LEFT)
+        assertEquals(HELP_GUIDE, ui.focused())
+        assertEquals(guide, ui.screen(80, 24))
+    }
+
     /**
-     * Terminals send wheel and trackpad scrolling as arrow keys while HomeLight does not capture the mouse, so
-     * sideways drift arrives as ←/→. In Help they do nothing: the tab and its scroll position stay.
+     * The mouse is captured for its wheel only. Wheel up and down at both edges of both tabs scroll or do nothing,
+     * and never switch the tab; sideways scrolling, clicks and drags change nothing anywhere on the screen.
      */
     @Test
-    fun leftAndRightKeepTheTabAndItsScroll() {
+    fun theMouseOnlyScrollsAndNeverSwitchesTabs() {
         val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
         ui.press('?')
         for (tab in listOf(HELP_THIS_SCREEN, HELP_GUIDE)) {
-            ui.press(KeyCode.DOWN)
-            val scrolled = ui.screen(80, 24)
-            for (key in listOf(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.RIGHT, KeyCode.LEFT)) {
-                ui.press(key)
-                assertEquals(tab, ui.focused(), "$key")
-                assertEquals(scrolled, ui.screen(80, 24), "$key")
+            val top = ui.screen(80, 24)
+            repeat(3) { ui.press(MouseEvent.scrollUp(20, 10)) }
+            assertEquals(tab, ui.focused())
+            assertEquals(top, ui.screen(80, 24), "already at the top")
+            ui.press(MouseEvent.scrollDown(20, 10))
+            assertEquals(tab, ui.focused())
+            if (tab == HELP_GUIDE) assertNotEquals(top, ui.screen(80, 24), "the wheel scrolls")
+            ui.press(KeyCode.END)
+            val bottom = ui.screen(80, 24)
+            repeat(3) { ui.press(MouseEvent.scrollDown(20, 10)) }
+            assertEquals(tab, ui.focused())
+            assertEquals(bottom, ui.screen(80, 24), "already at the bottom")
+            for (event in listOf(
+                MouseEvent.scrollLeft(20, 10), MouseEvent.scrollRight(20, 10),
+                MouseEvent.press(MouseButton.LEFT, 5, 1), MouseEvent.release(MouseButton.LEFT, 5, 1),
+                MouseEvent.press(MouseButton.LEFT, 20, 10), MouseEvent.drag(MouseButton.LEFT, 30, 12),
+            )) {
+                ui.press(event)
+                assertEquals(tab, ui.focused(), "$event")
+                assertEquals(bottom, ui.screen(80, 24), "$event")
             }
+            ui.press(KeyCode.HOME)
             ui.press(KeyCode.TAB)
         }
+    }
+
+    /** On the Workspace the wheel scrolls Details or moves the list's selection, and clicks never move focus. */
+    @Test
+    fun theWheelScrollsThePaneUnderThePointerOnTheWorkspace() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val start = ui.screen(80, 24)
+        // Over the list (left), the wheel moves the selection; focus stays on the list.
+        ui.press(MouseEvent.scrollDown(5, 7))
+        assertEquals(1, ui.app.selectedIndex())
+        assertEquals(WORKSPACE_LIST, ui.focused())
+        ui.press(MouseEvent.scrollUp(5, 7))
+        assertEquals(0, ui.app.selectedIndex())
+        // Over Details (right), it scrolls Details without focusing them.
+        ui.press(MouseEvent.scrollDown(60, 10))
+        assertEquals(WORKSPACE_LIST, ui.focused())
+        assertNotEquals(start, ui.screen(80, 24))
+        ui.press(MouseEvent.scrollUp(60, 10))
+        assertEquals(start, ui.screen(80, 24))
+        // A click on Details does not focus them; sideways scrolling does nothing.
+        for (event in listOf(MouseEvent.press(MouseButton.LEFT, 60, 10), MouseEvent.release(MouseButton.LEFT, 60, 10),
+            MouseEvent.scrollLeft(60, 10), MouseEvent.scrollRight(5, 7))) {
+            ui.press(event)
+            assertEquals(WORKSPACE_LIST, ui.focused(), "$event")
+            assertEquals(start, ui.screen(80, 24), "$event")
+        }
+    }
+
+    /** The focused pane has a thick border and the others a plain one, so focus shows without color. */
+    @Test
+    fun theFocusedPaneShowsWithoutColor() {
+        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        var rows = ui.screen(80, 24).lines()
+        val top = rows.first { it.contains("Relocations") }
+        assertTrue(top.startsWith("┏Relocations"), top)
+        assertTrue(top.contains("┌Details"), top)
+        ui.press(KeyCode.TAB)
+        rows = ui.screen(80, 24).lines()
+        val after = rows.first { it.contains("Relocations") }
+        assertTrue(after.startsWith("┌Relocations"), after)
+        assertTrue(after.contains("┏Details"), after)
+        // Choosing for the relocation that needs it makes the plan ready to review.
+        ui.press(KeyCode.ENTER)
+        ui.press('a')
+        val review = ui.screen(80, 24).lines().first { it.contains("Plan") }
+        assertTrue(review.startsWith("┏Plan") && review.contains("┌Action details"), review)
     }
 
     @Test
@@ -236,10 +318,10 @@ class HelpTest {
         // At this size This screen fits, so no scroll key is offered.
         val fits = ui.screen(120, 30).lines()
         assertTrue(fits[28].isBlank(), fits.joinToString("\n"))
-        assertEquals("Tab: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", fits[29].trimEnd(), fits.joinToString("\n"))
         val help = ui.screen(100, 60)
         val targetRoot = place(CONFIGURATION_NAME, "Target root")
-        assertTrue(help.lines()[2].startsWith("┌$targetRoot─"), help)
+        assertTrue(help.lines()[2].startsWith("┏$targetRoot━"), help)
         assertTrue(paneText(help).contains(keysOn(targetRoot) + " " + KEYS_LEAD_IN), help)
         assertFalse(paneRows(help).any { it.startsWith("F1 ") }, "Help's own key is left out: $help")
         val esc = paneRows(help).single { it.startsWith("Esc ") }.substringAfter("Esc ").trim()
@@ -264,7 +346,7 @@ class HelpTest {
         val table = setup.screen(80, 24)
         setup.press('?')
         val help = setup.screen(80, 24)
-        assertEquals("Tab: Other tab · Esc/q: Back to Configuration", help.lines()[23].trimEnd(), help)
+        assertEquals("Tab/←/→: Other tab · Esc/q: Back to Configuration", help.lines()[23].trimEnd(), help)
         setup.press('q')
         assertEquals(table, setup.screen(80, 24), "no discard question")
         assertFalse(setup.app.exitRequested())
@@ -363,7 +445,7 @@ class HelpTest {
         .map { it.replace("↑/↓/[/]: Scroll", "↑/↓: Scroll") }.filter { it.isNotEmpty() && it != "[/]: Scroll" }
 
     /** The rows inside the Help pane's border, without the scrollbar. */
-    private fun paneRows(screen: String): List<String> = screen.lines().filter { it.startsWith("│") }
+    private fun paneRows(screen: String): List<String> = lightBorders(screen).lines().filter { it.startsWith("│") }
         .map { row -> row.removePrefix("│").removeSuffix("│").trimEnd('│', '█', ' ') }
 
     /** The Help pane's text with wrapped lines joined, for matching sentences. */

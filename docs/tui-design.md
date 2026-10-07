@@ -68,7 +68,12 @@ Entry points:
   Quit).
 - One app key handler, keyed by the focused id, handles what TamboUI elements
   leave unhandled and always reports the key as handled.
-- No mouse capture, so the terminal's own text selection keeps working.
+- The mouse is captured, for its wheel only. Wheel up and down scroll the pane
+  under the pointer (over a list, they move its selection) and never change
+  focus or a tab; sideways scrolling, clicks, drags and taps do nothing. With
+  capture on, selecting text takes the terminal's bypass modifier: Shift-drag
+  in WezTerm and Ghostty, Option-drag in iTerm2. The guide says so. TamboUI
+  turns capture off when HomeLight exits, on every exit path.
 
 Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
 check again, `q` quit. `2` never starts changes.
@@ -123,7 +128,9 @@ ones.
 ### Layout and glyphs
 
 - Master-detail panes: about 45% list, the rest details. The focused pane has a
-  heavy border in the focus color; others are light and dim.
+  thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
+  and are dim. The border shape shows focus without color. Lists sit in a
+  TamboUI panel, because the list element offers no thick border.
 - `❯` marks the selected row or focused field. A text field shows its cursor.
 - Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
@@ -192,8 +199,7 @@ configuration file: then it opens on Guide, and that Workspace says `New to
 HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
 help.`). From Configuration it opens on This screen, text field or not.
 
-Keys: only Tab switches tabs (not `1`/`2`, and not ←/→, which do nothing in
-Help); ↑/↓, PageUp/PageDown, Home/End and
+Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
 `[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
 `?` and F1 all go back exactly where the user was, with focus and selection
 kept. As in less, man and other help screens, `q` never quits from Help and
@@ -203,7 +209,7 @@ a Configuration draft, the exit-when-finished dialog during an apply. Every
 other key does nothing. An apply keeps running behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`Tab: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
+`Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
 in the This screen pane's title, for example `Back to Configuration`. `?` and
 F1 also go back but are not listed: they are how the reader opened Help. When
 the open tab has nothing to scroll, the first line is empty: every scroll key is
@@ -219,10 +225,8 @@ TamboUI moves focus on Tab before any handler sees it, so the open tab follows
 focus: the open tab's pane has that tab's focus id and the tab bar has the
 other's.
 
-HomeLight does not capture the mouse, so a terminal in its alternate screen
-sends wheel and trackpad scrolling as arrow keys, sideways scrolling as ←/→.
-Help ignores ←/→ so that scrolling never switches tabs; Tab alone is
-predictable.
+The mouse wheel scrolls the open tab and never switches it (see §3 Keys and
+focus).
 
 `homelight guide` prints the same guide as Markdown; `homelight --help` ends
 with its online address.

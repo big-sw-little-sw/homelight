@@ -22,7 +22,7 @@ internal object ApplyView {
      * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
      * offset. A relocation's first step carries the relocation's own line, so the selection is always an action.
      */
-    fun list(): ListElement<Any> = ListElement<Any>().title(REVIEW_LIST_TITLE).id(REVIEW_LIST)
+    fun list(): ListElement<Any> = ListElement<Any>().id(REVIEW_LIST)
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
 
@@ -73,8 +73,9 @@ internal object ApplyView {
                 ).length(2)
             }
         }
-        list.elements(*rows.toTypedArray()).borderColor(if (focused == REVIEW_LIST) palette.focus else palette.dim)
-            .focusable(interactive)
+        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
+        // Framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
+        val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
         val detailLines = if (steps.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
         else details(steps[selected]) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
@@ -124,7 +125,7 @@ internal object ApplyView {
             }
             add(
                 Toolkit.row(
-                    list.percent(45),
+                    listPane.percent(45),
                     viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )

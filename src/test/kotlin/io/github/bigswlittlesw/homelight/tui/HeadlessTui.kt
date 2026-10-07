@@ -7,6 +7,7 @@ import dev.tamboui.toolkit.element.DefaultRenderContext
 import dev.tamboui.toolkit.element.ElementRegistry
 import dev.tamboui.toolkit.event.EventRouter
 import dev.tamboui.toolkit.focus.FocusManager
+import dev.tamboui.tui.event.Event
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
@@ -64,7 +65,8 @@ internal class HeadlessTui(
         }
     }
 
-    fun press(event: KeyEvent) {
+    /** Routes a key or mouse event as the runner does, then renders a frame. */
+    fun press(event: Event) {
         router.route(event)
         frame()
     }
@@ -90,3 +92,19 @@ internal class HeadlessTui(
         }
     }
 }
+
+/**
+ * `text` with the focused pane's thick border drawn light, for tests that read what is inside a pane whichever pane
+ * has focus. A test of the focus cue itself reads the screen as it is.
+ */
+internal fun lightBorders(text: String): String = text.map { c ->
+    when (c) {
+        '┏' -> '┌'
+        '┓' -> '┐'
+        '┗' -> '└'
+        '┛' -> '┘'
+        '━' -> '─'
+        '┃' -> '│'
+        else -> c
+    }
+}.joinToString("")

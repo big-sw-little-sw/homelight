@@ -193,7 +193,8 @@ class WorkspaceViewTest {
             } finally { clear.invoke(null) }
         }
 
-        fun rightPane(screen: String, width: Int): String {
+        fun rightPane(shown: String, width: Int): String {
+            val screen = lightBorders(shown)
             val text = StringBuilder()
             // Kotlin's split keeps the trailing empty row that Java's drops; it has no border, so it is skipped.
             for (row in screen.split("\n")) {

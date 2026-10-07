@@ -65,7 +65,7 @@ class D3PolishTest {
             }
         }
         val viewport = DetailViewport()
-        val screen = WorkspaceViewTest.render(viewport.render("Details", listOf(DetailViewport.Line(path)), true, 0), 14, 8)
+        val screen = lightBorders(WorkspaceViewTest.render(viewport.render("Details", listOf(DetailViewport.Line(path)), true, 0), 14, 8))
         val rows = screen.lines().drop(1).take(6)
         for (row in rows) assertTrue(row.endsWith("│"), screen)
         assertEquals(path, rows.joinToString("") { row -> row.removePrefix("│").removeSuffix("│").trimEnd() }, screen)

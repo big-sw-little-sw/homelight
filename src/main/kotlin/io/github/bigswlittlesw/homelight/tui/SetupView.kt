@@ -219,6 +219,12 @@ internal class SetupView(
         }
     }
 
+    /** The mouse wheel at `x`, `y` scrolls the pane under it; it never moves the field or row focus. */
+    fun wheel(x: Int, y: Int, delta: Int) {
+        if (mode == Mode.CANDIDATES) browser.wheel(x, y, delta)
+        else if (viewport.contains(x, y)) viewport.scroll(delta)
+    }
+
     fun key(key: KeyEvent) {
         if (closed) return
         discovery?.let { draft.accept(it.snapshot()) }

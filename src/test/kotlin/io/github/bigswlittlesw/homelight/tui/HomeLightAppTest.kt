@@ -288,7 +288,7 @@ class HomeLightAppTest {
         val screen = ui.screen(120, 30)
         assertTrue(screen.contains("❯ ○ Link source to target"), screen)
         // A path ends its row, shortened in the middle when it does not fit.
-        for (name in names) assertTrue(Regex("home/$name +│").containsMatchIn(screen), screen)
+        for (name in names) assertTrue(Regex("home/$name +│").containsMatchIn(lightBorders(screen)), screen)
     }
 
     @Test
@@ -417,7 +417,7 @@ class HomeLightAppTest {
         assertEquals(0, ui.app.selectedIndex())
         // The count is in the list's title, where the selection cannot land
         val screen = ui.screen(80, 24)
-        assertTrue(screen.contains("┌Relocations · c: show 2 in sync"), screen)
+        assertTrue(screen.contains("┏Relocations · c: show 2 in sync"), screen)
 
         // Moving down stays at 0 because only 1 active item is visible
         ui.press(KeyCode.DOWN)
@@ -426,7 +426,7 @@ class HomeLightAppTest {
         // Press 'c' to toggle showInSync to true
         ui.press('c')
         assertTrue(ui.app.showInSync)
-        assertTrue(ui.screen(80, 24).contains("┌Relocations · c: hide 2 in sync"))
+        assertTrue(ui.screen(80, 24).contains("┏Relocations · c: hide 2 in sync"))
 
         // Now all 3 items are navigable
         ui.press(KeyCode.DOWN)

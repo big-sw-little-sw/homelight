@@ -259,3 +259,6 @@ Exit codes:
 - `homelight --help` lists the commands and options.
 - `homelight guide` prints this guide, for example to read with
   `homelight guide | less`.
+- To select and copy text while HomeLight runs, hold Shift as you drag
+  (WezTerm, Ghostty) or Option (iTerm2). HomeLight uses the mouse wheel to
+  scroll.

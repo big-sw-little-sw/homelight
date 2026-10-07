@@ -106,6 +106,10 @@ expect {
 pump 1
 send "\t"; set g [pump 1]
 check guide [expr {$g > 0}] $g
+# The mouse is captured: SGR wheel down scrolls the guide; sideways scrolling and a click do nothing.
+send "\033\[<65;20;10M"; set w [pump 0.5]
+check wheel [expr {$w > 0}] $w
+send "\033\[<67;20;10M\033\[<0;5;2M\033\[<0;5;2m"; pump 0.5
 send "?"; pump 1
 
 foreach size {{24 80} {30 120} {50 140}} {

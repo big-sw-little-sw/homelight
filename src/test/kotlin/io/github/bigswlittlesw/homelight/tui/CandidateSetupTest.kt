@@ -45,7 +45,7 @@ class CandidateSetupTest {
             val height = if (width == 80) 24 else 30
             val details = ui.screen(width, height)
             assertTrue(details.contains("❯ Both exist: Delete both, start empty"), details)
-            val text = details.replace(Regex("[│█\\s]"), "")
+            val text = lightBorders(details).replace(Regex("[│█\\s]"), "")
             assertTrue(text.contains("Permanentlydeletebothsourceandtargetdirectorytrees.Createanemptytargetdirectoryandlinkthesourcetoit."), details)
             assertFalse(details.contains("Discard target") || details.contains("relocate source"), details)
             escape(ui)
@@ -393,7 +393,7 @@ class CandidateSetupTest {
             WorkspaceViewTest.render(browser.render(draft), 80, 24)
             browser.key(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
             val text = WorkspaceViewTest.render(browser.render(draft), 200, 30)
-            val line = text.lines().first { it.contains("Saved rules: ") }
+            val line = lightBorders(text).lines().first { it.contains("Saved rules: ") }
                 .substringAfter("Saved rules: ").substringBefore('│').trimEnd()
             assertEquals(expected, line, text)
             val shown = line.split(" · ").map { part -> part.substringAfter(": ") }
@@ -502,7 +502,7 @@ class CandidateSetupTest {
             repeat(80) { key(ui, '[') }
             // Kotlin's lines() adds a trailing empty line, which the border filter drops. The trimEnd is Java's
             // stripTrailing, which Kotlin hides.
-            return screens.joinToString("\n") + screens.flatMap { it.lines() }
+            return screens.joinToString("\n") + screens.flatMap { lightBorders(it).lines() }
                 .filter { line -> line.startsWith("│") }.map { line -> line.substring(1).replace("│", "").replace("█", "").trimEnd { Character.isWhitespace(it) } }
                 .joinToString("")
         }
