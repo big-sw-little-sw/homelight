@@ -6,7 +6,8 @@
 # smoke: --version and plan --json on a small fixture.
 # cli:   smoke, then the compare.sh suite diffed against the JVM transcript from build.sh.
 # full:  cli, then the TUI under expect for each TERM in $TUI_TERMS, Ctrl-C quitting cleanly,
-#        TERM=dumb refused with exit 2, and Configuration finding a bundled candidate in Browse (setup.exp).
+#        TERM=dumb refused with exit 2, Configuration finding a bundled candidate in Browse (setup.exp),
+#        and --debug-step-delay-ms slowing a TUI apply from either side of the command name (delay.exp).
 #        Needs expect and the terminfo entries for those TERMs (ncurses-term on Debian and Fedora).
 #
 # Logs go to results-dir (default: a new temporary directory). Every command gets an explicit
@@ -93,4 +94,28 @@ if [ $? -eq 0 ] && [ ! -e "$fx/new.json" ]; then
 else
   fail "TUI Configuration: $line"
 fi
+# The hidden --debug-step-delay-ms holds each apply step, before or after the command name. Without it,
+# the same apply finishes well inside one delay.
+delay=1000
+for placement in none before after; do
+  fx=$results/delay-$placement
+  mkdir -p "$fx/home/a" "$fx/local"
+  echo a > "$fx/home/a/f"
+  printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
+    "$fx" "$fx" "$fx" > "$fx/config.json"
+  case $placement in
+    none)   args=(-c "$fx/config.json" apply) ;;
+    before) args=(--debug-step-delay-ms $delay -c "$fx/config.json" apply) ;;
+    after)  args=(-c "$fx/config.json" apply --debug-step-delay-ms $delay) ;;
+  esac
+  line=$(TERM=xterm-256color expect "$here/delay.exp" "$results/delay-$placement.log" "$fx/home/a" "$binary" "${args[@]}")
+  status=$?
+  ms=${line#applied=}
+  if [ $status -eq 0 ] && { { [ $placement = none ] && [ "$ms" -lt $delay ]; } ||
+      { [ $placement != none ] && [ "$ms" -ge $delay ]; }; }; then
+    pass "TUI apply, delay $placement: $line"
+  else
+    fail "TUI apply, delay $placement: $line"
+  fi
+done
 exit $failed

@@ -104,6 +104,16 @@ step missing-key -c "$R/missing-key.json" plan --json
 step suggestion-list -c "$R/suggestion-list.json" status --json
 step old-discovery -c "$R/old-discovery.json" plan --json
 step relative-path -c "$R/relative-path.json" plan --json
+# --config and the hidden --debug-step-delay-ms work on either side of the command name.
+step config-after status --json --config "$R/config.json"
+step config-after-plan plan --json -c "$R/nope.json"
+step config-after-apply apply --json --yes -c "$R/conflict.json"
+step config-after-init init -c "$R/malformed.json"
+step config-both-sides -c "$R/malformed.json" status --json -c "$R/config.json"
+step delay-before --debug-step-delay-ms 5 -c "$R/config.json" status --json
+step delay-after -c "$R/config.json" status --json --debug-step-delay-ms 5
+step bad-delay-after status --json --debug-step-delay-ms -1
+step bad-delay-text --debug-step-delay-ms abc status --json
 step status-json -c "$R/config.json" status --json
 step plan-json -c "$R/config.json" plan --json
 step plan-override -c "$R/config.json" plan --json --source-path "$R/home/other" --target-path "$R/local/other"
