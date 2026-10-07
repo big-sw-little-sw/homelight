@@ -95,13 +95,13 @@ class CliOptionCoverageTest {
             for (option in listOf("--help", "-h")) {
                 add(Case("root $option", listOf(option), Expect(0, out = "Usage: homelight", hidden = true)))
             }
-            for (command in commands - "guide") {
-                // Known bug on picocli: subcommands have no --help ("Unknown option: '--help'", exit 2), because the
-                // standard help options are not inherited.
-                add(Case("$command --help", listOf(command, "--help"), Expect(2, err = "Unknown option: '--help'",
+            for (command in commands) {
+                // `config` is an alias, so its help names `init`.
+                val name = if (command == "config") "init" else command
+                add(Case("$command --help", listOf(command, "--help"), Expect(0, out = "Usage: homelight $name",
                     hidden = true)))
             }
-            add(Case("guide --help", listOf("guide", "--help"), Expect(2, err = "Unknown option: '--help'", hidden = true)))
+            add(Case("status -h", listOf("status", "-h"), Expect(0, out = "Usage: homelight status", hidden = true)))
             for (option in listOf("--version", "-V")) {
                 add(Case("root $option", listOf(option), Expect(0, out = "homelight ${resolveVersion()}")))
             }

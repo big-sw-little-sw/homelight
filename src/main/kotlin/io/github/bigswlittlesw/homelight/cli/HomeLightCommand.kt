@@ -9,6 +9,7 @@ import io.github.bigswlittlesw.homelight.tui.launchTui
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
+import picocli.CommandLine.Model.OptionSpec
 import picocli.CommandLine.Option
 import picocli.CommandLine.ParameterException
 import picocli.CommandLine.ParseResult
@@ -59,6 +60,12 @@ class HomeLightCommand : Callable<Int> {
             // Set here, not in @Command: the address depends on the version. It has a line of its own, so picocli's
             // wrapping at 80 columns never splits it.
             .also { it.commandSpec.usageMessage().footer("", "User guide: run homelight guide, or read it online:", guideUrl()) }
+            .also { root -> root.subcommands.values.toSet().forEach { it.commandSpec.addOption(helpOption()) } }
+
+        // mixinStandardHelpOptions is not inherited, and on a subcommand it would add -V too: --version belongs to
+        // the root alone. Built here rather than annotated, so it needs no reflection metadata.
+        private fun helpOption(): OptionSpec = OptionSpec.builder("-h", "--help")
+            .usageHelp(true).description("Show this help message and exit.").build()
     }
 }
 
