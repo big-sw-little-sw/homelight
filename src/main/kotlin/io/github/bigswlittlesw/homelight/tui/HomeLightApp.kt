@@ -58,8 +58,8 @@ internal class HomeLightApp(
     internal var activeScreen = Screen.WORKSPACE
         private set
     private val workspaceList = WorkspaceView.list()
-    // Keys the tree does not move its selection with come straight here, before TamboUI's expand and collapse.
-    private val reviewTree = ApplyView.tree { key -> keyHandler.handle(key) }
+    // Keys the list does not move its selection with come straight here.
+    private val reviewList = ApplyView.list { key -> keyHandler.handle(key) }
     private var reviewedSource: Path? = null
     var detailSelectedIndex = 0
         private set
@@ -225,7 +225,8 @@ internal class HomeLightApp(
             editor != null -> editor?.wheel(x, y, delta)
             activeScreen == Screen.APPLY -> when {
                 reviewDetails.contains(x, y) -> reviewDetails.scroll(delta)
-                reviewDetails.besideOnTheLeft(x, y) -> if (delta < 0) reviewTree.selectPrevious() else reviewTree.selectNext()
+                reviewDetails.besideOnTheLeft(x, y) ->
+                    moveSelection(reviewList, ApplyView.rows(ApplyView.steps(session.applyModel())).size, delta)
             }
             workspaceDetails.contains(x, y) -> workspaceDetails.scroll(delta)
             workspaceDetails.besideOnTheLeft(x, y) -> moveSelection(workspaceList, visibleItems().size, delta)
@@ -258,14 +259,14 @@ internal class HomeLightApp(
         val model = session.applyModel()
         if (model is ApplyModel.Result && model !== shownResult) {
             shownResult = model
-            finishedSelection(ApplyView.rows(model.steps))?.let(reviewTree::selected)
+            finishedSelection(ApplyView.rows(model.steps))?.let(reviewList::selected)
         }
-        if (reviewTree.selected() != detailsRow) {
-            detailsRow = reviewTree.selected()
+        if (reviewList.selected() != detailsRow) {
+            detailsRow = reviewList.selected()
             reviewDetails.reset()
         }
         return ApplyView.render(
-            session.configPath, model, reviewTree, spinnerFrame++, focus.focusedId(), interactive, reviewDetails,
+            session.configPath, model, reviewList, spinnerFrame++, focus.focusedId(), interactive, reviewDetails,
             quitting = exitIntent == ExitIntent.AFTER_EXECUTION,
         )
     }
@@ -422,7 +423,7 @@ internal class HomeLightApp(
             selectedPlanItem()?.let { reviewedSource = it.relocation.sourcePath }
             workspaceFocus = focus.focusedId()
             if (session.applyModel() is ApplyModel.Confirmation) {
-                reviewTree.selected(0)
+                reviewList.selected(0)
                 reviewDetails.reset()
             }
             focus.setFocus(REVIEW_LIST)
@@ -496,7 +497,7 @@ internal class HomeLightApp(
 
     // Read only by tests.
     internal fun selectedIndex(): Int =
-        if (activeScreen == Screen.APPLY) reviewTree.selected() else workspaceSelection(visibleItems())
+        if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(visibleItems())
 }
 
 /**

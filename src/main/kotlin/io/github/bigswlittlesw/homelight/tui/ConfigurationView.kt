@@ -54,7 +54,7 @@ internal class ConfigurationView private constructor(
     private val session: HomeLightSession,
     private val focus: FocusManager,
     private val discoveryFactory: () -> CandidateDiscovery,
-    /** The app's key handler, which Browse's tree passes every key to (see [CandidateBrowser]). */
+    /** The app's key handler, which Browse's list passes every key to (see [CandidateBrowser]). */
     keys: KeyEventHandler,
     /** The file as opened. A new file starts from an empty draft, so typing into it counts as a change. */
     private val loaded: HomeLightFile,
