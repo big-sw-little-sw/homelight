@@ -23,7 +23,6 @@ import io.github.bigswlittlesw.homelight.config.ConfigurationChangedException
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
-import io.github.bigswlittlesw.homelight.config.DiscoveryFile
 import io.github.bigswlittlesw.homelight.config.HomeLightFile
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.RelocationFile
@@ -63,7 +62,7 @@ internal class ConfigurationView private constructor(
     private enum class Field(val id: String, val label: String, val text: Boolean, val placeholder: String = "") {
         SOURCE_ROOT("config-source-root", SOURCE_ROOT_LABEL, true),
         TARGET_ROOT("config-target-root", TARGET_ROOT_LABEL, true),
-        SUGGESTION_LIST("config-suggestion-list", SUGGESTION_LIST_LABEL, true),
+        SUGGESTION_LIST("config-suggestion-list", SUGGESTION_LIST_NAME, true, OPTIONAL_PLACEHOLDER),
         SOURCE("config-source", SOURCE_LABEL, true),
         TARGET("config-target", TARGET_LABEL, true, TARGET_PLACEHOLDER),
         BOTH_EXIST("config-both-exist", BOTH_EXIST_LABEL, false),
@@ -83,6 +82,7 @@ internal class ConfigurationView private constructor(
     // The text inputs hold the fields of one list row. The draft takes their text before anything reads it (pull).
     private val inputs: Map<Field, TextInputState> = Field.entries.filter { it.text }.associateWith { TextInputState() }
     private var shownRow = -1
+    private var focusedLastFrame: String? = null
     private var question: Question? = null
     private var focusBeforeQuestion: String? = null
     private var message = ""
@@ -124,7 +124,7 @@ internal class ConfigurationView private constructor(
         val content = buildList {
             add(header)
             add(wrappedText(configurationStatus(session.configPath, loadedBytes != null, unsaved()), palette.dim))
-            add(Toolkit.row(listPane.percent(40), fieldsPane(row, focused, interactive)).fill())
+            add(Toolkit.row(listPane.percent(35), fieldsPane(row, focused, interactive)).fill())
             if (message.isNotEmpty()) add(wrappedText(message, palette.warn))
             add(helpArea.help(screenHelp(focused), interactive))
         }
@@ -132,17 +132,24 @@ internal class ConfigurationView private constructor(
     }
 
     /**
-     * The selected item's fields, two rows each, and under them Details: the focused field's help, then the
-     * Resolved section. Details takes the rest of the height and scrolls, so long paths never push a field away.
+     * The selected item's fields, one row each with the label in a fixed column beside the value, and under them
+     * Details: the focused field's help, then the Resolved section. Details takes the rest of the height and scrolls,
+     * so long paths never push a field away, and it always shows a field's whole value, which the field itself
+     * scrolls sideways while typing.
      */
     private fun fieldsPane(row: Int, focused: String?, interactive: Boolean): Element {
         val title = if (row == 0) STORAGE_LOCATIONS else name(relocation(row))
         val fields = fields(row)
-        val elements = fields.flatMap { field ->
+        val elements = fields.map { field ->
             val isFocused = focused == field.id
+            // TamboUI's text input keeps the cursor in view by scrolling to it. Off focus the cursor goes to the
+            // start, so a long value shows its beginning; on focus it goes to the end, ready to type.
+            inputs[field]?.let { input -> if (isFocused && field.id != focusedLastFrame) input.moveCursorToEnd() else if (!isFocused) input.moveCursorToStart() }
             val label = Toolkit.text((if (isFocused) "❯ " else "  ") + field.label).fg(if (isFocused) palette.focus else palette.text)
-            listOf(if (isFocused) label.bold() else label, Toolkit.row(Toolkit.text("  ").length(2), value(field, row, interactive)))
+                .length(LABEL_WIDTH)
+            Toolkit.row(if (isFocused) label.bold() else label, value(field, row, interactive))
         }
+        focusedLastFrame = focused
         val help = fields.firstOrNull { it.id == focused }?.let { field ->
             listOfNotNull(
                 Line(fieldHelp(field), palette.dim),
@@ -150,6 +157,8 @@ internal class ConfigurationView private constructor(
                     field == Field.BOTH_EXIST &&
                         relocation(row).whenSourceAndTargetDirectoriesExist == WhenSourceAndTargetDirectoriesExist.DISCARD
                 },
+                // In a text field `s` types, so saving is a step away.
+                Line(SAVE_FROM_TEXT_FIELD, palette.dim).takeIf { field.text },
                 Line(""),
             )
         }.orEmpty()
@@ -162,7 +171,7 @@ internal class ConfigurationView private constructor(
         }
         return Toolkit.column(
             framed(Toolkit.panel(title, Toolkit.column(*elements.toTypedArray())), fields.any { it.id == focused })
-                .length(elements.size + 2),
+                .length(fields.size + 2),
             detailsArea.render(DETAILS_NAME, help + Line(RESOLVED, palette.text, true) + resolved, focused = false, choiceLine = 0),
         ).fill()
     }
@@ -331,10 +340,12 @@ internal class ConfigurationView private constructor(
         val next = when (field) {
             Field.BOTH_EXIST -> {
                 val (both, adopting) = BOTH_EXIST_CHOICES[(bothExistIndex(relocation) + delta).mod(BOTH_EXIST_CHOICES.size)]
-                // Leaving the target's rule for one that does not keep the target keeps the source's rule as it was.
+                // A value that does not keep the target leaves the source's rule meaningless, so it goes back to what
+                // the file had: choosing the loaded value again is then no change.
+                val loadedAdopting = origins[row - 1]?.let { loaded.relocations[it].whenAdoptingTarget } ?: WhenAdoptingTarget.PROMPT
                 relocation.copy(
                     whenSourceAndTargetDirectoriesExist = both,
-                    whenAdoptingTarget = if (both == WhenSourceAndTargetDirectoriesExist.ADOPT) adopting else relocation.whenAdoptingTarget,
+                    whenAdoptingTarget = if (both == WhenSourceAndTargetDirectoriesExist.ADOPT) adopting else loadedAdopting,
                 )
             }
             Field.ONLY_TARGET -> {
@@ -490,7 +501,7 @@ internal class ConfigurationView private constructor(
     private fun text(field: Field, row: Int): String = when (field) {
         Field.SOURCE_ROOT -> draft.sourceRoot
         Field.TARGET_ROOT -> draft.targetRoot
-        Field.SUGGESTION_LIST -> draft.discovery?.suggestionList.orEmpty()
+        Field.SUGGESTION_LIST -> draft.suggestionList.orEmpty()
         Field.SOURCE -> relocation(row).sourcePath
         Field.TARGET -> relocation(row).targetPath.orEmpty()
         Field.ARCHIVE_ROOT -> relocation(row).archiveRoot.orEmpty()
@@ -504,7 +515,7 @@ internal class ConfigurationView private constructor(
         return when (field) {
             Field.SOURCE_ROOT -> draft.copy(sourceRoot = value)
             Field.TARGET_ROOT -> draft.copy(targetRoot = value)
-            Field.SUGGESTION_LIST -> draft.copy(discovery = value.ifEmpty { null }?.let(::DiscoveryFile))
+            Field.SUGGESTION_LIST -> draft.copy(suggestionList = value.ifEmpty { null })
             Field.SOURCE -> edited { it.copy(sourcePath = value) }
             Field.TARGET -> edited { it.copy(targetPath = value.ifEmpty { null }) }
             Field.ARCHIVE_ROOT -> edited { it.copy(archiveRoot = value.ifEmpty { null }) }
@@ -526,7 +537,7 @@ internal class ConfigurationView private constructor(
      */
     private fun unsaved(): Int {
         val locations = listOf(
-            draft.sourceRoot != loaded.sourceRoot, draft.targetRoot != loaded.targetRoot, draft.discovery != loaded.discovery,
+            draft.sourceRoot != loaded.sourceRoot, draft.targetRoot != loaded.targetRoot, draft.suggestionList != loaded.suggestionList,
         ).count { it }
         val kept = origins.withIndex().filter { it.value != null }
         val edited = kept.count { (i, origin) -> draft.relocations[i] != loaded.relocations[checkNotNull(origin)] }
@@ -545,7 +556,7 @@ internal class ConfigurationView private constructor(
     }
 
     private fun suggestionList(): Resolved {
-        val value = draft.discovery?.suggestionList?.takeUnless { it.isBlank() } ?: return Resolved.Empty(NO_SUGGESTION_LIST)
+        val value = draft.suggestionList?.takeUnless { it.isBlank() } ?: return Resolved.Empty(NO_SUGGESTION_LIST)
         return try {
             // Not blank, so there is a path.
             Resolved.Found(checkNotNull(parseSharedList(value)))
@@ -610,7 +621,7 @@ private fun name(relocation: RelocationFile): String = literal(relocation.source
 
 /**
  * The **Both exist** values in screen order. The file keeps them in two fields; a value that does not keep the
- * target leaves the source's field as it is, so its second half is ignored.
+ * target sets the source's field back to the file's value (see [ConfigurationView.key]), so its second half is ignored.
  */
 private val BOTH_EXIST_CHOICES = listOf(
     WhenSourceAndTargetDirectoriesExist.PROMPT to WhenAdoptingTarget.PROMPT,
@@ -641,3 +652,6 @@ private fun choice(options: List<String>, index: Int, id: String, focusable: Boo
 }
 
 private fun clears(key: KeyEvent): Boolean = key.isChar('\u0015') || key.hasCtrl() && key.isCharIgnoreCase('u')
+
+/** The label column: the pointer, the longest label (`Suggestion list`) and one space before the value. */
+private const val LABEL_WIDTH = 18

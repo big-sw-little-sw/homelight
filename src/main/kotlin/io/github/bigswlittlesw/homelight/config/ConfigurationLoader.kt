@@ -71,15 +71,15 @@ class ConfigurationLoader {
             relocation(fields, "homelight.relocations[$i]", sourceRoot, targetRoot, stagingRoot, if (i == 0) override else null)
         }.ifEmpty {
             listOfNotNull(override?.let {
-                Relocation(expand(it.sourcePath.toString()), expand(it.targetPath.toString()), stagingRoot = stagingRoot)
+                Relocation(overridden(it.sourcePath), overridden(it.targetPath), stagingRoot = stagingRoot)
             })
         }
         aliasedRelocationProblem(relocations)?.let { problem -> throw ConfigurationException(problem.message) }
         val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
             resolvePath(value, "homelight.ignored-source-paths[$i]")
         }
-        val sharedList = homelight.discovery?.suggestionList?.let { value ->
-            convert("homelight.discovery.suggestion-list") { parseSharedList(value) }
+        val sharedList = homelight.suggestionList?.let { value ->
+            convert("homelight.suggestion-list") { parseSharedList(value) }
         }
         return HomeLightConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
@@ -88,8 +88,8 @@ class ConfigurationLoader {
         fields: RelocationFile, key: String, sourceRoot: Path, targetRoot: Path, stagingRoot: Path?,
         override: PathOverride?,
     ): Relocation {
-        val sourcePath = override?.let { expand(it.sourcePath.toString()) } ?: resolvePath(fields.sourcePath, "$key.source-path")
-        val targetPath = override?.let { expand(it.targetPath.toString()) }
+        val sourcePath = override?.let { overridden(it.sourcePath) } ?: resolvePath(fields.sourcePath, "$key.source-path")
+        val targetPath = override?.let { overridden(it.targetPath) }
             ?: fields.targetPath?.let { resolvePath(it, "$key.target-path") }
             ?: derivedTarget(sourceRoot, targetRoot, sourcePath)
             ?: throw ConfigurationException(
@@ -108,13 +108,17 @@ class ConfigurationLoader {
 }
 
 /**
- * A path from the file, named `name` in any error. A blank one is rejected, as it would expand to the working
- * directory. Configuration resolves its fields with this too, naming them as its screen does.
+ * A path from the file, named `name` in any error. It must be absolute, or start with `~/` (or be `~`), after
+ * `${USER}` is filled in: a relative path would depend on the directory HomeLight happens to run in. Configuration
+ * resolves its fields with this too, naming them as its screen does.
  */
 internal fun resolvePath(value: String, name: String): Path {
     if (value.isJavaBlank()) throw ConfigurationException("$name must not be blank")
-    return convert(name) { expand(value) }
+    return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
 }
+
+/** The one error for a relative path, wherever a path is set. */
+internal const val FULL_PATH = "Use a full path, or one starting with ~/"
 
 /** A missing target: the source's path under the source root, placed under the target root; null outside it. */
 internal fun derivedTarget(sourceRoot: Path, targetRoot: Path, sourcePath: Path): Path? =
@@ -138,8 +142,11 @@ private fun expand(value: String): Path {
         substituted.startsWith("~/") -> System.getProperty("user.home") + substituted.substring(1)
         else -> substituted
     }
-    return Path.of(expanded).toAbsolutePath().normalize()
+    return Path.of(expanded)
 }
+
+/** A command-line override: unlike the file, it may be relative to where the command runs. */
+private fun overridden(path: Path): Path = expand(path.toString()).toAbsolutePath().normalize()
 
 /** A configuration file as read: its contents, and its bytes for [ConfigurationPublisher.replace]. */
 internal class LoadedFile(val file: HomeLightFile, val bytes: ByteArray)
@@ -163,15 +170,11 @@ internal data class HomeLightFile(
     @SerialName("source-root") val sourceRoot: String = DEFAULT_SOURCE_ROOT,
     @SerialName("target-root") val targetRoot: String,
     @SerialName("staging-root") val stagingRoot: String? = null,
-    val discovery: DiscoveryFile? = null,
+    /** A blank one means none; see [parseSharedList]. */
+    @SerialName("suggestion-list") val suggestionList: String? = null,
     val relocations: List<RelocationFile> = listOf(),
     @SerialName("ignored-source-paths") val ignoredSourcePaths: List<String> = listOf(),
 )
-
-/** A blank `suggestion-list` means none; see [parseSharedList]. */
-@Serializable
-@SerialName("discovery")
-internal data class DiscoveryFile(@SerialName("suggestion-list") val suggestionList: String? = null)
 
 @Serializable
 @SerialName("relocation")

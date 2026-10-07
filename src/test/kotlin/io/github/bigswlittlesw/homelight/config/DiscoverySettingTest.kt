@@ -63,8 +63,8 @@ class DiscoverySettingTest {
         ConfigurationPublisher().saveNew(path, file)
         assertNull(ConfigurationLoader().load(path).sharedList)
         val text = Files.readString(path)
-        assertFalse(text.contains("\"discovery\""))
-        Files.writeString(path, text.replace("\"relocations\":", "\"discovery\": {\"suggestion-list\": \"   \"}, \"relocations\":"))
+        assertFalse(text.contains("suggestion-list"))
+        Files.writeString(path, text.replace("\"relocations\":", "\"suggestion-list\": \"   \", \"relocations\":"))
         assertNull(ConfigurationLoader().load(path).sharedList)
         assertThrows<IllegalArgumentException> {
             ConfigurationPublisher().saveNew(temporary.resolve("setting-only.json"), file(path))
@@ -89,7 +89,7 @@ class DiscoverySettingTest {
     /** A configuration with the suggestion list at `list` and one relocation per name, from `home` to `target`. */
     private fun file(list: Path?, vararg names: String) = HomeLightFile(
         targetRoot = temporary.resolve("target").toString(),
-        discovery = list?.let { DiscoveryFile(it.toString()) },
+        suggestionList = list?.toString(),
         relocations = names.map { RelocationFile(temporary.resolve("home/$it").toString(), temporary.resolve("target/$it").toString()) },
     )
 

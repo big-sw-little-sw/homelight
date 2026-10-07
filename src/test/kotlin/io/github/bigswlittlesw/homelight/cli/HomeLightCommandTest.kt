@@ -67,7 +67,7 @@ class HomeLightCommandTest {
                 {"source-path": "$source", "target-path": "$local/cache", "existing": "move"}]}}""",
             "bad-enum.json" to """{"homelight": {"target-root": "$local", "relocations": [
                 {"source-path": "$source", "target-path": "$local/cache", "when-only-target-exists": "sometimes"}]}}""",
-            "relative-suggestion-list.json" to """{"homelight": {"target-root": "$local", "discovery": {"suggestion-list": "x.json"}}}""",
+            "relative-suggestion-list.json" to """{"homelight": {"target-root": "$local", "suggestion-list": "x.json"}}""",
             "nul-source-root.json" to """{"homelight": {"source-root": "/a\u0000b", "target-root": "$local"}}""",
         )
         for ((name, content) in configs) {

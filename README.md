@@ -65,7 +65,7 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
 {
   "homelight": {
     "target-root": "/local/home/${USER}",
-    "discovery": {"suggestion-list": "/net/team/homelight/candidates.json"},
+    "suggestion-list": "/net/team/homelight/candidates.json",
     "relocations": [
       // Target defaults to target-root plus the path under source-root.
       {"source-path": "~/.m2"},

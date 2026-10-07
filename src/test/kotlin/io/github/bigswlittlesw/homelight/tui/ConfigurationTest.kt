@@ -294,6 +294,41 @@ class ConfigurationTest {
         assertFalse(Files.exists(config))
     }
 
+    /** A choice changed and changed back is no change, on both choice fields, whatever the file's other rule says. */
+    @Test fun choicesChangedBackAreNoChange() {
+        val root = fixture()
+        val config = Files.writeString(
+            root.resolve("rules.json"),
+            """
+            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}", "relocations": [
+              {"source-path": "${root.resolve("home/team-cache")}", "when-source-and-target-directories-exist": "leave-unchanged",
+               "when-adopting-target": "archive-source"}]}}
+            """.trimIndent(),
+        )
+        val ui = HeadlessTui(HomeLightSession(config))
+        ui.press('e')
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.ENTER)
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.DOWN)
+        // Both exist has six values and Only target two, so every step short of a full turn is a change.
+        for ((field, turn) in listOf("config-both-exist" to 6, "config-only-target" to 2)) {
+            assertEquals(field, ui.focused())
+            for (steps in 1 until turn) {
+                repeat(steps) { ui.press(KeyCode.RIGHT) }
+                assertTrue(ui.screen(240, 50).contains("existing file · 1 unsaved change "), "$field $steps: " + ui.screen(240, 50))
+                repeat(steps) { ui.press(KeyCode.LEFT) }
+                assertTrue(ui.screen(240, 50).contains("no unsaved changes"), "$field $steps: " + ui.screen(240, 50))
+            }
+            ui.press(KeyCode.DOWN)
+        }
+        // Both changed counts the relocation once.
+        ui.press(KeyCode.RIGHT)
+        ui.press(KeyCode.UP)
+        ui.press(KeyCode.RIGHT)
+        assertTrue(ui.screen(240, 50).contains("1 unsaved change "), ui.screen(240, 50))
+    }
+
     /** Each saved rule shows as its label, never as its value in the file. */
     @Test fun rulesShowTheirLabelsAndNoRawValues() {
         val root = fixture()

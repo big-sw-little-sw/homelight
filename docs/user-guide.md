@@ -39,7 +39,8 @@ Configure → Workspace → Review → Apply → Results
 1. **Configure.** Run `homelight`. The first time, there is no configuration
    file yet: press `i` to open **Configuration**. Type where storage is in
    **Target root**, then add the directories to move: press `a` and type
-   one in, or press `b` to browse suggestions. Press `s` to save. Saving
+   one in, or press `b` to browse suggestions. Paths are full, such as
+   `/data/me`, or start with `~/`. Press `Esc`, then `s` to save. Saving
    writes the configuration file and nothing else.
 2. **Check the plan on the Workspace (`1`).** Each directory you added is a
    *relocation*. The Workspace shows what is there now and what HomeLight
@@ -63,7 +64,8 @@ Press `e` on the Workspace to open Configuration, change it, and press `s`.
 HomeLight checks again and shows the new plan.
 
 - Select **Storage locations** or a relocation in the list on the left, and
-  press `Enter` to change its fields. `Esc` goes back to the list.
+  press `Enter` to change its fields. `Esc` goes back to the list. In a
+  field every letter types, so press `Esc` before `s`.
 - `a` adds a relocation and `d` removes the selected one. Nothing changes in
   the file until you press `s`.
 - Saving asks first, because it replaces the whole file. Comments in the
@@ -148,10 +150,10 @@ To use a list, enter its path in Configuration's **Suggestion list** field,
 or add it to the configuration file:
 
 ```json
-"discovery": {"suggestion-list": "/net/team/homelight/suggestions.json"}
+"suggestion-list": "/net/team/homelight/suggestions.json"
 ```
 
-The path must be absolute or start with `~/`. Each person keeps their own
+The path must be full or start with `~/`. Each person keeps their own
 configuration file; only the list is shared. After someone changes the list,
 press `r` in Browse to read it again.
 

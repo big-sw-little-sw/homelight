@@ -154,7 +154,7 @@ focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
 ### Choices and fields
 
 - Every choice among fixed values is a TamboUI `Select`: `‹ Keep target, archive
-  source ›`, ←/→ to change. At 80 columns the label sits above the value.
+  source ›`, ←/→ to change. Labels sit beside their fields, in a fixed column.
 - Text fields are TamboUI text inputs: ←/→, Home/End, Backspace, Delete, Ctrl-U
   clears. `[` and `]` type normally.
 
@@ -353,17 +353,24 @@ show (such as `ignored-source-paths`) are kept.
   relocation by source as written (`~/.m2`). `a` adds a row with the source
   root filled in and focuses its Source; `d` removes the selected row; `b`
   opens Browse; Enter, → or Tab move to the fields.
-- Right, top: the selected item's fields, label above value. Text fields are
-  TamboUI text inputs; Both exist and Only target are TamboUI `Select`s
-  (`‹ Ask each time ›`, ←/→ change). ↑/↓ move between fields, Esc goes back to
-  the list.
-- Right, bottom: **Details**, the focused field's help, then a **Resolved**
-  section with each path as the loader reads it (absolute, updated as you
-  type), or why it cannot. It scrolls with the wheel, so long paths never push
-  a field away.
+- Right, top: the selected item's fields, one row each, the label in an
+  18-cell column beside the value (at 80x24 a field is 32 cells wide). Text
+  fields are TamboUI text inputs; Both exist and Only target are TamboUI
+  `Select`s (`‹ Ask each time ›`, ←/→ change). ↑/↓ move between fields, Esc
+  goes back to the list. A value longer than its field scrolls sideways while
+  typing, to keep the cursor in view, and shows its start again once the field
+  loses focus.
+- Right, bottom: **Details**, the focused field's help (in a text field also
+  `Esc, then s to save.`), then a **Resolved** section with each path as the
+  loader reads it (absolute, updated as you type), or why it cannot. It always
+  shows a field's whole value, and scrolls with the wheel, so long paths never
+  push a field away.
+- Every path must be full or start with `~/`; anything else reads `Use a full
+  path, or one starting with ~/`.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Suggestion list (optional)** with help "A file of directories to suggest, for
-  example one shared across machines. Built-in suggestions are always included."
+  **Suggestion list** (placeholder `optional`) with help "A file of directories
+  to suggest, for example one shared across machines. Built-in suggestions are
+  always included."
 - Relocation fields: **Source**, **Target** (blank derives it from the target
   root; a source outside the source root needs one), **Both exist**, **Only
   target**, **Archive root** (blank means the default beside the source).

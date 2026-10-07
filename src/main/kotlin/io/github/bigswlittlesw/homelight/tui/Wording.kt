@@ -160,8 +160,10 @@ internal const val CONFIGURATION_LIST_TITLE = "Storage and relocations"
 internal const val STORAGE_LOCATIONS = "Storage locations"
 internal const val NEW_RELOCATION = "New relocation"
 internal const val RESOLVED = "Resolved"
-internal const val TARGET_PLACEHOLDER = "blank: same place under the target root"
+internal const val TARGET_PLACEHOLDER = "blank: under the target root"
 internal const val ARCHIVE_PLACEHOLDER = "blank: beside the source"
+internal const val OPTIONAL_PLACEHOLDER = "optional"
+internal const val SAVE_FROM_TEXT_FIELD = "Esc, then s to save."
 internal const val NO_SUGGESTION_LIST = "none; Browse uses the built-in list"
 internal const val NEEDS_SOURCE = "waits for a valid Source"
 internal const val NEEDS_ROOTS = "waits for valid storage locations"
@@ -172,7 +174,7 @@ internal fun resolvedLine(label: String, value: String) = "$label: $value"
 internal const val SOURCE_ROOT_HELP =
     "The folder your sources are usually in, normally your home folder. A relocation with no Target keeps its " +
         "place under this folder, inside the target root."
-internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use an absolute path or ~/path."
+internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use a full path, or one starting with ~/."
 internal const val SUGGESTION_LIST_HELP =
     "A file of directories to suggest, for example one shared across machines. Built-in suggestions are always " +
         "included."
@@ -327,7 +329,6 @@ internal const val DETAILS_NAME = "Details"
 // Configuration's fields, as its pane labels them; Help names the focused one.
 internal const val SOURCE_ROOT_LABEL = "Source root"
 internal const val TARGET_ROOT_LABEL = "Target root"
-internal const val SUGGESTION_LIST_LABEL = "Suggestion list (optional)"
 internal const val SUGGESTION_LIST_NAME = "Suggestion list"
 internal const val SOURCE_LABEL = "Source"
 internal const val TARGET_LABEL = "Target"
