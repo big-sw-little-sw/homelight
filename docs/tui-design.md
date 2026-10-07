@@ -270,7 +270,9 @@ The details pane answers, in this order:
 3. **Will do:** the consequence of the current rule or choice. Without a choice:
    `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
    reason, such as `Problem: /scratch/archive is a file, not a folder.` when a
-   folder a step would create or work in is something else. A row that deletes data adds `⚠ This deletes data for good.`
+   folder a step would create or work in is something else. When one of the
+   row's choices plans without that folder, the next line is `Or choose an
+   option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply, only when one is needed. While archiving
    is only offered, its choice names the destination: `Move the source to
    ~/.cache/.homelight-archive/… and replace it with a link to the target.`

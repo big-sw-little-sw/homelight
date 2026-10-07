@@ -212,7 +212,7 @@ class ReconciliationPlannerTest {
         val linkedStaging = plan(Relocation(source, linked.resolve("cache"), stagingRoot = stagingRoot))
 
         assertFalse(throughLinks.hasBlockedActions(), throughLinks.actions().toString())
-        assertEquals("$stagingRoot is a link, not a folder",
+        assertEquals("the staging folder must be a real folder, not a link: $stagingRoot",
                 linkedStaging.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
     }
 

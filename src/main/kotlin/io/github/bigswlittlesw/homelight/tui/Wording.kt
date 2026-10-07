@@ -232,6 +232,7 @@ internal const val LEFT_BEHIND_DELETED =
 
 /** A blocked row's problem, in the planner's words (they are shared with JSON output). */
 internal fun problem(reason: String) = "Problem: $reason."
+internal const val CHOOSE_AROUND_FOLDER = "Or choose an option below that doesn't need this folder."
 
 internal fun relocationCount(n: Int) = "$n " + if (n == 1) "relocation" else "relocations"
 internal fun toChange(n: Int) = "⚡ $n to change"

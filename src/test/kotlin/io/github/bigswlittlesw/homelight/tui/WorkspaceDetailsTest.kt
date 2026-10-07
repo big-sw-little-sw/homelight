@@ -49,6 +49,11 @@ class WorkspaceDetailsTest {
         val archiveFile = Files.writeString(root.resolve("archive-file"), "a file")
         both("filed", ", \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"archive-source\"" +
             ", \"archive-root\": \"$archiveFile\"")
+        // Its source's folder is a file, and its only choice, keeping the target, needs that folder too.
+        val folderFile = Files.writeString(root.resolve("folder-file"), "a file")
+        Files.createDirectories(local.resolve("orphan"))
+        body.append("  {\"source-path\": \"${folderFile.resolve("orphan")}\", \"target-path\": \"${local.resolve("orphan")}\", " +
+            "\"when-only-target-exists\": \"adopt-target\"},\n")
         add("unreadable")
         Files.createSymbolicLink(home.resolve("leftover"), Files.createDirectories(local.resolve("leftover")))
         Files.createDirectories(replacedSourcePath(home.resolve("leftover"), local.resolve("leftover")))
@@ -140,6 +145,15 @@ class WorkspaceDetailsTest {
         val filed = details("filed")
         assertTrue(filed.contains("Will do: nothing until you fix the problem below, then check again."), filed)
         assertTrue(squeezed(filed).contains(squeezed("Problem: ${root.resolve("archive-file")} is a file, not a folder.")), filed)
+        assertTrue(squeezed(filed).contains(squeezed(CHOOSE_AROUND_FOLDER)), filed)
+    }
+
+    @Test
+    fun theChooseAroundLineNeedsAChoiceThatAvoidsTheFolder() {
+        val orphan = details("orphan")
+        assertTrue(squeezed(orphan).contains(squeezed("Problem: ${root.resolve("folder-file")} is a file, not a folder.")), orphan)
+        assertFalse(squeezed(orphan).contains(squeezed(CHOOSE_AROUND_FOLDER)), orphan)
+        assertFalse(squeezed(details("blocked")).contains(squeezed(CHOOSE_AROUND_FOLDER)))
     }
 
     @Test

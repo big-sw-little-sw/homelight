@@ -80,9 +80,18 @@ class ReconciliationPlanner {
  * stop at that step. The reason names the first such path, in action order.
  */
 private fun blockedByNotAFolder(state: RelocationState, planned: RelocationPlan): RelocationPlan {
-    val inTheWay = planned.actions.asSequence().flatMap(::neededFolders).firstNotNullOfOrNull(state.notFolders::get)
+    val folder = planned.actions.asSequence().flatMap(::neededFolders).firstOrNull(state.notFolders::containsKey)
         ?: return planned
-    return blocked(state, notAFolderReason(inTheWay))
+    val inTheWay = state.notFolders.getValue(folder)
+    val stagingRoot = effectiveStagingRoot(state.relocation.targetPath, state.relocation.stagingRoot)
+    // Only the staging root must not be a link at all. Elsewhere a link to a folder is fine, so one in the way there
+    // leads to something else and gets the general reason.
+    val linkedStagingRoot = folder == stagingRoot && inTheWay.path == folder && inTheWay.observation.state == PathState.SYMLINK
+        && inTheWay.observation.symlinkTargetAvailability != SymlinkTargetAvailability.ABSENT
+    return blocked(
+        state,
+        if (linkedStagingRoot) "the staging folder must be a real folder, not a link: $folder" else notAFolderReason(inTheWay),
+    )
 }
 
 /**

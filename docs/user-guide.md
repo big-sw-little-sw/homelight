@@ -48,7 +48,8 @@ Configure → Workspace → Review → Apply → Results
    needs your choice: select it, press `Tab`, pick a choice and press
    `Enter`. A relocation marked `[Blocked]` cannot be done as things are, for
    example because a file is where its archive folder should be. Its
-   Details say what is in the way: fix that, then press `r`.
+   Details say what is in the way: fix that, then press `r`. If Details say
+   you can, pick a choice below that doesn't need that folder instead.
 3. **Review (`2`).** Press `a` to see every step HomeLight will take, listed
    under the relocation it belongs to. Select a relocation to see its decision
    and paths, or a step to see what it does. Nothing has changed yet. Press
