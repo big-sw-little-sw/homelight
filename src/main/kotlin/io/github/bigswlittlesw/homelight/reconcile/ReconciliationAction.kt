@@ -64,7 +64,7 @@ sealed interface ReconciliationAction {
         ReconciliationAction {
         /** The staging root this migration uses: [stagingRoot], or `.homelight-staging` beside [target]. */
         val effectiveStagingRoot: Path
-            get() = stagingRoot ?: target.resolveSibling(DEFAULT_STAGING_NAME)
+            get() = effectiveStagingRoot(target, stagingRoot)
     }
 
     /** Moves a source directory into an unoccupied deterministic archive location. */
@@ -88,5 +88,9 @@ sealed interface ReconciliationAction {
 
     data class Blocked(override val path: Path, val reason: String) : ReconciliationAction
 }
+
+/** A configured [stagingRoot], or `.homelight-staging` beside [target]. */
+internal fun effectiveStagingRoot(target: Path, stagingRoot: Path?): Path =
+    stagingRoot ?: target.resolveSibling(DEFAULT_STAGING_NAME)
 
 private const val DEFAULT_STAGING_NAME = ".homelight-staging"

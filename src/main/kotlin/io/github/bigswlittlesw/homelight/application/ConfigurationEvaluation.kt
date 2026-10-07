@@ -7,12 +7,12 @@ import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathObservation
 import io.github.bigswlittlesw.homelight.fs.PathState
+import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationState
-import io.github.bigswlittlesw.homelight.reconcile.inspectArchiveDestinations
-import io.github.bigswlittlesw.homelight.reconcile.replacedSourcePath
+import io.github.bigswlittlesw.homelight.reconcile.inspectRelocations
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -39,13 +39,16 @@ class ConfigurationEvaluation(
 
     data class Invalid(override val configPath: Path, val message: String) : Evaluation
 
-    /** Observations and saved plan retain saved policy; `plan` contains the effective draft policy. */
+    /**
+     * Observations and saved plan retain saved policy; `plan` contains the effective draft policy.
+     * `choiceAvoidsFolder` holds the normalized sources whose [PlanRelocationItem.choiceAvoidsFolder] is true.
+     */
     @ConsistentCopyVisibility
     data class Loaded private constructor(
         override val configPath: Path, val savedConfiguration: HomeLightConfiguration,
         val observations: List<RelocationState>, val savedPlan: ReconciliationPlan,
         val draft: Map<Path, DecisionChoice>, val availableChoices: Map<Path, List<DecisionChoice>>,
-        val plan: ReconciliationPlan,
+        val plan: ReconciliationPlan, val choiceAvoidsFolder: Set<Path>,
     ) : Evaluation {
         companion object {
             /** Copies the collections, including each list of choices. */
@@ -53,12 +56,12 @@ class ConfigurationEvaluation(
                 configPath: Path, savedConfiguration: HomeLightConfiguration,
                 observations: List<RelocationState>, savedPlan: ReconciliationPlan,
                 draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
-                plan: ReconciliationPlan,
+                plan: ReconciliationPlan, choiceAvoidsFolder: Set<Path>,
             ): Loaded = Loaded(
                 configPath, savedConfiguration, observations.toList(), savedPlan,
                 draft.toMap(),
                 availableChoices.mapValues { it.value.toList() },
-                plan,
+                plan, choiceAvoidsFolder.toSet(),
             )
         }
 
@@ -70,6 +73,7 @@ class ConfigurationEvaluation(
                 relocation, state.source, state.target, relocationPlan,
                 state.source.sourceStateForTarget(relocation.targetPath),
                 choicesFor(relocation.sourcePath),
+                normalize(relocation.sourcePath) in choiceAvoidsFolder,
             )
         }.sortedWith(compareBy({ it.badge().priority }, { it.relocation.sourcePath.toString() }))
 
@@ -96,14 +100,7 @@ class ConfigurationEvaluation(
     /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
     fun loadRequired(configPath: Path, override: ConfigurationLoader.PathOverride? = null): Loaded {
         val configuration = loader.load(configPath, override)
-        val archives = inspectArchiveDestinations(configuration.relocations, inspect)
-        val observations = configuration.relocations.zip(archives) { relocation, archive ->
-            RelocationState(
-                relocation,
-                inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
-                inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
-            )
-        }
+        val observations = inspectRelocations(configuration.relocations, inspect)
         val savedPlan = plan(observations)
         // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
         // their diagnostics. groupBy keeps sources in first-seen order.
@@ -112,7 +109,10 @@ class ConfigurationEvaluation(
                 availableChoices(state, plan)
             }
             .mapValues { (_, choices) -> choices.singleOrNull() ?: listOf() }
-        return Loaded.of(configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan)
+        return Loaded.of(
+            configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan,
+            choiceAvoidsFolder(observations, savedPlan, choices),
+        )
     }
 
     fun choose(current: Loaded, sourcePath: Path, choice: DecisionChoice): Loaded {
@@ -127,11 +127,32 @@ class ConfigurationEvaluation(
             val choice = draft[normalize(state.relocation.sourcePath)]
             if (choice == null) state else state.copy(relocation = choice.applyTo(state.relocation))
         }
+        val effectivePlan = plan(effective)
         return Loaded.of(
             current.configPath, current.savedConfiguration, current.observations,
-            current.savedPlan, draft, current.availableChoices, plan(effective),
+            current.savedPlan, draft, current.availableChoices, effectivePlan,
+            choiceAvoidsFolder(current.observations, effectivePlan, current.availableChoices),
         )
     }
+
+    /**
+     * The sources whose relocation [effectivePlan] blocks only because of a folder in the way, and which one of
+     * their offered choices plans without a block. A relocation counts as blocked only by a folder when planning it
+     * with no folder in the way unblocks it. Each relocation is planned alone, which is enough: a configuration
+     * problem across relocations blocks every relocation whatever the folders are.
+     */
+    private fun choiceAvoidsFolder(
+        observations: List<RelocationState>, effectivePlan: ReconciliationPlan,
+        choices: Map<Path, List<DecisionChoice>>,
+    ): Set<Path> = observations.zip(effectivePlan.relocations).filter { (saved, relocationPlan) ->
+        fun blocked(state: RelocationState) = plan(listOf(state)).hasBlockedActions()
+        val effective = saved.copy(relocation = relocationPlan.relocation)
+        relocationPlan.actions.any { it is ReconciliationAction.Blocked } &&
+            !blocked(effective.copy(notFolders = mapOf())) &&
+            choices.getValue(normalize(saved.relocation.sourcePath)).any { choice ->
+                !blocked(saved.copy(relocation = choice.applyTo(saved.relocation)))
+            }
+    }.map { (saved, _) -> normalize(saved.relocation.sourcePath) }.toSet()
 }
 
 /** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */

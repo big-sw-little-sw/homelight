@@ -83,6 +83,35 @@ class PlanCommandTest {
     }
 
     @Test
+    fun rendersAnArchiveLocationThatIsAFileAsABlockedAction(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val source = Files.createDirectories(root.resolve("source"))
+        val target = Files.createDirectories(root.resolve("target"))
+        val archive = Files.writeString(root.resolve("archive"), "a file")
+        val config = root.resolve("config.json")
+        Files.writeString(config, ("""
+                {
+                  "homelight": {
+                    "target-root": "%s",
+                    "relocations": [
+                      {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "adopt",
+                       "when-adopting-target": "archive-source", "archive-root": "%s"}
+                    ]
+                  }
+                }
+                """.trimIndent() + "\n").format(root, source, target, archive))
+        val command = HomeLightCommand.createCommandLine()
+        val out = StringWriter()
+        command.setOut(PrintWriter(out, true))
+
+        assertEquals(0, command.execute("plan", "--config", config.toString(), "--json"))
+        val output = out.toString()
+        assertTrue(output.contains("\"blocked\":true"), output)
+        assertTrue(output.contains("\"type\":\"blocked\""), output)
+        assertTrue(output.contains("\"reason\":\"$archive is a file, not a folder\""), output)
+    }
+
+    @Test
     fun rendersPlanAsJsonWithSubcommandShortConfig(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source"))
         val target = Files.createDirectories(root.resolve("target"))
