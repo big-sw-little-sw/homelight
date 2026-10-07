@@ -225,8 +225,12 @@ class HomeLightExitTest {
         session.requestApply()
         val ui = HeadlessTui(session)
         // The re-check after an apply takes the session's monitor, so holding it keeps a published result unsettled.
+        // The worker starts only after `confirmApply` returns: a worker that finished first would leave the re-check to
+        // the confirming thread, which already holds the monitor, and the execution would settle inside the call.
         val completion = synchronized(session) {
-            val completion = session.confirmApply(Executor { task -> Thread.ofPlatform().start(task) })
+            val tasks = mutableListOf<Runnable>()
+            val completion = session.confirmApply(Executor { tasks.add(it) })
+            Thread.ofPlatform().start(tasks.single())
             pollUntil("the result is published") { session.applyModel() is ApplyModel.Result }
             assertFalse(session.executionSettled())
             ui.press('q')
