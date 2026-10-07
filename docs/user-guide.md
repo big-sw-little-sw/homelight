@@ -302,6 +302,7 @@ Exit codes:
 - This guide online:
   https://github.com/big-sw-little-sw/homelight/blob/main/docs/user-guide.md
 - `homelight --help` lists the commands and options.
+- `homelight apply --help` shows the options of one command, here `apply`.
 - `homelight guide` prints this guide, for example to read with
   `homelight guide | less`.
 - To select and copy text while HomeLight runs, hold Shift as you drag
