@@ -2,12 +2,14 @@
   "apps": [
     {
       "name": "Maven",
+      "ecosystem": "JVM",
       "directories": [
         {"path": ".m2", "advice": "consider", "reason": "Maven local repository"}
       ]
     },
     {
       "name": "Gradle",
+      "ecosystem": "JVM",
       "directories": [
         {"path": ".gradle/caches", "advice": "consider", "reason": "Gradle caches"},
         {"path": ".gradle/wrapper", "advice": "consider", "reason": "Gradle wrapper distributions"}
@@ -15,30 +17,35 @@
     },
     {
       "name": "JBang",
+      "ecosystem": "JVM",
       "directories": [
         {"path": ".jbang/cache", "advice": "consider", "reason": "JBang compiled scripts, downloaded content, and cached JDKs"}
       ]
     },
     {
       "name": "Cargo",
+      "ecosystem": "Rust",
       "directories": [
         {"path": ".cargo", "advice": "consider", "reason": "Rust toolchain and package state"}
       ]
     },
     {
       "name": "rustup",
+      "ecosystem": "Rust",
       "directories": [
         {"path": ".rustup", "advice": "consider", "reason": "Rust toolchains"}
       ]
     },
     {
       "name": "npm",
+      "ecosystem": "JavaScript",
       "directories": [
         {"path": ".npm", "advice": "consider", "reason": "npm cache"}
       ]
     },
     {
       "name": "Yarn",
+      "ecosystem": "JavaScript",
       "directories": [
         {"path": ".cache/yarn", "advice": "consider", "reason": "Yarn cache"},
         {"path": ".yarn/berry/cache", "advice": "consider", "reason": "Yarn Berry cache"}
@@ -46,6 +53,7 @@
     },
     {
       "name": "pnpm",
+      "ecosystem": "JavaScript",
       "directories": [
         {"path": ".cache/pnpm", "advice": "consider", "reason": "pnpm cache"},
         {"path": ".local/share/pnpm/store", "advice": "consider", "reason": "pnpm package store"},
@@ -53,13 +61,36 @@
       ]
     },
     {
+      "name": "node-gyp",
+      "ecosystem": "JavaScript",
+      "directories": [
+        {"path": ".cache/node-gyp", "advice": "consider", "reason": "node-gyp cache"}
+      ]
+    },
+    {
+      "name": "nvm",
+      "ecosystem": "JavaScript",
+      "directories": [
+        {"path": ".nvm", "advice": "consider", "reason": "Node.js versions managed by nvm"}
+      ]
+    },
+    {
+      "name": "Bun",
+      "ecosystem": "JavaScript",
+      "directories": [
+        {"path": ".bun/install/cache", "advice": "consider", "reason": "Bun package cache"}
+      ]
+    },
+    {
       "name": "pip",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/pip", "advice": "consider", "reason": "pip cache"}
       ]
     },
     {
       "name": "uv",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/uv", "advice": "consider", "reason": "uv cache"},
         {"path": ".local/share/uv", "advice": "consider", "reason": "uv-managed Python installations"},
@@ -68,60 +99,58 @@
     },
     {
       "name": "Poetry",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/pypoetry", "advice": "consider", "reason": "Poetry cache"}
       ]
     },
     {
       "name": "PDM",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/pdm", "advice": "consider", "reason": "PDM cache"}
       ]
     },
     {
       "name": "virtualenv",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/virtualenv", "advice": "consider", "reason": "virtualenv cache"}
       ]
     },
     {
       "name": "pipx",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".local/pipx/venvs", "advice": "consider", "reason": "pipx virtual environments"}
       ]
     },
     {
+      "name": "pixi",
+      "ecosystem": "Python",
+      "directories": [
+        {"path": ".cache/rattler", "advice": "consider", "reason": "pixi package cache, shared with other rattler-based tools"},
+        {"path": ".cache/pixi", "advice": "consider", "reason": "pixi package cache, used instead of .cache/rattler when this directory exists"},
+        {"path": ".pixi/envs", "advice": "consider", "reason": "pixi global tool environments"}
+      ]
+    },
+    {
       "name": "Go",
+      "ecosystem": "Go",
       "directories": [
         {"path": ".cache/go-build", "advice": "consider", "reason": "Go build cache"}
       ]
     },
     {
-      "name": "node-gyp",
-      "directories": [
-        {"path": ".cache/node-gyp", "advice": "consider", "reason": "node-gyp cache"}
-      ]
-    },
-    {
-      "name": "nvm",
-      "directories": [
-        {"path": ".nvm", "advice": "consider", "reason": "Node.js versions managed by nvm"}
-      ]
-    },
-    {
-      "name": "Bun",
-      "directories": [
-        {"path": ".bun/install/cache", "advice": "consider", "reason": "Bun package cache"}
-      ]
-    },
-    {
       "name": "JetBrains",
+      "ecosystem": "Editors",
       "directories": [
         {"path": ".cache/JetBrains", "advice": "consider", "reason": "JetBrains caches"}
       ]
     },
     {
       "name": "VS Code",
+      "ecosystem": "Editors",
       "directories": [
         {"path": ".vscode-server", "advice": "consider", "reason": "VS Code server"}
       ]

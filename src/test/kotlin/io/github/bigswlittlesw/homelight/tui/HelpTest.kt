@@ -60,7 +60,10 @@ class HelpTest {
         checkThisScreen(HeadlessTui(HomeLightSession(empty)), WORKSPACE_NAME, PURPOSE_NO_RELOCATIONS, Step.WORKSPACE, "r")
     }
 
-    /** Help › This screen stays true in every Browse view: on a group, on a row to add or remove, in details and lists. */
+    /**
+     * Help › This screen stays true in every Browse view: on an ecosystem, on an app, on a row to add or remove, in
+     * details and lists.
+     */
     @Test
     fun thisScreenListsBrowseKeysInEveryView() {
         val home = Files.createDirectories(temporary.resolve("home"))
@@ -83,8 +86,10 @@ class HelpTest {
             val browse = place(CONFIGURATION_NAME, BROWSE_NAME)
             checkThisScreen(
                 ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "Home/End",
-                pinned = mapOf("Space" to ADD_GROUP, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
+                pinned = mapOf("Space" to ADD_ECOSYSTEM, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
             )
+            ui.press(KeyCode.DOWN)
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_GROUP))
             ui.press(KeyCode.DOWN)
             checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_SUGGESTION, "Enter" to INSPECT_SUGGESTION))
             ui.press(' ')

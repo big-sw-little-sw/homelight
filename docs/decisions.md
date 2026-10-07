@@ -542,6 +542,23 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported; the step still stops with the new message]`
 - `[skipped: a stricter check when a configured staging root is also a source, target or archive parent; the parents' rule wins, add when someone configures one that way]`
 
+## 2026-10-07: Browse groups apps by ecosystem; pixi joins the built-in list
+
+#165 (user decision, 2026-10-07) adds a level above apps in Browse, so a whole ecosystem (JVM, Python, …) can be added with one key (tui-design §8).
+
+- **Format (rung 5):** an optional `"ecosystem"` string per app, read by kotlinx.serialization as the other optional keys are; nonblank and trimmed like `name`. Each `CandidateDefinition` carries its app's ecosystem. Existing lists stay valid.
+- **Your list wins, per app (rung 2):** an app's ecosystem is your list's when your list gives that app one, else the built-in list's; within a list the first one given. An app your list names without an ecosystem keeps the built-in one, so a team can add directories to Maven without retyping `JVM`. The rule lives in Browse beside the existing "first definition's app wins", from the definitions `CandidateCatalog.merge` already orders.
+- **Three levels in the same `ListElement` (rung 2):** ecosystem headings, app headings two cells in, directories two further. Apps with no ecosystem go under **Other tools**; directories with no app stay under **Other directories**, a heading at the ecosystems' level. Ecosystems and apps keep first-appearance order; Other tools, then Other directories, come last. The built-in list is ordered by ecosystem so the file reads like the screen.
+- **Space on an ecosystem (rung 2):** the same group logic as an app heading from #155: counts, marks, `AddAll`/`RemoveAll`, overlaps refused one by one, and the same skip message. Only the Help descriptions differ.
+- **Width:** a path now shows at most 28 cells (was 30), so the notes column stays where it was despite the deeper indent. At 80 columns notes start at column 38, leaving 40 cells before the scrollbar; the longest note, `can't read: its real location is unclear` (40), still fits exactly.
+- **Built-in ecosystems:** JVM (Maven, Gradle, JBang), Rust (Cargo, rustup), JavaScript (npm, Yarn, pnpm, node-gyp, nvm, Bun; JavaScript rather than Node because of Bun), Python (pip, uv, Poetry, PDM, virtualenv, pipx, pixi), Go (Go), Editors (JetBrains, VS Code).
+- **pixi under Python:** pixi's docs present it as multi-language, built on conda packages, but Python is its main use and it reads `pyproject.toml` and installs PyPI packages. One more heading for one app (`Conda`) did not seem worth it. Directories, from pixi's and rattler's source and docs: `.cache/rattler` (the package cache: `rattler::default_cache_dir`, `dirs::cache_dir()/rattler/cache`), `.cache/pixi` (used instead when it exists: `pixi_config::resolve_cache_root`), and `.pixi/envs` (global tool environments under `PIXI_HOME`, default `~/.pixi`). `.pixi/bin` (small trampolines on `PATH`) and `.pixi/manifests` (the user's global manifest) stay home. Environments link files from the cache with hard links when both are on one filesystem; with the cache moved, new environments in the home directory get copies instead.
+- **conda, mamba, micromamba not added:** their directories depend on where the user installed them (`~/miniconda3`, `~/miniforge3`, `~/anaconda3`, or micromamba's root prefix, default `~/micromamba`), with packages and environments inside, and the base install holds the `conda` command itself. `~/.conda/pkgs` and `~/.conda/envs` are used only when the base install is not writable. None is clearly one safe user-level path.
+- `[skipped: conda, mamba and micromamba directories, add when users ask for a specific install layout]`
+- `[skipped: moving an app to another ecosystem without naming one of its directories, add when teams want to retag built-in apps wholesale]`
+- `[skipped: the ecosystem in Details' "Suggested by" lines, add when users ask which list set it]`
+- `[skipped: folding ecosystems, add when the built-in list grows past a few screens]`
+
 ## How to add decisions
 
 Use this format:

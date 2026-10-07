@@ -70,15 +70,22 @@ class CandidateParser {
                             "App label must not be blank or have leading or trailing whitespace",
                         )
                     }
-                    addAll(records(app.directories, name, "$location.directories", size))
+                    val ecosystem = app.ecosystem?.let { bounded(it, 0, location, "ecosystem") }
+                    if (ecosystem != null && (ecosystem.isJavaBlank() || ecosystem != ecosystem.javaStrip())) {
+                        throw invalid(
+                            Kind.SCHEMA, 0, location, "ecosystem",
+                            "Ecosystem must not be blank or have leading or trailing whitespace",
+                        )
+                    }
+                    addAll(records(app.directories, name, ecosystem, "$location.directories", size))
                 }
-                file.directories?.let { directories -> addAll(records(directories, null, "directories", size)) }
+                file.directories?.let { directories -> addAll(records(directories, null, null, "directories", size)) }
             }
         }
 
         /** [preceding] is the number of records already read, so indices and the limit run across the catalog. */
         private fun records(
-            directories: List<DirectoryFile>, app: String?, location: String, preceding: Int,
+            directories: List<DirectoryFile>, app: String?, ecosystem: String?, location: String, preceding: Int,
         ): List<CandidateDefinition> {
             if (directories.size > MAX_RECORDS - preceding) {
                 throw invalid(Kind.LIMIT, 0, location, "directories", "Too many records across catalog")
@@ -97,7 +104,7 @@ class CandidateParser {
                 if (reason != null && reason.isJavaBlank()) {
                     throw invalid(Kind.SCHEMA, index, record, "reason", "Reason must not be blank")
                 }
-                CandidateDefinition(resolved, source, index, record, path, app, directory.advice, reason)
+                CandidateDefinition(resolved, source, index, record, path, app, ecosystem, directory.advice, reason)
             }
         }
 
@@ -156,7 +163,7 @@ internal data class CandidateListFile(val apps: List<AppFile>? = null, val direc
 
 @Serializable
 @SerialName("app")
-internal data class AppFile(val name: String, val directories: List<DirectoryFile>)
+internal data class AppFile(val name: String, val ecosystem: String? = null, val directories: List<DirectoryFile>)
 
 @Serializable
 @SerialName("directory")
