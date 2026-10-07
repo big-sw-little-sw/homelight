@@ -6,6 +6,7 @@ import dev.tamboui.terminal.Frame
 import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.event.EventResult
 import io.github.bigswlittlesw.homelight.application.ApplyModel
+import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.config.Relocation
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
@@ -33,7 +34,7 @@ class ApplyViewTest {
             val plan = ReconciliationPlan(listOf(RelocationPlan(relocation,
                 if (action is ReconciliationAction.NoOp) RelocationOutcome.CONVERGED else RelocationOutcome.UNCHANGED,
                 listOf(action), listOf())), listOf())
-            val text = render(ApplyModel.Confirmation(plan), 0, 80, 24)
+            val text = render(ApplyModel.Confirmation.of(plan), 0, 80, 24)
             assertTrue(text.contains("No changes to apply"), text)
             assertTrue(text.contains("1/Enter/n/Esc: Workspace"), text)
             assertFalse(text.contains("changes done"), text)
@@ -50,7 +51,7 @@ class ApplyViewTest {
         val unchanged = RelocationPlan(relocation, RelocationOutcome.CONVERGED,
             listOf(ReconciliationAction.NoOp(relocation.sourcePath)), listOf())
         val plan = ReconciliationPlan(listOf(unchanged, changing), listOf())
-        val text = render(ApplyModel.Confirmation(plan), 0, 80, 24)
+        val text = render(ApplyModel.Confirmation.of(plan), 0, 80, 24)
         assertTrue(text.contains("2 planned changes"), text)
         assertFalse(text.contains("0/3"), text)
     }
@@ -58,7 +59,7 @@ class ApplyViewTest {
     fun confirmationDisplaysDestructiveActionsAndDistinctConfirmAndCancelKeys() {
         val plan = plan()
         for (width in intArrayOf(80, 120)) {
-            val text = render(ApplyModel.Confirmation(plan), 1, width, 24)
+            val text = render(ApplyModel.Confirmation.of(plan), 1, width, 24)
             assertTrue(text.contains("[2: Review]"), text)
             assertTrue(text.contains("delete or replace data"), text)
             assertTrue(text.contains("y: Apply"), text)
@@ -223,12 +224,21 @@ class ApplyViewTest {
         val rows = ApplyView.rows(pendingSteps(plan))
         assertEquals(3, rows.size)
 
-        val lines = ApplyView.details(rows[0], plan).map(DetailViewport.Line::text)
-        assertEquals(listOf("/home/both", "Decision: keep target, archive source", "", "Paths", "Source: /home/both",
-            "Target: /local/both", "Archive: /archive/both"), lines)
-        assertEquals("Archive source", ApplyView.details(rows[1], plan).first().text)
+        val review = ApplyModel.Confirmation.of(plan)
+        val lines = ApplyView.details(rows[0], review).map(DetailViewport.Line::text)
+        assertEquals(listOf("/home/both", "Decision: keep target, archive source (your configuration)", "", "Paths",
+            "Source: /home/both", "Target: /local/both", "Archive: /archive/both"), lines)
+        assertEquals("Archive source", ApplyView.details(rows[1], review).first().text)
+        // A one-time choice names itself, in Review and still in Results.
+        val choices = mapOf(relocation.sourcePath to DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
+        for (reviewed in listOf(ApplyModel.Confirmation.of(plan, choices),
+            ApplyModel.Result.of(plan, pendingSteps(plan), null, listOf(), false, choices))) {
+            assertEquals("Decision: keep target, archive source (your choice, this run only)",
+                ApplyView.details(rows[0], reviewed)[1].text)
+        }
         // With no reviewed observation there is no rule to name; the paths remain.
-        val unobserved = ApplyView.details(rows[0], plan.copy(expectedStates = listOf())).map(DetailViewport.Line::text)
+        val unobserved = ApplyView.details(rows[0], ApplyModel.Confirmation.of(plan.copy(expectedStates = listOf())))
+            .map(DetailViewport.Line::text)
         assertFalse(unobserved.any { it.startsWith("Decision:") }, unobserved.toString())
         assertTrue(unobserved.contains("Target: /local/both"), unobserved.toString())
     }
@@ -242,7 +252,7 @@ class ApplyViewTest {
                     ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath)),
                 listOf())
         }
-        val text = render(ApplyModel.Confirmation(ReconciliationPlan(relocations, listOf())), 2, 80, 24)
+        val text = render(ApplyModel.Confirmation.of(ReconciliationPlan(relocations, listOf())), 2, 80, 24)
         val rows = text.lines().filter { it.startsWith("┃") }.map { it.substringBeforeLast('┃') + '┃' }
         // 24 rows do not fit, so the scrollbar takes the pane's last inner column.
         assertTrue(rows.any { it.endsWith("█┃") }, text)

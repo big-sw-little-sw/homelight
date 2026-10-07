@@ -15,7 +15,6 @@ import dev.tamboui.widgets.tree.TreeNode
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import java.nio.file.Path
 
@@ -87,7 +86,7 @@ internal object ApplyView {
         // Framed by a panel, which can show focus with a thick border; TreeElement offers only rounded.
         val treePane = framed(Toolkit.panel(REVIEW_LIST_TITLE, tree), focused == REVIEW_LIST)
         val detailLines = if (rows.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
-        else details(rows[selected], plan) +
+        else details(rows[selected], reviewed) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
@@ -193,25 +192,27 @@ internal object ApplyView {
         is ApplyModel.Result -> model.steps
     }
 
-    /** What Details shows for the selected row of `plan`. */
-    fun details(row: PlanRow, plan: ReconciliationPlan): List<DetailViewport.Line> = when (row) {
-        is PlanRow.RelocationRow -> relocationDetails(row, plan)
+    /** What Details shows for the selected row of the `reviewed` plan. */
+    fun details(row: PlanRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> = when (row) {
+        is PlanRow.RelocationRow -> relocationDetails(row, reviewed)
         is PlanRow.StepRow -> details(row.step)
     }
 
     /**
-     * The relocation's path, the decision that shaped its steps and its paths. The decision is the rule for what
-     * the reviewed plan observed, so Results keep it after the disk changes.
+     * The relocation's path, the decision that shaped its steps and its paths. The decision is the one-time choice
+     * the plan was reviewed with, or else the saved rule for what the reviewed plan observed. Both come from the
+     * snapshot, so Results keep them after the apply forgets the choices and the disk changes.
      */
-    private fun relocationDetails(row: PlanRow.RelocationRow, plan: ReconciliationPlan): List<DetailViewport.Line> {
+    private fun relocationDetails(row: PlanRow.RelocationRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> {
         val relocation = row.plan.relocation
-        val reviewed = plan.expectedStates.firstOrNull { it.relocation.sourcePath == relocation.sourcePath }
-        val rule = reviewed?.let { WorkspaceView.rule(relocation, it.source.state, it.target.state) }
+        val observed = reviewed.plan.expectedStates.firstOrNull { it.relocation.sourcePath == relocation.sourcePath }
+        val decision = reviewed.choice(relocation.sourcePath)?.let(::choiceDecision)
+            ?: observed?.let { WorkspaceView.rule(relocation, it.source.state, it.target.state) }?.let(::ruleDecision)
         val archive = row.steps.firstNotNullOfOrNull { (it.action as? ReconciliationAction.ArchiveDirectory)?.destination }
         return listOfNotNull(
             DetailViewport.Line(displayPath(relocation.sourcePath), palette.text, true),
             if (row.children.isEmpty()) DetailViewport.Line(actionLabel(row.steps.single().action), palette.dim, false) else null,
-            rule?.let { DetailViewport.Line(reviewDecision(it)) },
+            decision?.let { DetailViewport.Line(it) },
             DetailViewport.Line(""),
             DetailViewport.Line(PATHS, palette.text, true),
             DetailViewport.Line(sourceLine(relocation.sourcePath)),

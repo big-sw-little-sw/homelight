@@ -350,15 +350,38 @@ class HomeLightAppTest {
     }
 
     @Test
-    fun aRelocationRowNamesTheOneTimeChoiceAsItsDecision(@TempDir temporary: Path) {
+    fun aRelocationRowNamesTheOneTimeChoiceAsItsDecisionThroughResults(@TempDir temporary: Path) {
         val ui = HeadlessTui(session(temporary, conflicts = listOf("both")))
         ui.press(KeyCode.TAB)
         ui.press(KeyCode.ENTER)
         ui.press('a')
         assertEquals(0, ui.app.selectedIndex())
-        val details = WorkspaceViewTest.rightPane(ui.screen(120, 30), 120)
-        assertTrue(details.contains("Decision: keep target, delete source"), details)
-        assertFalse(details.contains("your configuration"), details)
+        val expected = compact("Decision: keep target, delete source (your choice, this run only)")
+        val review = WorkspaceViewTest.rightPane(ui.screen(120, 30), 120)
+        assertTrue(compact(review).contains(expected), review)
+        ui.press('y')
+        ui.app.session.awaitExecution()
+        ui.screen(120, 30)
+        // Applying forgets the choice; the reviewed snapshot still names it.
+        assertTrue(assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation()).draft.isEmpty())
+        ui.press(KeyCode.HOME)
+        val results = ui.screen(120, 30)
+        assertTrue(results.contains("[2: Results]"), results)
+        assertTrue(compact(WorkspaceViewTest.rightPane(results, 120)).contains(expected), results)
+    }
+
+    @Test
+    fun aRelocationRowNamesTheSavedRuleAsItsDecision(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        Files.createDirectories(root.resolve("home/both"))
+        Files.createDirectories(root.resolve("local/both"))
+        val config = Files.writeString(root.resolve("config.json"), "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\"," +
+            " \"relocations\": [{\"source-path\": \"${root.resolve("home/both")}\", \"target-path\": \"${root.resolve("local/both")}\"," +
+            " \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"}]}}\n")
+        val ui = HeadlessTui(HomeLightSession(config))
+        ui.press('a')
+        val review = WorkspaceViewTest.rightPane(ui.screen(120, 30), 120)
+        assertTrue(compact(review).contains(compact("Decision: keep target, delete source (your configuration)")), review)
     }
 
     @Test
@@ -763,6 +786,9 @@ class HomeLightAppTest {
                 listOf(ReconciliationAction.CreateDirectory(second.targetPath)), listOf())
             return Triple(ReconciliationPlan(listOf(firstPlan, secondPlan), listOf()), firstPlan, secondPlan)
         }
+
+        /** `text` without spaces, so a line Details wrapped still matches. */
+        fun compact(text: String): String = text.replace(" ", "")
 
         /** A configuration of two relocations whose sources are missing: each plans a target folder and a link. */
         fun twoMissingSources(temporary: Path): Path {

@@ -176,11 +176,6 @@ internal fun risks(warnings: Int, deleting: Int) =
 internal fun ruleDecision(rule: String) = "Decision: " + rule.lowercase() + " (your configuration)"
 internal fun choiceDecision(choice: DecisionChoice) =
     "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
-/**
- * Review's Decision line for a relocation (tui-design §6). The reviewed plan has any one-time choice applied to the
- * rule, so the line cannot say which it came from.
- */
-internal fun reviewDecision(rule: String) = "Decision: " + rule.lowercase()
 
 // The Paths section of Workspace and Review Details.
 internal const val PATHS = "Paths"

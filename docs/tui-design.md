@@ -301,10 +301,13 @@ return.
   that column. At 80 columns the longest label, `Replace source with a link ⚠`,
   fits beside the scrollbar.
 - Every row is selectable. Details (titled `Details`) show a relocation row's
-  path, `Decision: <rule>` when a rule governs the reviewed case, and its paths
-  (Source, Target, and Archive when a step archives); an action row shows the
-  action and its paths. Review's Decision line names no origin: the reviewed
-  plan already has any one-time choice applied.
+  path, its Decision line in the Workspace's words (§5), and its paths (Source,
+  Target, and Archive when a step archives); an action row shows the action and
+  its paths. The Decision line is the one-time choice the plan was reviewed
+  with, `Decision: keep target, delete source (your choice, this run only)`, or
+  else the saved rule for the reviewed case, `Decision: keep target, archive
+  source (your configuration)`. Starting the review captures the choices with
+  the reviewed plan, so Results still name a choice after the apply forgets it.
 - The tree takes ↑/↓, PageUp/PageDown and Home/End. Every other key goes to the
   app first, so relocations never collapse: → opens Details, ← does nothing in
   the tree, and Enter keeps its screen meaning. The wheel moves the selection

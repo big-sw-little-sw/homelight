@@ -72,7 +72,7 @@ class HomeLightSession(
         if (!isPlanReady() || loaded !is ConfigurationEvaluation.Loaded) {
             return false
         }
-        reviewedExecution = ReviewedExecution(loaded.plan, debugStepDelayMillis)
+        reviewedExecution = ReviewedExecution(loaded.plan, debugStepDelayMillis, loaded.draft)
         return true
     }
 
