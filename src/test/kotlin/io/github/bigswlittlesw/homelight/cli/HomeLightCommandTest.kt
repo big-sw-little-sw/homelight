@@ -1,6 +1,9 @@
 package io.github.bigswlittlesw.homelight.cli
 
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.homelight.application.guideUrl
+import io.github.bigswlittlesw.homelight.application.resolveVersion
+import io.github.bigswlittlesw.homelight.application.userGuide
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -132,6 +135,31 @@ class HomeLightCommandTest {
         assertEquals(0, result.exitCode)
         val output: String = result.output
         assertTrue(output.contains("Usage: homelight"))
+    }
+
+    @Test
+    fun helpEndsWithTheGuidesAddressForThisVersion() {
+        val result = execute("--help")
+
+        assertTrue(result.output.lines().contains(guideUrl()), result.output)
+        assertTrue(result.output.contains("homelight guide"), result.output)
+    }
+
+    @Test
+    fun guidePrintsTheEmbeddedGuide() {
+        val result = execute("guide")
+
+        assertEquals(0, result.exitCode)
+        assertEquals(userGuide(), result.output)
+        assertTrue(result.output.startsWith("# HomeLight\n"))
+    }
+
+    @Test
+    fun theGuidesLinkFollowsTheVersion() {
+        assertTrue(userGuide("1.0-SNAPSHOT").contains("/blob/main/docs/user-guide.md"))
+        val release = userGuide("1.2.0")
+        assertTrue(release.contains("https://github.com/big-sw-little-sw/homelight/blob/v1.2.0/docs/user-guide.md"))
+        assertFalse(release.contains("/blob/main/"))
     }
 
     @Test

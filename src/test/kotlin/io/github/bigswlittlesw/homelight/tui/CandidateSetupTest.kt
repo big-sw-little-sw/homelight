@@ -45,7 +45,7 @@ class CandidateSetupTest {
             val height = if (width == 80) 24 else 30
             val details = ui.screen(width, height)
             assertTrue(details.contains("❯ Both exist: Delete both, start empty"), details)
-            val text = details.replace(Regex("[│█\\s]"), "")
+            val text = lightBorders(details).replace(Regex("[│█\\s]"), "")
             assertTrue(text.contains("Permanentlydeletebothsourceandtargetdirectorytrees.Createanemptytargetdirectoryandlinkthesourcetoit."), details)
             assertFalse(details.contains("Discard target") || details.contains("relocate source"), details)
             escape(ui)
@@ -116,13 +116,13 @@ class CandidateSetupTest {
         var screen = render(ui)
         assertTrue(screen.contains("  Source root: /$letters"), screen)
         assertTrue(screen.contains("  Target root: $letters"), screen)
-        assertTrue(screen.contains("❯ Shared candidate list (optional): $letters"), screen)
+        assertTrue(screen.contains("❯ Suggestion list (optional): $letters"), screen)
         assertFalse(screen.contains("Discard this configuration?"), screen)
         ctrl(ui, 'd'); ctrl(ui, 'k')
-        assertTrue(render(ui).contains("❯ Shared candidate list (optional): $letters "), "Ctrl chords are not text")
+        assertTrue(render(ui).contains("❯ Suggestion list (optional): $letters "), "Ctrl chords are not text")
         ctrl(ui, 'u')
-        assertTrue(render(ui).contains("❯ Shared candidate list (optional):"))
-        assertFalse(render(ui).contains("❯ Shared candidate list (optional): $letters"), "Ctrl+U still clears")
+        assertTrue(render(ui).contains("❯ Suggestion list (optional):"))
+        assertFalse(render(ui).contains("❯ Suggestion list (optional): $letters"), "Ctrl+U still clears")
 
         down(ui); clear(ui); type(ui, root.resolve("home").toString())
         down(ui); clear(ui); type(ui, root.resolve("local").toString()); enter(ui)
@@ -393,7 +393,7 @@ class CandidateSetupTest {
             WorkspaceViewTest.render(browser.render(draft), 80, 24)
             browser.key(KeyEvent.ofKey(KeyCode.DOWN, KEY_BINDINGS), draft); browser.key(KeyEvent.ofKey(KeyCode.ENTER, KEY_BINDINGS), draft)
             val text = WorkspaceViewTest.render(browser.render(draft), 200, 30)
-            val line = text.lines().first { it.contains("Saved rules: ") }
+            val line = lightBorders(text).lines().first { it.contains("Saved rules: ") }
                 .substringAfter("Saved rules: ").substringBefore('│').trimEnd()
             assertEquals(expected, line, text)
             val shown = line.split(" · ").map { part -> part.substringAfter(": ") }
@@ -432,7 +432,7 @@ class CandidateSetupTest {
             key(ui, 'q'); key(ui, 'y')
             workers.release.countDown()
             repeat(20) {
-                assertFalse(render(ui).contains("[Setup]"))
+                assertFalse(render(ui).contains("[Configuration]"))
                 LockSupport.parkNanos(1_000_000)
             }
             assertNull(workers.workers.first().snapshot().request)
@@ -502,7 +502,7 @@ class CandidateSetupTest {
             repeat(80) { key(ui, '[') }
             // Kotlin's lines() adds a trailing empty line, which the border filter drops. The trimEnd is Java's
             // stripTrailing, which Kotlin hides.
-            return screens.joinToString("\n") + screens.flatMap { it.lines() }
+            return screens.joinToString("\n") + screens.flatMap { lightBorders(it).lines() }
                 .filter { line -> line.startsWith("│") }.map { line -> line.substring(1).replace("│", "").replace("█", "").trimEnd { Character.isWhitespace(it) } }
                 .joinToString("")
         }

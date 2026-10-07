@@ -60,18 +60,20 @@ mkdir -p "$fx/home/a" "$fx/home/b" "$fx/local/b"
 echo a > "$fx/home/a/f"; echo b > "$fx/home/b/f"; echo t > "$fx/local/b/t"
 printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}, {"source-path": "%s/home/b", "target-path": "%s/local/b"}]}}\n' \
   "$fx" "$fx" "$fx" "$fx" "$fx" > "$fx/config.json"
+# The TUI captures the mouse; the last mouse-tracking switch it writes must turn tracking off again.
+mouse_off() { [ "$(grep -ao $'\e\\[?1000[hl]' "$1" | tail -n 1)" = $'\e[?1000l' ]; }
 for term in ${TUI_TERMS:-xterm-256color screen-256color tmux-256color linux vt100}; do
   log=$results/tui-$term.log
   line=$(TERM=$term expect "$here/tui.exp" "$log" "$binary" -c "$fx/config.json" status)
   status=$?
-  if [ $status -eq 0 ] && ! grep -q 'Failed to load native library' "$log"; then
+  if [ $status -eq 0 ] && ! grep -q 'Failed to load native library' "$log" && mouse_off "$log"; then
     pass "TUI TERM=$term: $line"
   else
     fail "TUI TERM=$term: $line"
   fi
 done
 line=$(TERM=xterm-256color TUI_QUIT=ctrl-c expect "$here/tui.exp" "$results/tui-ctrl-c.log" "$binary" -c "$fx/config.json" status)
-if [ $? -eq 0 ]; then
+if [ $? -eq 0 ] && mouse_off "$results/tui-ctrl-c.log"; then
   pass "TUI Ctrl-C quits: $line"
 else
   fail "TUI Ctrl-C quits: $line"

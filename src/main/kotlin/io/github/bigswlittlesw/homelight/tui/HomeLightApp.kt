@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.tui
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.Column
+import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.toolkit.event.GlobalEventHandler
 import dev.tamboui.toolkit.focus.FocusManager
@@ -10,12 +11,15 @@ import dev.tamboui.tui.bindings.BindingSets
 import dev.tamboui.tui.bindings.Bindings
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
+import dev.tamboui.tui.event.MouseEvent
+import dev.tamboui.tui.event.MouseEventKind
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.application.PlanBadge
 import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
+import io.github.bigswlittlesw.homelight.application.userGuide
 import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
 import java.nio.file.Path
 
@@ -33,6 +37,8 @@ internal const val REVIEW_LIST = "review-list"
 internal const val REVIEW_DETAILS = "review-details"
 internal const val SETUP_SCREEN = "setup"
 internal const val DIALOG = "dialog"
+internal const val HELP_THIS_SCREEN = "help-this-screen"
+internal const val HELP_GUIDE = "help-guide"
 
 /**
  * Owns navigation and inspection; the session owns decisions and guarded execution.
@@ -70,6 +76,12 @@ internal class HomeLightApp(
     private var exitIntent = ExitIntent.STAY
     private var focusBeforeDialog: String? = null
     private var setup: SetupView? = if (startSetup) SetupView(session, discoveryFactory) else null
+    private var helpOpen = false
+    private var focusBeforeHelp: String? = null
+    private var helpTab = HelpTab.THIS_SCREEN
+    // One per tab, so each keeps its scroll position.
+    private val helpViewports = HelpTab.entries.associateWith { DetailViewport() }
+    private val guide: String by lazy { userGuide() }
 
     /** `CONFIRM_*` while a quit dialog is open: during an apply, or with one-time choices not applied yet. */
     private enum class ExitIntent { STAY, CONFIRM_APPLYING, CONFIRM_CHOICES, AFTER_EXECUTION, EXIT }
@@ -84,11 +96,15 @@ internal class HomeLightApp(
     /**
      * Handles every key the focused element leaves, keyed by the focused id, and always reports it handled.
      * Otherwise TamboUI would offer it to unfocused lists, which move their selection, clear focus on Escape and
-     * quit on `q`.
+     * quit on `q`. TamboUI offers mouse events here before any element, so handling all of them keeps a click or a
+     * trackpad tap from focusing what is under the pointer.
      */
     val keyHandler = GlobalEventHandler { event ->
-        if (event !is KeyEvent) return@GlobalEventHandler EventResult.UNHANDLED
-        handleKey(event)
+        when (event) {
+            is KeyEvent -> handleKey(event)
+            is MouseEvent -> handleMouse(event)
+            else -> return@GlobalEventHandler EventResult.UNHANDLED
+        }
         EventResult.HANDLED
     }
 
@@ -100,7 +116,10 @@ internal class HomeLightApp(
         dropClosedSetup()
         val dialog = setup?.dialog() ?: quitDialog()
         val interactive = dialog == null
-        val view = setup?.render() ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+        val view = when {
+            helpOpen -> renderHelp(interactive)
+            else -> setup?.render(interactive) ?: if (activeScreen == Screen.APPLY) renderApply(interactive) else renderWorkspace(interactive)
+        }
         var content: Column = if (view is Column) view.fill() else Toolkit.column(view).fill()
         if (exitIntent == ExitIntent.AFTER_EXECUTION) {
             content = Toolkit.column(
@@ -124,6 +143,92 @@ internal class HomeLightApp(
         )
         ExitIntent.STAY, ExitIntent.AFTER_EXECUTION, ExitIntent.EXIT -> null
     }
+
+    /** The screen behind Help, with the focus it had when Help opened. */
+    private fun screenHelp(): ScreenHelp = setup?.screenHelp() ?: when (activeScreen) {
+        Screen.WORKSPACE -> WorkspaceView.screenHelp(session, workspaceList, showInSync, focusBeforeHelp)
+        Screen.APPLY ->
+            ApplyView.screenHelp(session.applyModel(), focusBeforeHelp, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
+    }
+
+    /** The open tab follows focus, which is how Tab switches it (see [helpScreen]). */
+    private fun renderHelp(interactive: Boolean): Element {
+        when (focus.focusedId()) {
+            HELP_THIS_SCREEN -> helpTab = HelpTab.THIS_SCREEN
+            HELP_GUIDE -> helpTab = HelpTab.GUIDE
+        }
+        return helpScreen(screenHelp(), guide, helpTab, helpViewports, interactive)
+    }
+
+    /**
+     * From the empty Workspace before there is a configuration file, Help opens on the guide, so a first run starts by
+     * reading it. Elsewhere, Configuration included, it opens on This screen.
+     */
+    private fun openHelp() {
+        helpOpen = true
+        val firstRun = setup == null && activeScreen == Screen.WORKSPACE &&
+            session.evaluation().let { it is ConfigurationEvaluation.Missing || it is ConfigurationEvaluation.Unconfigured }
+        helpTab = if (firstRun) HelpTab.GUIDE else HelpTab.THIS_SCREEN
+        // This screen changes with the screen behind; the guide keeps where the reader left it.
+        helpViewports.getValue(HelpTab.THIS_SCREEN).reset()
+        focusBeforeHelp = focus.focusedId()
+        focus.setFocus(helpTabId(helpTab))
+    }
+
+    private fun closeHelp() {
+        helpOpen = false
+        focus.setFocus(focusBeforeHelp)
+    }
+
+    /**
+     * Help switches tabs, scrolls and goes back; every other key does nothing, so a key typed while reading changes
+     * nothing. TamboUI switches the tab on Tab (see [helpScreen]); ←/→ switch it here. `q` goes back too, as in less,
+     * man and other help screens. Ctrl+C quits as it does everywhere: through the screen behind, so a draft or an
+     * apply still gets its question.
+     */
+    private fun helpKey(key: KeyEvent) {
+        val viewport = helpViewports.getValue(helpTab)
+        when {
+            key.isCtrlC() -> setup?.let { current -> current.key(key); dropClosedSetup() } ?: requestQuit()
+            key.isChar('?') || key.isKey(KeyCode.F1) || key.isKey(KeyCode.ESCAPE) || key.isQuit() -> closeHelp()
+            key.isLeft() || key.isRight() ->
+                focus.setFocus(helpTabId(if (helpTab == HelpTab.GUIDE) HelpTab.THIS_SCREEN else HelpTab.GUIDE))
+            key.isUp() || key.isChar('[') -> viewport.scroll(-1)
+            key.isDown() || key.isChar(']') -> viewport.scroll(1)
+            key.isPageUp() || key.isPageDown() -> viewport.scrollPage(if (key.isPageUp()) -1 else 1)
+            key.isHome() || key.isEnd() -> viewport.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
+        }
+    }
+
+    /**
+     * The mouse is captured only for its wheel. Wheel up and down scroll the pane under the pointer, or move a list's
+     * selection, and never change focus or tab; sideways scrolling, clicks, drags and taps do nothing.
+     */
+    private fun handleMouse(event: MouseEvent) {
+        val delta = when (event.kind()) {
+            MouseEventKind.SCROLL_UP -> -1
+            MouseEventKind.SCROLL_DOWN -> 1
+            else -> return
+        }
+        val x = event.x()
+        val y = event.y()
+        when {
+            exitIntent == ExitIntent.EXIT -> {}
+            helpOpen -> helpViewports.getValue(helpTab).takeIf { it.contains(x, y) }?.scroll(delta)
+            setup != null -> setup?.wheel(x, y, delta)
+            activeScreen == Screen.APPLY -> when {
+                actionDetails.contains(x, y) -> actionDetails.scroll(delta)
+                actionDetails.besideOnTheLeft(x, y) -> moveSelection(reviewList, ApplyView.steps(session.applyModel()).size, delta)
+            }
+            workspaceDetails.contains(x, y) -> workspaceDetails.scroll(delta)
+            workspaceDetails.besideOnTheLeft(x, y) -> moveSelection(workspaceList, visibleItems().size, delta)
+        }
+    }
+
+    private fun moveSelection(list: ListElement<Any>, size: Int, delta: Int) {
+        if (size > 0) list.selected((list.selected() + delta).coerceIn(0, size - 1))
+    }
+
 
     /** One-time choices are kept only in the session, so quitting forgets them. A plan alone is rebuilt next run. */
     private fun unappliedChoiceCount(): Int = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.size ?: 0
@@ -160,6 +265,9 @@ internal class HomeLightApp(
     }
 
     private fun handleKey(key: KeyEvent) {
+        if (helpOpen) { helpKey(key); return }
+        // F1 opens Help everywhere; in a setup text field `?` is typed like any other character.
+        if (key.isKey(KeyCode.F1) || key.isChar('?') && setup?.editsText(key) != true) { openHelp(); return }
         setup?.let { current ->
             current.key(key)
             dropClosedSetup()
@@ -264,6 +372,8 @@ internal class HomeLightApp(
     private fun dropClosedSetup() {
         if (setup?.closed != true) return
         setup = null
+        // Discarding from Help over Configuration returns to the Workspace, not to Help about it.
+        helpOpen = false
         workspaceDetails.reset()
         syncInSyncSetting()
         focus.setFocus(WORKSPACE_LIST)

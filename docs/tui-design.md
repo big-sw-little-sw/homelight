@@ -33,6 +33,7 @@ not screens.
 | Review | The exact plan to apply, then progress and results in place | `1`, or `n`/Esc before confirming |
 | Configuration | Create or edit the configuration file | Esc from the list closes it |
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
+| Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | Esc, `q`, `?` or F1 returns where you were |
 
 Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
 `[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
@@ -60,12 +61,19 @@ Entry points:
   screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
   never exits.
 - `q` quits from any list. Inside a text field it types `q`. With unsaved
-  configuration changes, `q` and Esc-to-close ask before discarding. With
+  configuration changes, `q` and Esc-to-close ask before discarding; Esc from
+  Configuration's first fields closes at once only when nothing was typed and
+  there are no relocations. With
   one-time choices not applied yet, or during an apply, `q` asks first (see
   Quit).
 - One app key handler, keyed by the focused id, handles what TamboUI elements
   leave unhandled and always reports the key as handled.
-- No mouse capture, so the terminal's own text selection keeps working.
+- The mouse is captured, for its wheel only. Wheel up and down scroll the pane
+  under the pointer (over a list, they move its selection) and never change
+  focus or a tab; sideways scrolling, clicks, drags and taps do nothing. With
+  capture on, selecting text takes the terminal's bypass modifier: Shift-drag
+  in WezTerm and Ghostty, Option-drag in iTerm2. The guide says so. TamboUI
+  turns capture off when HomeLight exits, on every exit path.
 
 Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
 check again, `q` quit. `2` never starts changes.
@@ -120,7 +128,9 @@ ones.
 ### Layout and glyphs
 
 - Master-detail panes: about 45% list, the rest details. The focused pane has a
-  heavy border in the focus color; others are light and dim.
+  thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
+  and are dim. The border shape shows focus without color. Lists sit in a
+  TamboUI panel, because the list element offers no thick border.
 - `❯` marks the selected row or focused field. A text field shows its cursor.
 - Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
@@ -152,6 +162,74 @@ focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
 
 Two lines at the bottom, specific to the focused element: navigation first, then
 commands. Each binding appears once. Never advertise a key that does nothing now.
+Every screen offers `?: Help` before `q`. In a text field `?` types a question
+mark, so there the help lines offer `F1: Help` instead; F1 opens Help on every
+screen.
+
+Each screen builds its help in one function (`ScreenHelp`): its place (such as
+`Configuration › Target root`), one purpose line for its current state, its step,
+and its keys. The help lines and the Help screen both read it, so they cannot
+disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
+`[`/`]`, `←` back, `c` in the list title) are marked Help-only there.
+
+### Help screen
+
+`?` (or F1) opens a full-screen **Help** screen from any screen. Header
+`⌂ HOMELIGHT  [Help]`, then a TamboUI tab bar with two tabs:
+
+1. **This screen**: a pane titled with the place, the purpose line, then
+   `Step: Configure › Workspace › Review › Apply › Results` with the current
+   step bold in the focus color (Configuration and Browse are Configure;
+   Applying is Apply). Then the heading `Keys on <place>`, the line "They work
+   after you go back (Esc or q). In Help they do nothing.", and the keys in two
+   groups, "Move around" and "Do", each title directly above its keys, as
+   `key  description`. Help's own keys are only on its help lines.
+
+   A key's `description` defaults to its help-line `action`. Where the short
+   label needs its screen to make sense, the description names what the key
+   acts on and whether it asks first, for example `↑/↓  Select a relocation`
+   or `q  Quit HomeLight; asks first if choices are not applied or changes are
+   running`. One `KeyHint` holds both, so the two places share one source.
+2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
+   TamboUI's Markdown element in the palette's colors. The guide is the only
+   copy of its text; nothing in the code repeats it.
+
+Help opens on This screen, except from the empty Workspace before there is a
+configuration file: then it opens on Guide, and that Workspace says `New to
+HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
+help.`). From Configuration it opens on This screen, text field or not.
+
+Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
+`[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
+`?` and F1 all go back exactly where the user was, with focus and selection
+kept. As in less, man and other help screens, `q` never quits from Help and
+never opens a screen's discard question. Ctrl+C quits through the usual path, as
+everywhere: the quit question with unapplied choices, the discard question over
+a Configuration draft, the exit-when-finished dialog during an apply. Every
+other key does nothing. An apply keeps running behind Help.
+
+Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
+`Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
+in the This screen pane's title, for example `Back to Configuration`. `?` and
+F1 also go back but are not listed: they are how the reader opened Help. When
+the open tab has nothing to scroll, the first line is empty: every scroll key is
+left out, as on any screen.
+
+The tab bar shows the open tab bold in the focus color and the other dim
+(`TabsElement` highlight style). Bold marks the open tab and the current step
+without color too: HomeLight keeps bold in the basic palette, and neither it nor
+TamboUI drops styles for `NO_COLOR`, so no extra marker is needed.
+
+
+TamboUI moves focus on Tab before any handler sees it, so the open tab follows
+focus: the open tab's pane has that tab's focus id and the tab bar has the
+other's.
+
+The mouse wheel scrolls the open tab and never switches it (see §3 Keys and
+focus).
+
+`homelight guide` prints the same guide as Markdown; `homelight --help` ends
+with its online address.
 
 ## 5. Workspace
 
@@ -245,7 +323,7 @@ app uses. `~` and `${USER}` stay as written.
   (`~/.m2`). `a` adds a row with the source root filled in; `d` removes the
   selected row; `b` opens Browse.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Candidate list (optional)** with help "A file of directories to suggest, for
+  **Suggestion list (optional)** with help "A file of directories to suggest, for
   example one shared across machines. Built-in suggestions are always included."
   A Resolved section shows each as an absolute path, updated as you type.
 - Relocation fields: **Source**, **Target** (blank derives it from the target
@@ -292,7 +370,7 @@ app uses. `~` and `${USER}` stay as written.
 | --- | --- |
 | Policy | rule |
 | `prompt` or missing | Ask each time |
-| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Check]` warning, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
+| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
 | Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
 
 All screen text lives in one TUI wording file.

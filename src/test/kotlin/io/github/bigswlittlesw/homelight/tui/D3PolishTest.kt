@@ -19,7 +19,7 @@ class D3PolishTest {
     fun readerScrollbarTracksWrappedContentAndDisappearsOnGrowth() {
         val viewport = DetailViewport()
         val lines = (0 until 28).map { i -> DetailViewport.Line("Row $i") }
-        val view = Toolkit.column(viewport.render("Details", lines, true, 0), viewport.help("Tab: Back", "q: Quit")).fill()
+        val view = Toolkit.column(viewport.render("Details", lines, true, 0), viewport.help(ScreenHelp("Test", "", Step.WORKSPACE, listOf(KeyHint("Tab", "Back")), listOf(QUIT_KEY)))).fill()
         val small = WorkspaceViewTest.render(view, 80, 24)
         assertTrue(small.contains("█"), small)
         // TamboUI's Scrollbar: thumb length ceil(20 * 20 / 28) = 15 rows, offset round(top / 8 * (20 - 15)).
@@ -65,7 +65,7 @@ class D3PolishTest {
             }
         }
         val viewport = DetailViewport()
-        val screen = WorkspaceViewTest.render(viewport.render("Details", listOf(DetailViewport.Line(path)), true, 0), 14, 8)
+        val screen = lightBorders(WorkspaceViewTest.render(viewport.render("Details", listOf(DetailViewport.Line(path)), true, 0), 14, 8))
         val rows = screen.lines().drop(1).take(6)
         for (row in rows) assertTrue(row.endsWith("│"), screen)
         assertEquals(path, rows.joinToString("") { row -> row.removePrefix("│").removeSuffix("│").trimEnd() }, screen)

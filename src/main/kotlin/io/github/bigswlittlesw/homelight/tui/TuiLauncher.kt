@@ -67,8 +67,16 @@ internal fun terminalRefusal(interactive: Boolean, term: String?): String? = whe
     else -> null
 }
 
-// The key handlers depend on KEY_BINDINGS, so a custom configuration gets them too.
-internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig = custom.toBuilder().bindings(KEY_BINDINGS).build()
+/**
+ * The key handlers depend on [KEY_BINDINGS], so a custom configuration gets them too.
+ *
+ * The mouse is captured so the wheel reaches HomeLight as wheel events. Without capture a terminal sends it as arrow
+ * keys, and a trackpad's sideways scrolling as ←/→, which switched Help's tabs. HomeLight uses only the wheel; to
+ * select text, the user holds the terminal's bypass modifier (tui-design §3). TamboUI turns capture off again when
+ * the runner closes, on every exit path.
+ */
+internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig =
+    custom.toBuilder().bindings(KEY_BINDINGS).mouseCapture(true).build()
 
 /** Runs the TUI on [config]'s backend, or the system terminal when it has none, until the user exits. */
 internal fun runTui(

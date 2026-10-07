@@ -22,7 +22,7 @@ internal object ApplyView {
      * The action list, one row per step. One instance lives across frames: TamboUI keeps its selection and scroll
      * offset. A relocation's first step carries the relocation's own line, so the selection is always an action.
      */
-    fun list(): ListElement<Any> = ListElement<Any>().title(REVIEW_LIST_TITLE).id(REVIEW_LIST)
+    fun list(): ListElement<Any> = ListElement<Any>().id(REVIEW_LIST)
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
 
@@ -46,7 +46,7 @@ internal object ApplyView {
         val reviewed = when (model) {
             is ApplyModel.Idle -> return Toolkit.column(
                 header, Toolkit.text(NOTHING_TO_REVIEW).fg(palette.warn),
-                Toolkit.text("1: Workspace  ·  q: Quit").fg(palette.dim),
+                Toolkit.text(screenHelp(model, focused, quitting).let { helpLine(it.navigation + it.commands) }).fg(palette.dim),
             )
             is ApplyModel.Reviewed -> model
         }
@@ -73,8 +73,9 @@ internal object ApplyView {
                 ).length(2)
             }
         }
-        list.elements(*rows.toTypedArray()).borderColor(if (focused == REVIEW_LIST) palette.focus else palette.dim)
-            .focusable(interactive)
+        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
+        // Framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
+        val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
         val detailLines = if (steps.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
         else details(steps[selected]) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
@@ -94,14 +95,6 @@ internal object ApplyView {
                 reviewed.execution == null -> WORKER_STOPPED
                 else -> STOPPED
             }
-        }
-        val footer = when (reviewed) {
-            is ApplyModel.Confirmation -> when {
-                !plan.hasChanges() -> "1/Enter/n/Esc: Workspace · q: Quit"
-                else -> "y: Apply · n/Esc/1: Cancel · q: Quit"
-            }
-            is ApplyModel.Running -> if (quitting) "" else "q: Quit"
-            is ApplyModel.Result -> "1/Enter: Workspace · r: Check again · q: Quit"
         }
         val changes = steps.filter { it.action.mutatesFilesystem }
         val content = buildList {
@@ -132,15 +125,55 @@ internal object ApplyView {
             }
             add(
                 Toolkit.row(
-                    list.percent(45),
+                    listPane.percent(45),
                     viewport.render("Action details", detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
-            val navigation = if (focused != REVIEW_DETAILS) "↑/↓: Inspect · Tab/→: Details"
-            else "↑/↓: Scroll · Tab/←: List" + (if (model is ApplyModel.Confirmation) "" else " · Esc: Back")
-            add(viewport.help(navigation, footer, interactive))
+            add(viewport.help(screenHelp(model, focused, quitting), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
+    }
+
+    /** Review's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(model: ApplyModel, focused: String?, quitting: Boolean): ScreenHelp {
+        val navigation = when {
+            model is ApplyModel.Idle -> listOf()
+            focused != REVIEW_DETAILS -> listOf(
+                KeyHint("↑/↓", "Inspect", description = "Select a step to see its details"),
+                KeyHint("Tab/→", "Details", description = "Move to the selected step's details"),
+                PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+            )
+            else -> listOf(SCROLL_KEY, SCROLL_DETAILS_KEYS, KeyHint("Tab/←", "List", description = "Back to the list of steps")) +
+                (if (model is ApplyModel.Confirmation) listOf()
+                else listOf(KeyHint("Esc", "Back", description = "Back to the list of steps")))
+        }
+        val commands = when (model) {
+            is ApplyModel.Idle -> listOf(KeyHint("1", "Workspace", description = "Go to the Workspace"), HELP_KEY, QUIT_KEY)
+            is ApplyModel.Confirmation ->
+                if (!model.plan.hasChanges()) listOf(
+                    KeyHint("1/Enter/n/Esc", "Workspace", description = "Back to the Workspace"), HELP_KEY, QUIT_KEY,
+                )
+                else listOf(
+                    KeyHint("y", "Apply", description = "Apply the plan; this changes files on disk"),
+                    KeyHint("n/Esc/1", "Cancel", description = "Back to the Workspace; nothing changes"), HELP_KEY, QUIT_KEY,
+                )
+            // Once HomeLight will exit when the apply finishes, `q` does nothing.
+            is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
+            is ApplyModel.Result -> listOf(
+                KeyHint("1/Enter", "Workspace", description = "Back to the Workspace; the results stay until you check again"),
+                CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY,
+            )
+        }
+        fun help(name: String, purpose: String, step: Step) = ScreenHelp(
+            if (focused == REVIEW_DETAILS) place(name, ACTION_DETAILS_NAME) else name, purpose, step, navigation, commands,
+        )
+        return when (model) {
+            is ApplyModel.Idle -> help(REVIEW_NAME, NOTHING_TO_REVIEW, Step.REVIEW)
+            is ApplyModel.Confirmation ->
+                help(REVIEW_NAME, if (model.plan.hasChanges()) PURPOSE_REVIEW else PURPOSE_NO_CHANGES, Step.REVIEW)
+            is ApplyModel.Running -> help(APPLYING_NAME, PURPOSE_APPLYING, Step.APPLY)
+            is ApplyModel.Result -> help(RESULTS_NAME, PURPOSE_RESULTS, Step.RESULTS)
+        }
     }
 
     fun steps(model: ApplyModel): List<ApplyModel.Step> = when (model) {

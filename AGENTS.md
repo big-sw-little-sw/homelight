@@ -38,6 +38,10 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 13. **Keep Native Image builds reflection-free.** Never add `kotlin-reflect`. Prefer compile-time serialization (kotlinx.serialization) or streaming parsers over reflection-based mapping.
 
+## User guide
+
+`docs/user-guide.md` is end-user documentation shown inside the app. Plain language, names as shown on screen, no internal names or history. Any ticket that changes what users see updates the guide in the same PR, and the walkthrough covers the guide diff.
+
 ## Verification
 
 When asked to review, audit, or verify a claim, assess it independently. Report the evidence: relevant files inspected, checks run, and any remaining uncertainty. Do not describe work as complete without a proportionate spot-check.

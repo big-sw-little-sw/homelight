@@ -1,9 +1,10 @@
 #!/usr/bin/expect -f
-# Drives the homelight TUI on a pty: render, keys, resizes, quit, terminal restore.
+# Drives the homelight TUI on a pty: render, keys, Help, resizes, quit, terminal restore.
 #
 #   expect ci/native/tui.exp <logfile> <command...>
 #
-# TERM comes from the environment. The command runs in /bin/sh on a 120x40 pty, then the pty is
+# TERM comes from the environment. The command runs in /bin/sh on a 120x40 pty. `?` must open
+# Help, which renders the embedded user guide as Markdown, and `?` closes it. Then the pty is
 # resized to 80x24, 120x30 and 140x50; each size must trigger a redraw. Then the TUI is quit with
 # `q`, or with Ctrl-C when TUI_QUIT=ctrl-c. All terminal output goes to <logfile>, with
 # "@@RESIZE <rows>x<cols>@@" and "@@QUIT@@" markers for render.py.
@@ -90,6 +91,26 @@ pump 1
 send "\033\[B"; set k1 [pump 0.5]
 send "\033\[A"; set k2 [pump 0.5]
 check keys [expr {$k1 > 0 && $k2 > 0}] "$k1+$k2"
+
+# Help renders Markdown, and its Guide tab the embedded guide; if either failed in Native Image,
+# the TUI would exit. The TUI redraws only the cells that change, so the match is text on Help's
+# own help line (`Esc/q: Back to <screen>`), which no other screen has; its scroll line is empty when the
+# tab fits. The match has no space: an unchanged space cell is
+# skipped, which would split it.
+send "?"
+set timeout 5
+expect {
+  -re {Esc/q:} { puts -nonewline $lf $expect_out(buffer); check help 1 shown }
+  timeout { check help 0 missing }
+}
+pump 1
+send "\t"; set g [pump 1]
+check guide [expr {$g > 0}] $g
+# The mouse is captured: SGR wheel down scrolls the guide; sideways scrolling and a click do nothing.
+send "\033\[<65;20;10M"; set w [pump 0.5]
+check wheel [expr {$w > 0}] $w
+send "\033\[<67;20;10M\033\[<0;5;2M\033\[<0;5;2m"; pump 0.5
+send "?"; pump 1
 
 foreach size {{24 80} {30 120} {50 140}} {
   lassign $size rows cols

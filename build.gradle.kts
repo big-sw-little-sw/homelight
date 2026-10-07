@@ -25,6 +25,8 @@ dependencies {
     implementation(platform(libs.tamboui.bom))
     implementation(libs.tamboui.toolkit)
     implementation(libs.tamboui.jline3.backend)
+    // Renders the embedded user guide on the Help screen.
+    implementation(libs.tamboui.toolkit.markdown)
     implementation(libs.picocli)
     implementation(libs.kotlinx.serialization.json)
     picocliCodegen(libs.picocli.codegen)
@@ -59,6 +61,8 @@ tasks.processResources {
     filesMatching("io/github/bigswlittlesw/homelight/version.properties") {
         expand("project" to mapOf("version" to version))
     }
+    // The one copy of the user guide: the Help screen and `homelight guide` read it from the jar.
+    from("docs/user-guide.md") { into("io/github/bigswlittlesw/homelight") }
 }
 
 tasks.test {

@@ -10,13 +10,14 @@ import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
 
 // The TUI's words for application values and the messages its screens show (tui-design §9). Application enums keep
-// meaning only. Key hints stay beside the handlers that bind them, so a hint and its key cannot drift apart.
+// meaning only. Key hints stay in each screen's `keys` function, beside the handlers that bind them, so a hint and its
+// key cannot drift apart; only keys several screens share are here.
 
 internal fun badgeLabel(badge: PlanBadge): String = when (badge) {
     PlanBadge.CONFLICT -> "Choose"
     PlanBadge.BLOCKED -> "Blocked"
     PlanBadge.INACCESSIBLE -> "Can't read"
-    PlanBadge.WARNING -> "Check"
+    PlanBadge.WARNING -> "Warning"
     PlanBadge.MIGRATE -> "Move"
     PlanBadge.ADOPT -> "Keep target"
     PlanBadge.LINK -> "Link"
@@ -202,3 +203,75 @@ internal fun runningCount(done: Int, changes: Int, running: Int, failed: Int) =
 internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
     "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)
+
+// The Help screen (tui-design §3 Help screen). Its Guide tab is docs/user-guide.md, never copied here.
+internal const val HELP_TITLE = "Help"
+internal const val THIS_SCREEN_TAB = "This screen"
+internal const val GUIDE_TAB = "Guide"
+internal const val STEP = "Step"
+internal fun keysOn(place: String) = "Keys on $place"
+internal const val KEYS_LEAD_IN = "They work after you go back (Esc or q). In Help they do nothing."
+internal const val MOVE_AROUND = "Move around"
+internal const val DO_KEYS = "Do"
+internal const val HELP_HINT = "Press ? for help."
+internal const val FIRST_RUN_HINT = "New to HomeLight? Press ? to read the guide."
+
+/** The steps of using HomeLight, as "You are here" names them. */
+internal fun stepLabel(step: Step): String = when (step) {
+    Step.CONFIGURE -> "Configure"
+    Step.WORKSPACE -> "Workspace"
+    Step.REVIEW -> "Review"
+    Step.APPLY -> "Apply"
+    Step.RESULTS -> "Results"
+}
+
+// Screen names as the header shows them, and what each screen is for in its current state.
+internal const val WORKSPACE_NAME = "Workspace"
+internal const val REVIEW_NAME = "Review"
+internal const val RESULTS_NAME = "Results"
+internal const val APPLYING_NAME = "Applying"
+internal const val CONFIGURATION_NAME = "Configuration"
+internal const val BROWSE_NAME = "Browse"
+internal const val PURPOSE_NO_CONFIGURATION =
+    "There is no configuration file yet. Press i to create one: say where storage is and which directories to move."
+internal const val PURPOSE_INVALID =
+    "HomeLight cannot read the configuration file; the message says why. Fix the file, then press r to check again."
+internal const val PURPOSE_NO_RELOCATIONS =
+    "The configuration lists no directories to move yet. Add them to the configuration file, then press r."
+internal const val PURPOSE_WORKSPACE =
+    "Each relocation and what HomeLight plans for it. Pick a choice where one is needed, then press a to review."
+internal const val PURPOSE_REVIEW =
+    "Every step apply will take. Nothing has changed yet: y applies the plan, n goes back without changing anything."
+internal const val PURPOSE_NO_CHANGES = "Nothing needs to change. Press 1 or Enter to go back to the Workspace."
+internal const val PURPOSE_APPLYING =
+    "HomeLight is making the changes. Leave it running until it finishes; Help does not stop it."
+internal const val PURPOSE_RESULTS =
+    "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
+internal const val PURPOSE_CONFIGURATION =
+    "Create the configuration file: where storage is and which directories to move. Saving changes nothing on disk."
+internal const val PURPOSE_BROWSE =
+    "Suggestions from the built-in list and your list. Add the ones you want to move."
+internal const val DETAILS_NAME = "Details"
+internal const val ACTION_DETAILS_NAME = "Action details"
+internal const val RELOCATIONS_NAME = "Relocations"
+/** Configuration's fields, as its pane labels them; Help names the focused one. */
+internal val LOCATION_FIELDS = listOf("Source root", "Target root", "Suggestion list (optional)")
+internal val RELOCATION_FIELDS =
+    listOf("Source path", "Target path", "Both exist", "Only target", "Source when keeping target", "Archive root")
+internal fun place(vararg parts: String) = parts.joinToString(" › ")
+/** Where Help goes back to: the screen in the `place` its This screen pane is titled with. */
+internal fun backTo(place: String) = "Back to " + place.substringBefore(" › ")
+
+internal val HELP_KEY = KeyHint("?", "Help")
+/** Help's key in a text field, where `?` types. */
+internal val TEXT_FIELD_HELP_KEY = KeyHint("F1", "Help")
+internal val QUIT_KEY =
+    KeyHint("q", "Quit", description = "Quit HomeLight; asks first if choices are not applied or changes are running")
+internal val CHECK_AGAIN_KEY = KeyHint(
+    "r", "Check again", description = "Read the configuration and the disk again and make a new plan; forgets choices",
+)
+internal val SCROLL_KEY = KeyHint("↑/↓", "Scroll", scrolls = true)
+internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = false, description = "Move a page in the list")
+internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
+internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
+internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)

@@ -64,20 +64,18 @@ internal object WorkspaceView {
                 is ConfigurationEvaluation.Invalid -> model.message
                 else -> NO_CONFIGURATION
             }
+            val lines = listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)) +
+                (if (missing) listOf(Line(FIRST_RUN_HINT)) else listOf())
             return Toolkit.column(
                 header,
                 // The only pane, so it has focus unless a dialog is open.
-                viewport.render(
-                    "Configuration",
-                    listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)),
-                    interactive, 0, WORKSPACE_DETAILS, interactive,
-                ),
-                viewport.help("↑/↓: Scroll", (if (missing) "i: Create configuration · " else "") + "r: Check again · q: Quit", interactive),
+                viewport.render("Configuration", lines, interactive, 0, WORKSPACE_DETAILS, interactive),
+                viewport.help(screenHelp(session, list, showInSync, focused), interactive),
             )
         }
         val configured = model
         val items = visibleItems(configured, showInSync)
-        val selected = list.selected().coerceIn(0, maxOf(0, items.size - 1))
+        val selected = selection(list, items)
         val item = items.getOrNull(selected)
         val rows = items.mapIndexed { i, listed ->
             val label = badgeLabel(listed.badge())
@@ -89,14 +87,14 @@ internal object WorkspaceView {
         }
         val inSync = toggledInSync(configured)
         // In the title, not a row, so the list's own selection never lands on it.
-        list.elements(*rows.toTypedArray()).title(relocationsTitle(inSync, showInSync))
-            .borderColor(if (focused == WORKSPACE_LIST) palette.focus else palette.dim).focusable(interactive)
+        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
+        // The list is framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
+        val listPane = framed(Toolkit.panel(relocationsTitle(inSync, showInSync), list), focused == WORKSPACE_LIST)
         val detailsFocused = focused == WORKSPACE_DETAILS
-        val details = if (item == null) Anchored(listOf(Line(NO_RELOCATIONS)), 0)
+        val details = if (item == null) Anchored(listOf(Line(NO_RELOCATIONS), Line(HELP_HINT)), 0)
         else details(configured, item, choice, detailsFocused, retained)
         val lines = details.lines + configured.plan.diagnostics.map { Line(it.message, palette.warn, false) }
         val summary = summary(configured.items)
-        val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
         val content = buildList {
             add(header)
             add(wrappedText("Config: " + displayPath(session.configPath), palette.dim))
@@ -104,7 +102,7 @@ internal object WorkspaceView {
             if (summary.risks.isNotEmpty()) add(wrappedText(summary.risks, palette.warn))
             add(
                 Toolkit.row(
-                    list.percent(45), viewport.render("Details", lines, detailsFocused, details.anchor, WORKSPACE_DETAILS, interactive),
+                    listPane.percent(45), viewport.render("Details", lines, detailsFocused, details.anchor, WORKSPACE_DETAILS, interactive),
                 ).fill(),
             )
             if (!session.isPlanReady() && !retained) add(
@@ -113,19 +111,69 @@ internal object WorkspaceView {
                     palette.warn,
                 ),
             )
-            val navigation = if (detailsFocused)
-                (if (choices) "↑/↓: Choose · Space/Enter: Select" else "↑/↓: Scroll") + " · Tab/Esc: Back"
-            else "↑/↓: Select · Tab/→: Details"
-            val review = when {
-                retained -> "2: Results"
-                !session.isPlanReady() -> ""
-                configured.plan.hasChanges() -> "a: Review & apply · 2: Review"
-                else -> "2: Review"
-            }
-            add(viewport.help(navigation, (if (review.isEmpty()) "" else "$review · ") + "r: Check again · q: Quit", interactive))
+            add(viewport.help(screenHelp(session, list, showInSync, focused), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
+
+    /** Workspace's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenHelp {
+        val model = session.evaluation()
+        if (model !is ConfigurationEvaluation.Loaded) {
+            val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
+            return ScreenHelp(
+                // Without a configuration that loads, the next step is to configure.
+                WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID, Step.CONFIGURE,
+                listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, SCROLL_DETAILS_KEYS),
+                listOfNotNull(KeyHint("i", "Create configuration", description = "Create a configuration file; nothing is written until you save")
+                    .takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
+            )
+        }
+        val retained = session.applyModel() is ApplyModel.Result
+        val navigation = if (focused == WORKSPACE_DETAILS) {
+            val items = visibleItems(model, showInSync)
+            val item = items.getOrNull(selection(list, items))
+            val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
+            (if (choices) listOf(
+                KeyHint("↑/↓", "Choose", description = "Move between the choices"),
+                KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice, for the next apply only"),
+                HOME_END_KEYS,
+            )
+            else listOf(SCROLL_KEY, SCROLL_ENDS_KEYS)) +
+                listOf(
+                    SCROLL_DETAILS_KEYS, KeyHint("Tab/Esc", "Back", description = "Back to the relocation list"),
+                    KeyHint("←", "Back", inHelpArea = false, description = "Back to the relocation list"),
+                )
+        } else listOf(
+            KeyHint("↑/↓", "Select", description = "Select a relocation"),
+            KeyHint("Tab/→", "Details", description = "Move to Details for the selected relocation"),
+            KeyHint("Enter", "Details", inHelpArea = false, description = "Move to Details for the selected relocation"),
+            PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+        )
+        val review = when {
+            retained -> listOf(KeyHint("2", "Results", description = "Show what the last apply did"))
+            !session.isPlanReady() -> listOf()
+            model.plan.hasChanges() -> listOf(
+                KeyHint("a", "Review & apply", description = "Review the plan; nothing changes until you press y there"),
+                KeyHint("2", "Review", description = "Open Review, as a does"),
+            )
+            else -> listOf(KeyHint("2", "Review", description = "Open Review; there is nothing to apply"))
+        }
+        val inSync = toggledInSync(model)
+        // The list title shows `c`, so the help lines leave it out.
+        val toggle = KeyHint(
+            "c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false,
+            description = (if (showInSync) "Hide" else "Show") + " the relocations already in sync",
+        )
+        return ScreenHelp(
+            if (focused == WORKSPACE_DETAILS) place(WORKSPACE_NAME, DETAILS_NAME) else WORKSPACE_NAME,
+            if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE, Step.WORKSPACE,
+            navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
+        )
+    }
+
+    private fun selection(list: ListElement<Any>, items: List<PlanRelocationItem>): Int =
+        list.selected().coerceIn(0, maxOf(0, items.size - 1))
 
     fun summary(items: List<PlanRelocationItem>): Summary {
         var actionable = 0

@@ -80,6 +80,8 @@ step status-help status --help
 step plan-help plan --help
 step apply-help apply --help
 step init-help init --help
+# The guide is a resource; a native build without it registered would print nothing.
+step guide guide
 step bogus-option --bogus
 step bad-delay --debug-step-delay-ms 60001 status --json
 step missing-config -c "$R/nope.json" status --json

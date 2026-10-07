@@ -36,13 +36,9 @@ internal class CandidateBrowser {
         val lines = mutableListOf<Line>()
         var anchor = -1
         val title: String
-        val navigation: String
-        val commands: String
         if (diagnostics) {
             title = "Discovery sources"
             sourceDetails(lines, draft)
-            navigation = "↑/↓: Scroll · Esc: Back"
-            commands = "r: Refresh · q: Discard draft"
         } else if (details) {
             title = "Candidate details"
             val entry = focusedEntry(draft)
@@ -52,8 +48,6 @@ internal class CandidateBrowser {
                 if (focused is Item.Directory) lines.add(Line("Source: " + literal(focused.path.toString())))
                 lines.add(Line("Existing draft rows are retained. Esc returns to the list."))
             } else detailLines(lines, entry, draft)
-            navigation = "↑/↓: Scroll · Esc: Back"
-            commands = (entry?.let { action(it, draft) } ?: "") + "r: Refresh · q: Discard draft"
         } else {
             title = "Browse candidates"
             val unique = entriesByPath(draft)
@@ -116,16 +110,10 @@ internal class CandidateBrowser {
                     ),
                 )
             }
-            navigation = (if (items.isEmpty()) "" else "↑/↓: Move · ") +
-                (focusedEntry(draft)?.let { listAction(it, draft) } ?: "") +
-                (if (focus is Item.Directory) "Enter: Inspect · " else if (listedFocus) "Enter: Expand/collapse · " else "") +
-                "Esc: Back"
-            commands = "r: Refresh · i: Sources" +
-                (if (hidden > 0) " · u: " + (if (reveal) "Hide " else "Show ") + hidden else "") + " · q: Discard"
         }
         if (message.isNotEmpty() && details) lines.add(0, Line(literal(message), palette.warn, false))
         val reader = viewport.render(title, lines, interactive, anchor)
-        val help = viewport.help(navigation, commands, interactive)
+        val help = viewport.help(screenHelp(draft), interactive)
         return if (message.isNotEmpty() && !details && !diagnostics)
             Toolkit.column(
                 reader,
@@ -133,6 +121,51 @@ internal class CandidateBrowser {
                 help,
             ).fill()
         else Toolkit.column(reader, help).fill()
+    }
+
+    /** Browse's purpose and keys in its current state, for its help lines and the Help screen. */
+    fun screenHelp(draft: SetupDraft): ScreenHelp {
+        val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
+        val refresh = KeyHint("r", "Refresh", description = "Read the suggestion lists again")
+        val discard = KeyHint("q", "Discard", description = "Discard the configuration; asks first")
+        if (diagnostics || details) {
+            val entryKey = if (diagnostics) null else focusedEntry(draft)?.let { entry -> action(entry, draft) }
+            return ScreenHelp(
+                place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
+                listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, KeyHint("Esc", "Back", description = "Back to the suggestions")),
+                listOfNotNull(entryKey, refresh, HELP_KEY, discard.copy(action = "Discard draft")),
+            )
+        }
+        val items = items(draft, entriesByPath(draft))
+        val listedFocus = focus != null && items.any { same(it, focus) }
+        val hidden = hiddenCount(draft)
+        val enter = when {
+            focus is Item.Directory -> KeyHint("Enter", "Inspect", description = "See why it is suggested and by which list")
+            listedFocus -> KeyHint("Enter", "Expand/collapse", description = "Show or hide the group's directories")
+            else -> null
+        }
+        return ScreenHelp(
+            place(CONFIGURATION_NAME, BROWSE_NAME), PURPOSE_BROWSE, Step.CONFIGURE,
+            listOfNotNull(
+                KeyHint("↑/↓", "Move", description = "Select a suggestion").takeIf { items.isNotEmpty() },
+                focusedEntry(draft)?.let { listAction(it, draft) }, enter,
+                KeyHint("Esc", "Back", description = "Back to the relocation list"), HOME_END_KEYS.takeIf { items.isNotEmpty() },
+                scroll,
+            ),
+            listOfNotNull(
+                refresh, KeyHint("i", "Sources", description = "See whether each suggestion list was read"),
+                KeyHint(
+                    "u", (if (reveal) "Hide " else "Show ") + hidden,
+                    description = (if (reveal) "Hide" else "Show") + " the suggestions marked usually not needed",
+                ).takeIf { hidden > 0 },
+                HELP_KEY, discard,
+            ),
+        )
+    }
+
+    /** The mouse wheel at `x`, `y` scrolls the pane under it; it never moves the focused suggestion. */
+    fun wheel(x: Int, y: Int, delta: Int) {
+        if (viewport.contains(x, y)) viewport.scroll(delta)
     }
 
     /** Handles a key and returns the index of a draft row to edit, or -1 to stay in the browser. */
@@ -275,18 +308,18 @@ private fun compact(path: String): String {
 }
 
 
-private fun action(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
-    entry.configured != null -> ""
-    entry.draft != null -> "e: Edit draft row · "
-    draft.canAdd(entry) -> "a: Add to draft · "
-    else -> ""
+private fun action(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
+    entry.configured != null -> null
+    entry.draft != null -> KeyHint("e", "Edit draft row", description = "Edit its relocation")
+    draft.canAdd(entry) -> KeyHint("a", "Add to draft", description = "Add it to the configuration")
+    else -> null
 }
 
-private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): String = when {
-    entry.configured != null -> ""
-    entry.draft != null -> "e: Edit · "
-    draft.canAdd(entry) -> "Space/a: Add · "
-    else -> ""
+private fun listAction(entry: SetupDraft.Entry, draft: SetupDraft): KeyHint? = when {
+    entry.configured != null -> null
+    entry.draft != null -> KeyHint("e", "Edit", description = "Edit its relocation")
+    draft.canAdd(entry) -> KeyHint("Space/a", "Add", description = "Add the suggestion to the configuration")
+    else -> null
 }
 
 private fun listNotes(entry: SetupDraft.Entry): String {

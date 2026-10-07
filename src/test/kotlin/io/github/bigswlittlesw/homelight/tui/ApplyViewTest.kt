@@ -96,14 +96,14 @@ class ApplyViewTest {
             assertTrue(text.contains("1 of 2 changes done · 1 running · 0 failed"), text)
             assertTrue(text.contains("━"), text)
             // The relocation and its running step both spin; the done step is checked.
-            assertTrue(text.contains("│⠙ /home/cache"), text)
+            assertTrue(lightBorders(text).contains("│⠙ /home/cache"), text)
             assertTrue(text.contains("❯ ✔ Copy to target and check"), text)
             assertTrue(text.contains("  ⠙ Replace source with a link ⚠ "), text)
-            assertTrue(text.contains("│─ /home/npm (in sync)"), text)
+            assertTrue(lightBorders(text).contains("│─ /home/npm (in sync)"), text)
             assertFalse(text.contains("Already in sync"), text)
             // Selected, the in-sync row's pointer takes its mark's cell.
             val selected = render(ApplyModel.Running.of(plan, steps), 2, size[0], size[1])
-            assertTrue(selected.contains("│❯ /home/npm (in sync)"), selected)
+            assertTrue(lightBorders(selected).contains("│❯ /home/npm (in sync)"), selected)
             assertTrue(text.contains("q: Quit"), text)
         }
         val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
@@ -122,15 +122,15 @@ class ApplyViewTest {
             ApplyModel.Step(first, first.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"),
             ApplyModel.Step(second, second.actions.first(), ApplyModel.StepStatus.PENDING, "Not run"))
         val text = render(ApplyModel.Result.of(plan, steps, null, listOf(), true), 1, 120, 30)
-        assertTrue(text.contains("│✖ /home/cache"), text)
-        assertTrue(text.contains("│○ /home/other"), text)
+        assertTrue(lightBorders(text).contains("│✖ /home/cache"), text)
+        assertTrue(lightBorders(text).contains("│○ /home/other"), text)
         assertTrue(text.contains("1 of 3 changes done · 1 failed · 1 not run"), text)
         assertTrue(text.contains("[1: Workspace]  [2: Results]"), text)
 
         val done = steps.map { it.copy(status = ApplyModel.StepStatus.COMPLETED) }
         val finished = render(ApplyModel.Result.of(plan, done, null, listOf(), false), 0, 120, 30)
-        assertTrue(finished.contains("│✔ /home/cache"), finished)
-        assertTrue(finished.contains("│✔ /home/other"), finished)
+        assertTrue(lightBorders(finished).contains("│✔ /home/cache"), finished)
+        assertTrue(lightBorders(finished).contains("│✔ /home/other"), finished)
     }
 
     @Test

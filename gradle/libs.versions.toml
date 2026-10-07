@@ -7,6 +7,7 @@ kotlinx-serialization = "1.11.0"
 tamboui-bom = { module = "dev.tamboui:tamboui-bom", version = "0.5.0" }
 tamboui-toolkit = { module = "dev.tamboui:tamboui-toolkit" }
 tamboui-jline3-backend = { module = "dev.tamboui:tamboui-jline3-backend" }
+tamboui-toolkit-markdown = { module = "dev.tamboui:tamboui-toolkit-markdown" }
 picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
 picocli-codegen = { module = "info.picocli:picocli-codegen", version.ref = "picocli" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }

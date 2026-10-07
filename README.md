@@ -13,32 +13,17 @@ The project is at the initial design and implementation stage. Configuration loa
 ```text
 homelight
 homelight init
-homelight config
 homelight plan
 homelight apply
 homelight status
+homelight guide
 ```
 
 Running `homelight` starts the full-screen TUI. Named commands open the corresponding TUI workflow. Automation uses prompt-free JSON forms such as `plan --json`, `status --json`, and `apply --json --yes`.
 
-## Scripting
+The [user guide](docs/user-guide.md) is for people using HomeLight: how to use it, the words it uses, what each rule does on disk and how to undo a change. The TUI shows it on the Guide tab of its Help screen (`?` or F1), and `homelight guide` prints it.
 
-Three commands print one line of JSON on stdout and never prompt:
-
-- `homelight status --json`: the state of each configured relocation, as `{"schema": 1, "configured": true, "configPath": "...", "relocations": [...]}`. Without a configuration file at the default path, `configured` is false and `relocations` is empty.
-- `homelight plan --json`: the actions that would converge each relocation, with conflicts and diagnostics. It changes nothing.
-- `homelight apply --json --yes`: plans and, if nothing is blocked or in conflict, applies that plan and prints the result of each action. If the plan is blocked or has a conflict, it prints the plan instead and changes nothing.
-
-`--yes` is required with `apply --json`; it confirms the plan the command computes. Without `--json`, `apply` opens the TUI review whether or not `--yes` is given.
-
-Each response is a JSON object whose first property is `"schema": 1`. The number changes when a change could break a script that reads the current shape.
-
-Exit codes:
-
-- `0`: success. `plan --json` exits 0 even when the plan has conflicts or blocked actions; read `conflicts` and `blocked`.
-- `1`: a configuration error (one line on stderr, nothing on stdout), or `apply` was blocked, met a conflict or had a failed action (JSON on stdout).
-- `2`: a usage error, such as an unknown option or `apply --json` without `--yes` (message on stderr).
-- `70`: an internal error, a bug in HomeLight (one line on stderr).
+For the JSON commands, their `"schema"` field and exit codes, see [Scripting](docs/user-guide.md#scripting) in the user guide.
 
 ## Design
 

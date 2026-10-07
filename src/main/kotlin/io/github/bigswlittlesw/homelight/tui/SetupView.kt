@@ -37,6 +37,8 @@ internal class SetupView(
     var closed = false
         private set
     private var locationsChanged = false
+    // Any text typed into a field, kept or not: Esc from the first fields asks before losing it.
+    private var edited = false
     private var sourceRoot: String = System.getProperty("user.home")
     private var targetRoot = ""
     private var sharedList = ""
@@ -46,9 +48,10 @@ internal class SetupView(
     // Unfinished location text is independent of the last valid model roots.
     private val draft = Path.of(sourceRoot).toAbsolutePath().let { home -> SetupDraft(home, home, null, listOf()) }
 
-    fun render(): Element {
+    /** `interactive` is false while a dialog, this view's or the app's, is open over setup. */
+    fun render(interactive: Boolean): Element {
         if (!closed) discovery?.let { draft.accept(it.snapshot()) }
-        val content = if (mode == Mode.CANDIDATES) browser.render(draft, !discard)
+        val content = if (mode == Mode.CANDIDATES) browser.render(draft, interactive)
         else {
             val lines = mutableListOf<Line>()
             lines.add(Line("Create configuration", palette.text, true))
@@ -60,11 +63,16 @@ internal class SetupView(
                 Mode.CANDIDATES -> error("The candidate browser renders itself")
             }
             lines.add(Line(literal(message), palette.warn, false))
-            Toolkit.column(viewport.render("Setup", lines, !discard, anchor), viewport.help(help(), commands(), !discard)).fill()
+            Toolkit.column(
+                viewport.render(CONFIGURATION_NAME, lines, interactive, anchor),
+                viewport.help(screenHelp(), interactive, fieldNote()),
+            ).fill()
         }
-        val header = Toolkit.row(Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[Setup]").fg(palette.focus).bold())
+        val header = Toolkit.row(
+            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$CONFIGURATION_NAME]").fg(palette.focus).bold(),
+        )
         // Setup keeps its own field focus until the configuration editor replaces it, so the screen is one focusable.
-        return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(!discard)
+        return Toolkit.column(header, content).fill().id(SETUP_SCREEN).focusable(interactive)
     }
 
     /** The discard question, while it is open. */
@@ -74,7 +82,7 @@ internal class SetupView(
 
     private fun locations(lines: MutableList<Line>): Int {
         lines.add(Line("Storage locations", palette.text, true))
-        listOf("Source root" to sourceRoot, "Target root" to targetRoot, "Shared candidate list (optional)" to sharedList)
+        LOCATION_FIELDS.zip(listOf(sourceRoot, targetRoot, sharedList))
             .forEachIndexed { i, (name, value) -> choice(lines, "$name: $value", i == field) }
         lines.add(
             Line(
@@ -108,10 +116,11 @@ internal class SetupView(
     private fun rowDetails(lines: MutableList<Line>): Int {
         val value = draft.rows[row]
         lines.add(Line("Edit relocation " + (row + 1), palette.text, true))
-        listOf(
-            "Source path" to value.sourceRelative, "Target path" to value.targetRelative, "Both exist" to bothLabel(value.both),
-            "Only target" to onlyTargetLabel(value.onlyTarget), "Source when keeping target" to adoptingLabel(value.adopting),
-            "Archive root" to archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
+        RELOCATION_FIELDS.zip(
+            listOf(
+                value.sourceRelative, value.targetRelative, bothLabel(value.both), onlyTargetLabel(value.onlyTarget),
+                adoptingLabel(value.adopting), archiveText.ifEmpty { defaultArchive(sourceRoot, value.sourceRelative) },
+            ),
         ).forEachIndexed { i, (name, text) ->
             choice(lines, "$name: $text", i == field)
             if (i == 2 && discardPolicyFocused()) lines.add(Line(bothConsequence(value.both), palette.warn, true))
@@ -123,10 +132,9 @@ internal class SetupView(
         return 3 + field
     }
 
-    private fun help(): String = when (mode) {
-        Mode.LOCATIONS -> "↑/↓: Field · Type: Edit · Ctrl-U: Clear"
-        Mode.TABLE -> if (draft.rows.isEmpty()) "e: Edit locations · Esc: Back"
-        else "↑/↓: Row · Enter: Details · d: Remove · e: Locations · Esc: Back"
+    /** What the focused relocation field means, in place of the navigation help line. */
+    private fun fieldNote(): String? = when (mode) {
+        Mode.LOCATIONS, Mode.TABLE, Mode.CANDIDATES -> null
         Mode.ROW -> when (field) {
             0 -> "Source is relative; matching target follows until edited."
             1 -> "Target is relative to the target root."
@@ -142,15 +150,79 @@ internal class SetupView(
                 WhenAdoptingTarget.ARCHIVE_SOURCE -> "move the source to the archive root."
             }
         }
-        Mode.CANDIDATES -> ""
     }
 
-    private fun commands(): String = when (mode) {
-        Mode.LOCATIONS -> "Enter: Relocations · Esc: Cancel without writing"
-        Mode.TABLE -> "a: Add manual · b: Browse candidates · v: Validate · s: Save · q: Discard"
-        Mode.ROW -> "↑/↓: Field · " + (if (textField()) "Type: Edit · Ctrl-U: Clear" else "Space: Change rule · d: Remove") +
-            " · Esc: Table"
-        Mode.CANDIDATES -> ""
+    /**
+     * Configuration's place, purpose and keys in its current state, for its help lines and the Help screen. In a text
+     * field `?` types, so help offers F1 there.
+     */
+    fun screenHelp(): ScreenHelp {
+        val scroll = KeyHint("[/]", "Scroll", inHelpArea = false)
+        val nextField = KeyHint("↑/↓", "Field", description = "Move to the next or previous field")
+        val editing = listOf(
+            KeyHint("Type", "Edit", description = "Type into the field"), KeyHint("Ctrl-U", "Clear", description = "Clear the field"),
+        )
+        val discard = KeyHint("q", "Discard", description = "Discard the configuration; asks first")
+        fun help(where: String, navigation: List<KeyHint>, commands: List<KeyHint>) =
+            ScreenHelp(place(CONFIGURATION_NAME, where), PURPOSE_CONFIGURATION, Step.CONFIGURE, navigation, commands)
+        return when (mode) {
+            Mode.LOCATIONS -> help(
+                LOCATION_FIELDS[field],
+                listOf(nextField) + editing + scroll,
+                listOf(
+                    KeyHint("Enter", "Relocations", description = "Go on to the relocations; nothing is saved yet"),
+                    KeyHint(
+                        "Esc", "Cancel without writing", description = "Close Configuration; asks first if you typed anything",
+                    ),
+                    TEXT_FIELD_HELP_KEY,
+                ),
+            )
+            Mode.TABLE -> {
+                val locations = "Back to the storage locations"
+                help(
+                    RELOCATIONS_NAME,
+                    if (draft.rows.isEmpty()) listOf(
+                        KeyHint("e", "Edit locations", description = locations), KeyHint("Esc", "Back", description = locations),
+                        scroll,
+                    )
+                    else listOf(
+                        KeyHint("↑/↓", "Row", description = "Select a relocation"),
+                        KeyHint("Enter", "Details", description = "Edit the selected relocation"),
+                        KeyHint("d", "Remove", description = "Remove the selected relocation"),
+                        KeyHint("e", "Locations", description = locations), KeyHint("Esc", "Back", description = locations),
+                        scroll,
+                    ),
+                    // "b: Browse" is short so that this line and `?: Help` fit 80 columns.
+                    listOf(
+                        KeyHint("a", "Add manual", description = "Add a relocation by typing its path"),
+                        KeyHint("b", "Browse", description = "Browse suggestions to add"),
+                        KeyHint("v", "Validate", description = "Check the configuration without saving it"),
+                        KeyHint("s", "Save", description = "Save the configuration file; it never replaces an existing one"),
+                        HELP_KEY, discard,
+                    ),
+                )
+            }
+            Mode.ROW -> {
+                val table = KeyHint("Esc", "Table", description = "Back to the relocation list")
+                help(
+                    RELOCATION_FIELDS[field],
+                    listOf(scroll),
+                    if (textField()) listOf(nextField) + editing + table + TEXT_FIELD_HELP_KEY
+                    else listOf(
+                        nextField, KeyHint("Space", "Change rule", description = "Switch the rule to its next value"),
+                        KeyHint("d", "Remove", description = "Remove this relocation"), table,
+                        HELP_KEY, discard.copy(inHelpArea = false),
+                    ),
+                )
+            }
+            Mode.CANDIDATES -> browser.screenHelp(draft)
+        }
+    }
+
+    /** The mouse wheel at `x`, `y` scrolls the pane under it; it never moves the field or row focus. */
+    fun wheel(x: Int, y: Int, delta: Int) {
+        if (mode == Mode.CANDIDATES) browser.wheel(x, y, delta)
+        else if (viewport.contains(x, y)) viewport.scroll(delta)
     }
 
     fun key(key: KeyEvent) {
@@ -161,7 +233,7 @@ internal class SetupView(
                 Mode.CANDIDATES -> if (!browser.back()) changeMode(Mode.TABLE)
                 Mode.ROW -> changeMode(Mode.TABLE)
                 Mode.TABLE -> changeMode(Mode.LOCATIONS)
-                Mode.LOCATIONS -> close()
+                Mode.LOCATIONS -> if (edited || draft.rows.isNotEmpty()) discard = true else close()
             }
             return
         }
@@ -213,6 +285,7 @@ internal class SetupView(
         if (current == next) return
         when (field) { 0 -> sourceRoot = next; 1 -> targetRoot = next; else -> sharedList = next }
         locationsChanged = true
+        edited = true
         // Invalidate immediately, including an edit away from and back to a root.
         discovery?.cancel()
         draft.roots(draft.sourceRoot, draft.targetRoot)
@@ -279,7 +352,7 @@ internal class SetupView(
                     value.copy(archiveRoot = archive)
                 }
             }
-            if (next != value) { draft.edit(row, next); invalidated() }
+            if (next != value) { draft.edit(row, next); edited = true; invalidated() }
         } catch (error: IllegalArgumentException) { message = "Invalid path: " + error.message }
     }
 
@@ -335,10 +408,10 @@ internal class SetupView(
 
     /**
      * A focused path field takes its editing keys before any binding or letter command: `q`, `Q` and Space are
-     * bindings, and letters such as `d` and `b` are setup commands. `[` and `]` stay scroll keys on every setup
-     * screen.
+     * bindings, letters such as `d` and `b` are setup commands, and `?` opens help. `[` and `]` stay scroll keys on
+     * every setup screen.
      */
-    private fun editsText(key: KeyEvent): Boolean =
+    internal fun editsText(key: KeyEvent): Boolean =
         (mode == Mode.LOCATIONS || mode == Mode.ROW && textField()) &&
             (clears(key) || key.isKey(KeyCode.BACKSPACE) || typed(key).let { c -> c != null && c != '[' && c != ']' })
 
