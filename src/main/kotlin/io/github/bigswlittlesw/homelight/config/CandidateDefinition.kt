@@ -9,11 +9,13 @@ import java.nio.file.Path
  * The record index is one-based. Consumers must escape control characters when
  * displaying text; reasons are not terminal markup or commands.
  * Structural locations use zero-based indices, e.g. `apps[1].directories[0]`.
+ *
+ * `ecosystem` is the app's, as this record's list gives it; only a directory with an app can have one.
  */
 data class CandidateDefinition(
     val sourcePath: Path, val source: CandidateSource, val recordIndex: Int,
     val location: String, val originalPath: String,
-    val app: String?, val advice: Advice?, val reason: String?,
+    val app: String?, val ecosystem: String?, val advice: Advice?, val reason: String?,
 ) {
     init {
         require(
@@ -21,9 +23,11 @@ data class CandidateDefinition(
                     && recordIndex >= 1 && !location.isJavaBlank(),
         ) { "Definition requires normalized absolute identity and location" }
         validateCandidatePath(originalPath)
-        require((app == null || !app.isJavaBlank() && app == app.javaStrip()) && (reason == null || !reason.isJavaBlank())) {
-            "Optional text must be nonblank; app must be trimmed"
-        }
+        require(
+            (app == null || !app.isJavaBlank() && app == app.javaStrip())
+                && (ecosystem == null || app != null && !ecosystem.isJavaBlank() && ecosystem == ecosystem.javaStrip())
+                && (reason == null || !reason.isJavaBlank()),
+        ) { "Optional text must be nonblank; app and ecosystem must be trimmed; an ecosystem needs an app" }
     }
 
     @Serializable

@@ -398,6 +398,7 @@ internal fun hiddenLine(n: Int, shown: Boolean) = "$n usually not needed, " + if
 internal fun showHidden(shown: Boolean) = (if (shown) "Hide" else "Show") + " the suggestions marked usually not needed"
 internal const val NO_SUGGESTIONS = "No suggestions yet. Esc returns to Configuration."
 internal const val OTHER_DIRECTORIES = "Other directories"
+internal const val OTHER_TOOLS = "Other tools"
 internal fun addedCount(added: Int, of: Int) = "$added of $of added"
 internal const val CANNOT_ADD_ANY = "can't add"
 // Browse's marks (tui-design §4 Glyphs): included or not.
@@ -413,6 +414,8 @@ internal const val SELECT_SUGGESTION = "Select a suggestion or a group"
 internal const val ADD_SUGGESTION = "Add the directory to the configuration"
 internal const val ADD_GROUP = "Add every directory shown in the group that can be added"
 internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
+internal const val ADD_ECOSYSTEM = "Add every directory shown under the ecosystem's apps that can be added"
+internal const val REMOVE_ECOSYSTEM = "Take every directory under the ecosystem's apps out of the configuration"
 /**
  * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
  * `overlapped` names, for each skipped row, the relocation it overlaps when known.

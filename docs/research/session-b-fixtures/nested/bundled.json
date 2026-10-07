@@ -2,12 +2,14 @@
   "apps": [
     {
       "name": "Maven",
+      "ecosystem": "JVM",
       "directories": [
         {"path": ".m2", "advice": "consider", "reason": "May contain substantial locally downloaded artifacts."}
       ]
     },
     {
       "name": "uv",
+      "ecosystem": "Python",
       "directories": [
         {"path": ".cache/uv"},
         {"path": ".local/share/uv"},

@@ -140,7 +140,7 @@ ones.
   - Progress (Review, Applying, Results): `○` not run yet, spinner running,
     `✔` done, `✖` failed.
   - Included or not (Browse): `●` added, `○` not added, `−` can't be added,
-    and on an app heading `◐` some added. A group row gets a mark only when
+    and on an ecosystem or app heading `◐` some added. A group row gets a mark only when
     the group itself can be selected and acted on; a heading that is only a
     label gets none. Review, Applying and Results relocation rows keep their
     progress marks: those are status, not selection.
@@ -428,21 +428,32 @@ screen never says "candidate" or "draft".
   own the second line says so. A list that was not used says why on its line
   (`not used: file not found`); `i` opens **Suggestion lists** with the full
   detail.
-- The suggestions are a TamboUI list in a panel titled **Browse**. Each app
-  is a heading (directories no list groups are under `Other directories`):
-  a mark at the left (`●` all added, `◐` some, `○` none, `−` none can be),
-  its name in bold, and in dim text at the notes column how many of its
-  directories that can be added are added (`1 of 2 added`), or `can't add`.
-  Its directories follow, one per row, their marks two cells further in, so
-  headings stand apart without colour. A path shows at most 30 cells, and the
-  notes column starts after it, for headings and rows alike:
+- The suggestions are a TamboUI list in a panel titled **Browse**, in three
+  levels. Each ecosystem (`JVM`, `Python`, …) is a heading; apps no list
+  gives an ecosystem are under `Other tools`. Each app is a heading under its
+  ecosystem, two cells in, and its directories follow, one per row, two
+  cells further in. Directories no list gives an app are under
+  `Other directories`, a heading at the ecosystems' level. A heading has a
+  mark (`●` all added, `◐` some, `○` none, `−` none can be), its name in
+  bold, and in dim text at the notes column how many of the directories
+  beneath it that can be added are added (`1 of 2 added`), or `can't add`.
+  The indents let headings stand apart without colour. A path shows at most
+  28 cells, and the notes column starts after it, for headings and rows
+  alike; at 80 columns that leaves 40 cells for a note beside the scrollbar:
 
   ```
-  ┃ ◐ uv                                 1 of 2 added               ┃
-  ┃❯  ● .local/share/uv                                             ┃
-  ┃   ○ .local/share/uv/tools                                       ┃
-  ┃   − link-cache                       already a link             ┃
+  ┃ ◐ Python                            1 of 3 added                ┃
+  ┃   ◐ uv                              1 of 2 added                ┃
+  ┃❯    ● .local/share/uv                                           ┃
+  ┃     ○ .local/share/uv/tools                                     ┃
+  ┃   ○ pixi                            0 of 1 added                ┃
+  ┃     ○ .pixi/envs                    not created yet             ┃
+  ┃ ○ Other directories                 0 of 1 added                ┃
+  ┃     − link-cache                    already a link              ┃
   ```
+
+  Ecosystems and apps keep the order they first appear in, built-in list
+  first; `Other tools`, then `Other directories`, come last.
 
   `❯` is one cell; the selected row is bold. Groups do not
   collapse. The selection follows an item: checking again, `u`, adding and
@@ -454,7 +465,7 @@ screen never says "candidate" or "draft".
   configuration on screen, and `s` in Configuration writes it. A row taken out
   stays listed as `○` until Browse closes, even when no list suggests it.
   `e` on a `●` row edits it in Configuration.
-- Space on a `○` or `◐` heading adds every shown directory under it that can be added,
+- Space on a `○` or `◐` heading, an ecosystem's or an app's, adds every shown directory under it that can be added,
   each as it would be one by one, so one that overlaps is skipped; on `●` it
   takes them all out, and on `−` it does nothing. Each directory is one unsaved change. When
   rows were skipped, a line says so: `Added 3. Skipped 1 that overlaps
@@ -466,7 +477,9 @@ screen never says "candidate" or "draft".
   dim; `already a link` and `usually not needed` are in the text color, and
   problems (`can't read: …`, `not a directory`) in the warning color.
 - When both lists name a directory, your list wins: its app group and advice
-  show on the row. Details shows every list's advice, yours first.
+  show on the row. When both lists name an app with different ecosystems,
+  your list's ecosystem wins; an app your list names without one keeps the
+  built-in list's. Details shows every list's advice, yours first.
 - A directory is hidden only when every list that names it marks it usually
   not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
   Rows already in the configuration are never hidden.
