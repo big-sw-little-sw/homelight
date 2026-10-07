@@ -21,9 +21,14 @@ private val INPUT = Json {
  * Rejected input. `line` and `column` are one-based, and zero when kotlinx gives no offset (missing keys,
  * unknown enum values). The column counts UTF-16 characters. `path` is dotted, e.g. `homelight.relocations[0]`,
  * and empty for the document.
+ *
+ * `syntaxProblem` is set when the text is not JSON at all: plain words that follow the position, such as
+ * `should start with "{" but starts with "h"`. It is null when the JSON is valid but has the wrong shape, such as a
+ * list where an object belongs; `message` then keeps kotlinx's words.
  */
-internal class JsonInputException(val line: Int, val column: Int, val path: String, override val message: String) :
-    RuntimeException(message)
+internal class JsonInputException(
+    val line: Int, val column: Int, val path: String, override val message: String, val syntaxProblem: String? = null,
+) : RuntimeException(message)
 
 /**
  * Decodes `text`, or throws [JsonInputException]. Messages name file classes by their `@SerialName`, so they
@@ -38,7 +43,8 @@ internal fun <T> decodeJson(deserializer: DeserializationStrategy<T>, text: Stri
         val path = e.path?.let(::dotted).orEmpty()
         // kotlinx reports the end of input as offset -1.
         val offset = if (e.offset < 0) text.length else e.offset
-        throw failure(text, offset, path, located(escaped(e.shortMessage), path))
+        val syntax = syntaxProblem(e.shortMessage, text, offset)
+        throw failure(text, offset, path, located(escaped(e.shortMessage), path), syntax)
     } catch (e: SerializationException) {
         // Missing keys and unknown enum values: kotlinx gives the path inside the message, and no offset.
         val message = e.message.orEmpty()
@@ -58,9 +64,64 @@ private fun located(message: String, path: String): String = if (path.isEmpty())
 private fun escaped(message: String): String =
     message.map { if (it.isISOControl()) "\\u%04x".format(it.code) else "$it" }.joinToString("")
 
-private fun failure(text: String, offset: Int, path: String, message: String): JsonInputException {
+private fun failure(
+    text: String, offset: Int, path: String, message: String, syntaxProblem: String?,
+): JsonInputException {
     val position = offset.coerceAtMost(text.length)
     val lineStart = text.lastIndexOf('\n', position - 1) + 1
     val line = text.substring(0, position).count { it == '\n' } + 1
-    return JsonInputException(line, position - lineStart + 1, path, message)
+    return JsonInputException(line, position - lineStart + 1, path, message, syntaxProblem)
 }
+
+// kotlinx's lexer messages, recognized by their wording in kotlinx 1.11. A message none of these recognizes keeps
+// kotlinx's words, so a change in kotlinx's wording makes a message less plain, never wrong.
+
+/** `syntaxProblem` for kotlinx's `shortMessage` about the input at `offset`, or null; see [JsonInputException]. */
+private fun syntaxProblem(message: String, text: String, offset: Int): String? =
+    expectedToken(message, text, offset) ?: unseparated(message) ?: trailing(message) ?: openComment(message)
+        ?: badEscape(message)
+
+private val EXPECTED_TOKEN = Regex("Expected (.+?) '(.)', but had '(.*)' instead", RegexOption.DOT_MATCHES_ALL)
+
+/** Where kotlinx expects these, a value of another kind is valid JSON in the wrong shape, not a syntax error. */
+private val VALUE_EXPECTED = setOf("start of the object", "start of the array", "quotation mark")
+
+private fun expectedToken(message: String, text: String, offset: Int): String? {
+    val (what, token, found) = EXPECTED_TOKEN.matchEntire(message)?.destructured ?: return null
+    if (what in VALUE_EXPECTED && startsValue(text, offset)) return null
+    return when (found) {
+        "EOF" -> "should have ${shown(token)} but the file ends there"
+        "\n", "\r" -> "should have ${shown(token)} but the line ends there"
+        else -> "should start with ${shown(token)} but starts with ${shown(found)}"
+    }
+}
+
+private fun startsValue(text: String, offset: Int): Boolean {
+    val first = text.getOrNull(offset) ?: return false
+    return first in "{[\"-" || first.isDigit() || listOf("true", "false", "null").any { text.startsWith(it, offset) }
+}
+
+private val UNSEPARATED = Regex("Expected end of the (object|array) or comma")
+
+private fun unseparated(message: String): String? = UNSEPARATED.matchEntire(message)?.let { match ->
+    "should start with a comma or " + shown(if (match.groupValues[1] == "object") "}" else "]")
+}
+
+private val TRAILING = Regex("Expected EOF after parsing, but had (.+) instead", RegexOption.DOT_MATCHES_ALL)
+
+private fun trailing(message: String): String? =
+    TRAILING.matchEntire(message)?.let { "should be the end of the file but has " + shown(it.groupValues[1]) }
+
+private fun openComment(message: String): String? =
+    if (!message.startsWith("Expected end of the block comment")) null
+    else "should close a comment with \"*/\" but the file ends there"
+
+private val BAD_ESCAPE = Regex("Invalid escaped char '(.)'")
+
+private fun badEscape(message: String): String? = BAD_ESCAPE.matchEntire(message)?.let { match ->
+    "has a backslash before " + shown(match.groupValues[1]) +
+        ", which JSON does not allow; write \\\\ for one backslash"
+}
+
+/** A character as a sentence quotes it; a double quote is named, since double quotes surround the others. */
+private fun shown(text: String): String = if (text == "\"") "a double quote (\")" else "\"" + escaped(text) + "\""

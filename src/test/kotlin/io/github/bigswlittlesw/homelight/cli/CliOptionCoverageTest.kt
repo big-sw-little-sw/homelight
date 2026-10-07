@@ -36,7 +36,7 @@ class CliOptionCoverageTest {
         // The file each command reads, and what it prints when it read that file.
         fun target(command: String) = when (command) {
             "status", "plan", "apply" -> missing to Expect(1, err = "Configuration file does not exist: $missing")
-            "init", "config" -> malformed to Expect(1, err = "so Configuration cannot open it")
+            "init", "config" -> malformed to Expect(1, err = "HomeLight can't read $malformed")
             "guide" -> missing to Expect(0, out = "# HomeLight")
             else -> error(command)
         }

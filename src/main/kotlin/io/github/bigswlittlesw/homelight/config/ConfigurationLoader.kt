@@ -26,7 +26,16 @@ class ConfigurationLoader {
      */
     data class PathOverride(val sourcePath: Path, val targetPath: Path)
 
-    fun load(path: Path, override: PathOverride? = null): HomeLightConfiguration = configuration(read(path).file, override)
+    /** @throws InvalidConfigurationException when the file's text or values are wrong */
+    fun load(path: Path, override: PathOverride? = null): HomeLightConfiguration {
+        val file = read(path).file
+        return try {
+            configuration(file, override)
+        } catch (exception: ConfigurationException) {
+            // The value checks are shared with Configuration's draft, which has no file yet.
+            throw InvalidConfigurationException(path, exception.message.orEmpty())
+        }
+    }
 
     /**
      * The file at [path] in its own shape, with the bytes it was read from, so a later replace can tell whether the
@@ -52,8 +61,7 @@ class ConfigurationLoader {
             decodeJson(ConfigurationFile.serializer(), text)
         } catch (exception: JsonInputException) {
             // The message is complete; the cause would only repeat it.
-            val position = if (exception.line > 0) "Line ${exception.line}, column ${exception.column}: " else ""
-            throw ConfigurationException(position + exception.message)
+            throw InvalidConfigurationException(path, problem(exception), exception.line)
         }
         return LoadedFile(file.homelight, bytes)
     }
@@ -115,6 +123,16 @@ class ConfigurationLoader {
 internal fun resolvePath(value: String, name: String): Path {
     if (value.isJavaBlank()) throw ConfigurationException("$name must not be blank")
     return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
+}
+
+/** Text that is not JSON in plain words; JSON in the wrong shape keeps kotlinx's words. Both lead with the position. */
+private fun problem(exception: JsonInputException): String {
+    val position = "line ${exception.line}, column ${exception.column}"
+    return when {
+        exception.syntaxProblem != null -> "It isn't valid JSON: $position ${exception.syntaxProblem}."
+        exception.line > 0 -> position.replaceFirstChar { it.uppercase() } + ": " + exception.message
+        else -> exception.message
+    }
 }
 
 /** The one error for a relative path, wherever a path is set. */

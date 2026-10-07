@@ -145,17 +145,56 @@ class ConfigurationLoaderTest {
         assertEquals(listOf(Relocation(Path.of("/home/cache"), Path.of("/local/cache"))), configuration.relocations)
     }
 
-    @Test fun reportsMalformedJsonWithPosition() {
+    @Test fun reportsTextThatIsNotJsonInPlainWordsWithPosition() {
+        val cases = mapOf(
+            "homelight" to """line 1, column 1 should start with "{" but starts with "h"""",
+            "" to """line 1, column 1 should have "{" but the file ends there""",
+            """{"homelight": {"target-root": "/local"}} {}""" to
+                """line 1, column 43 should be the end of the file but has "{"""",
+            "{\"homelight\": {\"target-root\": \"unclosed\nmore" to
+                """line 1, column 40 should have a double quote (") but the line ends there""",
+            """{homelight: {"target-root": "/local"}}""" to
+                """line 1, column 2 should start with a double quote (") but starts with "h"""",
+            """{"homelight": {"target-root": tru}}""" to
+                """line 1, column 31 should start with a double quote (") but starts with "t"""",
+            """{"homelight": {"target-root" "/local"}}""" to
+                """line 1, column 30 should start with ":" but starts with a double quote (")""",
+            """{"homelight": {"target-root": "/local"}""" to """line 1, column 40 should have "}" but the file ends there""",
+            """
+            {"homelight": {"target-root": "/local", "relocations": [
+              {"source-path": "/a"} {"source-path": "/b"}]}}
+            """ to """line 2, column 25 should start with a comma or "]"""",
+            """{"homelight": {"target-root": "C:\local"}}""" to
+                """line 1, column 32 has a backslash before "l", which JSON does not allow; write \\ for one backslash""",
+            """{"homelight": {"target-root": "/local"}} /* end""" to
+                """line 1, column 48 should close a comment with "*/" but the file ends there""",
+        )
+        for ((text, problem) in cases) {
+            assertEquals("It isn't valid JSON: $problem.", failure(text), text)
+        }
+    }
+
+    /** Valid JSON of the wrong kind is not a syntax error, so kotlinx's words stay. */
+    @Test fun reportsJsonOfTheWrongKindInKotlinxWords() {
         assertEquals("Line 1, column 15: Expected start of the object '{', but had 'EOF' instead at homelight",
             failure("{\"homelight\": [\n"))
-        assertEquals("Line 1, column 43: Expected EOF after parsing, but had { instead",
-            failure("""{"homelight": {"target-root": "/local"}} {}"""))
-        // A control character in the message is escaped.
-        assertEquals("Line 1, column 40: Expected quotation mark '\"', but had '\\u000a' instead at homelight.target-root",
-            failure("{\"homelight\": {\"target-root\": \"unclosed\nmore"))
-        assertEquals("Line 1, column 2: Expected quotation mark '\"', but had 'h' instead",
-            failure("""{homelight: {"target-root": "/local"}}"""))
-        assertEquals("Line 1, column 1: Expected start of the object '{', but had 'EOF' instead", failure(""))
+        assertEquals("Line 1, column 31: Expected quotation mark '\"', but had 't' instead at homelight.target-root",
+            failure("""{"homelight": {"target-root": true}}"""))
+        assertEquals("Line 1, column 15: Expected start of the object '{', but had 'n' instead at homelight",
+            failure("""{"homelight": null}"""))
+    }
+
+    @Test fun anInvalidFileNamesItsPathAndTheLineAtFault() {
+        val syntax = write("{\"homelight\": {\n  \"target-root\" \"/local\"}}")
+        val atLine = assertThrows<InvalidConfigurationException> { ConfigurationLoader().load(syntax) }
+        assertEquals(syntax, atLine.path)
+        assertEquals(2, atLine.line)
+        // A value check names a setting, not a line.
+        val relative = write("""{"homelight": {"target-root": "local"}}""")
+        val atSetting = assertThrows<InvalidConfigurationException> { ConfigurationLoader().load(relative) }
+        assertEquals(relative, atSetting.path)
+        assertEquals(0, atSetting.line)
+        assertEquals("homelight.target-root: $FULL_PATH", atSetting.message)
     }
 
     @Test fun acceptsOnlyTheKebabCasePolicyValues() {

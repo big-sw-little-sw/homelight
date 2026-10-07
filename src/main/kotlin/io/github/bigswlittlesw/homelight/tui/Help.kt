@@ -26,6 +26,7 @@ internal enum class Step { CONFIGURE, WORKSPACE, REVIEW, APPLY, RESULTS }
 /**
  * Where the user is, what the screen is for and its keys, in its current state and focus, navigation first. Each
  * screen builds it in one function that both its help lines and the Help screen read, so the two cannot disagree.
+ * The purpose is plain text, not Markdown; a blank line separates its paragraphs.
  */
 internal data class ScreenHelp(
     val name: String, val purpose: String, val step: Step, val navigation: List<KeyHint>, val commands: List<KeyHint>,
@@ -90,9 +91,17 @@ private fun thisScreen(screen: ScreenHelp): String {
         "\n\n**" + title + "**\\\n" + hints.joinToString("\\\n") { hint ->
             "`" + hint.keys + " ".repeat(width - CharWidth.of(hint.keys) + 2) + "`" + hint.description
         }
-    return screen.purpose + "\n\n" + STEP + ": " + steps + "\n\n### " + keysOn(screen.name) + "\n\n" + KEYS_LEAD_IN +
-        group(MOVE_AROUND, navigation) + group(DO_KEYS, commands) + "\n"
+    return plainMarkdown(screen.purpose) + "\n\n" + STEP + ": " + steps + "\n\n### " + keysOn(screen.name) + "\n\n" +
+        KEYS_LEAD_IN + group(MOVE_AROUND, navigation) + group(DO_KEYS, commands) + "\n"
 }
+
+/**
+ * Plain text as Markdown that shows it as is: a purpose can quote the configuration file, whose `*`, `_` or `[`
+ * would otherwise format it. CommonMark lets a backslash escape any ASCII punctuation; newlines are kept.
+ */
+private fun plainMarkdown(text: String): String = text.replace(MARKDOWN_PUNCTUATION) { "\\" + it.value }
+
+private val MARKDOWN_PUNCTUATION = Regex("""[!-/:-@\[-`{-~]""")
 
 /** The guide's headings and emphasis in the palette's roles; the rest keeps TamboUI's defaults. */
 private fun guideStyles(): MarkdownStyles = styles(emphasis = Style.EMPTY.italic())

@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.homelight.application
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.HomeLightConfiguration
+import io.github.bigswlittlesw.homelight.config.InvalidConfigurationException
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.fs.PathInspector
 import io.github.bigswlittlesw.homelight.fs.PathObservation
@@ -37,7 +38,8 @@ class ConfigurationEvaluation(
     /** Legacy default-path behavior: no regular configuration file, including a directory at that path. */
     data class Unconfigured(override val configPath: Path) : Evaluation
 
-    data class Invalid(override val configPath: Path, val message: String) : Evaluation
+    /** `line` is the line at fault, or 0 when no one line is (see [InvalidConfigurationException]). */
+    data class Invalid(override val configPath: Path, val message: String, val line: Int) : Evaluation
 
     /** Observations and saved plan retain saved policy; `plan` contains the effective draft policy. */
     @ConsistentCopyVisibility
@@ -89,7 +91,8 @@ class ConfigurationEvaluation(
             loadRequired(configPath)
         } catch (exception: ConfigurationException) {
             val message = exception.message ?: exception.toString()
-            if (Files.notExists(configPath)) Missing(configPath, message) else Invalid(configPath, message)
+            if (Files.notExists(configPath)) Missing(configPath, message)
+            else Invalid(configPath, message, (exception as? InvalidConfigurationException)?.line ?: 0)
         }
     }
 

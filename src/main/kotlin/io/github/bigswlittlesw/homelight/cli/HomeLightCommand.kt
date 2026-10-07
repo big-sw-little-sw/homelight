@@ -5,7 +5,9 @@ import io.github.bigswlittlesw.homelight.application.guideUrl
 import io.github.bigswlittlesw.homelight.application.internalErrorMessage
 import io.github.bigswlittlesw.homelight.config.ConfigurationException
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
+import io.github.bigswlittlesw.homelight.config.InvalidConfigurationException
 import io.github.bigswlittlesw.homelight.tui.launchTui
+import io.github.bigswlittlesw.homelight.tui.unreadableCli
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
@@ -84,12 +86,17 @@ private fun executeValidated(parseResult: ParseResult): Int {
 private const val INTERNAL_ERROR_EXIT_CODE = 70
 
 /**
- * Prints a [ConfigurationException] as its message alone, with exit code 1: it is the user's error.
+ * Prints a [ConfigurationException] with exit code 1: it is the user's error. A file whose text or values are wrong
+ * gets the Workspace's explanation and how to fix it; any other, such as a missing file, its message alone.
  *
  * Commands handle ordinary failures themselves, so anything else is a bug: one [internalErrorMessage] line and
  * exit code 70, with no stack trace. A bug from a worker arrives wrapped in a [CompletionException].
  */
 private fun handleExecutionException(exception: Exception, commandLine: CommandLine, parseResult: ParseResult): Int {
+    if (exception is InvalidConfigurationException) {
+        unreadableCli(exception.path, exception.message.orEmpty(), exception.line > 0).forEach(commandLine.err::println)
+        return 1
+    }
     if (exception is ConfigurationException) {
         commandLine.err.println(exception.message)
         return 1

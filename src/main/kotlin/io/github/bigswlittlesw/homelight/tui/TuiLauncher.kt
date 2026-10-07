@@ -59,7 +59,7 @@ private fun isTerminalFailure(exception: Exception): Boolean = exception is IOEx
 internal fun launchConfiguration(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
     val evaluation = ConfigurationEvaluation().load(configPath)
     if (evaluation is ConfigurationEvaluation.Invalid) {
-        errorOutput.println(cannotEdit(evaluation.message))
+        unreadableCli(configPath, evaluation.message, evaluation.line > 0).forEach(errorOutput::println)
         return 1
     }
     return launchTui(configPath, debugStepDelayMillis, errorOutput, openConfiguration = true)

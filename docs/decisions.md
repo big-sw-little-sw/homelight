@@ -516,6 +516,18 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - This drops `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`.
 - `[skipped: folding a relocation's steps, add when plans are long enough that users ask to fold them]` replaces the tree-keys item of 2026-10-06.
 
+## 2026-10-07: An unreadable configuration says what is wrong and how to fix it
+
+#164, from the user's walkthrough: a malformed `~/.homelight.json` showed kotlinx's raw text (`Line 1, column 1: Expected start of the object '{', but had 'h' instead`) and no next step. The Workspace now fills its pane with `HomeLight can't read <path>`, the problem, `To fix it: …` and `To start over: …` (tui-design §5); Help's purpose line repeats the same four lines, and the help lines stay `r`, `?`, `q`. The CLI prints the same lines on stderr for `--json` commands and for `init`/`config`, with `run the command again` and `run homelight init [--config <path>]` for the TUI's keys; exit codes are unchanged.
+
+- **Plain words for text that is not JSON (rung 6, small):** `decodeJson` recognizes kotlinx's lexer messages by their wording (`Expected … '{', but had 'h' instead`, `Expected end of the array or comma`, `Expected EOF after parsing`, an open block comment, a bad escape) and gives `JsonInputException.syntaxProblem`, such as `should start with "{" but starts with "h"`. The loader leads it with `It isn't valid JSON: line L, column C`. kotlinx reports a value of the wrong kind with the same messages, so where a value starts and the text there is a JSON value (`{`, `[`, `"`, a number, `true`, `false`, `null`), it is valid JSON in the wrong shape and keeps kotlinx's words. A message no recognizer knows keeps kotlinx's words too, so a kotlinx upgrade can make a message less plain, never wrong. Parsing to a `JsonElement` first was rejected: kotlinx's tree reader accepts unquoted text such as `homelight`, so it cannot tell syntax from shape (rung 5 tried).
+- **`InvalidConfigurationException` (rung 6):** the loader throws it, with the file's path and the line at fault (0 for a value check such as a relative path), for any problem in the file's text or values. The CLI explains only this exception; a missing file keeps its one line. `ConfigurationEvaluation.Invalid` keeps the line, so `To fix it` says `correct that line` or `correct that setting`.
+- **Validation messages keep their words (issue):** unknown key, relative path, bad rule value and the other value checks gain the `To fix it` and `To start over` lines only.
+- **Help's purpose is plain text (rung 2):** Help escapes Markdown punctuation in every purpose, since this one quotes the file.
+- `[skipped: start over with a backup from inside the app, add when users ask]`
+- `[skipped: plain words for kotlinx's missing-key and wrong-kind messages (Field 'target-root' is required…, Expected beginning of the string…), add when the walkthrough or a user finds them unclear]`
+- `[skipped: own steps for a file HomeLight cannot open (a directory at the path, no permission, not UTF-8), add when a user hits one; the TUI shows the generic steps, the CLI its one line]`
+
 ## How to add decisions
 
 Use this format:

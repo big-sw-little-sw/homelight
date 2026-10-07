@@ -2,6 +2,7 @@ package io.github.bigswlittlesw.homelight.tui
 
 import io.github.bigswlittlesw.homelight.application.DecisionChoice
 import io.github.bigswlittlesw.homelight.application.PlanBadge
+import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
 import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
@@ -201,9 +202,23 @@ internal const val CHANGED_SINCE_LOADED =
     "Not saved: the configuration file changed after Configuration opened it. Your changes are still here. " +
         "To start again from the file, press q, then y, then e."
 internal fun cannotOpen(reason: String) = "Cannot open Configuration: $reason"
-/** `homelight init` and `config` over a file that does not load; the TUI does not start. */
-internal fun cannotEdit(reason: String) =
-    "HomeLight cannot read the configuration file, so Configuration cannot open it. Fix the file by hand: $reason"
+
+// A configuration file HomeLight can't read (#164). The Workspace, its Help purpose and the CLI say the same; only the
+// way to check again differs. `positioned`: the problem names a line, not a setting such as a missing key.
+internal fun unreadable(path: Path, problem: String, positioned: Boolean) = listOf(
+    cannotRead(displayPath(path)), problem,
+    "To fix it: open the file in a text editor, ${correct(positioned)}, then press r to check again.",
+    "To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.",
+)
+/** For the CLI's stderr; `init` creates a new file, as `i` does. */
+internal fun unreadableCli(path: Path, problem: String, positioned: Boolean) = listOf(
+    cannotRead(path.toString()), problem,
+    "To fix it: open the file in a text editor, ${correct(positioned)}, then run the command again.",
+    "To start over: rename or delete the file, then run homelight init" +
+        (if (path == ConfigurationLoader.DEFAULT_PATH) "" else " --config $path") + " to create a new one.",
+)
+private fun cannotRead(path: String) = "HomeLight can't read $path"
+private fun correct(positioned: Boolean) = if (positioned) "correct that line" else "correct that setting"
 internal fun cannotBrowse(reason: String) = "Fix the storage locations to browse: $reason"
 /** What the Workspace says after a save, once it has checked again (tui-design §1, Say the next step). */
 internal fun savedNextStep(toChange: Int, needChoice: Int, blocked: Int): String = when {
@@ -311,8 +326,6 @@ internal const val CONFIGURATION_NAME = "Configuration"
 internal const val BROWSE_NAME = "Browse"
 internal const val PURPOSE_NO_CONFIGURATION =
     "There is no configuration file yet. Press i to create one: say where storage is and which directories to move."
-internal const val PURPOSE_INVALID =
-    "HomeLight cannot read the configuration file; the message says why. Fix the file, then press r to check again."
 internal const val PURPOSE_NO_RELOCATIONS =
     "The configuration lists no directories to move yet. Press e to open Configuration and add them."
 internal const val PURPOSE_WORKSPACE =
