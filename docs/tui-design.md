@@ -128,12 +128,24 @@ ones.
 
 - Master-detail panes: about 45% list, the rest details. The focused pane has a
   thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
-  and are dim. The border shape shows focus without color. Lists and Review's
-  plan tree sit in a TamboUI panel, because their elements offer no thick
-  border.
+  and are dim. The border shape shows focus without color. Lists, Browse and
+  Review's plan tree sit in a TamboUI panel, because their elements offer no
+  thick border.
 - `❯` marks the selected row or focused field. A text field shows its cursor.
 - Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
+- Marks come in three sets that share one rule: an empty circle means nothing
+  has happened to the row yet or it is not included; filled, or `✔`, means it
+  has. Parentheses mean pick one; bare marks mean each row is its own.
+  - Progress (Review, Applying, Results): `○` not run yet, spinner running,
+    `✔` done, `✖` failed.
+  - Included or not (Browse): `●` added, `○` not added, `−` can't be added,
+    and on an app heading `◐` some added. A group row gets a mark only when
+    the group itself can be selected and acted on; a heading that is only a
+    label gets none. Review, Applying and Results relocation rows keep their
+    progress marks: those are status, not selection.
+  - One of several choices (Workspace Details): `(●)` chosen, `(○)` not
+    chosen.
 - Paths on screen show the home directory as `~`. Paths sections in details show
   the full absolute path.
 - Word-wrap prose; wrap paths by character only when they cannot break.
@@ -408,27 +420,41 @@ screen never says "candidate" or "draft".
   own the second line says so. A list that was not used says why on its line
   (`not used: file not found`); `i` opens **Suggestion lists** with the full
   detail.
-- The suggestions are TamboUI's tree in a panel titled **Browse**: one parent
-  row per app (`▼ Build tools (1)`, directories no list groups under `Other
-  directories`), one child row per directory. Enter on an app collapses or
-  expands it. The selection follows an item: checking again, `u`, adding and
+- The suggestions are a TamboUI list in a panel titled **Browse**. Each app
+  is a heading (directories no list groups are under `Other directories`):
+  a mark in the rows' mark column (`●` all added, `◐` some, `○` none, `−`
+  none can be), its name in bold, and in dim text at the notes column how
+  many of its directories that can be added are added (`1 of 2 added`), or
+  `can't add`. Its directories follow, one per row:
+
+  ```
+  ┃    ◐ uv                              1 of 2 added                ┃
+  ┃❯   ● .local/share/uv                                             ┃
+  ┃    ○ .local/share/uv/tools                                       ┃
+  ┃    − link-cache                      already a link              ┃
+  ```
+
+  `❯` is one cell, then a space; the selected row is bold. Groups do not
+  collapse. The selection follows an item: checking again, `u`, adding and
   removing never move it to another row. When the selected row is hidden,
   the row at its place is selected and stays selected. Rows keep the place
   they were first listed in.
-- Markers: `[ ]` not in the configuration, `[x]` in it (saved earlier or added
+- Marks: `○` not in the configuration, `●` in it (saved earlier or added
   now), `−` cannot be added. Space toggles; removing a row only edits the
   configuration on screen, and `s` in Configuration writes it. A row taken out
-  stays listed as `[ ]` until Browse closes, even when no list suggests it.
-  `e` on a `[x]` row edits it in Configuration.
-- An app row is marked by its directories that are in the configuration or
-  can be added: `[x]` all, `[ ]` none, `[~]` some, `−` none of either. Space
-  on `[ ]` or `[~]` adds every shown directory in it that can be added, each
-  as it would be one by one, so one that overlaps is skipped; Space on `[x]`
-  takes them all out. Each directory is one unsaved change. When rows were
-  skipped, a line says so: `Added 3. Skipped 1 that overlaps ~/.cache.`,
-  `Skipped 1 that can't be added.`
+  stays listed as `○` until Browse closes, even when no list suggests it.
+  `e` on a `●` row edits it in Configuration.
+- Space on a `○` or `◐` heading adds every shown directory under it that can be added,
+  each as it would be one by one, so one that overlaps is skipped; on `●` it
+  takes them all out, and on `−` it does nothing. Each directory is one unsaved change. When
+  rows were skipped, a line says so: `Added 3. Skipped 1 that overlaps
+  ~/.cache.`, `Skipped 1 that can't be added.` Enter on a heading does
+  nothing.
 - Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
-  directory`, `can't read: <reason>`, `usually not needed`.
+  directory`, `can't read: <reason>`, `usually not needed`. A note that only
+  says the directory is not there yet (`not created yet`, `checking…`) is
+  dim; `already a link` and `usually not needed` are in the text color, and
+  problems (`can't read: …`, `not a directory`) in the warning color.
 - When both lists name a directory, your list wins: its app group and advice
   show on the row. Details shows every list's advice, yours first.
 - A directory is hidden only when every list that names it marks it usually
@@ -442,7 +468,7 @@ screen never says "candidate" or "draft".
   state, full path, overlap with other suggestions (`Also suggested, inside
   it: …`), then **Suggested by** with each list's group, advice and reason, or
   `No list suggests it.`
-- The mouse wheel over the tree moves its selection a row; over Details or
+- The mouse wheel over the list moves its selection a row; over Details or
   Suggestion lists it scrolls them. Clicks do nothing.
 
 ## 9. Wording

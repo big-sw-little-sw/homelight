@@ -99,23 +99,25 @@ with its location, its number of suggestions and the day its file last
 changed. If your list could not be used, its line says why. Press `i` for
 the full detail.
 
-Below them, the suggestions are grouped by app. Each directory has a mark:
+Below them, the suggestions are listed under the name of their app. Each
+directory has a mark:
 
-- `[x]` it is in your configuration, whether saved earlier or added now.
-- `[ ]` it is not. Press `Space` to add it.
+- `●` it is in your configuration, whether saved earlier or added now.
+- `○` it is not. Press `Space` to add it.
 - `−` it cannot be added, for example because it is a link. Its note says
   why.
 
-`Space` on a `[x]` row takes it out again. A directory you take out stays
-in the list until you leave Browse, so `Space` can add it back. Adding and
+`Space` on a `●` row takes it out again. A directory you take out stays in
+the list until you leave Browse, so `Space` can add it back. Adding and
 removing change only what Configuration shows: the file changes when you
-press `s`. Press `e` on a `[x]` row to change its target or rules.
+press `s`. Press `e` on a `●` row to change its target or rules.
 
-An app's row has a mark too: `[x]` when all its directories are in your
-configuration, `[ ]` when none are, and `[~]` when some are. `Space` on it
-adds all its directories that are shown and can be added, or takes them all
-out when the mark is `[x]`. If some could not be added, Browse says so, for
-example `Added 3. Skipped 1 that overlaps ~/.cache.`
+Each app's name has a mark too: `●` all its directories are added, `◐` some
+are, `○` none are, `−` none can be. Beside it, Browse counts them, such as
+`1 of 2 added`. `Space` on the name adds all its directories that are shown
+and can be added, or takes them all out when the mark is `●`. If some could
+not be added, Browse says so, for example
+`Added 3. Skipped 1 that overlaps ~/.cache.`
 
 A list can mark a directory **usually not needed**. Browse hides a directory
 when every list that names it says so, and counts what it hid. Press `u` to

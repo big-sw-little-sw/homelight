@@ -1,17 +1,18 @@
 package io.github.bigswlittlesw.homelight.tui
 
+import dev.tamboui.style.Color
 import dev.tamboui.style.Style
+import dev.tamboui.text.Span
+import dev.tamboui.text.Text
 import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.StyledElement
-import dev.tamboui.toolkit.elements.TreeElement
+import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.widgets.common.ScrollBarPolicy
-import dev.tamboui.widgets.tree.GuideStyle
-import dev.tamboui.widgets.tree.TreeNode
 import io.github.bigswlittlesw.homelight.application.BrowseDraft
 import io.github.bigswlittlesw.homelight.config.CandidateDefinition
 import io.github.bigswlittlesw.homelight.config.CandidateSource
@@ -38,20 +39,20 @@ internal sealed interface BrowseAction {
 }
 
 /**
- * Browse: the suggestions grouped by app in TamboUI's tree, with each directory's details and the suggestion lists'
- * state one key away. App expansion, the selected row and draft membership are independent states.
+ * Browse: the suggestions under a heading per app in TamboUI's list, with each directory's details and the
+ * suggestion lists' state one key away. The selected row and draft membership are independent states.
  *
- * The selection follows an item, not a position: Browse keeps the selected item and sets the tree's index from it on
+ * The selection follows an item, not a position: Browse keeps the selected item and sets the list's index from it on
  * every frame, so checking again, `u` and a row added or removed never move it to another item. When the item is no
  * longer listed, the row at its place becomes the selected item. Rows keep the order they were first listed in, so
  * a row taken out and kept listed (see [BrowseDraft]) stays where it was.
  *
- * The focused Browse screen offers each key to the tree inside it before the app sees it. The tree passes every key
- * to `keys`, the app's handler, so its own moves, expand, collapse and toggle never run: Space and Enter keep their
- * meaning here. The app takes every mouse event before any element, so the tree's wheel and clicks never run either.
+ * The focused Browse screen offers each key to the list inside it before the app sees it. The list passes every key
+ * to `keys`, the app's handler, so its own moves never run and Browse keeps the selection. The app takes every mouse
+ * event before any element, so the list's wheel and clicks never run either.
  */
 internal class CandidateBrowser(keys: KeyEventHandler) {
-    /** A tree row. A `null` app groups the directories that no list assigns to an app. */
+    /** A row: an app's heading or a directory. A `null` app groups the directories that no list assigns to an app. */
     private sealed interface Item {
         data class Group(val app: String?) : Item
 
@@ -64,11 +65,10 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     private enum class GroupState { ALL, SOME, NONE, EMPTY }
 
     private val viewport = DetailViewport()
-    private val tree = TreeElement<Item>().guideStyle(GuideStyle.UNICODE).indentWidth(2).highlightSymbol("❯")
-        .highlightStyle(Style.EMPTY.bold())
+    // Rows draw their own pointer and bold, so the list's highlight is off; it keeps only the scroll offset.
+    private val list = ListElement<Any>().highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .onKeyEvent(keys)
-    private val collapsed = mutableSetOf<String?>()
     private var focus: Item? = null
     // The selected row's index in the last frame, where the selection goes when its item is no longer listed.
     private var shown = 0
@@ -102,7 +102,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         }
     }
 
-    /** The tree of suggestions, its selection set from [focus]; or a line saying there are none yet. */
+    /** The list of suggestions, its selection set from [focus]; or a line saying there are none yet. */
     private fun suggestions(draft: BrowseDraft): Element {
         val entries = listed(draft)
         val groups = groups(draft, entries)
@@ -111,21 +111,14 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         shown = selectedIndex(rows)
         focus = rows[shown]
         val members = groups.toMap()
-        val nodes = groups.map { (app, members) ->
-            TreeNode.of<Item>("", Item.Group(app)).expanded(app !in collapsed).apply {
-                members.forEach { entry -> add(TreeNode.of<Item>("", Item.Directory(path(entry))).leaf()) }
+        // Rebuilt every frame, so rows follow the draft and discovery.
+        val elements = rows.mapIndexed { i, item ->
+            when (item) {
+                is Item.Group -> headingRow(item.app, members.getValue(item.app), draft, selected = i == shown)
+                is Item.Directory -> directoryRow(entries.getValue(item.path), draft, selected = i == shown)
             }
         }
-        // Rebuilt every frame, so rows follow the draft and discovery; the tree keeps only its scroll offset.
-        return tree.roots(*nodes.toTypedArray()).selected(shown).nodeRenderer { node ->
-            when (val item = node.data()) {
-                is Item.Group -> Toolkit.text(
-                    groupMark(groupState(members.getValue(item.app), draft)) + " " + literal(groupLabel(item.app, node.children().size)),
-                ).fg(palette.text).bold()
-                is Item.Directory -> directoryRow(entries.getValue(item.path), draft)
-                null -> null
-            }
-        }.fill()
+        return list.elements(*elements.toTypedArray()).selected(shown).fill()
     }
 
     /** Browse's purpose and keys in its current state, for its help lines and the Help screen. */
@@ -160,8 +153,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                         entry?.let(::editKey),
                         when (item) {
                             is Item.Directory -> KeyHint("Enter", "Inspect", description = INSPECT_SUGGESTION)
-                            is Item.Group -> KeyHint("Enter", "Expand/collapse", description = EXPAND_GROUP)
-                            null -> null
+                            is Item.Group, null -> null
                         },
                         KeyHint("Esc", "Back", description = BACK_TO_CONFIGURATION_LIST),
                         HOME_END_KEYS.takeIf { item != null },
@@ -183,7 +175,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
      */
     fun wheel(x: Int, y: Int, delta: Int, draft: BrowseDraft) {
         if (view != View.LIST) { if (viewport.contains(x, y)) viewport.scroll(delta); return }
-        if (tree.renderedArea()?.contains(x, y) == true) move(draft) { index, _ -> index + delta }
+        if (list.renderedArea()?.contains(x, y) == true) move(draft) { index, _ -> index + delta }
     }
 
     /** Handles a key, and returns what the draft should do about it: null when only Browse changes. */
@@ -217,14 +209,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             view == View.DETAILS -> scroll(key)
             key.isCharIgnoreCase('i') -> { view = View.LISTS; viewport.reset(); message = "" }
             key.isCharIgnoreCase('u') && hiddenCount(draft) > 0 -> reveal = !reveal
-            key.isKey(KeyCode.ENTER) -> {
-                focus = item
-                when (item) {
-                    is Item.Group -> if (!collapsed.remove(item.app)) collapsed.add(item.app)
-                    is Item.Directory -> { view = View.DETAILS; viewport.reset() }
-                    null -> {}
-                }
-            }
+            key.isKey(KeyCode.ENTER) && item is Item.Directory -> { focus = item; view = View.DETAILS; viewport.reset() }
             key.isUp() || key.isDown() -> move(draft) { index, _ -> index + if (key.isUp()) -1 else 1 }
             key.isHome() || key.isEnd() -> move(draft) { _, last -> if (key.isEnd()) last else 0 }
         }
@@ -280,7 +265,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         return entries.entries.sortedBy { place.getValue(it.key) }.associate { it.key to it.value }
     }
 
-    /** The directories a group row stands for: those listed under it, collapsed or not. */
+    /** The directories a heading stands for: those listed under it. */
     private fun members(group: Item.Group, draft: BrowseDraft): List<BrowseDraft.Entry> =
         groups(draft, listed(draft)).firstOrNull { it.first == group.app }?.second.orEmpty()
 
@@ -294,13 +279,6 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         }
     }
 
-    private fun groupMark(state: GroupState): String = when (state) {
-        GroupState.ALL -> "[x]"
-        GroupState.SOME -> "[~]"
-        GroupState.NONE -> "[ ]"
-        GroupState.EMPTY -> " − "
-    }
-
     private fun groupKey(state: GroupState): KeyHint? = when (state) {
         GroupState.ALL -> KeyHint("Space", "Remove all", description = REMOVE_GROUP)
         GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = ADD_GROUP)
@@ -312,9 +290,32 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         entries.values.filter { entry -> reveal || !hidden(entry, draft) }
             .groupBy { entry -> definitions(entry).firstOrNull()?.app }.toList()
 
-    /** The rows the tree shows, in its order: each group, then its directories unless it is collapsed. */
+    /** The rows in screen order: each app's heading, then its directories. */
     private fun rows(groups: List<Pair<String?, List<BrowseDraft.Entry>>>): List<Item> = groups.flatMap { (app, entries) ->
-        listOf(Item.Group(app)) + if (app in collapsed) listOf() else entries.map { Item.Directory(path(it)) }
+        listOf(Item.Group(app)) + entries.map { Item.Directory(path(it)) }
+    }
+
+    /**
+     * An app's heading, which Space acts on as a whole: its mark in the rows' mark column (`●` all added, `◐` some,
+     * `○` none, `−` none can be), its name in bold, and how many of its directories that can be added are added.
+     */
+    private fun headingRow(app: String?, members: List<BrowseDraft.Entry>, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
+        val counted = members.filter { it.row != null || draft.canAdd(it) }
+        val count = if (counted.isEmpty()) CANNOT_ADD_ANY else addedCount(counted.count { it.row != null }, counted.size)
+        val (mark, color) = when (groupState(members, draft)) {
+            GroupState.ALL -> ADDED_MARK to palette.ok
+            GroupState.SOME -> SOME_ADDED_MARK to palette.text
+            GroupState.NONE -> NOT_ADDED_MARK to palette.text
+            GroupState.EMPTY -> CANNOT_ADD_MARK to palette.dim
+        }
+        val name = literal(app ?: OTHER_DIRECTORIES)
+        return line(
+            pointer(selected),
+            Span.styled("  ", Style.EMPTY),
+            Span.styled(mark, Style.EMPTY.fg(color).bold()),
+            Span.styled(" " + name + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(name))), Style.EMPTY.fg(palette.text).bold()),
+            Span.styled(count, weight(palette.dim, selected)),
+        )
     }
 
     private fun focusedEntry(draft: BrowseDraft): BrowseDraft.Entry? = (focus as? Item.Directory)?.let { entry(draft, it.path) }
@@ -374,21 +375,47 @@ private fun toggleKey(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = 
 private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
     KeyHint("e", "Edit", description = EDIT_SUGGESTION).takeIf { entry.row != null }
 
-/** A directory row: its marker, its path under the source root and its notes, in the configuration's color when in it. */
-private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft): StyledElement<*> {
+/**
+ * A directory row under its heading: the mark (`●` added, `○` not added, `−` cannot be added) in the same column as
+ * the heading's, the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
+ */
+private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
     val marker = when {
-        entry.row != null -> "[x]"
-        draft.canAdd(entry) -> "[ ]"
-        else -> " − "
+        entry.row != null -> ADDED_MARK
+        draft.canAdd(entry) -> NOT_ADDED_MARK
+        else -> CANNOT_ADD_MARK
     }
     val path = compact(relative(draft, path(entry)))
+    val main = if (entry.row != null) palette.ok else palette.text
+    val kind = entry.discovery?.observation?.kind
     val notes = listOfNotNull(
-        state(entry).takeIf { entry.discovery?.observation?.kind != CandidateObservation.Kind.DIRECTORY },
-        USUALLY_NOT_NEEDED_NOTE.takeIf { definitions(entry).firstOrNull()?.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY },
-    ).joinToString(" · ")
-    return Toolkit.text(" $marker $path" + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(path))) + notes)
-        .fg(if (entry.row != null) palette.ok else palette.text)
+        state(entry).takeIf { kind != CandidateObservation.Kind.DIRECTORY }?.let { note ->
+            note to when (kind) {
+                CandidateObservation.Kind.MISSING, CandidateObservation.Kind.PENDING, null -> palette.dim
+                CandidateObservation.Kind.LINK -> palette.text
+                else -> palette.warn
+            }
+        },
+        (USUALLY_NOT_NEEDED_NOTE to palette.text)
+            .takeIf { definitions(entry).firstOrNull()?.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY },
+    )
+    return line(
+        pointer(selected),
+        Span.styled("  ", weight(main, selected)),
+        Span.styled(marker, weight(if (marker == CANNOT_ADD_MARK) palette.dim else main, selected)),
+        Span.styled(" " + path + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(path))), weight(main, selected)),
+        *notes.flatMapIndexed { i, (note, color) ->
+            listOfNotNull(Span.styled(" · ", weight(palette.dim, selected)).takeIf { i > 0 }, Span.styled(note, weight(color, selected)))
+        }.toTypedArray(),
+    )
 }
+
+/** The one-cell pointer and a space; the selected row is also bold. */
+private fun pointer(selected: Boolean): Span = Span.styled(if (selected) "❯ " else "  ", Style.EMPTY.fg(palette.focus).bold())
+
+private fun weight(color: Color, selected: Boolean): Style = Style.EMPTY.fg(color).let { if (selected) it.bold() else it }
+
+private fun line(vararg spans: Span): StyledElement<*> = Toolkit.richText(Text.from(dev.tamboui.text.Line.from(spans.toList())))
 
 private fun relative(draft: BrowseDraft, path: Path): String =
     if (path.startsWith(draft.sourceRoot)) draft.sourceRoot.relativize(path).toString() else path.toString()

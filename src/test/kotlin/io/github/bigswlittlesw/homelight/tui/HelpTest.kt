@@ -83,7 +83,7 @@ class HelpTest {
             val browse = place(CONFIGURATION_NAME, BROWSE_NAME)
             checkThisScreen(
                 ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "Home/End",
-                pinned = mapOf("Enter" to EXPAND_GROUP, "Space" to ADD_GROUP, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
+                pinned = mapOf("Space" to ADD_GROUP, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
             )
             ui.press(KeyCode.DOWN)
             checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_SUGGESTION, "Enter" to INSPECT_SUGGESTION))

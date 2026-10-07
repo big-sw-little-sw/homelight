@@ -396,7 +396,14 @@ internal fun hiddenLine(n: Int, shown: Boolean) = "$n usually not needed, " + if
 internal fun showHidden(shown: Boolean) = (if (shown) "Hide" else "Show") + " the suggestions marked usually not needed"
 internal const val NO_SUGGESTIONS = "No suggestions yet. Esc returns to Configuration."
 internal const val OTHER_DIRECTORIES = "Other directories"
-internal fun groupLabel(app: String?, count: Int) = (app ?: OTHER_DIRECTORIES) + " ($count)"
+internal fun addedCount(added: Int, of: Int) = "$added of $of added"
+internal const val CANNOT_ADD_ANY = "can't add"
+// Browse's marks (tui-design §4 Glyphs): included or not.
+internal const val ADDED_MARK = "●"
+internal const val NOT_ADDED_MARK = "○"
+/** A heading only: some of its directories are added. */
+internal const val SOME_ADDED_MARK = "◐"
+internal const val CANNOT_ADD_MARK = "−"
 internal const val USUALLY_NOT_NEEDED_NOTE = "usually not needed"
 internal const val NOT_CHECKED = "not checked"
 internal fun notAdded(reason: String) = "Not added. $reason. Prior choices are unchanged."
@@ -421,7 +428,6 @@ internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int): 
 internal const val REMOVE_SUGGESTION = "Take the directory out of the configuration; saving writes the change"
 internal const val EDIT_SUGGESTION = "Edit its relocation in Configuration"
 internal const val INSPECT_SUGGESTION = "See why it is suggested and by which list"
-internal const val EXPAND_GROUP = "Show or hide the group's directories"
 internal const val BACK_TO_CONFIGURATION_LIST = "Back to the configuration list"
 internal const val BACK_TO_SUGGESTIONS = "Back to the suggestions"
 internal const val SEE_LISTS = "See each suggestion list and whether it was read"
