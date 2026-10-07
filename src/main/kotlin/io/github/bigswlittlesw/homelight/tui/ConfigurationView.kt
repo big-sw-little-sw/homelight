@@ -59,15 +59,16 @@ internal class ConfigurationView private constructor(
     /** The bytes the file was read from, which a replace compares; null for a new file. */
     private val loadedBytes: ByteArray?,
 ) : AutoCloseable {
-    private enum class Field(val id: String, val label: String, val text: Boolean) {
+    /** `text` fields are text inputs, the others Selects. A blank text field shows its `placeholder`. */
+    private enum class Field(val id: String, val label: String, val text: Boolean, val placeholder: String = "") {
         SOURCE_ROOT("config-source-root", SOURCE_ROOT_LABEL, true),
         TARGET_ROOT("config-target-root", TARGET_ROOT_LABEL, true),
         SUGGESTION_LIST("config-suggestion-list", SUGGESTION_LIST_LABEL, true),
         SOURCE("config-source", SOURCE_LABEL, true),
-        TARGET("config-target", TARGET_LABEL, true),
+        TARGET("config-target", TARGET_LABEL, true, TARGET_PLACEHOLDER),
         BOTH_EXIST("config-both-exist", BOTH_EXIST_LABEL, false),
         ONLY_TARGET("config-only-target", ONLY_TARGET_LABEL, false),
-        ARCHIVE_ROOT("config-archive-root", ARCHIVE_ROOT_LABEL, true),
+        ARCHIVE_ROOT("config-archive-root", ARCHIVE_ROOT_LABEL, true, ARCHIVE_PLACEHOLDER),
     }
 
     private enum class Question { DISCARD, REPLACE }
@@ -175,13 +176,7 @@ internal class ConfigurationView private constructor(
             choice(WhenOnlyTargetExists.entries.map(::onlyTargetLabel), relocation(row).whenOnlyTargetExists.ordinal, field.id, interactive)
         Field.SOURCE_ROOT, Field.TARGET_ROOT, Field.SUGGESTION_LIST, Field.SOURCE, Field.TARGET, Field.ARCHIVE_ROOT ->
             Toolkit.textInput(inputs.getValue(field)).id(field.id).focusable(interactive)
-                .placeholder(
-                    when (field) {
-                        Field.TARGET -> TARGET_PLACEHOLDER
-                        Field.ARCHIVE_ROOT -> ARCHIVE_PLACEHOLDER
-                        else -> ""
-                    },
-                ).placeholderColor(palette.dim).fill()
+                .placeholder(field.placeholder).placeholderColor(palette.dim).fill()
     }
 
     private fun fieldHelp(field: Field): String = when (field) {
@@ -396,14 +391,11 @@ internal class ConfigurationView private constructor(
     }
 
     /** The first field that cannot be saved, as the list row it is on and the message that says so. */
-    private fun problem(): Pair<Int, String>? {
-        resolvedLines(0).firstNotNullOfOrNull { (label, resolved) -> (resolved as? Resolved.Problem)?.let { label to it } }
-            ?.let { (label, problem) -> return 0 to notSavedIn(place(STORAGE_LOCATIONS, label), problem.text) }
-        for (row in 1..draft.relocations.size) {
-            resolvedLines(row).firstNotNullOfOrNull { (label, resolved) -> (resolved as? Resolved.Problem)?.let { label to it } }
-                ?.let { (label, problem) -> return row to notSavedIn(place(name(relocation(row)), label), problem.text) }
+    private fun problem(): Pair<Int, String>? = (0..draft.relocations.size).firstNotNullOfOrNull { row ->
+        val item = if (row == 0) STORAGE_LOCATIONS else name(relocation(row))
+        resolvedLines(row).firstNotNullOfOrNull { (label, resolved) ->
+            (resolved as? Resolved.Problem)?.let { problem -> row to notSavedIn(place(item, label), problem.text) }
         }
-        return null
     }
 
     override fun close() {
