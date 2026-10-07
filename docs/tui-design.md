@@ -128,12 +128,24 @@ ones.
 
 - Master-detail panes: about 45% list, the rest details. The focused pane has a
   thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
-  and are dim. The border shape shows focus without color. Lists and Review's
-  plan tree sit in a TamboUI panel, because their elements offer no thick
-  border.
+  and are dim. The border shape shows focus without color. Lists, Browse and
+  Review's plan tree sit in a TamboUI panel, because their elements offer no
+  thick border.
 - `❯` marks the selected row or focused field. A text field shows its cursor.
 - Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
+- Marks come in three sets that share one rule: an empty circle means nothing
+  has happened to the row yet or it is not included; filled, or `✔`, means it
+  has. Parentheses mean pick one; bare marks mean each row is its own.
+  - Progress (Review, Applying, Results): `○` not run yet, spinner running,
+    `✔` done, `✖` failed.
+  - Included or not (Browse): `●` added, `○` not added, `−` can't be added,
+    and on an app heading `◐` some added. A group row gets a mark only when
+    the group itself can be selected and acted on; a heading that is only a
+    label gets none. Review, Applying and Results relocation rows keep their
+    progress marks: those are status, not selection.
+  - One of several choices (Workspace Details): `(●)` chosen, `(○)` not
+    chosen.
 - Paths on screen show the home directory as `~`. Paths sections in details show
   the full absolute path.
 - Word-wrap prose; wrap paths by character only when they cannot break.
@@ -369,8 +381,8 @@ show (such as `ignored-source-paths`) are kept.
   path, or one starting with ~/`.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
   **Suggestion list** (placeholder `optional`) with help "A file of directories
-  to suggest, for example one shared across machines. Built-in suggestions are
-  always included."
+  to suggest in Browse, for example one shared on a team drive. Built-in
+  suggestions are always included."
 - Relocation fields: **Source**, **Target** (blank derives it from the target
   root; a source outside the source root needs one), **Both exist**, **Only
   target**, **Archive root** (blank means the default beside the source).
@@ -399,25 +411,67 @@ show (such as `ignored-source-paths`) are kept.
 
 ## 8. Browse
 
-- Two **Lists** lines at the top, always: the built-in list (`built in · 9
-  suggestions`) and the candidate list (location, count, `file updated 28 Sep`
-  from the file's modification time). A list that failed says why on its line;
-  `i` shows full detail.
-- One row per directory, grouped by app. Markers: `[ ]` not in the
-  configuration, `[x]` in it (saved earlier or added now), `−` cannot be added.
-  Space toggles; removing a row only edits the draft.
+The feature is the **suggestion list**: the built-in list and your list. The
+screen never says "candidate" or "draft".
+
+- Two **Lists** lines at the top, always: `Built-in list · 9 suggestions` and
+  `Your list · ~/team/suggestions.json · 4 suggestions · file updated 28 Sep`
+  (the file's modification time, read with the list). Without a list of your
+  own the second line says so. A list that was not used says why on its line
+  (`not used: file not found`); `i` opens **Suggestion lists** with the full
+  detail.
+- The suggestions are a TamboUI list in a panel titled **Browse**. Each app
+  is a heading (directories no list groups are under `Other directories`):
+  a mark at the left (`●` all added, `◐` some, `○` none, `−` none can be),
+  its name in bold, and in dim text at the notes column how many of its
+  directories that can be added are added (`1 of 2 added`), or `can't add`.
+  Its directories follow, one per row, their marks two cells further in, so
+  headings stand apart without colour. A path shows at most 30 cells, and the
+  notes column starts after it, for headings and rows alike:
+
+  ```
+  ┃ ◐ uv                                 1 of 2 added               ┃
+  ┃❯  ● .local/share/uv                                             ┃
+  ┃   ○ .local/share/uv/tools                                       ┃
+  ┃   − link-cache                       already a link             ┃
+  ```
+
+  `❯` is one cell; the selected row is bold. Groups do not
+  collapse. The selection follows an item: checking again, `u`, adding and
+  removing never move it to another row. When the selected row is hidden,
+  the row at its place is selected and stays selected. Rows keep the place
+  they were first listed in.
+- Marks: `○` not in the configuration, `●` in it (saved earlier or added
+  now), `−` cannot be added. Space toggles; removing a row only edits the
+  configuration on screen, and `s` in Configuration writes it. A row taken out
+  stays listed as `○` until Browse closes, even when no list suggests it.
+  `e` on a `●` row edits it in Configuration.
+- Space on a `○` or `◐` heading adds every shown directory under it that can be added,
+  each as it would be one by one, so one that overlaps is skipped; on `●` it
+  takes them all out, and on `−` it does nothing. Each directory is one unsaved change. When
+  rows were skipped, a line says so: `Added 3. Skipped 1 that overlaps
+  ~/.cache.`, `Skipped 1 that can't be added.` Enter on a heading does
+  nothing.
 - Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
-  directory`, `can't read: <reason>`, `usually not needed`.
-- When both lists name a directory, the candidate list wins: its app group and
-  advice show on the row; Details also shows the built-in advice.
-- Directories every applicable list marks usually not needed are hidden and
-  counted; `u` shows them. Rows already in the configuration are never hidden.
-- `r` checks again: rows read `checking…` until checked. A refresh never changes
-  the configuration draft.
+  directory`, `can't read: <reason>`, `usually not needed`. A note that only
+  says the directory is not there yet (`not created yet`, `checking…`) is
+  dim; `already a link` and `usually not needed` are in the text color, and
+  problems (`can't read: …`, `not a directory`) in the warning color.
+- When both lists name a directory, your list wins: its app group and advice
+  show on the row. Details shows every list's advice, yours first.
+- A directory is hidden only when every list that names it marks it usually
+  not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
+  Rows already in the configuration are never hidden.
+- `r` is **Check again**: it reads the lists again and rows read `checking…`
+  until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size
   reads `not estimated` and ownership `not evaluated` until those features exist.
-- Enter opens a directory's details: state, list attribution, full path, overlap
-  with other suggestions.
+- Enter on a directory opens **Details**: whether it is in the configuration,
+  state, full path, overlap with other suggestions (`Also suggested, inside
+  it: …`), then **Suggested by** with each list's group, advice and reason, or
+  `No list suggests it.`
+- The mouse wheel over the list moves its selection a row; over Details or
+  Suggestion lists it scrolls them. Clicks do nothing.
 
 ## 9. Wording
 

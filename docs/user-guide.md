@@ -93,13 +93,39 @@ come from two suggestion lists:
   drive that everyone on your team uses. Browse always shows the built-in
   list too.
 
+Press `b` in Configuration's list to open Browse. Its first two lines are
+the lists: the built-in list with its number of suggestions, then your list
+with its location, its number of suggestions and the day its file last
+changed. If your list could not be used, its line says why. Press `i` for
+the full detail.
+
+Below them, the suggestions are listed under the name of their app. Each
+directory has a mark:
+
+- `●` it is in your configuration, whether saved earlier or added now.
+- `○` it is not. Press `Space` to add it.
+- `−` it cannot be added, for example because it is a link. Its note says
+  why.
+
+`Space` on a `●` row takes it out again. A directory you take out stays in
+the list until you leave Browse, so `Space` can add it back. Adding and
+removing change only what Configuration shows: the file changes when you
+press `s`. Press `e` on a `●` row to change its target or rules.
+
+Each app's name has a mark too: `●` all its directories are added, `◐` some
+are, `○` none are, `−` none can be. Beside it, Browse counts them, such as
+`1 of 2 added`. `Space` on the name adds all its directories that are shown
+and can be added, or takes them all out when the mark is `●`. If some could
+not be added, Browse says so, for example
+`Added 3. Skipped 1 that overlaps ~/.cache.`
+
 A list can mark a directory **usually not needed**. Browse hides a directory
 when every list that names it says so, and counts what it hid. Press `u` to
 show them. A directory already in your configuration is never hidden.
 
-When both lists name the same directory, Browse shows it once, with your
-list's group and advice. Select a suggestion and press `Enter` to see which
-list suggested it and why. Press `i` to see whether each list was read.
+When both lists name the same directory, Browse shows it once, in your
+list's group and with your list's advice. Select a suggestion and press
+`Enter` to see which lists suggest it and what each one says.
 
 ### Write your own list
 
@@ -142,9 +168,10 @@ A suggestion list is a JSON file. For example:
   is an error.
 - The file can be up to 1 MiB and list up to 10,000 directories.
 
-One error rejects the whole file. Browse then says why (press `i`) and uses
-the built-in list alone. HomeLight waits at most 5 seconds for the file, so a
-slow or missing drive never blocks you. Configuration saves either way.
+One error rejects the whole file. Browse then says so on your list's line
+(press `i` for the detail) and uses the built-in list alone. HomeLight waits
+at most 5 seconds for the file, so a slow or missing drive never blocks you.
+Configuration saves either way.
 
 To use a list, enter its path in Configuration's **Suggestion list** field,
 or add it to the configuration file:
@@ -155,7 +182,7 @@ or add it to the configuration file:
 
 The path must be full or start with `~/`. Each person keeps their own
 configuration file; only the list is shared. After someone changes the list,
-press `r` in Browse to read it again.
+press `r` in Browse to check again.
 
 ## Words to know
 

@@ -9,6 +9,7 @@ import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.element.Size
 import dev.tamboui.toolkit.element.StyledElement
 import dev.tamboui.toolkit.elements.ListElement
+import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.toolkit.focus.FocusManager
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
@@ -53,6 +54,8 @@ internal class ConfigurationView private constructor(
     private val session: HomeLightSession,
     private val focus: FocusManager,
     private val discoveryFactory: () -> CandidateDiscovery,
+    /** The app's key handler, which Browse's tree passes every key to (see [CandidateBrowser]). */
+    keys: KeyEventHandler,
     /** The file as opened. A new file starts from an empty draft, so typing into it counts as a change. */
     private val loaded: HomeLightFile,
     /** The bytes the file was read from, which a replace compares; null for a new file. */
@@ -89,8 +92,10 @@ internal class ConfigurationView private constructor(
     // Only for its help lines, which therefore never offer a scroll key: in a text field `[` and `]` type.
     private val helpArea = DetailViewport()
     private val detailsArea = DetailViewport()
-    private val browser = CandidateBrowser()
+    private val browser = CandidateBrowser(keys)
     private var browsing = false
+    // Sources taken out in this Browse visit; see [BrowseDraft].
+    private var kept = setOf<Path>()
     private var suggestions: Suggestions? = null
 
     var closed = false
@@ -107,7 +112,12 @@ internal class ConfigurationView private constructor(
         )
         // Browse keeps its own selection, so the screen is one focusable while it is open.
         if (browsing) {
-            return Toolkit.column(header, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE).focusable(interactive)
+            val browseHeader = Toolkit.row(
+                Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+                Toolkit.text("[" + place(CONFIGURATION_NAME, BROWSE_NAME) + "]").fg(palette.focus).bold(),
+            )
+            return Toolkit.column(browseHeader, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE)
+                .focusable(interactive)
         }
         pull()
         val row = selectedRow()
@@ -272,9 +282,9 @@ internal class ConfigurationView private constructor(
         }
     }
 
-    /** The mouse wheel at `x`, `y` scrolls the pane under it; the list and fields ignore it. */
+    /** The mouse wheel at `x`, `y` scrolls Details, or acts in Browse; the list and fields ignore it. */
     fun wheel(x: Int, y: Int, delta: Int) {
-        if (browsing) browser.wheel(x, y, delta)
+        if (browsing) browser.wheel(x, y, delta, browseDraft())
         else if (detailsArea.contains(x, y)) detailsArea.scroll(delta)
     }
 
@@ -424,6 +434,7 @@ internal class ConfigurationView private constructor(
         val path = (listed as? Resolved.Found)?.path
         if (current.request != CandidateDiscovery.Request.of(root.path, path)) current.check(root.path, path)
         browsing = true
+        kept = setOf()
         message = ""
         focus.setFocus(CONFIG_BROWSE)
     }
@@ -437,7 +448,7 @@ internal class ConfigurationView private constructor(
     private fun browseKey(key: KeyEvent) {
         if (key.isKey(KeyCode.ESCAPE)) { if (!browser.back()) leaveBrowse(); return }
         if (key.isQuit()) { requestClose(); return }
-        // As in the list: Ctrl+U must not reveal hidden suggestions.
+        // As in the list: Ctrl+U must not show hidden suggestions.
         if (key.hasCtrl() || key.hasAlt()) return
         if (key.isCharIgnoreCase('r')) {
             // Browse opens only with a check under way, so there is a request to repeat.
@@ -447,7 +458,14 @@ internal class ConfigurationView private constructor(
         }
         when (val action = browser.key(key, browseDraft())) {
             null -> {}
-            is BrowseAction.Add -> browser.added(addSuggestion(action.source))
+            is BrowseAction.Add -> browser.added(addRefusal(action.source)?.message)
+            is BrowseAction.Remove -> removeRows(listOf(action.row))
+            is BrowseAction.RemoveAll -> removeRows(action.rows)
+            is BrowseAction.AddAll -> {
+                // Each add sees the ones before it, so two suggestions in one group that overlap add only the first.
+                val refusals = action.sources.map { source -> addRefusal(source) }
+                browser.addedGroup(refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable)
+            }
             is BrowseAction.Edit -> {
                 leaveBrowse()
                 list.selected(action.row + 1)
@@ -456,8 +474,11 @@ internal class ConfigurationView private constructor(
         }
     }
 
+    /** Why Browse could not add a source: the overlap's message, and the relocation it overlaps when that is another. */
+    private data class Refusal(val message: String, val other: Path?)
+
     /** Adds `source` as written in Browse, and returns why not when it would overlap a relocation. */
-    private fun addSuggestion(source: Path): String? {
+    private fun addRefusal(source: Path): Refusal? {
         val row = RelocationFile(displayPath(source))
         val relocations = (draft.relocations + row).mapNotNull { relocation ->
             val resolved = resolve(relocation)
@@ -465,16 +486,24 @@ internal class ConfigurationView private constructor(
             val target = (resolved.target as? Resolved.Found)?.path
             if (path == null || target == null) null else Relocation(path, target)
         }
-        relocationProblem(relocations)?.let { return it.message }
+        // The new row is last, so a problem between two rows names the earlier one, the relocation it overlaps.
+        relocationProblem(relocations)?.let { return Refusal(it.message, it.source.takeIf { other -> other != source }) }
         edit(draft.relocations + row, origins + null)
         return null
+    }
+
+    /** Takes the draft rows at `rows` out, keeping their sources listed in Browse until it closes. */
+    private fun removeRows(rows: List<Int>) {
+        kept = kept + rows.mapNotNull { row -> (resolve(draft.relocations[row]).source as? Resolved.Found)?.path }
+        // From the last, so each index still names its row.
+        rows.sortedDescending().forEach { row -> remove(row + 1) }
     }
 
     private fun browseDraft(): BrowseDraft {
         // Browse opens only after a check starts, which sets the request.
         val request = checkNotNull(suggestions?.request)
         val sources = draft.relocations.map { (resolve(it).source as? Resolved.Found)?.path }
-        return BrowseDraft(request.root, sources, suggestions?.result())
+        return BrowseDraft(request.root, sources, suggestions?.result(), kept)
     }
 
     /** Takes the shown row's typed text into the draft, field by field, when it differs. */
@@ -589,11 +618,13 @@ internal class ConfigurationView private constructor(
          *
          * @throws ConfigurationException when the file cannot be read as JSON in the configuration's shape
          */
-        fun open(session: HomeLightSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery): ConfigurationView {
+        fun open(
+            session: HomeLightSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery, keys: KeyEventHandler,
+        ): ConfigurationView {
             val view = if (Files.isRegularFile(session.configPath)) {
                 val file = ConfigurationLoader().read(session.configPath)
-                ConfigurationView(session, focus, discoveryFactory, file.file, file.bytes)
-            } else ConfigurationView(session, focus, discoveryFactory, HomeLightFile(targetRoot = ""), null)
+                ConfigurationView(session, focus, discoveryFactory, keys, file.file, file.bytes)
+            } else ConfigurationView(session, focus, discoveryFactory, keys, HomeLightFile(targetRoot = ""), null)
             // A new file needs its target root first; an existing one opens on its list.
             focus.setFocus(if (view.loadedBytes == null) Field.TARGET_ROOT.id else CONFIG_LIST)
             return view

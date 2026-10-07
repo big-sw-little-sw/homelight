@@ -10,23 +10,31 @@ import java.nio.file.Path
  * discovery never edits the draft.
  *
  * `sources` holds each relocation's source as the loader resolves it, or null while it cannot be resolved (a row
- * still being typed).
+ * still being typed). `kept` holds sources taken out of the draft during this Browse visit: they stay listed, so a
+ * directory no list suggests can be added back.
  */
-class BrowseDraft(val sourceRoot: Path, sources: List<Path?>, val discovery: CandidateDiscovery.Result?) {
+class BrowseDraft(
+    val sourceRoot: Path, sources: List<Path?>, val discovery: CandidateDiscovery.Result?, kept: Set<Path> = setOf(),
+) {
     private val sources: List<Path?> = sources.toList()
+    private val kept: Set<Path> = kept.toSet()
 
-    /** The draft's relocations in order, then the suggestions not in it. */
+    /** The draft's relocations in order, then the suggestions not in it, then the kept sources neither lists. */
     fun entries(): List<Entry> {
         val candidates = discovery?.candidates.orEmpty().associateBy { it.catalog.sourcePath }
         val rows = sources.mapIndexed { row, path -> Entry(path, row, path?.let { candidates[it] }) }
         val used = sources.filterNotNull().toSet()
-        return rows + candidates.filterKeys { it !in used }.map { (path, candidate) -> Entry(path, null, candidate) }
+        return rows + candidates.filterKeys { it !in used }.map { (path, candidate) -> Entry(path, null, candidate) } +
+            kept.filter { it !in used && it !in candidates }.map { Entry(it, null, null) }
     }
 
-    /** A suggestion can be added when it is not in the draft and was seen as a directory or as missing. */
+    /**
+     * A suggestion can be added when it is not in the draft and was seen as a directory or as missing. A kept source
+     * can be added back: it was in the draft a moment ago.
+     */
     fun canAdd(entry: Entry): Boolean {
         if (entry.row != null) return false
-        val candidate = entry.discovery ?: return false
+        val candidate = entry.discovery ?: return entry.sourcePath in kept
         return when (candidate.observation.kind) {
             CandidateObservation.Kind.DIRECTORY, CandidateObservation.Kind.MISSING -> true
             CandidateObservation.Kind.PENDING, CandidateObservation.Kind.LINK, CandidateObservation.Kind.REGULAR_FILE,

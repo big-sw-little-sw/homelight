@@ -1,6 +1,8 @@
 package io.github.bigswlittlesw.homelight.tui
 
 import dev.tamboui.tui.event.KeyCode
+import dev.tamboui.tui.event.MouseButton
+import dev.tamboui.tui.event.MouseEvent
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.HomeLightSession
 import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
@@ -40,12 +42,11 @@ class BrowseTest {
             locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
             val list = render(ui)
-            assertTrue(list.contains("Maven (1)"), list)
-            assertTrue(list.contains("mixed advice"), list)
+            assertTrue(list.contains("Build tools") && !list.contains("Maven"), list)
             assertTrue(list.contains("1 usually not needed, hidden"), list)
             choose(ui, "team-cache"); enter(ui)
-            key(ui, 'a')
-            assertTrue(render(ui).contains("e: Edit draft row"))
+            key(ui, ' ')
+            assertTrue(render(ui).contains("e: Edit"))
             key(ui, 'e'); down(ui); clear(ui); type(ui, root.resolve("local/custom-target").toString())
             down(ui); right(ui) // Keep target, delete source.
             escape(ui); key(ui, 'b')
@@ -53,8 +54,8 @@ class BrowseTest {
             key(ui, 'r'); await(workers, ui)
             // Refresh while inspecting does not leave details or erase the row; the dropped list entry is not recalled.
             val details = all(ui)
-            assertTrue(details.contains("No current catalog attribution."), details)
-            assertTrue(details.contains("In draft"), details)
+            assertTrue(details.contains("No list suggests it."), details)
+            assertTrue(details.contains("In the configuration"), details)
             key(ui, 'e')
             assertTrue(all(ui).contains("‹ Keep target, delete source ›"))
             escape(ui); key(ui, 's')
@@ -88,7 +89,7 @@ class BrowseTest {
             ctrl(ui, 'u'); alt(ui, 'u'); ctrl(ui, 'd')
             val list = render(ui)
             assertTrue(list.contains("1 usually not needed, hidden"), list)
-            assertTrue(list.contains("1 in draft"), list)
+            assertTrue(list.contains("● manual"), list)
             key(ui, 'u')
             assertTrue(render(ui).contains("1 usually not needed, shown"))
             escape(ui)
@@ -99,18 +100,18 @@ class BrowseTest {
         }
     }
 
-    @Test fun groupExpansionNeverSelectsAndAdviceCollapseKeepsAddedRowsVisible() {
+    @Test fun enterOnAHeadingDoesNothingAndHidingKeepsAddedRowsVisible() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
+            val before = render(ui)
             enter(ui)
-            assertFalse(render(ui).contains("[ ] .m2"))
-            enter(ui)
+            assertEquals(before, render(ui))
             key(ui, 'u')
-            choose(ui, ".cache/example"); enter(ui); key(ui, 'a'); escape(ui)
+            choose(ui, ".cache/example"); enter(ui); key(ui, ' '); escape(ui)
             key(ui, 'u')
-            assertTrue(all(ui).contains("[x] .cache/example"))
+            assertTrue(all(ui).contains("● .cache/example"))
             // No action on a heading may create rows.
             escape(ui); key(ui, 's')
             val saved = ConfigurationLoader().load(root.resolve("config.json"))
@@ -123,27 +124,30 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
-            key(ui, ' '); key(ui, 'a')
-            assertTrue(render(ui).contains("0 in draft"), "App headings cannot add children")
             choose(ui, ".m2")
             val before = render(ui)
             key(ui, ' ')
             val added = render(ui)
-            assertTrue(added.contains("Browse candidates") && added.contains("❯   [x] .m2"), added)
-            assertFalse(added.contains("Candidate details") || added.contains("Space/a: Add"), added)
-            assertEquals(before.indexOf("Maven (1)"), added.indexOf("Maven (1)"))
-            key(ui, ' '); key(ui, 'a')
-            assertTrue(render(ui).contains("1 in draft"))
-            choose(ui, ".local/share/uv"); key(ui, 'a')
+            assertTrue(added.contains("┏Browse") && selected(added, "● .m2"), added)
+            assertFalse(added.contains("┏Details") || added.contains("Space: Add"), added)
+            assertTrue(added.contains("Space: Remove"), added)
+            assertEquals(before.indexOf("Build tools"), added.indexOf("Build tools"))
+            // Space toggles: it takes the row out again, then puts it back.
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "○ .m2"), render(ui))
+            assertEquals(0, added(ui))
+            key(ui, ' ')
+            assertEquals(1, added(ui))
+            choose(ui, ".local/share/uv"); key(ui, ' ')
             choose(ui, ".local/share/uv/tools"); key(ui, ' ')
             val rejected = render(ui)
-            assertTrue(rejected.contains("Browse candidates") && rejected.contains("prior choices are unchanged"), rejected)
-            assertTrue(rejected.contains("2 in draft"))
+            assertTrue(rejected.contains("┏Browse") && rejected.contains("Prior choices are unchanged"), rejected)
+            assertEquals(2, added(ui))
             enter(ui)
             assertTrue(all(ui).contains("paths overlap"))
             escape(ui)
-            choose(ui, "absent-cache"); key(ui, ' '); key(ui, 'a')
-            assertTrue(render(ui).contains("3 in draft"))
+            choose(ui, "absent-cache"); key(ui, ' ')
+            assertEquals(3, added(ui))
             choose(ui, ".m2"); key(ui, 'e')
             assertEquals("config-source", ui.focused())
             assertTrue(render(ui).contains("❯ Source"), render(ui))
@@ -157,8 +161,8 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui); choose(ui, "absent-cache")
-            assertTrue(render(ui).contains("Space/a: Add"))
-            assertTrue(render(ui).contains("[ ] absent-cache"))
+            assertTrue(render(ui).contains("Space: Add"))
+            assertTrue(render(ui).contains("○ absent-cache"))
             // The row says why it is unusual (tui-design §8).
             assertTrue(render(ui).contains("absent-cache                    not created yet"), render(ui))
             enter(ui)
@@ -166,11 +170,11 @@ class BrowseTest {
             assertTrue(details.contains("State: not created yet"), details)
             assertTrue(details.contains("Not found under the source root"), details)
             escape(ui); key(ui, ' ')
-            assertTrue(render(ui).contains("❯   [x] absent-cache"))
+            assertTrue(selected(render(ui), "● absent-cache"), render(ui))
             key(ui, 'e'); down(ui); clear(ui); type(ui, root.resolve("local/future-cache").toString())
             down(ui); down(ui); right(ui)
             escape(ui); key(ui, 'b'); key(ui, 'r'); await(workers, ui)
-            assertTrue(render(ui).contains("❯   [x] absent-cache"))
+            assertTrue(selected(render(ui), "● absent-cache"), render(ui))
             escape(ui); key(ui, 's')
             assertTrue(render(ui).contains("[1: Workspace]"))
             val row = ConfigurationLoader().load(root.resolve("config.json")).relocations.first()
@@ -189,11 +193,11 @@ class BrowseTest {
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'a'); type(ui, ".m2"); down(ui); type(ui, root.resolve("local/manual-target").toString()); escape(ui)
             key(ui, 'b'); await(workers, ui); choose(ui, ".m2"); enter(ui)
-            assertTrue(render(ui).contains("e: Edit draft row"))
-            assertFalse(render(ui).contains("a: Add to draft"))
-            key(ui, 'a'); escape(ui)
-            choose(ui, ".local/share/uv"); enter(ui); key(ui, 'a'); escape(ui)
-            choose(ui, ".local/share/uv/tools"); enter(ui); key(ui, 'a')
+            assertTrue(render(ui).contains("e: Edit"))
+            assertFalse(render(ui).contains("Space: Add"))
+            escape(ui)
+            choose(ui, ".local/share/uv"); enter(ui); key(ui, ' '); escape(ui)
+            choose(ui, ".local/share/uv/tools"); enter(ui); key(ui, ' ')
             val text = all(ui).replace(Regex("\\s"), "")
             assertTrue(text.contains("Notadded."), text)
             assertTrue(text.contains("Priorchoicesareunchanged"), text)
@@ -262,7 +266,12 @@ class BrowseTest {
             else Files.writeString(root.resolve("shared.json"), "{\"apps\": [")
             SetupDiscoveryFixture().use { workers ->
                 val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b'); await(workers, ui)
-                assertTrue(render(ui).contains("Bundled: current · Shared: unavailable"))
+                val lists = render(ui)
+                assertTrue(lists.contains("Built-in list · 6 suggestions"), lists)
+                assertTrue(
+                    lists.contains("Your list · ${root.resolve("shared.json")} · not used: " + if (missing) "file not found" else "1 error in the file"),
+                    lists,
+                )
                 key(ui, 'i'); assertTrue(all(ui).contains(if (missing) "NoSuchFileException" else "line"))
                 escape(ui); escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui); key(ui, 's')
                 assertTrue(render(ui).contains("[1: Workspace]"))
@@ -270,7 +279,253 @@ class BrowseTest {
         }
     }
 
-    /** Relocations the file already has are ordinary draft rows: marked `[x]` and edited like any other. */
+    /**
+     * When both lists name a directory, your list's group and advice show on the row, and Details shows the built-in
+     * advice too. A directory is hidden only when every list that names it marks it usually not needed.
+     */
+    @Test fun yourListWinsAndHidingNeedsEveryList() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val list = render(ui)
+            // The built-in list calls .m2 Maven and Consider; your list calls it Build tools and usually not needed.
+            assertTrue(list.contains("Build tools") && !list.contains("Maven"), list)
+            assertTrue(list.contains(".m2                             usually not needed"), list)
+            // Only the built-in list names .cache/example, as usually not needed, so it alone is hidden.
+            assertTrue(list.contains("1 usually not needed, hidden") && !list.contains(".cache/example"), list)
+            choose(ui, ".m2"); enter(ui)
+            val details = all(ui)
+            val yours = details.indexOf("Your list · Build tools")
+            val builtIn = details.indexOf("Built-in list · Maven")
+            assertTrue(yours in 0..<builtIn, details)
+            assertTrue(details.indexOf("Advice: Usually not needed", yours) < builtIn, details)
+            assertTrue(details.indexOf("Advice: Consider", builtIn) > builtIn, details)
+            ui.app.closeEditor()
+        }
+    }
+
+    /** The Lists lines name each list with its count, your list's location and when its file changed. */
+    @Test fun listsLinesSayWhatEachListGave() {
+        val root = fixture()
+        Files.setLastModifiedTime(root.resolve("shared.json"), java.nio.file.attribute.FileTime.from(java.time.Instant.parse("2026-09-28T12:00:00Z")))
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val lines = render(ui).lines()
+            assertEquals("Built-in list · 6 suggestions", lines[1].trim(), lines.joinToString("\n"))
+            assertTrue(Regex("Your list · .*shared\\.json · 7 suggestions · file updated 2[89] Sep").matches(lines[2].trim()), lines[2])
+            ui.app.closeEditor()
+        }
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            // Clearing the field leaves only the built-in list.
+            enter(ui); down(ui); down(ui); clear(ui); escape(ui)
+            key(ui, 'b'); await(workers, ui)
+            assertTrue(render(ui).contains(NO_LIST_OF_YOUR_OWN), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** Space takes a saved relocation out of the draft only: the file changes when Configuration saves. */
+    @Test fun spaceRemovesFromTheDraftOnly() {
+        val root = fixture()
+        val config = Files.writeString(
+            root.resolve("config.json"),
+            """
+            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+              "relocations": [{"source-path": "${root.resolve("home/.m2")}"}]}}
+            """.trimIndent(),
+        )
+        val bytes = Files.readAllBytes(config)
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            choose(ui, ".m2")
+            assertTrue(render(ui).contains("Space: Remove"), render(ui))
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "○ .m2"), render(ui))
+            escape(ui)
+            assertTrue(render(ui).contains("1 unsaved change"), render(ui))
+            assertTrue(bytes.contentEquals(Files.readAllBytes(config)))
+            key(ui, 'q'); key(ui, 'y')
+            assertTrue(bytes.contentEquals(Files.readAllBytes(config)))
+        }
+    }
+
+    /**
+     * The tree's selection follows its item: checking again and `u` keep it. When the item is hidden, the row at its
+     * place is selected and stays selected when the item is listed again.
+     */
+    @Test fun selectionFollowsItsItemThroughCheckAgainAndU() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            key(ui, 'u')
+            choose(ui, ".cache/example")
+            key(ui, 'r'); await(workers, ui)
+            assertTrue(selected(render(ui), "○ .cache/example"), render(ui))
+            key(ui, 'u')
+            assertFalse(render(ui).contains(".cache/example"), render(ui))
+            assertTrue(selected(render(ui), "○ datasets"), render(ui))
+            key(ui, 'u')
+            assertTrue(selected(render(ui), "○ datasets"), render(ui))
+            // Adding a row above does not move the selection off its item.
+            ui.press(KeyCode.UP); ui.press(KeyCode.UP); key(ui, ' '); ui.press(KeyCode.DOWN); ui.press(KeyCode.DOWN)
+            assertTrue(selected(render(ui), "○ datasets"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** A configured directory no list suggests stays listed, in its place, after Space takes it out, until Browse closes. */
+    @Test fun aRemovedRowStaysListedUntilBrowseCloses() {
+        val root = fixture()
+        Files.createDirectories(root.resolve("home/manual"))
+        val config = Files.writeString(
+            root.resolve("config.json"),
+            """
+            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+              "relocations": [{"source-path": "${root.resolve("home/manual")}"}, {"source-path": "${root.resolve("home/zz-last")}"}]}}
+            """.trimIndent(),
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            assertTrue(render(ui).contains("[Configuration › Browse]"), render(ui))
+            choose(ui, "manual")
+            val before = render(ui).lines().indexOfFirst { it.contains("manual") }
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "○ manual"), render(ui))
+            assertEquals(before, render(ui).lines().indexOfFirst { it.contains("manual") }, render(ui))
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "● manual"), render(ui))
+            key(ui, ' '); escape(ui)
+            assertTrue(render(ui).contains("1 unsaved change"), render(ui))
+            key(ui, 'b')
+            assertFalse(render(ui).contains("manual"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * Space on an app group adds every directory shown in it that can be added, or takes them all out when all are
+     * in; the heading counts how many are added. Each directory counts as one unsaved change.
+     */
+    @Test fun spaceOnAGroupAddsOrRemovesItsDirectories() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "Other directories")
+            assertTrue(selectedGroup(render(ui), "○ Other directories", "0 of 6 added"), render(ui))
+            assertTrue(render(ui).contains("Space: Add all"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "● Other directories", "6 of 6 added"), render(ui))
+            assertEquals(6, added(ui))
+            assertTrue(render(ui).contains("Space: Remove all"), render(ui))
+            // Taking one out leaves the group partly in the configuration.
+            down(ui); key(ui, ' '); ui.press(KeyCode.UP)
+            assertTrue(selectedGroup(render(ui), "◐ Other directories", "5 of 6 added"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "● Other directories", "6 of 6 added"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "○ Other directories", "0 of 6 added"), render(ui))
+            assertEquals(0, added(ui))
+            // A new file: the three storage locations are the only changes, then each added directory counts.
+            escape(ui)
+            assertTrue(render(ui).contains("3 unsaved changes"), render(ui))
+            key(ui, 'b'); key(ui, ' ')
+            escape(ui)
+            assertTrue(render(ui).contains("9 unsaved changes"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** Space on a group skips rows that overlap and rows that cannot be added, and says so. */
+    @Test fun spaceOnAGroupSaysWhatItSkipped() {
+        val root = fixture()
+        Files.writeString(root.resolve("home/not-a-directory"), "file")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "uv")
+            key(ui, ' ')
+            val uv = all(ui)
+            assertTrue(uv.contains("Added 1. Skipped 1 that overlaps ${root.resolve("home/.local/share/uv")}."), uv)
+            assertTrue(selected(uv, "● .local/share/uv") || uv.contains("● .local/share/uv"), uv)
+            assertTrue(uv.contains("○ .local/share/uv/tools"), uv)
+            chooseGroup(ui, "Other directories")
+            key(ui, ' ')
+            val other = render(ui)
+            assertTrue(other.contains("Added 5. Skipped 1 that can't be added."), other)
+            assertTrue(selectedGroup(other, "● Other directories", "5 of 5 added"), other)
+            ui.app.closeEditor()
+        }
+    }
+
+    /** A heading none of whose directories can be added reads `−` and `can't add`, and Space there does nothing. */
+    @Test fun aHeadingWithNothingToAddCannotAdd() {
+        val root = fixture()
+        Files.createDirectories(root.resolve("home/link-target"))
+        Files.createSymbolicLink(root.resolve("home/link-cache"), root.resolve("home/link-target"))
+        Files.writeString(root.resolve("shared.json"), """{"apps": [{"name": "Links", "directories": [{"path": "link-cache"}]}]}""")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "Links")
+            val before = render(ui)
+            assertTrue(selectedGroup(before, "− Links", "can't add"), before)
+            assertFalse(before.contains("Space:"), before)
+            key(ui, ' ')
+            assertEquals(before, render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** As in Review, the wheel over the list moves its selection a row, and a click does nothing. */
+    @Test fun theWheelMovesTheSelectionAndClicksDoNothing() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            choose(ui, ".m2")
+            val y = render(ui).lines().indexOfFirst { it.contains("○ .m2") }
+            ui.press(MouseEvent.scrollDown(10, y))
+            assertTrue(render(ui).lines()[y + 1].contains("❯"), render(ui))
+            ui.press(MouseEvent.scrollUp(10, y))
+            assertTrue(selected(render(ui), "○ .m2"), render(ui))
+            val before = render(ui)
+            for (event in listOf(MouseEvent.press(MouseButton.LEFT, 10, y + 3), MouseEvent.release(MouseButton.LEFT, 10, y + 3))) ui.press(event)
+            assertEquals(before, render(ui))
+            assertEquals(CONFIG_BROWSE, ui.focused())
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * At 80 columns a row keeps its marker, its path and its whole note beside the scrollbar, and a heading's count
+     * starts in the rows' notes column.
+     */
+    @Test fun rowNotesFitAtEightyColumns() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            ui.press(KeyCode.END)
+            val screen = ui.screen(80, 24)
+            assertTrue(screen.contains("○ linked-parent/cache             not created yet"), screen)
+            val lines = screen.lines()
+            val note = lines.first { it.contains("linked-parent/cache") }.indexOf("not created yet")
+            assertEquals(note, lines.first { it.contains("Other directories") }.indexOf("0 of 6 added"), screen)
+            // The longest single note fits before the scrollbar, in the pane's last column (78) at 80 columns.
+            assertTrue(note + "can't read: its real location is unclear".length <= 78, "notes start at $note")
+            assertTrue(screen.lines().all { it.length <= 80 }, screen)
+            ui.app.closeEditor()
+        }
+    }
+
+    /** Relocations the file already has are ordinary draft rows: marked `●` and edited like any other. */
     @Test fun relocationsFromTheFileAreInTheDraftAndTextIsEscaped() {
         val root = fixture()
         val config = Files.writeString(
@@ -284,7 +539,7 @@ class BrowseTest {
             val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
             key(ui, 'e'); key(ui, 'b'); await(workers, ui)
             choose(ui, ".m2")
-            assertTrue(render(ui).contains("❯   [x] .m2"), render(ui))
+            assertTrue(selected(render(ui), "● .m2"), render(ui))
             assertTrue(render(ui).contains("e: Edit"), render(ui))
             key(ui, 'e')
             assertEquals("config-source", ui.focused())
@@ -301,16 +556,16 @@ class BrowseTest {
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
             assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
             val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
-            while (!render(ui).contains("[ ] .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
-            choose(ui, ".m2"); enter(ui); key(ui, 'a'); key(ui, 'e')
+            while (!render(ui).contains("○ .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
+            choose(ui, ".m2"); enter(ui); key(ui, ' '); key(ui, 'e')
             down(ui); clear(ui); type(ui, "unfinished-target")
             workers.release.countDown(); await(workers, ui)
             assertEquals("config-target", ui.focused())
             assertTrue(render(ui).contains("  unfinished-target"), render(ui))
             type(ui, "-continued"); escape(ui); key(ui, 'b')
-            assertTrue(render(ui).contains("Candidate details"))
+            assertTrue(render(ui).contains("┏Details"))
             escape(ui)
-            assertTrue(render(ui).lines().any { line -> line.contains("❯   [x] .m2") })
+            assertTrue(selected(render(ui), "● .m2"), render(ui))
             escape(ui)
             assertTrue(render(ui).contains("  unfinished-target-continued"), render(ui))
             ui.app.closeEditor()
@@ -390,10 +645,28 @@ class BrowseTest {
         fun choose(ui: HeadlessTui, relative: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯   (\\[.\\]| − ) " + Pattern.quote(relative) + "(?: +.*|│.*)")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯  [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(ui))
+        }
+        fun chooseGroup(ui: HeadlessTui, name: String) {
+            ui.press(KeyCode.HOME)
+            repeat(100) {
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯[●◐○−] " + Pattern.quote(name) + " +(\\d+ of \\d+ added|can't add).*")) }) return
+                down(ui)
+            }
+            fail<Unit>("Could not focus " + name + "\n" + render(ui))
+        }
+        /** Whether the selected row of `screen` is the heading `heading` (mark and name) with `count`, such as `2 of 5 added`. */
+        fun selectedGroup(screen: String, heading: String, count: String): Boolean =
+            screen.lines().any { line -> line.matches(Regex(".*❯" + Pattern.quote(heading) + " +" + Pattern.quote(count) + ".*")) }
+        /** Whether the selected row of `screen` reads `row`: its marker and path. */
+        fun selected(screen: String, row: String): Boolean =
+            screen.lines().any { line -> line.matches(Regex(".*❯  " + Pattern.quote(row) + "(?: +.*|┃.*)")) }
+        /** How many directories are marked in the configuration; a heading's line has its count, so it is left out. */
+        fun added(ui: HeadlessTui): Int = render(ui).lines().count { line ->
+            Regex("^[┃│][❯ ]  ● ").containsMatchIn(line) && !Regex("\\d+ of \\d+ added").containsMatchIn(line)
         }
         fun all(ui: HeadlessTui): String {
             val screens = linkedSetOf<String>()

@@ -65,7 +65,7 @@ hand-written files may use `//` and `/* */` comments and trailing commas:
 {
   "homelight": {
     "target-root": "/local/home/${USER}",
-    "suggestion-list": "/net/team/homelight/candidates.json",
+    "suggestion-list": "/net/team/homelight/suggestions.json",
     "relocations": [
       // Target defaults to target-root plus the path under source-root.
       {"source-path": "~/.m2"},
@@ -121,8 +121,8 @@ To slow down TUI execution and inspect animated spinners and action progress, ad
 action in its running state for three seconds while the terminal stays responsive.
 The delay accepts 0–60000 milliseconds and does not affect JSON automation.
 
-The `relocations` list is an explicit allow-list. A built-in candidate is only
-managed after it is selected and written to this list; leaving a candidate out
+The `relocations` list is an explicit allow-list. A built-in suggestion is only
+managed after it is added and written to this list; leaving a suggestion out
 means HomeLight leaves it unchanged.
 
 Follow [`AGENTS.md`](AGENTS.md) for repository conventions.

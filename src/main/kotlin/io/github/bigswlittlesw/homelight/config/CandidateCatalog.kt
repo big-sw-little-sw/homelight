@@ -18,13 +18,13 @@ object CandidateCatalog {
         return bundledBytes.fold(
             { bytes ->
                 if (bytes == null) {
-                    parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE, "Bundled candidate resource is missing")
+                    parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE, "The built-in list is missing from HomeLight")
                 } else parser.parse(BUNDLED, root, bytes)
             },
             { e ->
                 parser.failure(
                     BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE,
-                    "Cannot read bundled candidate resource: " + e.message,
+                    "Cannot read the built-in list: " + e.message,
                 )
             },
         )
@@ -43,14 +43,15 @@ object CandidateCatalog {
     }
 
     /**
-     * Input order stabilizes output order; it never gives advice precedence.
+     * Input order stabilizes the order of candidates. Within a candidate the shared list's definitions come first,
+     * so the first definition is the one whose app and advice Browse shows (decision 2026-10-04).
      * Failed sources contribute diagnostics and no definitions.
      */
     fun merge(snapshots: List<Snapshot>): Merged {
         require(snapshots.distinctBy { it.root }.size <= 1) { "Cannot merge snapshots from different roots" }
         val candidates = snapshots.flatMap { it.definitions }
             .groupBy { it.sourcePath }
-            .map { (path, definitions) -> Candidate(path, definitions) }
+            .map { (path, definitions) -> Candidate(path, definitions.sortedBy { it.source.kind != CandidateSource.Kind.SHARED }) }
         return Merged(candidates, snapshots.flatMap { it.diagnostics })
     }
 

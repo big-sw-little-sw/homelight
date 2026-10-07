@@ -8,6 +8,10 @@ import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesEx
 import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import java.nio.file.Path
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 // The TUI's words for application values and the messages its screens show (tui-design §9). Application enums keep
 // meaning only. Key hints stay in each screen's `keys` function, beside the handlers that bind them, so a hint and its
@@ -176,8 +180,8 @@ internal const val SOURCE_ROOT_HELP =
         "place under this folder, inside the target root."
 internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use a full path, or one starting with ~/."
 internal const val SUGGESTION_LIST_HELP =
-    "A file of directories to suggest, for example one shared across machines. Built-in suggestions are always " +
-        "included."
+    "A file of directories to suggest in Browse, for example one shared on a team drive. Built-in suggestions are " +
+        "always included."
 internal const val SOURCE_HELP = "The directory to move, for example ~/.cache/uv."
 internal const val TARGET_HELP =
     "Where its contents go. Leave it blank for the same place under the target root; a source outside the source " +
@@ -324,8 +328,10 @@ internal const val PURPOSE_CONFIGURATION =
     "Create or change the configuration file: where storage is and which directories to move. Saving changes " +
         "nothing on disk."
 internal const val PURPOSE_BROWSE =
-    "Suggestions from the built-in list and your list. Add the ones you want to move."
+    "Suggestions from the built-in list and your list. Space adds a directory to the configuration or takes it out; " +
+        "the file changes only when you save."
 internal const val DETAILS_NAME = "Details"
+internal const val SUGGESTION_LISTS = "Suggestion lists"
 // Configuration's fields, as its pane labels them; Help names the focused one.
 internal const val SOURCE_ROOT_LABEL = "Source root"
 internal const val TARGET_ROOT_LABEL = "Target root"
@@ -354,3 +360,108 @@ internal val PAGE_KEYS = KeyHint("PageUp/PageDown", "Move a page", inHelpArea = 
 internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = false)
 internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
 internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)
+
+// Browse (tui-design §8). The feature is the suggestion list: the built-in list and your list.
+internal const val BUILT_IN_LIST = "Built-in list"
+internal const val YOUR_LIST = "Your list"
+internal const val NO_LIST_OF_YOUR_OWN = "Your list · none; set one in Storage locations"
+internal const val LIST_CHECKING = "checking…"
+/** A Lists line: the list's name, then its location and state, as far as they are known. */
+internal fun listSummary(vararg parts: String?) = parts.filterNotNull().joinToString(" · ")
+internal fun suggestionCount(n: Int) = if (n == 1) "1 suggestion" else "$n suggestions"
+private val DAY_MONTH = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH).withZone(ZoneId.systemDefault())
+internal fun fileUpdated(time: Instant) = "file updated " + DAY_MONTH.format(time)
+internal fun listNotUsed(reason: String) = "not used: $reason"
+internal fun listErrors(n: Int) = if (n == 1) "1 error in the file" else "$n errors in the file"
+internal const val LIST_MISSING = "file not found"
+internal const val LIST_UNREADABLE = "permission denied"
+internal const val LIST_NOT_REGULAR = "not a regular file"
+internal const val LIST_IO_ERROR = "read error"
+internal const val LIST_DEADLINE = "no answer within 5 seconds"
+internal const val LIST_PREVIOUS_PENDING = "an earlier read is still waiting"
+internal const val LIST_MISSING_ADVICE = "The list was not found. Check its location or clear the optional field."
+internal const val LIST_UNREADABLE_ADVICE = "The list could not be read. Check access permissions."
+internal const val LIST_NOT_REGULAR_ADVICE = "Choose a regular JSON file, not a directory or special file."
+internal const val LIST_IO_ERROR_ADVICE = "Reading the list failed. Check again when storage is available."
+internal const val LIST_DEADLINE_ADVICE = "No response within five seconds. You can still type paths in Configuration."
+internal const val LIST_PREVIOUS_PENDING_ADVICE =
+    "Previous read still pending. You can still type paths in Configuration."
+internal const val LIST_REJECTED = "List not used. Fix the file, then press r to check again."
+internal const val LISTS_DO_NOT_BLOCK = "Editing, saving and closing never wait for the lists."
+internal fun location(text: String) = "Location: $text"
+internal fun diagnostic(text: String) = "Diagnostic: $text"
+internal fun inputPosition(line: Int, column: Int) = "input line $line, column $column"
+internal fun rootProblem(detail: String, path: String) = "Source root: $detail · $path"
+internal fun hiddenLine(n: Int, shown: Boolean) = "$n usually not needed, " + if (shown) "shown" else "hidden"
+internal fun showHidden(shown: Boolean) = (if (shown) "Hide" else "Show") + " the suggestions marked usually not needed"
+internal const val NO_SUGGESTIONS = "No suggestions yet. Esc returns to Configuration."
+internal const val OTHER_DIRECTORIES = "Other directories"
+internal fun addedCount(added: Int, of: Int) = "$added of $of added"
+internal const val CANNOT_ADD_ANY = "can't add"
+// Browse's marks (tui-design §4 Glyphs): included or not.
+internal const val ADDED_MARK = "●"
+internal const val NOT_ADDED_MARK = "○"
+/** A heading only: some of its directories are added. */
+internal const val SOME_ADDED_MARK = "◐"
+internal const val CANNOT_ADD_MARK = "−"
+internal const val USUALLY_NOT_NEEDED_NOTE = "usually not needed"
+internal const val NOT_CHECKED = "not checked"
+internal fun notAdded(reason: String) = "Not added. $reason. Prior choices are unchanged."
+internal const val SELECT_SUGGESTION = "Select a suggestion or a group"
+internal const val ADD_SUGGESTION = "Add the directory to the configuration"
+internal const val ADD_GROUP = "Add every directory shown in the group that can be added"
+internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
+/**
+ * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
+ * `overlapped` names, for each skipped row, the relocation it overlaps when known.
+ */
+internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int): String? {
+    if (overlapped.isEmpty() && unaddable == 0) return null
+    val overlap = when {
+        overlapped.isEmpty() -> null
+        overlapped.size == 1 -> "Skipped 1 that overlaps " + (overlapped.single() ?: "a directory in the configuration") + "."
+        else -> "Skipped ${overlapped.size} that overlap directories in the configuration."
+    }
+    val cannot = if (unaddable == 0) null else "Skipped $unaddable that can't be added."
+    return listOfNotNull("Added $added.", overlap, cannot).joinToString(" ")
+}
+internal const val REMOVE_SUGGESTION = "Take the directory out of the configuration; saving writes the change"
+internal const val EDIT_SUGGESTION = "Edit its relocation in Configuration"
+internal const val INSPECT_SUGGESTION = "See why it is suggested and by which list"
+internal const val BACK_TO_CONFIGURATION_LIST = "Back to the configuration list"
+internal const val BACK_TO_SUGGESTIONS = "Back to the suggestions"
+internal const val SEE_LISTS = "See each suggestion list and whether it was read"
+internal const val CHECK_LISTS_AGAIN = "Read the lists again and check each directory; the configuration does not change"
+// A directory's details.
+internal const val IN_CONFIGURATION = "In the configuration"
+internal const val NOT_IN_CONFIGURATION = "Not in the configuration"
+internal const val NO_LONGER_LISTED = "No longer listed: hidden, or no list suggests it now."
+internal const val BACK_FOR_SUGGESTIONS = "Esc returns to the suggestions."
+internal fun sourceText(path: String) = "Source: $path"
+internal fun stateLine(state: String) = "State: $state"
+internal val MISSING_SUGGESTION = listOf(
+    "Not found under the source root. You can configure it before the app creates it.",
+    "On Apply, if source and target are both missing: create the target directory and source link.",
+    "If only the target exists: follow the row's Only target rule (Ask each time unless you change it).",
+    "Save writes configuration only. Apply checks the paths again.",
+)
+internal const val SIZE_AND_OWNERSHIP = "Size: not estimated · Ownership: not evaluated"
+internal fun observedLine(time: String) = "Observed: $time"
+internal fun linkText(path: String) = "Link text: $path · Target not checked"
+internal fun observationDetail(detail: String, path: String) = "Note: $detail · $path"
+internal fun suggestedAround(path: String) = "Also suggested, around it: $path"
+internal fun suggestedInside(path: String) = "Also suggested, inside it: $path"
+internal const val CHANGE_IN_CONFIGURATION = "Target and rules can be changed in Configuration: press e."
+internal const val ADDING_ASKS = "Adding uses a matching target path; its rules ask each time."
+internal const val CANNOT_ADD =
+    "Only a directory, or one not created yet, can be added. To type a path instead, go back and press a."
+internal const val ADVICE_IS_OPTIONAL = "Advice is optional, not a safety assessment or a requirement."
+internal const val SUGGESTED_BY = "Suggested by"
+internal const val NO_LIST_SUGGESTS = "No list suggests it."
+internal fun adviceLine(advice: String) = "Advice: $advice"
+internal fun reasonLine(reason: String) = "Reason: $reason"
+internal fun fromLine(location: String?, record: String, written: String) =
+    "From: " + listSummary(location, record, "as written: $written")
+internal const val ADVICE_CONSIDER = "Consider"
+internal const val ADVICE_USUALLY_NOT_NEEDED = "Usually not needed"
+internal const val ADVICE_NOT_GIVEN = "Not given"

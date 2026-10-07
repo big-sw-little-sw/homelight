@@ -381,7 +381,7 @@ internal class HomeLightApp(
     private fun openEditor() {
         if (session.isApplying() || !session.executionSettled()) return
         editor = try {
-            ConfigurationView.open(session, focus, discoveryFactory)
+            ConfigurationView.open(session, focus, discoveryFactory) { key -> keyHandler.handle(key) }
         } catch (error: ConfigurationException) {
             notice = DetailViewport.Line(cannotOpen(error.message.orEmpty()), palette.warn)
             null
