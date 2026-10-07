@@ -39,8 +39,8 @@ internal sealed interface BrowseAction {
 }
 
 /**
- * Browse: the suggestions under a heading per app in TamboUI's list, with each directory's details and the
- * suggestion lists' state one key away. The selected row and draft membership are independent states.
+ * Browse: the suggestions in TamboUI's list under a heading per ecosystem and per app, with each directory's details
+ * and the suggestion lists' state one key away. The selected row and draft membership are independent states.
  *
  * The selection follows an item, not a position: Browse keeps the selected item and sets the list's index from it on
  * every frame, so checking again, `u` and a row added or removed never move it to another item. When the item is no
@@ -52,12 +52,22 @@ internal sealed interface BrowseAction {
  * event before any element, so the list's wheel and clicks never run either.
  */
 internal class CandidateBrowser(keys: KeyEventHandler) {
-    /** A row: an app's heading or a directory. A `null` app groups the directories that no list assigns to an app. */
+    /** A row: a heading, which Space acts on as a whole, or a directory. */
     private sealed interface Item {
-        data class Group(val app: String?) : Item
+        /** An ecosystem's heading over its apps; `null` is Other tools, the apps no list gives an ecosystem. */
+        data class Ecosystem(val name: String?) : Item
+
+        /**
+         * An app's heading under its ecosystem; `null` is Other directories, a top-level heading over the directories
+         * no list gives an app.
+         */
+        data class App(val name: String?) : Item
 
         data class Directory(val path: Path) : Item
     }
+
+    /** A listed row and the entries it stands for: a heading's directories, or a directory's own entry. */
+    private data class Row(val item: Item, val entries: List<BrowseDraft.Entry>)
 
     private enum class View { LIST, DETAILS, LISTS }
 
@@ -104,18 +114,17 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
 
     /** The list of suggestions, its selection set from [focus]; or a line saying there are none yet. */
     private fun suggestions(draft: BrowseDraft): Element {
-        val entries = listed(draft)
-        val groups = groups(draft, entries)
-        val rows = rows(groups)
+        val rows = rows(draft)
         if (rows.isEmpty()) return wrappedText(NO_SUGGESTIONS, palette.dim)
         shown = selectedIndex(rows)
-        focus = rows[shown]
-        val members = groups.toMap()
+        focus = rows[shown].item
         // Rebuilt every frame, so rows follow the draft and discovery.
-        val elements = rows.mapIndexed { i, item ->
+        val elements = rows.mapIndexed { i, (item, entries) ->
+            val selected = i == shown
             when (item) {
-                is Item.Group -> headingRow(item.app, members.getValue(item.app), draft, selected = i == shown)
-                is Item.Directory -> directoryRow(entries.getValue(item.path), draft, selected = i == shown)
+                is Item.Ecosystem -> headingRow(item.name ?: OTHER_TOOLS, 0, entries, draft, selected)
+                is Item.App -> headingRow(item.name ?: OTHER_DIRECTORIES, if (item.name == null) 0 else 2, entries, draft, selected)
+                is Item.Directory -> directoryRow(entries.single(), draft, selected)
             }
         }
         return list.elements(*elements.toTypedArray()).selected(shown).fill()
@@ -143,17 +152,22 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 )
             }
             View.LIST -> {
-                val item = selected(draft)
+                val row = selected(draft)
+                val item = row?.item
                 val entry = (item as? Item.Directory)?.let { entry(draft, it.path) }
                 val hidden = hiddenCount(draft)
                 help(
                     listOf(
                         KeyHint("↑/↓", "Move", description = SELECT_SUGGESTION).takeIf { item != null },
-                        entry?.let { toggleKey(it, draft) } ?: (item as? Item.Group)?.let { groupKey(groupState(members(it, draft), draft)) },
+                        when (item) {
+                            is Item.Directory -> entry?.let { toggleKey(it, draft) }
+                            is Item.Ecosystem, is Item.App -> groupKey(item, groupState(row.entries, draft))
+                            null -> null
+                        },
                         entry?.let(::editKey),
                         when (item) {
                             is Item.Directory -> KeyHint("Enter", "Inspect", description = INSPECT_SUGGESTION)
-                            is Item.Group, null -> null
+                            is Item.Ecosystem, is Item.App, null -> null
                         },
                         KeyHint("Esc", "Back", description = BACK_TO_CONFIGURATION_LIST),
                         HOME_END_KEYS.takeIf { item != null },
@@ -182,13 +196,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     fun key(key: KeyEvent, draft: BrowseDraft): BrowseAction? {
         if (key.isChar('[') || key.isChar(']')) { viewport.scroll(if (key.isChar(']')) 1 else -1); return null }
         if (view == View.LISTS) { scroll(key); return null }
-        val item = if (view == View.DETAILS) focus else selected(draft)
+        val item = if (view == View.DETAILS) focus else selected(draft)?.item
         val entry = (item as? Item.Directory)?.let { entry(draft, it.path) }
         val row = entry?.row
         when {
-            key.isChar(' ') && item is Item.Group -> {
+            key.isChar(' ') && (item is Item.Ecosystem || item is Item.App) -> {
                 message = ""
-                val members = members(item, draft)
+                val members = rows(draft).firstOrNull { it.item == item }?.entries.orEmpty()
                 return when (groupState(members, draft)) {
                     GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
                     GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
@@ -244,18 +258,18 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     }
 
     private fun move(draft: BrowseDraft, to: (index: Int, last: Int) -> Int) {
-        val rows = rows(groups(draft, listed(draft)))
+        val rows = rows(draft)
         if (rows.isEmpty()) return
-        focus = rows[to(selectedIndex(rows), rows.size - 1).coerceIn(0, rows.size - 1)]
+        focus = rows[to(selectedIndex(rows), rows.size - 1).coerceIn(0, rows.size - 1)].item
         message = ""
     }
 
     /** The selected row's index in `rows`: [focus] where it is listed, else the row at the position last shown. */
-    private fun selectedIndex(rows: List<Item>): Int =
-        rows.indexOf(focus).takeIf { it >= 0 } ?: shown.coerceIn(0, maxOf(0, rows.size - 1))
+    private fun selectedIndex(rows: List<Row>): Int =
+        rows.indexOfFirst { it.item == focus }.takeIf { it >= 0 } ?: shown.coerceIn(0, maxOf(0, rows.size - 1))
 
     /** The selected row, which keys act on; null when there are no suggestions. */
-    private fun selected(draft: BrowseDraft): Item? = rows(groups(draft, listed(draft))).let { it.getOrNull(selectedIndex(it)) }
+    private fun selected(draft: BrowseDraft): Row? = rows(draft).let { it.getOrNull(selectedIndex(it)) }
 
     /** The listed entries, each in the place it was first listed. */
     private fun listed(draft: BrowseDraft): Map<Path, BrowseDraft.Entry> {
@@ -264,10 +278,6 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         val place = order.withIndex().associate { (i, path) -> path to i }
         return entries.entries.sortedBy { place.getValue(it.key) }.associate { it.key to it.value }
     }
-
-    /** The directories a heading stands for: those listed under it. */
-    private fun members(group: Item.Group, draft: BrowseDraft): List<BrowseDraft.Entry> =
-        groups(draft, listed(draft)).firstOrNull { it.first == group.app }?.second.orEmpty()
 
     private fun groupState(members: List<BrowseDraft.Entry>, draft: BrowseDraft): GroupState {
         val counted = members.filter { it.row != null || draft.canAdd(it) }
@@ -279,28 +289,42 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         }
     }
 
-    private fun groupKey(state: GroupState): KeyHint? = when (state) {
-        GroupState.ALL -> KeyHint("Space", "Remove all", description = REMOVE_GROUP)
-        GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = ADD_GROUP)
-        GroupState.EMPTY -> null
-    }
-
-    /** The listed entries, grouped by the app of their first definition, which is your list's when it names one. */
-    private fun groups(draft: BrowseDraft, entries: Map<Path, BrowseDraft.Entry>): List<Pair<String?, List<BrowseDraft.Entry>>> =
-        entries.values.filter { entry -> reveal || !hidden(entry, draft) }
-            .groupBy { entry -> definitions(entry).firstOrNull()?.app }.toList()
-
-    /** The rows in screen order: each app's heading, then its directories. */
-    private fun rows(groups: List<Pair<String?, List<BrowseDraft.Entry>>>): List<Item> = groups.flatMap { (app, entries) ->
-        listOf(Item.Group(app)) + entries.map { Item.Directory(path(it)) }
+    private fun groupKey(heading: Item, state: GroupState): KeyHint? {
+        val ecosystem = heading is Item.Ecosystem
+        return when (state) {
+            GroupState.ALL -> KeyHint("Space", "Remove all", description = if (ecosystem) REMOVE_ECOSYSTEM else REMOVE_GROUP)
+            GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = if (ecosystem) ADD_ECOSYSTEM else ADD_GROUP)
+            GroupState.EMPTY -> null
+        }
     }
 
     /**
-     * An app's heading, which Space acts on as a whole: its mark at the left (`●` all added, `◐` some, `○` none, `−`
-     * none can be), its name in bold, and at the notes column how many of its directories that can be added are added.
-     * Its rows' marks are two cells further in, so headings stand apart without colour.
+     * The shown rows in screen order: each ecosystem's heading, then each of its apps' headings with the app's
+     * directories. A directory's app is its first definition's, which is your list's when it names one. Ecosystems and
+     * apps keep the order they first appear in; Other tools, then Other directories, come last.
      */
-    private fun headingRow(app: String?, members: List<BrowseDraft.Entry>, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
+    private fun rows(draft: BrowseDraft): List<Row> {
+        val ecosystems = ecosystems(draft)
+        val tops = listed(draft).values.filter { entry -> reveal || !hidden(entry, draft) }
+            .groupBy { entry -> app(entry)?.let { Item.Ecosystem(ecosystems[it]) } ?: Item.App(null) }
+        fun directories(entries: List<BrowseDraft.Entry>) = entries.map { Row(Item.Directory(path(it)), listOf(it)) }
+        // A stable sort, so the named ecosystems keep their order.
+        return tops.entries.sortedBy { (top, _) -> listOf(Item.Ecosystem(null), Item.App(null)).indexOf(top) }
+            .flatMap { (top, entries) ->
+                listOf(Row(top, entries)) + if (top is Item.Ecosystem) {
+                    entries.groupBy(::app).flatMap { (app, members) -> listOf(Row(Item.App(app), members)) + directories(members) }
+                } else directories(entries)
+            }
+    }
+
+    /**
+     * A heading, which Space acts on as a whole: its mark (`●` all added, `◐` some, `○` none, `−` none can be) after
+     * `indent` cells, its name in bold, and at the notes column how many of its directories that can be added are added.
+     * Each level is two cells further in than the one above, so headings stand apart without colour.
+     */
+    private fun headingRow(
+        name: String, indent: Int, members: List<BrowseDraft.Entry>, draft: BrowseDraft, selected: Boolean,
+    ): StyledElement<*> {
         val counted = members.filter { it.row != null || draft.canAdd(it) }
         val count = if (counted.isEmpty()) CANNOT_ADD_ANY else addedCount(counted.count { it.row != null }, counted.size)
         val (mark, color) = when (groupState(members, draft)) {
@@ -309,12 +333,16 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             GroupState.NONE -> NOT_ADDED_MARK to palette.text
             GroupState.EMPTY -> CANNOT_ADD_MARK to palette.dim
         }
-        val name = literal(app ?: OTHER_DIRECTORIES)
+        val label = literal(name)
         return line(
             pointer(selected),
+            Span.raw(" ".repeat(indent)),
             Span.styled(mark, Style.EMPTY.fg(color).bold()),
-            // The rows' indent goes after the name, so the count starts where the rows' notes do.
-            Span.styled(" " + name + " ".repeat(maxOf(1, PATH_COLUMN + 2 - CharWidth.of(name))), Style.EMPTY.fg(palette.text).bold()),
+            // The count starts where the directories' notes do.
+            Span.styled(
+                " " + label + " ".repeat(maxOf(1, PATH_COLUMN + DIRECTORY_INDENT - indent - CharWidth.of(label))),
+                Style.EMPTY.fg(palette.text).bold(),
+            ),
             Span.styled(count, weight(palette.dim, selected)),
         )
     }
@@ -353,6 +381,18 @@ private fun entriesByPath(draft: BrowseDraft): Map<Path, BrowseDraft.Entry> {
 private fun definitions(entry: BrowseDraft.Entry): List<CandidateDefinition> =
     entry.discovery?.catalog?.definitions ?: listOf()
 
+private fun app(entry: BrowseDraft.Entry): String? = definitions(entry).firstOrNull()?.app
+
+/**
+ * Each app's ecosystem, by app name across both lists: your list's when it gives the app one, else the built-in
+ * list's; within a list, the first one given.
+ */
+private fun ecosystems(draft: BrowseDraft): Map<String, String> =
+    draft.discovery?.candidates.orEmpty().flatMap { it.catalog.definitions }
+        .sortedBy { it.source.kind != CandidateSource.Kind.SHARED }
+        .mapNotNull { d -> d.app?.let { app -> d.ecosystem?.let { app to it } } }
+        .distinctBy { it.first }.toMap()
+
 /**
  * Hidden when every list that names it marks it usually not needed, and only while each of those lists is read in
  * this check; never when it is in the configuration.
@@ -377,8 +417,8 @@ private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
     KeyHint("e", "Edit", description = EDIT_SUGGESTION).takeIf { entry.row != null }
 
 /**
- * A directory row under its heading, indented two cells: the mark (`●` added, `○` not added, `−` cannot be added),
- * the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
+ * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, `○` not added, `−` cannot be
+ * added), the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
  */
 private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
     val marker = when {
@@ -402,7 +442,7 @@ private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected:
     )
     return line(
         pointer(selected),
-        Span.styled("  ", weight(main, selected)),
+        Span.styled(" ".repeat(DIRECTORY_INDENT), weight(main, selected)),
         Span.styled(marker, weight(if (marker == CANNOT_ADD_MARK) palette.dim else main, selected)),
         Span.styled(" " + path + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(path))), weight(main, selected)),
         *notes.flatMapIndexed { i, (note, color) ->
@@ -423,11 +463,17 @@ private fun relative(draft: BrowseDraft, path: Path): String =
 
 private fun compact(path: String): String {
     val value = literal(path)
-    return if (value.length <= 30) value else value.substring(0, 14) + "…" + value.substring(value.length - 15)
+    return if (value.length <= 28) value else value.substring(0, 13) + "…" + value.substring(value.length - 14)
 }
 
-/** The longest path a row shows, [compact]'s 30 cells, and two spaces before the notes. */
-private const val PATH_COLUMN = 32
+/**
+ * The longest path a row shows, [compact]'s 28 cells, and two spaces before the notes. With [DIRECTORY_INDENT] the
+ * notes start at column 38, so the longest note, 40 cells, fits beside the scrollbar at 80 columns.
+ */
+private const val PATH_COLUMN = 30
+
+/** A directory sits under an app under an ecosystem, two cells further in per level. */
+private const val DIRECTORY_INDENT = 4
 
 private fun state(entry: BrowseDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: NOT_CHECKED
 

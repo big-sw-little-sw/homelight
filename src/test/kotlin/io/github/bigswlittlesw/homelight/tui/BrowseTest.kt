@@ -164,7 +164,7 @@ class BrowseTest {
             assertTrue(render(ui).contains("Space: Add"))
             assertTrue(render(ui).contains("○ absent-cache"))
             // The row says why it is unusual (tui-design §8).
-            assertTrue(render(ui).contains("absent-cache                    not created yet"), render(ui))
+            assertTrue(render(ui).contains("absent-cache                  not created yet"), render(ui))
             enter(ui)
             val details = all(ui)
             assertTrue(details.contains("State: not created yet"), details)
@@ -291,7 +291,7 @@ class BrowseTest {
             val list = render(ui)
             // The built-in list calls .m2 Maven and Consider; your list calls it Build tools and usually not needed.
             assertTrue(list.contains("Build tools") && !list.contains("Maven"), list)
-            assertTrue(list.contains(".m2                             usually not needed"), list)
+            assertTrue(list.contains(".m2                           usually not needed"), list)
             // Only the built-in list names .cache/example, as usually not needed, so it alone is hidden.
             assertTrue(list.contains("1 usually not needed, hidden") && !list.contains(".cache/example"), list)
             choose(ui, ".m2"); enter(ui)
@@ -464,21 +464,175 @@ class BrowseTest {
         }
     }
 
-    /** A heading none of whose directories can be added reads `−` and `can't add`, and Space there does nothing. */
+    /**
+     * Ecosystems head their apps, in the order they first appear; Other tools (apps no list gives an ecosystem) and
+     * Other directories come last. Each level is two cells further in, and every count starts in the notes column.
+     */
+    @Test fun ecosystemsHeadTheirAppsWithOtherToolsAndOtherDirectoriesLast() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val lines = render(ui).lines()
+            fun row(text: String) = lines.indexOfFirst { it.contains(text) }.also { assertTrue(it >= 0, text + "\n" + lines.joinToString("\n")) }
+            // The shared list calls .m2 and .cache/uv by apps of its own with no ecosystem, so they are Other tools.
+            val order = listOf(
+                "○ Python", "○ uv", "○ .local/share/uv", "○ .local/share/uv/tools",
+                "○ Other tools", "○ Build tools", "○ .m2", "○ Python tools", "○ .cache/uv",
+                "○ Other directories", "○ datasets", "○ team-cache",
+            )
+            val at = order.map(::row)
+            assertEquals(at.sorted(), at, lines.joinToString("\n"))
+            // Marks at three depths: pointer, then 0, 2 or 4 cells.
+            fun indent(text: String) = lines[row(text)].indexOf(text) - 2
+            assertEquals(listOf(0, 2, 4, 0, 2, 4, 0, 4), listOf("○ Python", "○ uv", "○ .local/share/uv", "○ Other tools", "○ Build tools", "○ .m2", "○ Other directories", "○ team-cache").map(::indent))
+            val notes = lines[row("○ absent-cache")].indexOf("not created yet")
+            for (heading in listOf("○ Python", "○ uv", "○ Other tools", "○ Other directories")) {
+                assertEquals(notes, Regex("\\d+ of \\d+ added").find(lines[row(heading)])?.range?.first, heading + "\n" + lines.joinToString("\n"))
+            }
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * Space on an ecosystem acts on every shown directory under its apps, as on an app: it adds those that can be
+     * added and says what it skipped, completes a partly added one, and takes them all out when all are in.
+     */
+    @Test fun spaceOnAnEcosystemAddsOrRemovesEveryDirectoryUnderIt() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "Python")
+            assertTrue(selectedGroup(render(ui), "○ Python", "0 of 2 added"), render(ui))
+            assertTrue(render(ui).contains("Space: Add all") && !render(ui).contains("Enter:"), render(ui))
+            key(ui, ' ')
+            val python = render(ui)
+            assertTrue(python.contains("Added 1. Skipped 1 that overlaps ${root.resolve("home/.local/share/uv")}."), python)
+            assertTrue(selectedGroup(python, "◐ Python", "1 of 2 added") && python.contains("◐ uv"), python)
+            // None, then all, then some, then all again.
+            chooseGroup(ui, "Other tools")
+            assertTrue(selectedGroup(render(ui), "○ Other tools", "0 of 2 added"), render(ui))
+            key(ui, ' ')
+            val all = render(ui)
+            assertTrue(selectedGroup(all, "● Other tools", "2 of 2 added") && all.contains("● Build tools") && all.contains("● Python tools"), all)
+            assertTrue(all.contains("Space: Remove all"), all)
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "○ Other tools", "0 of 2 added"), render(ui))
+            choose(ui, ".m2"); key(ui, ' ')
+            chooseGroup(ui, "Other tools")
+            assertTrue(selectedGroup(render(ui), "◐ Other tools", "1 of 2 added"), render(ui))
+            key(ui, ' ')
+            assertTrue(selectedGroup(render(ui), "● Other tools", "2 of 2 added"), render(ui))
+            assertEquals(3, added(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * When your list gives an app an ecosystem, all the app's directories go under it, the built-in list's too; when
+     * it names the app without one, the built-in list's ecosystem stays.
+     */
+    @Test fun yourListsEcosystemForAnAppWins() {
+        val root = fixture()
+        Files.writeString(
+            root.resolve("shared.json"),
+            """{"apps": [{"name": "Maven", "ecosystem": "Build", "directories": [{"path": "maven-extra"}]},
+                         {"name": "uv", "directories": [{"path": "uv-extra"}]}]}""",
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val lines = render(ui).lines()
+            fun row(text: String) = lines.indexOfFirst { it.contains(text) }
+            assertFalse(lines.any { it.contains("JVM") }, lines.joinToString("\n"))
+            val at = listOf("○ Build ", "○ Maven", "○ .m2", "○ maven-extra", "○ Python", "○ uv", "○ uv-extra").map(::row)
+            assertTrue(at.none { it < 0 } && at == at.sorted(), lines.joinToString("\n"))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * A heading none of whose directories can be added reads `−` and `can't add`, an ecosystem's as an app's, and
+     * Space there does nothing.
+     */
     @Test fun aHeadingWithNothingToAddCannotAdd() {
         val root = fixture()
         Files.createDirectories(root.resolve("home/link-target"))
         Files.createSymbolicLink(root.resolve("home/link-cache"), root.resolve("home/link-target"))
-        Files.writeString(root.resolve("shared.json"), """{"apps": [{"name": "Links", "directories": [{"path": "link-cache"}]}]}""")
+        Files.writeString(
+            root.resolve("shared.json"),
+            """{"apps": [{"name": "Links", "ecosystem": "Linked", "directories": [{"path": "link-cache"}]}]}""",
+        )
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
-            chooseGroup(ui, "Links")
-            val before = render(ui)
-            assertTrue(selectedGroup(before, "− Links", "can't add"), before)
-            assertFalse(before.contains("Space:"), before)
-            key(ui, ' ')
-            assertEquals(before, render(ui))
+            for (heading in listOf("Linked", "Links")) {
+                chooseGroup(ui, heading)
+                val before = render(ui)
+                assertTrue(selectedGroup(before, "− $heading", "can't add"), before)
+                assertFalse(before.contains("Space:"), before)
+                key(ui, ' ')
+                assertEquals(before, render(ui))
+            }
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * ↓ and the wheel move through all three levels a row at a time; Enter inspects only a directory, and the
+     * selection stays on a heading through `u`.
+     */
+    @Test fun selectionAndTheWheelMoveThroughEcosystemsAppsAndDirectories() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            ui.press(KeyCode.HOME)
+            assertTrue(selectedGroup(render(ui), "○ Python", "0 of 2 added"), render(ui))
+            enter(ui)
+            assertTrue(selectedGroup(render(ui), "○ Python", "0 of 2 added"), "Enter on a heading does nothing")
+            down(ui)
+            assertTrue(selectedGroup(render(ui), "○ uv", "0 of 2 added"), render(ui))
+            down(ui)
+            assertTrue(selected(render(ui), "○ .local/share/uv"), render(ui))
+            ui.press(KeyCode.HOME)
+            val y = render(ui).lines().indexOfFirst { it.contains("○ Python") }
+            ui.press(MouseEvent.scrollDown(10, y))
+            assertTrue(selectedGroup(render(ui), "○ uv", "0 of 2 added"), render(ui))
+            ui.press(MouseEvent.scrollDown(10, y))
+            assertTrue(selected(render(ui), "○ .local/share/uv"), render(ui))
+            ui.press(MouseEvent.scrollUp(10, y))
+            assertTrue(selectedGroup(render(ui), "○ uv", "0 of 2 added"), render(ui))
+            ui.press(MouseEvent.scrollUp(10, y))
+            assertTrue(selectedGroup(render(ui), "○ Python", "0 of 2 added"), render(ui))
+            chooseGroup(ui, "Other tools")
+            key(ui, 'u')
+            assertTrue(selectedGroup(render(ui), "○ Other tools", "0 of 3 added") && render(ui).contains("○ Example IDE"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * At 80x24 and 120x30 the three levels keep their indents, every line fits, and a heading's count starts in the
+     * notes column.
+     */
+    @Test fun ecosystemsFitAtBothSizes() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            for ((width, height) in listOf(80 to 24, 120 to 30)) {
+                val screen = ui.screen(width, height)
+                val lines = screen.lines()
+                assertTrue(lines.all { it.length <= width }, screen)
+                val python = lines.first { it.contains("○ Python") }
+                val uv = lines.first { it.contains("○ uv ") }
+                val directory = lines.first { it.contains("○ .local/share/uv ") }
+                assertEquals(listOf(2, 4, 6), listOf(python.indexOf('○'), uv.indexOf('○'), directory.indexOf('○')), screen)
+                assertEquals(python.indexOf("0 of 2 added"), uv.indexOf("0 of 2 added"), screen)
+                assertEquals(38, python.indexOf("0 of 2 added"), screen)
+            }
             ui.app.closeEditor()
         }
     }
@@ -514,7 +668,7 @@ class BrowseTest {
             key(ui, 'b'); await(workers, ui)
             ui.press(KeyCode.END)
             val screen = ui.screen(80, 24)
-            assertTrue(screen.contains("○ linked-parent/cache             not created yet"), screen)
+            assertTrue(screen.contains("○ linked-parent/cache           not created yet"), screen)
             val lines = screen.lines()
             val note = lines.first { it.contains("linked-parent/cache") }.indexOf("not created yet")
             assertEquals(note, lines.first { it.contains("Other directories") }.indexOf("0 of 6 added"), screen)
@@ -645,7 +799,7 @@ class BrowseTest {
         fun choose(ui: HeadlessTui, relative: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯  [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯    [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(ui))
@@ -653,20 +807,20 @@ class BrowseTest {
         fun chooseGroup(ui: HeadlessTui, name: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯[●◐○−] " + Pattern.quote(name) + " +(\\d+ of \\d+ added|can't add).*")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯ *[●◐○−] " + Pattern.quote(name) + " +(\\d+ of \\d+ added|can't add).*")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + name + "\n" + render(ui))
         }
         /** Whether the selected row of `screen` is the heading `heading` (mark and name) with `count`, such as `2 of 5 added`. */
         fun selectedGroup(screen: String, heading: String, count: String): Boolean =
-            screen.lines().any { line -> line.matches(Regex(".*❯" + Pattern.quote(heading) + " +" + Pattern.quote(count) + ".*")) }
+            screen.lines().any { line -> line.matches(Regex(".*❯ *" + Pattern.quote(heading) + " +" + Pattern.quote(count) + ".*")) }
         /** Whether the selected row of `screen` reads `row`: its marker and path. */
         fun selected(screen: String, row: String): Boolean =
-            screen.lines().any { line -> line.matches(Regex(".*❯  " + Pattern.quote(row) + "(?: +.*|┃.*)")) }
+            screen.lines().any { line -> line.matches(Regex(".*❯    " + Pattern.quote(row) + "(?: +.*|┃.*)")) }
         /** How many directories are marked in the configuration; a heading's line has its count, so it is left out. */
         fun added(ui: HeadlessTui): Int = render(ui).lines().count { line ->
-            Regex("^[┃│][❯ ]  ● ").containsMatchIn(line) && !Regex("\\d+ of \\d+ added").containsMatchIn(line)
+            Regex("^[┃│][❯ ]    ● ").containsMatchIn(line) && !Regex("\\d+ of \\d+ added").containsMatchIn(line)
         }
         fun all(ui: HeadlessTui): String {
             val screens = linkedSetOf<String>()

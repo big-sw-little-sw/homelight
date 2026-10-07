@@ -169,6 +169,33 @@ class CandidateCatalogTest {
                 parse("""{"apps": [{"name": "", "directories": []}]}""").diagnostics.single())
     }
 
+    /** `ecosystem` is optional on an app, applies to each of its directories, and is nonblank and trimmed. */
+    @Test fun readsAnAppsOptionalEcosystem() {
+        val snapshot = parse("""
+                {"apps": [
+                  {"name": "Maven", "ecosystem": "JVM", "directories": [{"path": ".m2"}, {"path": ".m2/wrapper"}]},
+                  {"name": "Docker", "directories": [{"path": ".docker"}]},
+                  {"name": "Bazel", "ecosystem": null, "directories": [{"path": ".cache/bazel"}]}],
+                 "directories": [{"path": "scratch"}]}
+                """)
+        assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
+        assertEquals(listOf("JVM", "JVM", null, null, null), snapshot.definitions.map(CandidateDefinition::ecosystem))
+        for (ecosystem in listOf("\"\"", "\" \"", "\" JVM\"", "\"JVM \"")) {
+            assertEquals(
+                CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 0, 0, 0, "apps[0]", "ecosystem",
+                        "Ecosystem must not be blank or have leading or trailing whitespace"),
+                parse("""{"apps": [{"name": "Maven", "ecosystem": $ecosystem, "directories": [{"path": ".m2"}]}]}""")
+                        .diagnostics.single(), ecosystem)
+        }
+        // Only an app has an ecosystem.
+        assertFalse(parse("""{"directories": [{"path": "cache", "ecosystem": "JVM"}]}""").accepted())
+        assertKind(CandidateDiagnostic.Kind.LIMIT,
+                parse("""{"apps": [{"name": "Maven", "ecosystem": "${"x".repeat(4097)}", "directories": []}]}"""))
+        assertThrows<IllegalArgumentException> {
+            CandidateDefinition(HOME.resolve("cache"), SHARED, 1, "directories[0]", "cache", null, "JVM", null, null)
+        }
+    }
+
     @Test fun keepsTheLastValueOfARepeatedKey() {
         val snapshot = parse("""
                 {"directories": [{"path": "first"}],
@@ -396,39 +423,42 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(26, snapshot.definitions.size)
+        assertEquals(29, snapshot.definitions.size)
         assertEquals(listOf(
-                ".m2|Maven|Maven local repository",
-                ".gradle/caches|Gradle|Gradle caches",
-                ".gradle/wrapper|Gradle|Gradle wrapper distributions",
-                ".jbang/cache|JBang|JBang compiled scripts, downloaded content, and cached JDKs",
-                ".cargo|Cargo|Rust toolchain and package state",
-                ".rustup|rustup|Rust toolchains",
-                ".npm|npm|npm cache",
-                ".cache/yarn|Yarn|Yarn cache",
-                ".yarn/berry/cache|Yarn|Yarn Berry cache",
-                ".cache/pnpm|pnpm|pnpm cache",
-                ".local/share/pnpm/store|pnpm|pnpm package store",
-                ".pnpm-store|pnpm|legacy pnpm package store",
-                ".cache/pip|pip|pip cache",
-                ".cache/uv|uv|uv cache",
-                ".local/share/uv|uv|uv-managed Python installations",
-                ".local/share/uv/tools|uv|uv tools and uvx environments",
-                ".cache/pypoetry|Poetry|Poetry cache",
-                ".cache/pdm|PDM|PDM cache",
-                ".cache/virtualenv|virtualenv|virtualenv cache",
-                ".local/pipx/venvs|pipx|pipx virtual environments",
-                ".cache/go-build|Go|Go build cache",
-                ".cache/node-gyp|node-gyp|node-gyp cache",
-                ".nvm|nvm|Node.js versions managed by nvm",
-                ".bun/install/cache|Bun|Bun package cache",
-                ".cache/JetBrains|JetBrains|JetBrains caches",
-                ".vscode-server|VS Code|VS Code server"
-        ), snapshot.definitions.map { d -> d.originalPath + "|" + d.app + "|" + d.reason })
+                ".m2|JVM|Maven|Maven local repository",
+                ".gradle/caches|JVM|Gradle|Gradle caches",
+                ".gradle/wrapper|JVM|Gradle|Gradle wrapper distributions",
+                ".jbang/cache|JVM|JBang|JBang compiled scripts, downloaded content, and cached JDKs",
+                ".cargo|Rust|Cargo|Rust toolchain and package state",
+                ".rustup|Rust|rustup|Rust toolchains",
+                ".npm|JavaScript|npm|npm cache",
+                ".cache/yarn|JavaScript|Yarn|Yarn cache",
+                ".yarn/berry/cache|JavaScript|Yarn|Yarn Berry cache",
+                ".cache/pnpm|JavaScript|pnpm|pnpm cache",
+                ".local/share/pnpm/store|JavaScript|pnpm|pnpm package store",
+                ".pnpm-store|JavaScript|pnpm|legacy pnpm package store",
+                ".cache/node-gyp|JavaScript|node-gyp|node-gyp cache",
+                ".nvm|JavaScript|nvm|Node.js versions managed by nvm",
+                ".bun/install/cache|JavaScript|Bun|Bun package cache",
+                ".cache/pip|Python|pip|pip cache",
+                ".cache/uv|Python|uv|uv cache",
+                ".local/share/uv|Python|uv|uv-managed Python installations",
+                ".local/share/uv/tools|Python|uv|uv tools and uvx environments",
+                ".cache/pypoetry|Python|Poetry|Poetry cache",
+                ".cache/pdm|Python|PDM|PDM cache",
+                ".cache/virtualenv|Python|virtualenv|virtualenv cache",
+                ".local/pipx/venvs|Python|pipx|pipx virtual environments",
+                ".cache/rattler|Python|pixi|pixi package cache, shared with other rattler-based tools",
+                ".cache/pixi|Python|pixi|pixi package cache, used instead of .cache/rattler when this directory exists",
+                ".pixi/envs|Python|pixi|pixi global tool environments",
+                ".cache/go-build|Go|Go|Go build cache",
+                ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
+                ".vscode-server|Editors|VS Code|VS Code server"
+        ), snapshot.definitions.map { d -> d.originalPath + "|" + d.ecosystem + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "Yarn", "pnpm", "uv")) {
+        for (app in listOf("Gradle", "Yarn", "pnpm", "uv", "pixi")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -466,7 +496,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 26 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 29 else 0, definitions.size)
             }
         }
     }
