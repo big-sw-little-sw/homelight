@@ -96,19 +96,19 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun rejectsUnknownKeysAtEveryLevel() {
-        assertEquals("Line 1: Encountered an unknown key 'other'",
+        assertEquals("Line 1: The file has an unknown setting \"other\". Check its spelling or remove it.",
             failure("""{"other": 1, "homelight": {"target-root": "/local"}}"""))
-        assertEquals("Line 1: Encountered an unknown key 'target' at homelight",
+        assertEquals("Line 1: homelight has an unknown setting \"target\". Check its spelling or remove it.",
             failure("""{"homelight": {"target-root": "/local", "target": "/local"}}"""))
-        assertEquals("Line 2: Encountered an unknown key 'existing' at homelight.relocations[0]", failure("""
+        assertEquals("Line 2: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}
             """))
         // The suggestion list moved to the top level; the old `discovery` object is unknown.
         assertTrue(failure("""{"homelight": {"target-root": "/local", "discovery": {"suggestion-list": "/s.json"}}}""").orEmpty()
-            .endsWith("Encountered an unknown key 'discovery' at homelight"))
+            .endsWith("homelight has an unknown setting \"discovery\". Check its spelling or remove it."))
         // The removed key is unknown too.
-        assertEquals("Line 2: Encountered an unknown key 'source-archive-root' at homelight.relocations[0]", failure("""
+        assertEquals("Line 2: relocations[0] has an unknown setting \"source-archive-root\". Check its spelling or remove it.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "source-archive-root": "/archive"}]}}
             """))
@@ -174,9 +174,9 @@ class ConfigurationLoaderTest {
     @Test fun reportsJsonOfTheWrongKindByKeyAndLine() {
         assertEquals("Line 1: homelight should be an object in { }, but it is a list.", failure("{\"homelight\": [\n"))
         assertEquals("Line 1: target-root should be text, but it is true.", failure("""{"homelight": {"target-root": true}}"""))
-        // An unknown enum value keeps kotlinx's words; kotlinx gives no line for it.
-        assertEquals("when-only-target-exists does not contain element with name 'sometimes'" +
-            " at homelight.relocations[0].when-only-target-exists", failure("""
+        // kotlinx gives no line for an unknown rule value.
+        assertEquals("relocations[0].when-only-target-exists can't be \"sometimes\". Use one of: prompt, adopt-target.",
+            failure("""
             {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-only-target-exists": "sometimes"}]}}
             """))
     }
@@ -195,18 +195,18 @@ class ConfigurationLoaderTest {
     }
 
     @Test fun acceptsOnlyTheKebabCasePolicyValues() {
-        assertEquals("when-only-target-exists does not contain element with name 'ADOPT_TARGET'"
-            + " at homelight.relocations[0].when-only-target-exists", failure("""
+        assertEquals("relocations[0].when-only-target-exists can't be \"ADOPT_TARGET\". Use one of: prompt, adopt-target.",
+            failure("""
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "ADOPT_TARGET"}]}}
             """))
-        assertEquals("when-source-and-target-directories-exist does not contain element with name 'move'"
-            + " at homelight.relocations[0].when-source-and-target-directories-exist", failure("""
+        assertEquals("relocations[0].when-source-and-target-directories-exist can't be \"move\"." +
+            " Use one of: prompt, adopt, leave-unchanged, discard.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-source-and-target-directories-exist": "move"}]}}
             """))
-        assertEquals("when-adopting-target does not contain element with name 'archive'"
-            + " at homelight.relocations[0].when-adopting-target", failure("""
+        assertEquals("relocations[0].when-adopting-target can't be \"archive\"." +
+            " Use one of: prompt, discard-source, archive-source.", failure("""
             {"homelight": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive"}]}}
             """))

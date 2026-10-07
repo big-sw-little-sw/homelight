@@ -308,10 +308,13 @@ The path is the file in use, `--config` included. Text that is not JSON gets
 plain words with its line and column. A missing key (`target-root is
 missing. Add it under "homelight".`) and a value of the wrong kind (`Line 2:
 relocations[0].source-path should be text, but it is a number.`) get plain
-words too, with the line but no column. The other value checks (an unknown
-key, a relative path, a bad rule value) keep their own words, with the line
-when there is one; a problem with no line says `correct that setting`. The help lines offer only `r`, `?` and `q`. The CLI prints the same
-lines on stderr, with `run the command again` for `press r` and `run homelight
+words too, with the line but no column, as do an unknown key (`Line 2:
+relocations[0] has an unknown setting "existing". Check its spelling or
+remove it.`) and a bad rule value (`relocations[0].when-only-target-exists
+can't be "sometimes". Use one of: prompt, adopt-target.`). The loader's own
+checks (a relative path, a blank path) keep their words. A problem with no
+line says `correct that setting`. The help lines offer only `r`, `?` and `q`.
+The CLI prints the same lines on stderr, with `run the command again` for `press r` and `run homelight
 init` for `press r … i`.
 
 Empty states: no configuration (offer `i: Create configuration`), no relocations

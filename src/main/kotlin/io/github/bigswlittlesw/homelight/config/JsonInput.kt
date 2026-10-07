@@ -3,6 +3,10 @@ package io.github.bigswlittlesw.homelight.config
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.descriptors.elementDescriptors
+import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecodingException
 
@@ -39,6 +43,12 @@ internal sealed interface JsonProblem {
 
     /** A required key absent from the object at the path. Each file object requires at most one key. */
     data class MissingKey(val key: String) : JsonProblem
+
+    /** A key the object at the path does not have. */
+    data class UnknownKey(val key: String) : JsonProblem
+
+    /** A value at the path outside the `allowed` ones, as the file writes them. */
+    data class BadValue(val value: String, val allowed: List<String>) : JsonProblem
 }
 
 /**
@@ -62,8 +72,9 @@ internal fun <T> decodeJson(deserializer: DeserializationStrategy<T>, text: Stri
         val match = PATH_SUFFIX.find(message)
         val path = match?.groupValues?.get(1)?.let(::dotted).orEmpty()
         val detail = match?.let { message.substring(0, it.range.first) } ?: message
-        val missing = MISSING_KEY.matchEntire(detail)?.let { JsonProblem.MissingKey(it.groupValues[1]) }
-        throw JsonInputException(0, 0, path, located(escaped(detail), path), missing)
+        val problem = MISSING_KEY.matchEntire(detail)?.let { JsonProblem.MissingKey(it.groupValues[1]) }
+            ?: badValue(detail, deserializer.descriptor)
+        throw JsonInputException(0, 0, path, located(escaped(detail), path), problem)
     }
 
 private val PATH_SUFFIX = Regex(" at path:? (\\$\\S*)$")
@@ -90,9 +101,30 @@ private fun failure(
 
 private val MISSING_KEY = Regex("Field '(.+)' is required for type with serial name '.*', but it was missing")
 
+private val BAD_VALUE = Regex("(.+) does not contain element with name '(.*)'", RegexOption.DOT_MATCHES_ALL)
+
+/**
+ * An unknown enum value. kotlinx names only the enum, so the allowed values come from its descriptor, found by that
+ * name under `root`; descriptors are generated at compile time, so this needs no reflection.
+ */
+@OptIn(ExperimentalSerializationApi::class) // SerialDescriptor.elementDescriptors and kind
+private fun badValue(message: String, root: SerialDescriptor): JsonProblem? {
+    val (enum, value) = BAD_VALUE.matchEntire(message)?.destructured ?: return null
+    val visited = mutableSetOf<String>()
+    fun find(descriptor: SerialDescriptor): SerialDescriptor? = when {
+        !visited.add(descriptor.serialName) -> null
+        descriptor.kind == SerialKind.ENUM && descriptor.serialName == enum -> descriptor
+        else -> descriptor.elementDescriptors.firstNotNullOfOrNull(::find)
+    }
+    return find(root)?.let { JsonProblem.BadValue(escaped(value), it.elementNames.toList()) }
+}
+
+private val UNKNOWN_KEY = Regex("Encountered an unknown key '(.*)'", RegexOption.DOT_MATCHES_ALL)
+
 /** What kotlinx's lexer `message` about the input at `offset` means, or null. */
 private fun lexerProblem(message: String, text: String, offset: Int): JsonProblem? =
-    wrongKind(message, text, offset) ?: syntax(message)?.let { JsonProblem.Syntax(it) }
+    UNKNOWN_KEY.matchEntire(message)?.let { JsonProblem.UnknownKey(escaped(it.groupValues[1])) }
+        ?: wrongKind(message, text, offset) ?: syntax(message)?.let { JsonProblem.Syntax(it) }
 
 private val EXPECTED_TOKEN = Regex("Expected (.+?) '(.)', but had '(.*)' instead", RegexOption.DOT_MATCHES_ALL)
 

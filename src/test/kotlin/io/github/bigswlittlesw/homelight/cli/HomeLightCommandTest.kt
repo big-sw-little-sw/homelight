@@ -79,12 +79,12 @@ class HomeLightCommandTest {
                 "Line 2: relocations[0].source-path should be text, but it is a number.", "correct that line")),
             "unknown-key.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}""" to explained(
-                "unknown-key.json", "Line 2: Encountered an unknown key 'existing' at homelight.relocations[0]",
+                "unknown-key.json", "Line 2: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.",
                 "correct that line")),
             "bad-enum.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "sometimes"}]}}""" to
-                explained("bad-enum.json", "when-only-target-exists does not contain element with name 'sometimes'" +
-                    " at homelight.relocations[0].when-only-target-exists", "correct that setting")),
+                explained("bad-enum.json", "relocations[0].when-only-target-exists can't be \"sometimes\"." +
+                    " Use one of: prompt, adopt-target.", "correct that setting")),
             "relative-path.json" to ("""{"homelight": {"target-root": "local"}}""" to
                 explained("relative-path.json", "homelight.target-root: Use a full path, or one starting with ~/",
                     "correct that setting")),

@@ -140,6 +140,10 @@ private fun problem(exception: JsonInputException): String {
             line + name.ifEmpty { "The file" } + " should be ${problem.expected}, but it is ${problem.found}."
         is JsonProblem.MissingKey ->
             "${problem.key} is missing. Add it " + (if (name.isEmpty()) "at the top of the file." else "under \"$name\".")
+        is JsonProblem.UnknownKey -> line + name.ifEmpty { "The file" } +
+            " has an unknown setting \"${problem.key}\". Check its spelling or remove it."
+        is JsonProblem.BadValue ->
+            line + name + " can't be \"${problem.value}\". Use one of: " + problem.allowed.joinToString(", ") + "."
         null -> line + exception.message
     }
 }
