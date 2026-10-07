@@ -503,7 +503,10 @@ class BrowseTest {
         }
     }
 
-    /** At 80 columns a row keeps its marker, its path and its whole note beside the scrollbar. */
+    /**
+     * At 80 columns a row keeps its marker, its path and its whole note beside the scrollbar, and a heading's count
+     * starts in the rows' notes column.
+     */
     @Test fun rowNotesFitAtEightyColumns() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
@@ -512,6 +515,11 @@ class BrowseTest {
             ui.press(KeyCode.END)
             val screen = ui.screen(80, 24)
             assertTrue(screen.contains("○ linked-parent/cache             not created yet"), screen)
+            val lines = screen.lines()
+            val note = lines.first { it.contains("linked-parent/cache") }.indexOf("not created yet")
+            assertEquals(note, lines.first { it.contains("Other directories") }.indexOf("0 of 6 added"), screen)
+            // The longest single note fits before the scrollbar, in the pane's last column (78) at 80 columns.
+            assertTrue(note + "can't read: its real location is unclear".length <= 78, "notes start at $note")
             assertTrue(screen.lines().all { it.length <= 80 }, screen)
             ui.app.closeEditor()
         }
@@ -637,7 +645,7 @@ class BrowseTest {
         fun choose(ui: HeadlessTui, relative: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯   [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯  [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(ui))
@@ -645,20 +653,20 @@ class BrowseTest {
         fun chooseGroup(ui: HeadlessTui, name: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯   [●◐○−] " + Pattern.quote(name) + " +(\\d+ of \\d+ added|can't add).*")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯[●◐○−] " + Pattern.quote(name) + " +(\\d+ of \\d+ added|can't add).*")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + name + "\n" + render(ui))
         }
         /** Whether the selected row of `screen` is the heading `heading` (mark and name) with `count`, such as `2 of 5 added`. */
         fun selectedGroup(screen: String, heading: String, count: String): Boolean =
-            screen.lines().any { line -> line.matches(Regex(".*❯   " + Pattern.quote(heading) + " +" + Pattern.quote(count) + ".*")) }
+            screen.lines().any { line -> line.matches(Regex(".*❯" + Pattern.quote(heading) + " +" + Pattern.quote(count) + ".*")) }
         /** Whether the selected row of `screen` reads `row`: its marker and path. */
         fun selected(screen: String, row: String): Boolean =
-            screen.lines().any { line -> line.matches(Regex(".*❯   " + Pattern.quote(row) + "(?: +.*|┃.*)")) }
+            screen.lines().any { line -> line.matches(Regex(".*❯  " + Pattern.quote(row) + "(?: +.*|┃.*)")) }
         /** How many directories are marked in the configuration; a heading's line has its count, so it is left out. */
         fun added(ui: HeadlessTui): Int = render(ui).lines().count { line ->
-            Regex("^[┃│][❯ ]   ● ").containsMatchIn(line) && !Regex("\\d+ of \\d+ added").containsMatchIn(line)
+            Regex("^[┃│][❯ ]  ● ").containsMatchIn(line) && !Regex("\\d+ of \\d+ added").containsMatchIn(line)
         }
         fun all(ui: HeadlessTui): String {
             val screens = linkedSetOf<String>()

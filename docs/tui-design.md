@@ -422,19 +422,21 @@ screen never says "candidate" or "draft".
   detail.
 - The suggestions are a TamboUI list in a panel titled **Browse**. Each app
   is a heading (directories no list groups are under `Other directories`):
-  a mark in the rows' mark column (`●` all added, `◐` some, `○` none, `−`
-  none can be), its name in bold, and in dim text at the notes column how
-  many of its directories that can be added are added (`1 of 2 added`), or
-  `can't add`. Its directories follow, one per row:
+  a mark at the left (`●` all added, `◐` some, `○` none, `−` none can be),
+  its name in bold, and in dim text at the notes column how many of its
+  directories that can be added are added (`1 of 2 added`), or `can't add`.
+  Its directories follow, one per row, their marks two cells further in, so
+  headings stand apart without colour. A path shows at most 30 cells, and the
+  notes column starts after it, for headings and rows alike:
 
   ```
-  ┃    ◐ uv                              1 of 2 added                ┃
-  ┃❯   ● .local/share/uv                                             ┃
-  ┃    ○ .local/share/uv/tools                                       ┃
-  ┃    − link-cache                      already a link              ┃
+  ┃ ◐ uv                                 1 of 2 added               ┃
+  ┃❯  ● .local/share/uv                                             ┃
+  ┃   ○ .local/share/uv/tools                                       ┃
+  ┃   − link-cache                       already a link             ┃
   ```
 
-  `❯` is one cell, then a space; the selected row is bold. Groups do not
+  `❯` is one cell; the selected row is bold. Groups do not
   collapse. The selection follows an item: checking again, `u`, adding and
   removing never move it to another row. When the selected row is hidden,
   the row at its place is selected and stays selected. Rows keep the place

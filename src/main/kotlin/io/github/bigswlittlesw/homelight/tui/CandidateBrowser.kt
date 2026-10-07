@@ -296,8 +296,9 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     }
 
     /**
-     * An app's heading, which Space acts on as a whole: its mark in the rows' mark column (`●` all added, `◐` some,
-     * `○` none, `−` none can be), its name in bold, and how many of its directories that can be added are added.
+     * An app's heading, which Space acts on as a whole: its mark at the left (`●` all added, `◐` some, `○` none, `−`
+     * none can be), its name in bold, and at the notes column how many of its directories that can be added are added.
+     * Its rows' marks are two cells further in, so headings stand apart without colour.
      */
     private fun headingRow(app: String?, members: List<BrowseDraft.Entry>, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
         val counted = members.filter { it.row != null || draft.canAdd(it) }
@@ -311,9 +312,9 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         val name = literal(app ?: OTHER_DIRECTORIES)
         return line(
             pointer(selected),
-            Span.styled("  ", Style.EMPTY),
             Span.styled(mark, Style.EMPTY.fg(color).bold()),
-            Span.styled(" " + name + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(name))), Style.EMPTY.fg(palette.text).bold()),
+            // The rows' indent goes after the name, so the count starts where the rows' notes do.
+            Span.styled(" " + name + " ".repeat(maxOf(1, PATH_COLUMN + 2 - CharWidth.of(name))), Style.EMPTY.fg(palette.text).bold()),
             Span.styled(count, weight(palette.dim, selected)),
         )
     }
@@ -376,8 +377,8 @@ private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
     KeyHint("e", "Edit", description = EDIT_SUGGESTION).takeIf { entry.row != null }
 
 /**
- * A directory row under its heading: the mark (`●` added, `○` not added, `−` cannot be added) in the same column as
- * the heading's, the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
+ * A directory row under its heading, indented two cells: the mark (`●` added, `○` not added, `−` cannot be added),
+ * the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
  */
 private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
     val marker = when {
@@ -410,8 +411,8 @@ private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected:
     )
 }
 
-/** The one-cell pointer and a space; the selected row is also bold. */
-private fun pointer(selected: Boolean): Span = Span.styled(if (selected) "❯ " else "  ", Style.EMPTY.fg(palette.focus).bold())
+/** The one-cell pointer; the selected row is also bold. */
+private fun pointer(selected: Boolean): Span = Span.styled(if (selected) "❯" else " ", Style.EMPTY.fg(palette.focus).bold())
 
 private fun weight(color: Color, selected: Boolean): Style = Style.EMPTY.fg(color).let { if (selected) it.bold() else it }
 
