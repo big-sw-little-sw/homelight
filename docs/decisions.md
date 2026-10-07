@@ -450,6 +450,8 @@ A crash between publishing the target and setting the source aside leaves two wh
 
 ## 2026-10-06: Review's plan is a TamboUI tree
 
+The tree described below was replaced by headings in a list on 2026-10-07; see "Review's plan is headings and rows".
+
 Review, Applying and Results draw the plan with TamboUI's `TreeElement` (#150, rung 4) instead of a list whose items were one relocation line plus its first action. Each relocation is a parent row, always expanded, and its actions are children; every row is selectable. Selecting a relocation shows its path, its Decision line and its paths (Source, Target, Archive) in Details, which is now titled `Details` for both kinds of row. The tree counts lines, not items, so the trailing blank cell that kept TamboUI's scrollbar off two-line items is gone. Marks, spinner, colours and the once-at-finish selection rule from #111 are unchanged; the finish rule picks step rows only.
 
 Spike, recorded in the PR: our keys keep their meaning, "Replace source with a link ⚠" fits beside the scrollbar at 80 columns, the selection holds during apply, and the wheel moves the selection while clicks do nothing. Each has a test.
@@ -502,6 +504,17 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - **Glyph vocabulary** (tui-design §4), since `●` and `○` now appear on three screens: progress (`○` not run yet, spinner, `✔`, `✖`), included or not (`●`, `○`, `−`), one of several choices (`(●)`, `(○)`), with `◐` for a group heading that is partly added. A group row gets a mark only when the group itself can be selected; Review's relocation rows keep progress marks, which are status. An empty circle means nothing has happened yet or not included; filled or `✔` means it has. Parentheses mean pick one; bare marks mean each row is its own.
 - `[skipped: PageUp/PageDown in Browse, add when suggestion lists grow past a few screens]`
 - `[skipped: the year in "file updated", add when lists older than a year are common]`
+
+## 2026-10-07: Review's plan is headings and rows
+
+#157 gives Review, Applying and Results the layout Browse has after #115 (variant C, user decision 2026-10-07), so the two screens match. A TamboUI `ListElement` of heading and row lines replaces the `TreeElement` (rung 4, the element Workspace and Browse already use). Each relocation is a heading: its progress mark (spinner, `✔`, `✖` or `○`) at the left, then its path in bold. Its steps follow, indented two cells, with their marks. There is no `▼` and no guide. An in-sync relocation stays one dim heading, `─` and its path. Headings keep their progress marks: they show status, not selection (tui-design §4).
+
+- **Kept from #111/#150:** every row is selectable, and a heading's Details still show the decision's origin and the paths; the rows, `finishedSelection` and so the once-at-finish rule are unchanged (rung 2). Colours are unchanged.
+- **Pointer:** rows draw the one-cell `❯` and bold themselves, as Browse's do, so the list's highlight is off. `❯` now takes the focus colour, which the tree's highlight could not give it without recolouring the row. Width is unchanged: pointer, two-cell indent and mark take the five cells that pointer, guide and mark took, so "Replace source with a link ⚠" still fits beside the scrollbar at 80 columns.
+- **Keys:** the list moves its selection on ↑/↓, PageUp/PageDown and Home/End, as the tree did; its `onKeyEvent` passes every other key to the app's handler first, so no TamboUI binding moves it and → and Enter keep their meaning (rung 2, the same lambda).
+- **Mouse:** the app still takes every mouse event first; the wheel over the list moves its selection one row through the app's `moveSelection`, as on Workspace (rung 2), and clicks do nothing.
+- This drops `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`.
+- `[skipped: folding a relocation's steps, add when plans are long enough that users ask to fold them]` replaces the tree-keys item of 2026-10-06.
 
 ## How to add decisions
 

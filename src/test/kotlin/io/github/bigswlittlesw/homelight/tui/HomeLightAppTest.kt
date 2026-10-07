@@ -117,18 +117,18 @@ class HomeLightAppTest {
         ui.press(KeyCode.END)
         assertEquals(rows.size - 1, ui.app.selectedIndex())
         val screen = ui.screen(120, 30)
-        assertTrue(screen.contains("❯└─○ Link source to target"), screen)
+        assertTrue(screen.contains("❯  ○ Link source to target"), screen)
         assertTrue(WorkspaceViewTest.rightPane(screen, 120).startsWith("Link source to target"), screen)
         // A path ends its row, shortened in the middle when it does not fit.
         for (name in listOf("one", "two")) assertTrue(Regex("home/$name *│").containsMatchIn(lightBorders(screen)), screen)
     }
 
     /**
-     * The plan tree moves its selection with the arrows, PageUp/PageDown and Home/End. TamboUI's own tree keys never
-     * run: ←, Space and Enter do not collapse a relocation, → opens Details, and Enter still leaves Results.
+     * The plan list moves its selection with the arrows, PageUp/PageDown and Home/End. ←, Space and Enter change
+     * nothing in it, → opens Details, and Enter still leaves Results.
      */
     @Test
-    fun theReviewTreeKeepsReviewKeysAndStaysExpanded(@TempDir temporary: Path) {
+    fun theReviewListKeepsReviewKeys(@TempDir temporary: Path) {
         val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
         ui.press('a')
         val rows = ApplyView.rows(ApplyView.steps(ui.app.session.applyModel()))
@@ -156,7 +156,7 @@ class HomeLightAppTest {
         assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
     }
 
-    /** The wheel over the tree moves its selection one row; clicks on it neither focus it nor collapse a relocation. */
+    /** The wheel over the list moves its selection one row; clicks on it neither focus it nor change it. */
     @Test
     fun theWheelMovesTheReviewSelectionAndClicksChangeNothing(@TempDir temporary: Path) {
         val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
@@ -169,7 +169,7 @@ class HomeLightAppTest {
         ui.press(KeyCode.TAB)
         assertEquals(REVIEW_DETAILS, ui.focused())
         val start = ui.screen()
-        // The first row is a relocation: the pointer column, its `▼` and its mark.
+        // The first row is a relocation's heading: the pointer column, its mark and its path.
         for (x in listOf(1, 2, 4)) {
             for (event in listOf(MouseEvent.press(MouseButton.LEFT, x, top), MouseEvent.release(MouseButton.LEFT, x, top))) {
                 ui.press(event)

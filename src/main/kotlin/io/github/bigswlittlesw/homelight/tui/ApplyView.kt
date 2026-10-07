@@ -5,20 +5,18 @@ import dev.tamboui.style.Style
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.StyledElement
-import dev.tamboui.toolkit.elements.TreeElement
+import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.spinner.SpinnerState
-import dev.tamboui.widgets.tree.GuideStyle
-import dev.tamboui.widgets.tree.TreeNode
 import io.github.bigswlittlesw.homelight.application.ApplyModel
 import io.github.bigswlittlesw.homelight.application.pendingSteps
 import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
 import java.nio.file.Path
 
-/** One row of Review's plan tree: a relocation with its steps, or one of those steps. */
+/** One row of Review's plan: a relocation's heading, or one of its steps. */
 internal sealed interface PlanRow {
     data class RelocationRow(val plan: RelocationPlan, val steps: List<ApplyModel.Step>) : PlanRow {
         /** The step rows under it: none for an in-sync relocation, whose single step changes nothing. */
@@ -34,16 +32,15 @@ internal object ApplyView {
     private val SPINNER_FRAMES = arrayOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 
     /**
-     * The plan tree. One instance lives across frames: TamboUI keeps its selection and scroll offset. Every relocation
-     * stays expanded, so the selection is an index into [rows].
+     * The plan list. One instance lives across frames: TamboUI keeps its selection and scroll offset, and the
+     * selection is an index into [rows].
      *
-     * The tree moves its selection on ↑/↓, PageUp/PageDown and Home/End. Every other key goes to `others` first, so
-     * TamboUI's expand, collapse and toggle on ←/→, Enter and Space never run: → still opens Details and Enter still
-     * leaves Results. The pointer is one cell wide, so at 80 columns "Replace source with a link ⚠" fits beside the
-     * scrollbar.
+     * The list moves its selection on ↑/↓, PageUp/PageDown and Home/End. Every other key goes to `others` first, so no
+     * binding of TamboUI's can move it: → still opens Details and Enter still leaves Results. Rows draw their own
+     * pointer and bold, so the list's highlight is off.
      */
-    fun tree(others: KeyEventHandler): TreeElement<PlanRow> = TreeElement<PlanRow>().id(REVIEW_LIST)
-        .guideStyle(GuideStyle.UNICODE).indentWidth(2).highlightSymbol("❯").highlightStyle(Style.EMPTY.bold())
+    fun list(others: KeyEventHandler): ListElement<Any> = ListElement<Any>().id(REVIEW_LIST)
+        .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .onKeyEvent { key ->
             if (key.isUp() || key.isDown() || key.isPageUp() || key.isPageDown() || key.isHome() || key.isEnd()) {
@@ -56,7 +53,7 @@ internal object ApplyView {
      * `quitting` is true once HomeLight will exit when the apply finishes, so `q` no longer does anything.
      */
     fun render(
-        config: Path, model: ApplyModel, tree: TreeElement<PlanRow>, spinnerFrame: Int = 0,
+        config: Path, model: ApplyModel, list: ListElement<Any>, spinnerFrame: Int = 0,
         focused: String? = REVIEW_LIST, interactive: Boolean = true, viewport: DetailViewport = DetailViewport(),
         quitting: Boolean = false,
     ): Element {
@@ -79,12 +76,12 @@ internal object ApplyView {
         val plan = reviewed.plan
         val steps = steps(model)
         val rows = rows(steps)
-        val selected = tree.selected().coerceIn(0, maxOf(0, rows.size - 1))
-        // Rebuilt every frame, so the marks follow the model; the tree keeps only its selection and scroll offset.
-        tree.roots(*nodes(rows).toTypedArray()).nodeRenderer { node -> node.data()?.let { rowElement(it, spinnerFrame) } }
-            .focusable(interactive).fill()
-        // Framed by a panel, which can show focus with a thick border; TreeElement offers only rounded.
-        val treePane = framed(Toolkit.panel(REVIEW_LIST_TITLE, tree), focused == REVIEW_LIST)
+        val selected = list.selected().coerceIn(0, maxOf(0, rows.size - 1))
+        // Rebuilt every frame, so the marks follow the model; the list keeps only its selection and scroll offset.
+        val elements = rows.mapIndexed { i, row -> rowElement(row, spinnerFrame, selected = i == selected) }
+        list.elements(*elements.toTypedArray()).selected(selected).focusable(interactive).fill()
+        // Framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
+        val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
         val detailLines = if (rows.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
         else details(rows[selected], reviewed) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
@@ -134,7 +131,7 @@ internal object ApplyView {
             }
             add(
                 Toolkit.row(
-                    treePane.percent(45),
+                    listPane.percent(45),
                     viewport.render(DETAILS_NAME, detailLines, focused == REVIEW_DETAILS, 0, REVIEW_DETAILS, interactive),
                 ).fill(),
             )
@@ -261,46 +258,43 @@ internal object ApplyView {
         } + destination
     }
 
-    /** The tree's rows in display order: each relocation, then its step rows. */
+    /** The plan's rows in display order: each relocation's heading, then its step rows. */
     fun rows(steps: List<ApplyModel.Step>): List<PlanRow> = steps.groupBy { it.relocation }.flatMap { (plan, own) ->
         val relocation = PlanRow.RelocationRow(plan, own)
         listOf(relocation) + relocation.children
     }
 
-    /** The tree's nodes for `rows`; flattened, they are `rows` again. Labels are unused: rows draw themselves. */
-    private fun nodes(rows: List<PlanRow>): List<TreeNode<PlanRow>> =
-        rows.filterIsInstance<PlanRow.RelocationRow>().map { relocation ->
-            TreeNode.of<PlanRow>("", relocation).expanded().apply {
-                relocation.children.forEach { child -> add(TreeNode.of<PlanRow>("", child).leaf()) }
-            }
-        }
-
     /**
-     * A relocation row: its mark and path. The tree draws `▼` before a relocation with step rows, so an in-sync
-     * relocation, which has none, starts two cells in to keep the marks in one column. A step row: its mark and label;
-     * the tree's guide (`├─`, `└─`) sits before it.
+     * A relocation's heading: its progress mark and path in bold, or for an in-sync relocation, which has no step rows,
+     * `─` and its path, dim. A step row, indented two cells: its mark and label. Before each, the one-cell pointer.
+     * At 80 columns the longest label, "Replace source with a link ⚠", fits beside the scrollbar.
      */
-    private fun rowElement(row: PlanRow, spinnerFrame: Int): StyledElement<*> = when (row) {
+    private fun rowElement(row: PlanRow, spinnerFrame: Int, selected: Boolean): StyledElement<*> = when (row) {
         is PlanRow.RelocationRow -> {
             val path = displayPath(row.plan.relocation.sourcePath)
             if (row.children.isEmpty()) markedRow(mark(row.steps.single().status, false, spinnerFrame), inSyncRow(path),
-                palette.dim, indent = 2)
+                palette.dim, selected)
             else markedRow(mark(relocationStatus(row.steps), row.steps.any { it.action.mutatesFilesystem }, spinnerFrame),
-                path, palette.text, bold = true)
+                path, palette.text, selected, bold = true)
         }
         is PlanRow.StepRow -> markedRow(
             mark(row.step.status, row.step.action.mutatesFilesystem, spinnerFrame),
             actionLabel(row.step.action) + (if (row.step.action.destructive) " ⚠" else ""), color(row.step),
+            selected, indent = 2,
         )
     }
 
-    /** A status mark, then the label, shortened in the middle. */
+    /** The pointer, the indent, a status mark, then the label, shortened in the middle. The selected row is bold. */
     private fun markedRow(
-        mark: StyledElement<*>, label: String, color: Color, bold: Boolean = false, indent: Int = 0,
+        mark: StyledElement<*>, label: String, color: Color, selected: Boolean, bold: Boolean = false, indent: Int = 0,
     ): StyledElement<*> {
+        val pointer = Toolkit.text(if (selected) "❯" else " ").fg(palette.focus).bold().length(1)
         val text = Toolkit.text(label).fg(color).ellipsisMiddle().fill()
-        val cells = listOf(mark.length(2), if (bold) text.bold() else text)
-        return Toolkit.row(*(if (indent == 0) cells else listOf(Toolkit.text("").length(indent)) + cells).toTypedArray())
+        if (selected) mark.bold()
+        val cells = listOfNotNull(
+            pointer, Toolkit.text("").length(indent).takeIf { indent > 0 }, mark.length(2), if (bold || selected) text.bold() else text,
+        )
+        return Toolkit.row(*cells.toTypedArray())
     }
 
     /** TamboUI's spinner while running; otherwise the step's glyph. `changes` is false for steps that change nothing. */

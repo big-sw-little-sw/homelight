@@ -354,7 +354,7 @@ class BrowseTest {
     }
 
     /**
-     * The tree's selection follows its item: checking again and `u` keep it. When the item is hidden, the row at its
+     * The list's selection follows its item: checking again and `u` keep it. When the item is hidden, the row at its
      * place is selected and stays selected when the item is listed again.
      */
     @Test fun selectionFollowsItsItemThroughCheckAgainAndU() {

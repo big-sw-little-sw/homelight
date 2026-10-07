@@ -105,16 +105,18 @@ class ApplyViewTest {
             assertTrue(text.contains("Applying. Leave HomeLight running until it finishes."), text)
             assertTrue(text.contains("1 of 2 changes done · 1 running · 0 failed"), text)
             assertTrue(render(ApplyModel.Running.of(plan, steps), 1, size[0], size[1]).contains("━"), text)
-            // The relocation and its running step both spin; the done step is checked. Steps hang off their
-            // relocation's guide, and the pointer has its own column.
-            assertTrue(text.contains("│ ▼ ⠙ /home/cache"), text)
-            assertTrue(text.contains("│❯├─✔ Copy to target and check"), text)
-            assertTrue(text.contains("│ └─⠙ Replace source with a link ⚠"), text)
-            // An in-sync relocation is one row, its mark in line with the others.
-            assertTrue(text.contains("│   ─ /home/npm (in sync)"), text)
+            // The relocation's heading and its running step both spin; the done step is checked. Steps are indented
+            // two cells under their heading, with no tree glyphs, and the pointer has its own column.
+            assertTrue(text.contains("│ ⠙ /home/cache"), text)
+            assertTrue(text.contains("│❯  ✔ Copy to target and check"), text)
+            assertTrue(text.contains("│   ⠙ Replace source with a link ⚠"), text)
+            val planRows = text.lines().filter { it.startsWith("│") }.map { it.substring(1, it.indexOf('│', 1)) }
+            for (glyph in listOf("▼", "├─", "└─")) assertFalse(planRows.any { it.contains(glyph) }, text)
+            // An in-sync relocation is one heading, its mark in the headings' column.
+            assertTrue(text.contains("│ ─ /home/npm (in sync)"), text)
             assertFalse(text.contains("Already in sync"), text)
             val selected = lightBorders(render(ApplyModel.Running.of(plan, steps), 3, size[0], size[1]))
-            assertTrue(selected.contains("│❯  ─ /home/npm (in sync)"), selected)
+            assertTrue(selected.contains("│❯─ /home/npm (in sync)"), selected)
             assertTrue(text.contains("q: Quit"), text)
         }
         val nextFrame = render(ApplyModel.Running.of(plan, steps), 0, 80, 24, 1)
@@ -133,15 +135,15 @@ class ApplyViewTest {
             ApplyModel.Step(first, first.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"),
             ApplyModel.Step(second, second.actions.first(), ApplyModel.StepStatus.PENDING, "Not run"))
         val text = render(ApplyModel.Result.of(plan, steps, null, listOf(), true), 1, 120, 30)
-        assertTrue(lightBorders(text).contains("│ ▼ ✖ /home/cache"), text)
-        assertTrue(lightBorders(text).contains("│ ▼ ○ /home/other"), text)
+        assertTrue(lightBorders(text).contains("│ ✖ /home/cache"), text)
+        assertTrue(lightBorders(text).contains("│ ○ /home/other"), text)
         assertTrue(text.contains("1 of 3 changes done · 1 failed · 1 not run"), text)
         assertTrue(text.contains("[1: Workspace]  [2: Results]"), text)
 
         val done = steps.map { it.copy(status = ApplyModel.StepStatus.COMPLETED) }
         val finished = render(ApplyModel.Result.of(plan, done, null, listOf(), false), 1, 120, 30)
-        assertTrue(lightBorders(finished).contains("│ ▼ ✔ /home/cache"), finished)
-        assertTrue(lightBorders(finished).contains("│ ▼ ✔ /home/other"), finished)
+        assertTrue(lightBorders(finished).contains("│ ✔ /home/cache"), finished)
+        assertTrue(lightBorders(finished).contains("│ ✔ /home/other"), finished)
     }
 
     @Test
@@ -256,13 +258,13 @@ class ApplyViewTest {
         val rows = text.lines().filter { it.startsWith("┃") }.map { it.substringBeforeLast('┃') + '┃' }
         // 24 rows do not fit, so the scrollbar takes the pane's last inner column.
         assertTrue(rows.any { it.endsWith("█┃") }, text)
-        assertTrue(rows.any { it.contains("┃❯└─○ Replace source with a link ⚠") }, text)
+        assertTrue(rows.any { it.contains("┃❯  ○ Replace source with a link ⚠") }, text)
         val replacing = rows.filter { it.contains("Replace source") }
         assertTrue(replacing.size > 1 && replacing.all { it.contains("Replace source with a link ⚠") }, text)
     }
 
     private companion object {
-        fun list(selected: Int) = ApplyView.tree { EventResult.UNHANDLED }.selected(selected)
+        fun list(selected: Int) = ApplyView.list { EventResult.UNHANDLED }.selected(selected)
 
         fun plan(): ReconciliationPlan {
             val relocation = Relocation(Path.of("/home/cache"), Path.of("/local/cache"))
