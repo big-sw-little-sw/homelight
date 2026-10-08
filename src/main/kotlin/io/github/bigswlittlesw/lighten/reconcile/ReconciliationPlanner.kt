@@ -122,6 +122,7 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): String {
 
 private fun migrateSourceForPublication(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
+    state.unmovable?.let { return blocked(state, "${it.path} is ${specialFileWords(it.kind)}; Lighten can't move it") }
     return outcome(
         state, listOf(
             ReconciliationAction.MigrateDirectoryForPublication(

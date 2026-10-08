@@ -317,6 +317,8 @@ Lighten looks at the source and the target, then:
 
 - **Only the source exists:** it copies the source to the target, checks the
   copy, then replaces the source with a link. The Workspace marks it `[Move]`.
+  Sockets, named pipes and device files in it are handled as **Special
+  files** below says.
 - **Neither exists:** it creates an empty target and links the source to it
   (`[Link]`).
 - **The source already links to the target:** nothing (`[In sync]`).
@@ -355,6 +357,24 @@ and, for what happens to the source when the target is kept,
 
 A one-time choice offers the same outcomes, for one relocation and the next
 apply only.
+
+#### Special files
+
+A directory to move can hold files that are not ordinary files, folders or
+links. Lighten can't copy them:
+
+- **Sockets** are how a running program listens for others. Lighten leaves
+  them out of the copy, and the program makes a new one when it starts. A
+  program that was killed often leaves its socket behind. In Results, the
+  copy step says `Skipped 1 socket; programs recreate these.` Once the
+  source is replaced with a link, the socket is gone from both places, so
+  close the program before you apply.
+- **Named pipes and device files** block the move: the Workspace marks the
+  relocation `[Blocked]` and its Details name the first one, such as
+  `Problem: /home/me/.cache/tool/ipc is a named pipe; Lighten can't move it.`
+  Remove it, or move the directory yourself, then press `r`. If one appears
+  after the plan was made, the copy stops, Lighten throws the copy away and
+  nothing moves.
 
 ### Scripting
 

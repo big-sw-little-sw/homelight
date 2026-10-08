@@ -289,7 +289,9 @@ The details pane answers, in this order:
 3. **Will do:** the consequence of the current rule or choice. Without a choice:
    `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
    reason, such as `Problem: /scratch/archive is a file, not a folder.` when a
-   folder a step would create or work in is something else. When one of the
+   folder a step would create or work in is something else, or `Problem:
+   /home/me/.cache/tool/ipc is a named pipe; Lighten can't move it.` (or `a device file`) for
+   the first one found in a folder to move. When one of the
    row's choices plans without that folder, the next line is `Or choose an
    option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply, only when one is needed. While archiving
@@ -458,6 +460,10 @@ everything the executor's text had for a bug report: every path, what was
 expected and found, and the system's reason (`Lighten couldn't change ~/x: no
 space left on device.`). A failure Lighten cannot name, such as an internal
 error, shows its text as it is.
+
+A completed copy that left out sockets says so in place of its text, in the
+same colour: `Skipped 1 socket; programs recreate these.` `apply --json`
+keeps the executor's text, which names them.
 
 ## 7. Configuration
 

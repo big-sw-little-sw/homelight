@@ -2,6 +2,7 @@ package io.github.bigswlittlesw.lighten.cli
 
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.fifoAt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -109,6 +110,25 @@ class PlanCommandTest {
         assertTrue(output.contains("\"blocked\":true"), output)
         assertTrue(output.contains("\"type\":\"blocked\""), output)
         assertTrue(output.contains("\"reason\":\"$archive is a file, not a folder\""), output)
+    }
+
+    @Test
+    fun rendersAFolderWithANamedPipeAsABlockedAction(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val source = Files.createDirectories(root.resolve("source/sub"))
+        val pipe = fifoAt(source.resolve("ipc"))
+        val config = root.resolve("config.json")
+        Files.writeString(config, """{"lighten": {"target-root": "$root", "relocations": [
+            {"source-path": "${source.parent}", "target-path": "${root.resolve("target")}"}]}}""")
+        val command = LightenCommand.createCommandLine()
+        val out = StringWriter()
+        command.setOut(PrintWriter(out, true))
+
+        assertEquals(0, command.execute("plan", "--config", config.toString(), "--json"))
+        val output = out.toString()
+        assertTrue(output.contains("\"blocked\":true"), output)
+        assertTrue(output.contains("\"type\":\"blocked\""), output)
+        assertTrue(output.contains("\"reason\":\"$pipe is a named pipe; Lighten can't move it\""), output)
     }
 
     @Test

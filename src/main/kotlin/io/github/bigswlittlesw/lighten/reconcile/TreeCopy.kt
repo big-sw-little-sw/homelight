@@ -67,14 +67,22 @@ private fun entryFailure(failure: Throwable): IOException {
  * source, and stay owner-writable until their entries are copied. Each gets its final mode
  * after its contents, which lets a read-only source directory (`0500`) still receive children.
  * `destination` must not exist yet.
+ *
+ * Sockets are skipped: a socket can't be copied, and programs recreate theirs. A named pipe or device file stops the
+ * copy. The planner blocks a source that has one, so here it appeared after planning.
  */
 internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = fileVisitor {
     onPreVisitDirectory { directory, _ ->
         Files.createDirectory(copiedPath(source, destination, directory), OWNER_ONLY_DIRECTORY)
         FileVisitResult.CONTINUE
     }
-    onVisitFile { file, _ ->
-        Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
+    onVisitFile { file, attributes ->
+        when (val kind = if (attributes.isOther) specialFileKind(file) else null) {
+            null -> Files.copy(file, copiedPath(source, destination, file), LinkOption.NOFOLLOW_LINKS)
+            SpecialFileKind.SOCKET -> {}
+            // Opening a named pipe waits for a writer and a device can be endless, so neither is ever opened.
+            SpecialFileKind.NAMED_PIPE, SpecialFileKind.DEVICE -> throw unmovable(file, kind)
+        }
         FileVisitResult.CONTINUE
     }
     onPostVisitDirectory { directory, exception ->
@@ -86,8 +94,11 @@ internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = f
     }
 }
 
-/** Walks depth-first, directories before their entries, never following links. */
-internal fun verifyCopy(source: Path, copy: Path) {
+/**
+ * Checks [copy] against [source] by [copyVisitor]'s rules and returns the source's sockets, which the copy skipped.
+ * Walks depth-first, directories before their entries, never following links.
+ */
+internal fun verifyCopy(source: Path, copy: Path): List<Path> = buildList {
     for (entry in source.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
         val copied = copiedPath(source, copy, entry)
         if (entry.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
@@ -101,8 +112,17 @@ internal fun verifyCopy(source: Path, copy: Path) {
             if (!copied.isSymbolicLink() || entry.readSymbolicLink() != copied.readSymbolicLink()) {
                 throw copyChanged(entry, CopyDifference.LINK_DIFFERS, "copied symlink differs: $copied")
             }
-        } else if (!copied.isRegularFile(LinkOption.NOFOLLOW_LINKS) || entry.fileSize() != copied.fileSize()) {
-            throw copyChanged(entry, CopyDifference.FILE_DIFFERS, "copied file differs: $copied")
+        } else if (entry.isRegularFile(LinkOption.NOFOLLOW_LINKS)) {
+            if (!copied.isRegularFile(LinkOption.NOFOLLOW_LINKS) || entry.fileSize() != copied.fileSize()) {
+                throw copyChanged(entry, CopyDifference.FILE_DIFFERS, "copied file differs: $copied")
+            }
+        } else when (val kind = specialFileKind(entry)) {
+            // Something copied at a socket's name was another kind of file when the copy ran.
+            SpecialFileKind.SOCKET ->
+                if (copied.notExists(LinkOption.NOFOLLOW_LINKS)) add(entry)
+                else throw copyChanged(entry, CopyDifference.FILE_DIFFERS, "copied file differs: $copied")
+            SpecialFileKind.NAMED_PIPE, SpecialFileKind.DEVICE -> throw unmovable(entry, kind)
+            null -> throw copyChanged(entry, CopyDifference.FILE_DIFFERS, "copied file differs: $copied")
         }
     }
     for (copied in copy.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
@@ -117,4 +137,67 @@ internal fun verifyCopy(source: Path, copy: Path) {
 private fun copyChanged(entry: Path, difference: CopyDifference, message: String) =
     EnvironmentException(ActionFailure.CopyChanged(entry, difference), message)
 
+private fun unmovable(entry: Path, kind: SpecialFileKind) =
+    EnvironmentException(ActionFailure.Unmovable(entry, kind), "cannot copy ${specialFileWords(kind)}: $entry")
+
 private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))
+
+/** The kinds of file the copy can't make as it makes files, links and folders. */
+enum class SpecialFileKind { SOCKET, NAMED_PIPE, DEVICE }
+
+/** A named pipe or device file under a source, which the copy can't make, so the planner blocks the move. */
+data class SpecialFile(val path: Path, val kind: SpecialFileKind)
+
+/** [kind] with its article, for a sentence: `a named pipe`. Plan reasons and Results share these words. */
+internal fun specialFileWords(kind: SpecialFileKind): String = when (kind) {
+    SpecialFileKind.SOCKET -> "a socket"
+    SpecialFileKind.NAMED_PIPE -> "a named pipe"
+    SpecialFileKind.DEVICE -> "a device file"
+}
+
+/**
+ * The [SpecialFileKind] of [path], without following a link, or null for any other kind of file.
+ *
+ * Java's basic attributes call all of these "other", so the kind comes from the Unix mode, which the `unix` view reads
+ * on Linux and macOS.
+ */
+internal fun specialFileKind(path: Path): SpecialFileKind? =
+    when ((Files.getAttribute(path, "unix:mode", LinkOption.NOFOLLOW_LINKS) as Int) and S_IFMT) {
+        S_IFSOCK -> SpecialFileKind.SOCKET
+        S_IFIFO -> SpecialFileKind.NAMED_PIPE
+        S_IFCHR, S_IFBLK -> SpecialFileKind.DEVICE
+        else -> null
+    }
+
+// The file type bits of a Unix mode (POSIX <sys/stat.h>), the same on Linux and macOS.
+private const val S_IFMT = 0xF000
+private const val S_IFSOCK = 0xC000
+private const val S_IFIFO = 0x1000
+private const val S_IFCHR = 0x2000
+private const val S_IFBLK = 0x6000
+
+/**
+ * The first named pipe or device file under [root], or null when there is none. Walks without following links and
+ * stops at the first one, in directory order. It passes over entries it can't read, which the copy then reports.
+ *
+ * This reads the type of every entry, so inspection calls it only where a copy is planned (decision 2026-10-08).
+ */
+internal fun firstUnmovable(root: Path): SpecialFile? {
+    var found: SpecialFile? = null
+    Files.walkFileTree(root, fileVisitor {
+        onVisitFile { file, attributes ->
+            val kind = if (attributes.isOther) kindIfReadable(file) else null
+            if (kind == null || kind == SpecialFileKind.SOCKET) FileVisitResult.CONTINUE
+            else FileVisitResult.TERMINATE.also { found = SpecialFile(file, kind) }
+        }
+        onVisitFileFailed { _, _ -> FileVisitResult.CONTINUE }
+        onPostVisitDirectory { _, _ -> FileVisitResult.CONTINUE }
+    })
+    return found
+}
+
+private fun kindIfReadable(path: Path): SpecialFileKind? = try {
+    specialFileKind(path)
+} catch (_: IOException) {
+    null
+}

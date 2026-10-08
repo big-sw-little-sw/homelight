@@ -126,7 +126,7 @@ class ReconciliationExecutor internal constructor(
     ): ActionExecution {
         val execution = try {
             progress.started(relocation, action)
-            ActionExecution(action, ActionStatus.COMPLETED, apply(action))
+            completed(action, apply(action))
         } catch (exception: IOException) {
             failure(action, exception.message ?: exception.toString(), ioFailure(exception))
         } catch (exception: EnvironmentException) {
@@ -137,17 +137,18 @@ class ReconciliationExecutor internal constructor(
         return execution
     }
 
-    private fun apply(action: ReconciliationAction): String = when (action) {
-        is ReconciliationAction.CreateDirectory -> { createDirectory(action); "completed" }
-        is ReconciliationAction.EnsureDirectory -> { ensureDirectory(action); "completed" }
-        is ReconciliationAction.MigrateDirectoryForPublication -> { migrateDirectoryForPublication(action); "completed" }
-        is ReconciliationAction.ArchiveDirectory -> { archiveDirectory(action); "completed" }
-        is ReconciliationAction.DeleteDirectory -> { deleteDirectory(action); "completed" }
-        is ReconciliationAction.CreateSymlink -> { createSymlink(action); "completed" }
-        is ReconciliationAction.ReplaceDirectoryWithSymlink -> { replaceDirectoryWithSymlink(action); "completed" }
-        is ReconciliationAction.ReplaceSymlink -> { replaceSymlink(action); "completed" }
-        is ReconciliationAction.NoOp -> "completed"
-        is ReconciliationAction.LeaveUnchanged -> "completed"
+    /** Runs [action] and returns the sockets it skipped; only a migration copies, so only it can skip any. */
+    private fun apply(action: ReconciliationAction): List<Path> = when (action) {
+        is ReconciliationAction.CreateDirectory -> { createDirectory(action); listOf() }
+        is ReconciliationAction.EnsureDirectory -> { ensureDirectory(action); listOf() }
+        is ReconciliationAction.MigrateDirectoryForPublication -> migrateDirectoryForPublication(action)
+        is ReconciliationAction.ArchiveDirectory -> { archiveDirectory(action); listOf() }
+        is ReconciliationAction.DeleteDirectory -> { deleteDirectory(action); listOf() }
+        is ReconciliationAction.CreateSymlink -> { createSymlink(action); listOf() }
+        is ReconciliationAction.ReplaceDirectoryWithSymlink -> { replaceDirectoryWithSymlink(action); listOf() }
+        is ReconciliationAction.ReplaceSymlink -> { replaceSymlink(action); listOf() }
+        is ReconciliationAction.NoOp -> listOf()
+        is ReconciliationAction.LeaveUnchanged -> listOf()
         // Unreachable: execute refuses plans with blocked actions.
         is ReconciliationAction.Blocked -> error("blocked action reached execution: ${action.reason}")
     }
@@ -162,7 +163,7 @@ class ReconciliationExecutor internal constructor(
         ensureDirectories(action.path)
     }
 
-    private fun migrateDirectoryForPublication(action: ReconciliationAction.MigrateDirectoryForPublication) {
+    private fun migrateDirectoryForPublication(action: ReconciliationAction.MigrateDirectoryForPublication): List<Path> {
         requireState(action.path, PathState.DIRECTORY)
         requireState(action.target, PathState.ABSENT)
         val targetParent: Path = checkNotNull(action.target.parent) { "target has no parent directory: ${action.target}" }
@@ -179,11 +180,12 @@ class ReconciliationExecutor internal constructor(
         }
         ensureDirectories(targetParent)
         ensureRealDirectory(stagingRoot)
-        StagingOperation.open(stagingRoot, action.target, step).use { operation ->
-            operation.stage(action.path)
+        return StagingOperation.open(stagingRoot, action.target, step).use { operation ->
+            val skippedSockets = operation.stage(action.path)
             requireState(action.path, PathState.DIRECTORY)
             requireState(action.target, PathState.ABSENT)
             operation.publish(action.target)
+            skippedSockets
         }
     }
 
@@ -294,10 +296,13 @@ class ReconciliationExecutor internal constructor(
         }
     }
 
-    /** [message] is the executor's own text; a failed action also has its [failure], for plain wording. */
+    /**
+     * [message] is the executor's own text; a failed action also has its [failure], for plain wording. A completed
+     * migration lists the sockets its copy skipped in [skippedSockets], and its message names them.
+     */
     data class ActionExecution(
         val action: ReconciliationAction, val status: ActionStatus, val message: String,
-        val failure: ActionFailure? = null,
+        val failure: ActionFailure? = null, val skippedSockets: List<Path> = listOf(),
     ) {
         /** A guard found something other than the plan. */
         val stateDrift: Boolean get() = failure is ActionFailure.Drift || failure is ActionFailure.LinkChanged
@@ -352,6 +357,12 @@ internal class PartlyPublishedException(val target: Path, message: String, val f
 
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
+
+private fun completed(action: ReconciliationAction, skippedSockets: List<Path>) = ReconciliationExecutor.ActionExecution(
+    action, ReconciliationExecutor.ActionStatus.COMPLETED,
+    if (skippedSockets.isEmpty()) "completed" else "completed; skipped sockets: " + skippedSockets.joinToString(),
+    skippedSockets = skippedSockets,
+)
 
 private fun failure(action: ReconciliationAction, message: String, failure: ActionFailure) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.FAILED, message, failure)

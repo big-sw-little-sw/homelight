@@ -4,13 +4,16 @@ import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fifoAt
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.socketAt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -20,6 +23,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.attribute.PosixFilePermissions
+import java.time.Duration
 
 class ReconciliationExecutorTest {
     @Test
@@ -39,6 +43,46 @@ class ReconciliationExecutorTest {
 
         assertTrue(result.succeeded())
         assertTrue(Files.isSymbolicLink(source))
+    }
+
+    /** Zed leaves `zed-stable.sock` in its data folder when killed (#198); the copy skips it and says so. */
+    @Test
+    fun movesAFolderWithASocketWithoutTheSocket(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/zed/sub"))
+        Files.writeString(source.resolve("entry"), "source")
+        val socket = socketAt(source.resolve("zed-stable.sock"))
+        val target = root.resolve("local/zed")
+
+        val result = ReconciliationExecutor().execute(plan(Relocation(source.parent, target)))
+
+        assertTrue(result.succeeded())
+        val migration = result.relocations.single().actions.first()
+        assertEquals(listOf(socket), migration.skippedSockets)
+        assertEquals("completed; skipped sockets: $socket", migration.message)
+        assertEquals("source", Files.readString(target.resolve("sub/entry")))
+        assertTrue(Files.notExists(target.resolve("sub/zed-stable.sock"), LinkOption.NOFOLLOW_LINKS))
+        assertTrue(Files.isSymbolicLink(source.parent))
+        assertTrue(Files.notExists(replacedSourcePath(source.parent, target), LinkOption.NOFOLLOW_LINKS))
+    }
+
+    /** One that appears after planning stops the copy without opening it, which would wait for a writer. */
+    @Test
+    fun aNamedPipeThatAppearsAfterPlanningStopsTheCopy(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache/sub"))
+        Files.writeString(source.resolve("entry"), "source")
+        val target = root.resolve("local/cache")
+        val plan = plan(Relocation(source.parent, target))
+        val pipe = fifoAt(source.resolve("ipc"))
+
+        val result = assertTimeoutPreemptively(Duration.ofSeconds(20)) { ReconciliationExecutor().execute(plan) }
+
+        val migration = result.relocations.single().actions.first()
+        assertEquals(ReconciliationExecutor.ActionStatus.FAILED, migration.status)
+        assertEquals(ActionFailure.Unmovable(pipe, SpecialFileKind.NAMED_PIPE), migration.failure)
+        assertTrue(Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
+        assertEquals(listOf(lockOf(stagedCopy(target.resolveSibling(".lighten-staging"), target)).fileName),
+                Files.list(target.resolveSibling(".lighten-staging")).use { it.map(Path::getFileName).toList() })
+        assertEquals("source", Files.readString(source.resolve("entry")))
     }
 
     @Test

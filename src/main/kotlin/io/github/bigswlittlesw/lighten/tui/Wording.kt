@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.specialFileWords
 import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
@@ -414,6 +415,9 @@ internal fun failureWords(failure: ActionFailure, config: Path): String = when (
     is ActionFailure.CopyChanged ->
         "${shown(failure.entry)} changed while Lighten was copying it (${copyDifference(failure.difference)}), so " +
             "Lighten threw the copy away and moved nothing. Close any app that uses it."
+    is ActionFailure.Unmovable ->
+        "${shown(failure.entry)} is ${specialFileWords(failure.kind)}; Lighten can't move it, so it threw the copy " +
+            "away and moved nothing."
     is ActionFailure.PermissionsNotKept ->
         "The copy of ${shown(failure.entry)} didn't keep its permissions, so Lighten threw the copy away and moved " +
             "nothing. Check that the target's filesystem keeps Unix permissions."
@@ -437,6 +441,9 @@ internal fun failureWords(failure: ActionFailure, config: Path): String = when (
         } + ": ${lowerFirst(failure.reason)}."
     }
 }
+
+/** A completed copy that left out sockets. "These" is sockets in general, so it stays for one. */
+internal fun skippedSockets(n: Int) = "Skipped $n " + (if (n == 1) "socket" else "sockets") + "; programs recreate these."
 
 private fun shown(path: Path) = displayPath(path)
 

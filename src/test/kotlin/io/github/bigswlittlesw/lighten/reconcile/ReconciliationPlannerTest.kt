@@ -6,9 +6,11 @@ import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.config.defaultArchiveRoot
 import io.github.bigswlittlesw.lighten.config.validateConfiguration
+import io.github.bigswlittlesw.lighten.fifoAt
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.socketAt
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -187,6 +189,47 @@ class ReconciliationPlannerTest {
             assertEquals("$file is a file, not a folder",
                     plan.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
         }
+    }
+
+    @Test
+    fun blocksMovingAFolderWithANamedPipeButNotOneWithASocket(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache/sub"))
+        socketAt(source.resolve("app.sock"))
+        val target = root.resolve("local/cache")
+
+        assertFalse(plan(Relocation(source.parent, target)).hasBlockedActions())
+        val pipe = fifoAt(source.resolve("ipc"))
+        assertEquals(listOf(ReconciliationAction.Blocked(source.parent, "$pipe is a named pipe; Lighten can't move it")),
+                plan(Relocation(source.parent, target)).actions())
+    }
+
+    /**
+     * A device file can't be made without root, so `/dev/null` shows the kind is recognized and the planner is given
+     * one; the walk that finds it is the one that finds a named pipe.
+     */
+    @Test
+    fun blocksMovingAFolderWithADeviceFile(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val relocation = Relocation(source, root.resolve("local/cache"))
+        val device = Path.of("/dev/null")
+        val state = states(listOf(relocation)).single().copy(unmovable = SpecialFile(device, SpecialFileKind.DEVICE))
+
+        assertEquals(SpecialFileKind.DEVICE, specialFileKind(device))
+        assertEquals(listOf(ReconciliationAction.Blocked(source, "/dev/null is a device file; Lighten can't move it")),
+                ReconciliationPlanner().plan(listOf(state)).actions())
+    }
+
+    /** Only a planned copy walks the source, so a named pipe does not block a plan that moves or deletes it whole. */
+    @Test
+    fun aNamedPipeDoesNotBlockAPlanThatDoesNotCopy(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        fifoAt(source.resolve("ipc"))
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        val relocation = Relocation(source, target, WhenSourceAndTargetDirectoriesExist.ADOPT,
+                whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE)
+
+        assertEquals(null, states(listOf(relocation)).single().unmovable)
+        assertFalse(plan(relocation).hasBlockedActions())
     }
 
     @Test

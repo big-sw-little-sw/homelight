@@ -222,7 +222,11 @@ internal object ApplyView {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
         if (step.status != ApplyModel.StepStatus.PENDING) {
-            add(DetailViewport.Line(step.failure?.let { failureWords(it, config) } ?: step.message, color(step), false))
+            // The message names skipped sockets in the executor's words, so they get plain ones here.
+            val outcome = step.failure?.let { failureWords(it, config) }
+                ?: step.skippedSockets.takeIf { it.isNotEmpty() }?.let { skippedSockets(it.size) }
+                ?: step.message
+            add(DetailViewport.Line(outcome, color(step), false))
         }
         if (action.destructive) add(DetailViewport.Line(DELETES_OR_REPLACES, palette.warn, true))
         add(DetailViewport.Line(affectedPath(action)))

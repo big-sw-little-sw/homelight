@@ -9,6 +9,7 @@ import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
+import io.github.bigswlittlesw.lighten.reconcile.SpecialFileKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -114,6 +115,12 @@ class WordingTest {
         }
     }
 
+    @Test
+    fun skippedSocketsSayProgramsRecreateThem() {
+        assertEquals("Skipped 1 socket; programs recreate these.", skippedSockets(1))
+        assertEquals("Skipped 3 sockets; programs recreate these.", skippedSockets(3))
+    }
+
     companion object {
         private val HOME: Path = Path.of(System.getProperty("user.home"))
         val CONFIG: Path = HOME.resolve(".lighten.json")
@@ -160,6 +167,10 @@ class WordingTest {
                 ActionFailure.CopyChanged(source.resolve("lock"), CopyDifference.EXTRA_ENTRY) to "~/.cache/tool-a/lock " +
                     "changed while Lighten was copying it (the copy has it, but the source no longer does), so Lighten " +
                     "threw the copy away and moved nothing. Close any app that uses it.",
+                ActionFailure.Unmovable(source.resolve("ipc"), SpecialFileKind.NAMED_PIPE) to "~/.cache/tool-a/ipc is " +
+                    "a named pipe; Lighten can't move it, so it threw the copy away and moved nothing.",
+                ActionFailure.Unmovable(source.resolve("tty"), SpecialFileKind.DEVICE) to "~/.cache/tool-a/tty is " +
+                    "a device file; Lighten can't move it, so it threw the copy away and moved nothing.",
                 ActionFailure.PermissionsNotKept(source) to "The copy of ~/.cache/tool-a didn't keep its permissions, " +
                     "so Lighten threw the copy away and moved nothing. Check that the target's filesystem keeps Unix " +
                     "permissions.",

@@ -733,6 +733,23 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]`
 - `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
 
+## 2026-10-08: Sockets are skipped; named pipes and device files block a move
+
+#198, from #191 (user decision: fix before 1.0): moving Zed's data folder failed during apply with "No such device or address" on `zed-stable.sock`, a socket Zed leaves behind when killed. The copy treated it as a file.
+
+- **One rule for the kind of file (rung 6):** `specialFileKind` reads the type bits of the `unix:mode` attribute, without following links; Java's basic attributes call sockets, pipes and devices all "other". The `unix` view exists on Linux and macOS and needs no reflection, so the native binary reads it too (`ci/native/compare.sh` plans a folder with a named pipe).
+- **Sockets are skipped (rung 2, the copy and its check):** the copy leaves them out, and `verifyCopy` agrees: it accepts a source socket with nothing at its name in the copy, and returns the sockets it saw. The replacement deletes the source as before, so none is left behind. The executor keeps them in `ActionExecution.skippedSockets`; `apply --json`'s `message` reads `completed; skipped sockets: <paths>`, and Results show `Skipped 1 socket; programs recreate these.` in place of `completed`.
+- **Named pipes and device files block at plan time (rung 2, #163's block):** inspection keeps the first one under the source in `RelocationState.unmovable`, and the planner blocks the move with `<path> is a named pipe; Lighten can't move it` (or `a device file`). It shows on the Workspace as `Problem: …` and in `plan --json` as a blocked action's `reason`. A plan that does not copy (archive, delete, keep target) is not blocked: it renames or deletes the tree whole.
+- **The copy guards too (rung 2, #172's failures):** one that appears after planning stops the copy before it is opened (a pipe would wait for a writer, a device can be endless), with `ActionFailure.Unmovable`: `~/x/ipc is a named pipe; Lighten can't move it, so it threw the copy away and moved nothing.` Nothing is published.
+- **Plan-time cost:** inspection did not walk source trees before; this needs a walk (a directory read and one `lstat` per entry). It runs only where a copy is planned (the source a real folder, the target absent), stops at the first pipe or device, and skips entries it can't read, which the copy then reports. Moved and in-sync relocations cost nothing. Measured warm, with Java's `walkFileTree`: 300,000 files in 0.85 s on Linux (ext4 under OrbStack) and about 10 s on macOS (APFS, `~/Library/Caches`); a cold cache or network storage is slower. It runs on every check (start, `r`, after apply, `plan`, `status`, `apply`), on the TUI's thread. The copy itself reads every byte of the same tree, so the walk is small next to the apply, but a pending move of a large tree slows each check until it is applied. The copy's guard keeps the move safe whatever the walk finds, so dropping the walk (copy-time failure only) is the fallback if that is too slow.
+- **Review does not count sockets ahead:** the walk could, but a skipped socket is harmless and Results report it.
+- `[skipped: walking off the TUI's thread or caching the walk between checks, add when a pending move makes checking noticeably slow]`
+- `[skipped: naming each skipped socket in Results, add when users ask which; apply --json names them]`
+- `[skipped: saying in Review that sockets will be skipped, add when users are surprised by it in Results]`
+- `[skipped: a socket in the native comparison, add when CI containers have a tool that makes one; the pipe exercises the same mode check]`
+
+Rejected: copying a socket as an empty file (programs refuse to bind over it); skipping pipes like sockets (programs use them for data and do not always recreate them).
+
 ## How to add decisions
 
 Use this format:

@@ -109,6 +109,24 @@ class ApplyViewTest {
         }
     }
 
+    /** A copy that skipped sockets says so in plain words, in place of the executor's text that names them. */
+    @Test
+    fun aCompletedCopySaysItSkippedSockets() {
+        val plan = plan()
+        val relocation = plan.relocations.first()
+        val raw = "completed; skipped sockets: /home/cache/app.sock"
+        val steps = listOf(
+            ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.COMPLETED, raw,
+                skippedSockets = listOf(Path.of("/home/cache/app.sock"))),
+            ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.COMPLETED, "completed"))
+        val result = ApplyModel.Result.of(plan, steps, null, listOf(), false)
+        for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
+            val details = WorkspaceViewTest.rightPane(render(result, 1, size[0], size[1]), size[0]).filterNot(Char::isWhitespace)
+            assertTrue(details.contains("Skipped 1 socket; programs recreate these.".filterNot(Char::isWhitespace)), details)
+            assertFalse(details.contains("app.sock"), details)
+        }
+    }
+
     /**
      * The plain sentence is all Results show for a failure, so a screenshot must still carry what the executor's text
      * did: every path it named, as the screen shows paths, and the system's reason.
@@ -126,6 +144,7 @@ class ApplyViewTest {
                 is ActionFailure.NoPosixPermissions -> listOf(failure.path)
                 is ActionFailure.Busy -> listOf(failure.target)
                 is ActionFailure.CopyChanged -> listOf(failure.entry)
+                is ActionFailure.Unmovable -> listOf(failure.entry)
                 is ActionFailure.PermissionsNotKept -> listOf(failure.entry)
                 is ActionFailure.PermissionsNotRestored -> listOf(failure.target)
                 is ActionFailure.DifferentFilesystems -> listOf(failure.from, failure.to)

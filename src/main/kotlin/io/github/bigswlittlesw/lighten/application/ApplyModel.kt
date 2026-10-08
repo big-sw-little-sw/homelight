@@ -66,10 +66,13 @@ sealed interface ApplyModel {
         }
     }
 
-    /** [failure] says why a failed step failed, when the executor knows; [message] is then its own text. */
+    /**
+     * [failure] says why a failed step failed, when the executor knows; [message] is then its own text. A completed
+     * copy lists the sockets it skipped in [skippedSockets].
+     */
     data class Step(
         val relocation: RelocationPlan, val action: ReconciliationAction, val status: StepStatus,
-        val message: String, val failure: ActionFailure? = null,
+        val message: String, val failure: ActionFailure? = null, val skippedSockets: List<Path> = listOf(),
     )
 
     enum class StepStatus { PENDING, RUNNING, COMPLETED, FAILED }
