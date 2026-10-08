@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the CLI comparison suite against one homelight command and writes a transcript.
+# Runs the CLI comparison suite against one lighten command and writes a transcript.
 #
 #   ci/native/compare.sh <transcript> <command...>
 #
@@ -12,7 +12,7 @@ set -u
 
 transcript=$1; shift
 cmd=("$@")
-root=/tmp/homelight-compare
+root=/tmp/lighten-compare
 R=$root/fx
 rm -rf "$root"
 
@@ -24,7 +24,7 @@ echo b-tgt > "$R/local/cache-b/tgt.txt"
 ln -s "$R/local/cache-c" "$R/home/cache-c"
 cat > "$R/config.json" <<EOF
 {
-  "homelight": {
+  "lighten": {
     "target-root": "$R/local",
     "staging-root": "$R/local/.staging",
     "relocations": [
@@ -42,35 +42,35 @@ cat > "$R/config.json" <<EOF
 }
 EOF
 cat > "$R/conflict.json" <<EOF
-{"homelight": {"target-root": "$R/local", "relocations": [
+{"lighten": {"target-root": "$R/local", "relocations": [
   {"source-path": "$R/home/cache-b", "target-path": "$R/local/cache-b"}
 ]}}
 EOF
-printf '{"homelight": {"target-root": "unclosed\n' > "$R/malformed.json"
+printf '{"lighten": {"target-root": "unclosed\n' > "$R/malformed.json"
 cat > "$R/unknown-key.json" <<EOF
-{"homelight": {"target-root": "$R/local", "relocations": [
+{"lighten": {"target-root": "$R/local", "relocations": [
   {"source-path": "$R/home/cache-a", "target-path": "$R/local/cache-a", "existing": "move"}
 ]}}
 EOF
 cat > "$R/bad-enum.json" <<EOF
-{"homelight": {"target-root": "$R/local", "relocations": [
+{"lighten": {"target-root": "$R/local", "relocations": [
   {"source-path": "$R/home/cache-a", "target-path": "$R/local/cache-a", "when-only-target-exists": "sometimes"}
 ]}}
 EOF
-# The suggestion list sits directly under homelight; the old discovery object is an unknown key.
+# The suggestion list sits directly under lighten; the old discovery object is an unknown key.
 cat > "$R/suggestion-list.json" <<EOF
-{"homelight": {"target-root": "$R/local", "suggestion-list": "$R/suggestions.json", "relocations": [
+{"lighten": {"target-root": "$R/local", "suggestion-list": "$R/suggestions.json", "relocations": [
   {"source-path": "$R/home/cache-a", "target-path": "$R/local/cache-a"}
 ]}}
 EOF
 cat > "$R/old-discovery.json" <<EOF
-{"homelight": {"target-root": "$R/local", "discovery": {"suggestion-list": "$R/suggestions.json"}}}
+{"lighten": {"target-root": "$R/local", "discovery": {"suggestion-list": "$R/suggestions.json"}}}
 EOF
 cat > "$R/relative-path.json" <<EOF
-{"homelight": {"target-root": "local", "relocations": [{"source-path": "$R/home/cache-a"}]}}
+{"lighten": {"target-root": "local", "relocations": [{"source-path": "$R/home/cache-a"}]}}
 EOF
 cat > "$R/missing-key.json" <<EOF
-{"homelight": {"relocations": [{"source-path": "$R/home/cache-a"}]}}
+{"lighten": {"relocations": [{"source-path": "$R/home/cache-a"}]}}
 EOF
 
 out=$root/transcript
@@ -81,7 +81,7 @@ step() {
   "${cmd[@]}" "$@" > "$root/stdout" 2> "$root/stderr" < /dev/null
   echo "exit=$?" >> "$out"
   echo "--- stdout" >> "$out"; cat "$root/stdout" >> "$out"
-  # A configuration error prints its message; a file HomeLight cannot read adds how to fix it. Stack
+  # A configuration error prints its message; a file Lighten cannot read adds how to fix it. Stack
   # frames from an unexpected failure differ between the JVM and native builds, so they are dropped
   # and only the exception line is compared.
   echo "--- stderr" >> "$out"; grep -v -E $'^\t(at |\\.\\.\\. [0-9]+ more)' "$root/stderr" | head -c 2000 >> "$out"

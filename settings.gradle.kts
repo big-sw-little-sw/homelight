@@ -1,1 +1,1 @@
-rootProject.name = "homelight"
+rootProject.name = "lighten"

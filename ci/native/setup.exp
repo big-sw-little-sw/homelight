@@ -5,7 +5,7 @@
 #   expect ci/native/setup.exp <logfile> <source-root> <target-root> <command...>
 #
 # <source-root> must contain a .m2 directory; the command must point at a missing config file
-# (`homelight -c <new.json> init`). Configuration opens on Target root: types it, then the source
+# (`lighten -c <new.json> init`). Configuration opens on Target root: types it, then the source
 # root above it, goes back to the list, opens Browse and expects the bundled Maven candidate, which
 # proves candidates.json is in the binary. Then discards the draft and quits. Prints one line of
 # key=value results; exit status 0 when every check passed.

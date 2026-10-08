@@ -1,6 +1,6 @@
-# HomeLight
+# Lighten
 
-HomeLight reconciles configured source paths with durable storage targets. Its desired state is a real target directory and a source symlink to that directory.
+Lighten reconciles configured source paths with durable storage targets. Its desired state is a real target directory and a source symlink to that directory.
 
 ## Reconciliation
 
@@ -17,5 +17,5 @@ The decision that an already-existing target directory is authoritative. It requ
 _Avoid_: adopt source, move
 
 **Staging directory**:
-A HomeLight-owned directory on the target filesystem used to prepare targets for atomic publication. Each target has its own staged copy and lock file there.
+A Lighten-owned directory on the target filesystem used to prepare targets for atomic publication. Each target has its own staged copy and lock file there.
 _Avoid_: temporary directory, transaction journal

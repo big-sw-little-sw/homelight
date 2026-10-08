@@ -1,0 +1,19 @@
+{
+  "resources": [
+    {
+      "glob": "candidates.json"
+    },
+    {
+      "glob": "io/github/bigswlittlesw/lighten/version.properties"
+    },
+    {
+      "glob": "io/github/bigswlittlesw/lighten/user-guide.md"
+    },
+    {
+      "glob": "org/commonmark/internal/util/entities.txt"
+    },
+    {
+      "glob": "dev/tamboui/tui/bindings/*.properties"
+    }
+  ]
+}

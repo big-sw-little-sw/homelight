@@ -3,7 +3,7 @@
 #
 #   expect ci/native/delay.exp <logfile> <source-path> <command...>
 #
-# The command must open the Workspace on a plan that moves <source-path> (`homelight -c <config> apply`).
+# The command must open the Workspace on a plan that moves <source-path> (`lighten -c <config> apply`).
 # Sends `a` then `y`, then waits until <source-path> is a symlink, which the last step makes. Prints
 # `applied=<ms>`: the time from `y` until then. Quits with `q`. Exit status 0 when the apply finished.
 # Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
@@ -21,7 +21,7 @@ set timeout 20
 expect "PROMPT> "
 send "$cmd; echo EXITCODE=\$?\r"
 expect {
-  -re {HOMELIGHT|Review|Relocat} { }
+  -re {LIGHTEN|Review|Relocat} { }
   timeout { puts "render=timeout"; exit 1 }
 }
 # The Workspace opens first: `a` shows Review, where `y` applies. Each key waits for the frame to settle.
