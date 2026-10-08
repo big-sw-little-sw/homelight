@@ -109,6 +109,32 @@ class IgnoreTest {
         assertTrue(loaded(ui).ignored.isEmpty())
     }
 
+    /** Saving checks again, so the dialogs say when other relocations' one-time choices would be forgotten. */
+    @Test
+    fun theDialogsSayWhenOtherChoicesWouldBeForgotten() {
+        val ui = HeadlessTui(LightenSession(config))
+        fun dialog() = squeezed(ui.screen(320, 50))
+        val forgets = squeezed(FORGETS_OTHER_CHOICES)
+        // No choices: no line.
+        ui.press('x')
+        assertTrue(dialog().contains(squeezed(IGNORE_KEYS)) && !dialog().contains(forgets), dialog())
+        ui.press('n')
+        // A choice for cache, then x on cache itself: its own choice goes with it, so no line.
+        ui.press(KeyCode.TAB); ui.press(' '); ui.press(KeyCode.ESCAPE)
+        assertEquals(1, loaded(ui).draft.size)
+        ui.press('x')
+        assertFalse(dialog().contains(forgets), dialog())
+        ui.press('n')
+        // x on another relocation, or on an ignored row: the line shows.
+        ui.press('c'); ui.press(KeyCode.DOWN); ui.press('x')
+        assertTrue(dialog().contains(forgets), dialog())
+        ui.press('n')
+        ui.press('i'); ui.press(KeyCode.END); ui.press('x')
+        assertTrue(dialog().contains(squeezed(STOP_IGNORING_KEYS)) && dialog().contains(forgets), dialog())
+        ui.press('n')
+        assertEquals(1, loaded(ui).draft.size)
+    }
+
     @Test
     fun cancellingKeepsTheFile() {
         val ui = HeadlessTui(LightenSession(config))

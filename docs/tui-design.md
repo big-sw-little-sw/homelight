@@ -333,6 +333,10 @@ ignored: remove it from one of the two lists.`), and so does every save.
   link, then `mv` the target back.
 - `x: Stop ignoring` on an ignored row asks `Stop ignoring ~/x?` the same
   way, adding that Lighten manages it only once it is added as a relocation.
+- Saving checks again, which forgets one-time choices. While another
+  relocation has one, both dialogs add `This also forgets your other one-time
+  choices.` The ignored relocation's own choice goes with it, so it alone
+  does not add the line.
 - `y` saves through the same path as `s` (refused if the file changed since
   it was read: `Not saved: the configuration file changed after Lighten read
   it. Press r to read the file again, then x again; that forgets one-time

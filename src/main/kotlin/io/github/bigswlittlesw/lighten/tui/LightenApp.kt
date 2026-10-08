@@ -169,17 +169,26 @@ internal class LightenApp(
         )
     }
 
+    /**
+     * Saving checks again, which forgets one-time choices; the dialog says so when a choice for another relocation
+     * would go. The row's own choice goes with the relocation, so it is not counted.
+     */
+    private fun forgetsChoices(row: WorkspaceRow): List<String> {
+        val draft = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft.orEmpty()
+        return if (draft.keys.any { it != row.source }) listOf(FORGETS_OTHER_CHOICES) else listOf()
+    }
+
     private fun ignoreDialog(): Element? = when (val row = ignoring) {
         null, is WorkspaceRow.IgnoredGroup -> null
         is WorkspaceRow.Planned -> confirmDialog(
-            ignoreTitle(row.source), ignoreBody(session.configPath), IGNORE_KEYS,
+            ignoreTitle(row.source), ignoreBody(session.configPath) + forgetsChoices(row), IGNORE_KEYS,
             onYes = { closeSaveChoiceDialog(); save(IGNORE_NOT_SAVED) { session.ignore(row.source) } },
             onNo = ::closeSaveChoiceDialog,
             warning = if (row.item.sourceState != RelocationSourceState.CORRECT_SYMLINK) listOf()
             else ignoreLinkedWarning(row.source, row.item.relocation.targetPath),
         )
         is WorkspaceRow.Ignored -> confirmDialog(
-            stopIgnoringTitle(row.source), stopIgnoringBody(session.configPath), STOP_IGNORING_KEYS,
+            stopIgnoringTitle(row.source), stopIgnoringBody(session.configPath) + forgetsChoices(row), STOP_IGNORING_KEYS,
             onYes = { closeSaveChoiceDialog(); save(IGNORE_NOT_SAVED) { session.stopIgnoring(row.source) } },
             onNo = ::closeSaveChoiceDialog,
         )

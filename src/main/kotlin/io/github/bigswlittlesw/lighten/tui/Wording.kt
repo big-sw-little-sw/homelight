@@ -279,12 +279,15 @@ internal const val IGNORED_LABEL = "Ignored"
 internal const val IGNORED_BY_YOU = "Ignored by you"
 /** The ignored group's heading row: like the in-sync title, it says its key. */
 internal fun ignoredHeading(n: Int, shown: Boolean) = "i: " + (if (shown) "hide" else "show") + " $n ignored"
-internal fun ignoredGroupDetails(n: Int, shown: Boolean) = listOf(
-    if (n == 1) "1 source is ignored: you told Lighten to leave it alone." else
-        "$n sources are ignored: you told Lighten to leave them alone.",
-    "Lighten plans nothing for them and changes nothing on disk.",
-    "Press i to " + (if (shown) "hide" else "show") + " them. To manage one again, select it and press x.",
-)
+internal fun ignoredGroupDetails(n: Int, shown: Boolean): List<String> {
+    val them = if (n == 1) "it" else "them"
+    return listOf(
+        if (n == 1) "1 source is ignored: you told Lighten to leave it alone."
+        else "$n sources are ignored: you told Lighten to leave them alone.",
+        "Lighten plans nothing for $them and changes nothing on disk.",
+        "Press i to " + (if (shown) "hide" else "show") + " $them. To manage one again, select it and press x.",
+    )
+}
 internal fun ignoredDetails(source: Path, retained: Boolean) = listOf(
     "Lighten plans nothing for " + displayPath(source) + " and leaves it as it is.",
     if (retained) RESULTS_KEPT
@@ -316,7 +319,9 @@ internal fun stopIgnoringBody(config: Path) = listOf(
     "Lighten manages it only once you add it as a relocation.",
     "Nothing on disk changes.",
 )
-internal const val STOP_IGNORING_KEYS = "y: Stop ignoring · n/Esc: Cancel"
+/** Added to the ignore dialogs while other relocations have one-time choices, which saving forgets (user decision). */
+internal const val FORGETS_OTHER_CHOICES = "This also forgets your other one-time choices."
+internal const val STOP_IGNORING_KEYS ="y: Stop ignoring · n/Esc: Cancel"
 /** [CHOICE_NOT_SAVED] for `x`. */
 internal const val IGNORE_NOT_SAVED =
     "Not saved: the configuration file changed after Lighten read it. Press r to read the file again, then x " +
