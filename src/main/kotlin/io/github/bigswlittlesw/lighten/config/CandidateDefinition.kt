@@ -10,12 +10,12 @@ import java.nio.file.Path
  * displaying text; reasons are not terminal markup or commands.
  * Structural locations use zero-based indices, e.g. `apps[1].directories[0]`.
  *
- * `ecosystem` is the app's, as this record's list gives it; only a directory with an app can have one.
+ * `category` is the app's, as this record's list gives it; only a directory with an app can have one.
  */
 data class CandidateDefinition(
     val sourcePath: Path, val source: CandidateSource, val recordIndex: Int,
     val location: String, val originalPath: String,
-    val app: String?, val ecosystem: String?, val advice: Advice?, val reason: String?,
+    val app: String?, val category: String?, val advice: Advice?, val reason: String?,
 ) {
     init {
         require(
@@ -25,9 +25,9 @@ data class CandidateDefinition(
         validateCandidatePath(originalPath)
         require(
             (app == null || !app.isJavaBlank() && app == app.javaStrip())
-                && (ecosystem == null || app != null && !ecosystem.isJavaBlank() && ecosystem == ecosystem.javaStrip())
+                && (category == null || app != null && !category.isJavaBlank() && category == category.javaStrip())
                 && (reason == null || !reason.isJavaBlank()),
-        ) { "Optional text must be nonblank; app and ecosystem must be trimmed; an ecosystem needs an app" }
+        ) { "Optional text must be nonblank; app and category must be trimmed; a category needs an app" }
     }
 
     @Serializable

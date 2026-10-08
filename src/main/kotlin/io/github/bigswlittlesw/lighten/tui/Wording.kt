@@ -427,8 +427,8 @@ internal const val SELECT_SUGGESTION = "Select a suggestion or a group"
 internal const val ADD_SUGGESTION = "Add the directory to the configuration"
 internal const val ADD_GROUP = "Add every directory shown in the group that can be added"
 internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
-internal const val ADD_ECOSYSTEM = "Add every directory shown under the ecosystem's apps that can be added"
-internal const val REMOVE_ECOSYSTEM = "Take every directory under the ecosystem's apps out of the configuration"
+internal const val ADD_CATEGORY = "Add every directory shown under the category's apps that can be added"
+internal const val REMOVE_CATEGORY = "Take every directory under the category's apps out of the configuration"
 /**
  * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
  * `overlapped` names, for each skipped row, the relocation it overlaps when known.

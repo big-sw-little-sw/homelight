@@ -169,28 +169,28 @@ class CandidateCatalogTest {
                 parse("""{"apps": [{"name": "", "directories": []}]}""").diagnostics.single())
     }
 
-    /** `ecosystem` is optional on an app, applies to each of its directories, and is nonblank and trimmed. */
-    @Test fun readsAnAppsOptionalEcosystem() {
+    /** `category` is optional on an app, applies to each of its directories, and is nonblank and trimmed. */
+    @Test fun readsAnAppsOptionalCategory() {
         val snapshot = parse("""
                 {"apps": [
-                  {"name": "Maven", "ecosystem": "JVM", "directories": [{"path": ".m2"}, {"path": ".m2/wrapper"}]},
+                  {"name": "Maven", "category": "JVM", "directories": [{"path": ".m2"}, {"path": ".m2/wrapper"}]},
                   {"name": "Docker", "directories": [{"path": ".docker"}]},
-                  {"name": "Bazel", "ecosystem": null, "directories": [{"path": ".cache/bazel"}]}],
+                  {"name": "Bazel", "category": null, "directories": [{"path": ".cache/bazel"}]}],
                  "directories": [{"path": "scratch"}]}
                 """)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(listOf("JVM", "JVM", null, null, null), snapshot.definitions.map(CandidateDefinition::ecosystem))
-        for (ecosystem in listOf("\"\"", "\" \"", "\" JVM\"", "\"JVM \"")) {
+        assertEquals(listOf("JVM", "JVM", null, null, null), snapshot.definitions.map(CandidateDefinition::category))
+        for (category in listOf("\"\"", "\" \"", "\" JVM\"", "\"JVM \"")) {
             assertEquals(
-                CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 0, 0, 0, "apps[0]", "ecosystem",
-                        "Ecosystem must not be blank or have leading or trailing whitespace"),
-                parse("""{"apps": [{"name": "Maven", "ecosystem": $ecosystem, "directories": [{"path": ".m2"}]}]}""")
-                        .diagnostics.single(), ecosystem)
+                CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 0, 0, 0, "apps[0]", "category",
+                        "Category must not be blank or have leading or trailing whitespace"),
+                parse("""{"apps": [{"name": "Maven", "category": $category, "directories": [{"path": ".m2"}]}]}""")
+                        .diagnostics.single(), category)
         }
-        // Only an app has an ecosystem.
-        assertFalse(parse("""{"directories": [{"path": "cache", "ecosystem": "JVM"}]}""").accepted())
+        // Only an app has a category.
+        assertFalse(parse("""{"directories": [{"path": "cache", "category": "JVM"}]}""").accepted())
         assertKind(CandidateDiagnostic.Kind.LIMIT,
-                parse("""{"apps": [{"name": "Maven", "ecosystem": "${"x".repeat(4097)}", "directories": []}]}"""))
+                parse("""{"apps": [{"name": "Maven", "category": "${"x".repeat(4097)}", "directories": []}]}"""))
         assertThrows<IllegalArgumentException> {
             CandidateDefinition(HOME.resolve("cache"), SHARED, 1, "directories[0]", "cache", null, "JVM", null, null)
         }
@@ -454,7 +454,7 @@ class CandidateCatalogTest {
                 ".cache/go-build|Go|Go|Go build cache",
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server"
-        ), snapshot.definitions.map { d -> d.originalPath + "|" + d.ecosystem + "|" + d.app + "|" + d.reason })
+        ), snapshot.definitions.map { d -> d.originalPath + "|" + d.category + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)

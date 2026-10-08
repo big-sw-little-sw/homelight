@@ -465,17 +465,17 @@ class BrowseTest {
     }
 
     /**
-     * Ecosystems head their apps, in the order they first appear; Other tools (apps no list gives an ecosystem) and
+     * Categories head their apps, in the order they first appear; Other tools (apps no list gives a category) and
      * Other directories come last. Each level is two cells further in, and every count starts in the notes column.
      */
-    @Test fun ecosystemsHeadTheirAppsWithOtherToolsAndOtherDirectoriesLast() {
+    @Test fun categoriesHeadTheirAppsWithOtherToolsAndOtherDirectoriesLast() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
             val lines = render(ui).lines()
             fun row(text: String) = lines.indexOfFirst { it.contains(text) }.also { assertTrue(it >= 0, text + "\n" + lines.joinToString("\n")) }
-            // The shared list calls .m2 and .cache/uv by apps of its own with no ecosystem, so they are Other tools.
+            // The shared list calls .m2 and .cache/uv by apps of its own with no category, so they are Other tools.
             val order = listOf(
                 "○ Python", "○ uv", "○ .local/share/uv", "○ .local/share/uv/tools",
                 "○ Other tools", "○ Build tools", "○ .m2", "○ Python tools", "○ .cache/uv",
@@ -495,10 +495,10 @@ class BrowseTest {
     }
 
     /**
-     * Space on an ecosystem acts on every shown directory under its apps, as on an app: it adds those that can be
+     * Space on a category acts on every shown directory under its apps, as on an app: it adds those that can be
      * added and says what it skipped, completes a partly added one, and takes them all out when all are in.
      */
-    @Test fun spaceOnAnEcosystemAddsOrRemovesEveryDirectoryUnderIt() {
+    @Test fun spaceOnACategoryAddsOrRemovesEveryDirectoryUnderIt() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
@@ -530,14 +530,14 @@ class BrowseTest {
     }
 
     /**
-     * When your list gives an app an ecosystem, all the app's directories go under it, the built-in list's too; when
-     * it names the app without one, the built-in list's ecosystem stays.
+     * When your list gives an app a category, all the app's directories go under it, the built-in list's too; when
+     * it names the app without one, the built-in list's category stays.
      */
-    @Test fun yourListsEcosystemForAnAppWins() {
+    @Test fun yourListsCategoryForAnAppWins() {
         val root = fixture()
         Files.writeString(
             root.resolve("shared.json"),
-            """{"apps": [{"name": "Maven", "ecosystem": "Build", "directories": [{"path": "maven-extra"}]},
+            """{"apps": [{"name": "Maven", "category": "Build", "directories": [{"path": "maven-extra"}]},
                          {"name": "uv", "directories": [{"path": "uv-extra"}]}]}""",
         )
         SetupDiscoveryFixture().use { workers ->
@@ -553,7 +553,7 @@ class BrowseTest {
     }
 
     /**
-     * A heading none of whose directories can be added reads `−` and `can't add`, an ecosystem's as an app's, and
+     * A heading none of whose directories can be added reads `−` and `can't add`, a category's as an app's, and
      * Space there does nothing.
      */
     @Test fun aHeadingWithNothingToAddCannotAdd() {
@@ -562,7 +562,7 @@ class BrowseTest {
         Files.createSymbolicLink(root.resolve("home/link-cache"), root.resolve("home/link-target"))
         Files.writeString(
             root.resolve("shared.json"),
-            """{"apps": [{"name": "Links", "ecosystem": "Linked", "directories": [{"path": "link-cache"}]}]}""",
+            """{"apps": [{"name": "Links", "category": "Linked", "directories": [{"path": "link-cache"}]}]}""",
         )
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
@@ -583,7 +583,7 @@ class BrowseTest {
      * ↓ and the wheel move through all three levels a row at a time; Enter inspects only a directory, and the
      * selection stays on a heading through `u`.
      */
-    @Test fun selectionAndTheWheelMoveThroughEcosystemsAppsAndDirectories() {
+    @Test fun selectionAndTheWheelMoveThroughCategoriesAppsAndDirectories() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
@@ -617,7 +617,7 @@ class BrowseTest {
      * At 80x24 and 120x30 the three levels keep their indents, every line fits, and a heading's count starts in the
      * notes column.
      */
-    @Test fun ecosystemsFitAtBothSizes() {
+    @Test fun categoriesFitAtBothSizes() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))

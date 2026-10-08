@@ -61,7 +61,7 @@ class HelpTest {
     }
 
     /**
-     * Help › This screen stays true in every Browse view: on an ecosystem, on an app, on a row to add or remove, in
+     * Help › This screen stays true in every Browse view: on a category, on an app, on a row to add or remove, in
      * details and lists.
      */
     @Test
@@ -86,7 +86,7 @@ class HelpTest {
             val browse = place(CONFIGURATION_NAME, BROWSE_NAME)
             checkThisScreen(
                 ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "Home/End",
-                pinned = mapOf("Space" to ADD_ECOSYSTEM, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
+                pinned = mapOf("Space" to ADD_CATEGORY, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
             )
             ui.press(KeyCode.DOWN)
             checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_GROUP))

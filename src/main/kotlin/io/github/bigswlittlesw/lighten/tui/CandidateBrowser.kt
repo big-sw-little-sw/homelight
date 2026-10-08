@@ -39,7 +39,7 @@ internal sealed interface BrowseAction {
 }
 
 /**
- * Browse: the suggestions in TamboUI's list under a heading per ecosystem and per app, with each directory's details
+ * Browse: the suggestions in TamboUI's list under a heading per category and per app, with each directory's details
  * and the suggestion lists' state one key away. The selected row and draft membership are independent states.
  *
  * The selection follows an item, not a position: Browse keeps the selected item and sets the list's index from it on
@@ -54,11 +54,11 @@ internal sealed interface BrowseAction {
 internal class CandidateBrowser(keys: KeyEventHandler) {
     /** A row: a heading, which Space acts on as a whole, or a directory. */
     private sealed interface Item {
-        /** An ecosystem's heading over its apps; `null` is Other tools, the apps no list gives an ecosystem. */
-        data class Ecosystem(val name: String?) : Item
+        /** A category's heading over its apps; `null` is Other tools, the apps no list gives a category. */
+        data class Category(val name: String?) : Item
 
         /**
-         * An app's heading under its ecosystem; `null` is Other directories, a top-level heading over the directories
+         * An app's heading under its category; `null` is Other directories, a top-level heading over the directories
          * no list gives an app.
          */
         data class App(val name: String?) : Item
@@ -122,7 +122,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         val elements = rows.mapIndexed { i, (item, entries) ->
             val selected = i == shown
             when (item) {
-                is Item.Ecosystem -> headingRow(item.name ?: OTHER_TOOLS, 0, entries, draft, selected)
+                is Item.Category -> headingRow(item.name ?: OTHER_TOOLS, 0, entries, draft, selected)
                 is Item.App -> headingRow(item.name ?: OTHER_DIRECTORIES, if (item.name == null) 0 else 2, entries, draft, selected)
                 is Item.Directory -> directoryRow(entries.single(), draft, selected)
             }
@@ -161,13 +161,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                         KeyHint("↑/↓", "Move", description = SELECT_SUGGESTION).takeIf { item != null },
                         when (item) {
                             is Item.Directory -> entry?.let { toggleKey(it, draft) }
-                            is Item.Ecosystem, is Item.App -> groupKey(item, groupState(row.entries, draft))
+                            is Item.Category, is Item.App -> groupKey(item, groupState(row.entries, draft))
                             null -> null
                         },
                         entry?.let(::editKey),
                         when (item) {
                             is Item.Directory -> KeyHint("Enter", "Inspect", description = INSPECT_SUGGESTION)
-                            is Item.Ecosystem, is Item.App, null -> null
+                            is Item.Category, is Item.App, null -> null
                         },
                         KeyHint("Esc", "Back", description = BACK_TO_CONFIGURATION_LIST),
                         HOME_END_KEYS.takeIf { item != null },
@@ -200,7 +200,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         val entry = (item as? Item.Directory)?.let { entry(draft, it.path) }
         val row = entry?.row
         when {
-            key.isChar(' ') && (item is Item.Ecosystem || item is Item.App) -> {
+            key.isChar(' ') && (item is Item.Category || item is Item.App) -> {
                 message = ""
                 val members = rows(draft).firstOrNull { it.item == item }?.entries.orEmpty()
                 return when (groupState(members, draft)) {
@@ -290,28 +290,28 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     }
 
     private fun groupKey(heading: Item, state: GroupState): KeyHint? {
-        val ecosystem = heading is Item.Ecosystem
+        val category = heading is Item.Category
         return when (state) {
-            GroupState.ALL -> KeyHint("Space", "Remove all", description = if (ecosystem) REMOVE_ECOSYSTEM else REMOVE_GROUP)
-            GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = if (ecosystem) ADD_ECOSYSTEM else ADD_GROUP)
+            GroupState.ALL -> KeyHint("Space", "Remove all", description = if (category) REMOVE_CATEGORY else REMOVE_GROUP)
+            GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = if (category) ADD_CATEGORY else ADD_GROUP)
             GroupState.EMPTY -> null
         }
     }
 
     /**
-     * The shown rows in screen order: each ecosystem's heading, then each of its apps' headings with the app's
-     * directories. A directory's app is its first definition's, which is your list's when it names one. Ecosystems and
+     * The shown rows in screen order: each category's heading, then each of its apps' headings with the app's
+     * directories. A directory's app is its first definition's, which is your list's when it names one. Categories and
      * apps keep the order they first appear in; Other tools, then Other directories, come last.
      */
     private fun rows(draft: BrowseDraft): List<Row> {
-        val ecosystems = ecosystems(draft)
+        val categories = categories(draft)
         val tops = listed(draft).values.filter { entry -> reveal || !hidden(entry, draft) }
-            .groupBy { entry -> app(entry)?.let { Item.Ecosystem(ecosystems[it]) } ?: Item.App(null) }
+            .groupBy { entry -> app(entry)?.let { Item.Category(categories[it]) } ?: Item.App(null) }
         fun directories(entries: List<BrowseDraft.Entry>) = entries.map { Row(Item.Directory(path(it)), listOf(it)) }
-        // A stable sort, so the named ecosystems keep their order.
-        return tops.entries.sortedBy { (top, _) -> listOf(Item.Ecosystem(null), Item.App(null)).indexOf(top) }
+        // A stable sort, so the named categories keep their order.
+        return tops.entries.sortedBy { (top, _) -> listOf(Item.Category(null), Item.App(null)).indexOf(top) }
             .flatMap { (top, entries) ->
-                listOf(Row(top, entries)) + if (top is Item.Ecosystem) {
+                listOf(Row(top, entries)) + if (top is Item.Category) {
                     entries.groupBy(::app).flatMap { (app, members) -> listOf(Row(Item.App(app), members)) + directories(members) }
                 } else directories(entries)
             }
@@ -384,13 +384,13 @@ private fun definitions(entry: BrowseDraft.Entry): List<CandidateDefinition> =
 private fun app(entry: BrowseDraft.Entry): String? = definitions(entry).firstOrNull()?.app
 
 /**
- * Each app's ecosystem, by app name across both lists: your list's when it gives the app one, else the built-in
+ * Each app's category, by app name across both lists: your list's when it gives the app one, else the built-in
  * list's; within a list, the first one given.
  */
-private fun ecosystems(draft: BrowseDraft): Map<String, String> =
+private fun categories(draft: BrowseDraft): Map<String, String> =
     draft.discovery?.candidates.orEmpty().flatMap { it.catalog.definitions }
         .sortedBy { it.source.kind != CandidateSource.Kind.SHARED }
-        .mapNotNull { d -> d.app?.let { app -> d.ecosystem?.let { app to it } } }
+        .mapNotNull { d -> d.app?.let { app -> d.category?.let { app to it } } }
         .distinctBy { it.first }.toMap()
 
 /**
@@ -472,7 +472,7 @@ private fun compact(path: String): String {
  */
 private const val PATH_COLUMN = 30
 
-/** A directory sits under an app under an ecosystem, two cells further in per level. */
+/** A directory sits under an app under a category, two cells further in per level. */
 private const val DIRECTORY_INDENT = 4
 
 private fun state(entry: BrowseDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: NOT_CHECKED

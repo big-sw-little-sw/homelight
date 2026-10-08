@@ -124,9 +124,9 @@ with its location, its number of suggestions and the day its file last
 changed. If your list could not be used, its line says why. Press `i` for
 the full detail.
 
-Below them, the suggestions are listed under their ecosystem, such as JVM,
+Below them, the suggestions are listed under their category, such as JVM,
 Python or JavaScript, and under it the name of their app. Apps with no
-ecosystem are under "Other tools", and directories with no app under
+category are under "Other tools", and directories with no app under
 "Other directories", at the end. Each directory has a mark:
 
 - `●` it is in your configuration, whether saved earlier or added now.
@@ -139,7 +139,7 @@ the list until you leave Browse, so `Space` can add it back. Adding and
 removing change only what Configuration shows: the file changes when you
 press `s`. Press `e` on a `●` row to change its target or rules.
 
-Each ecosystem's and app's name has a mark too: `●` all the directories
+Each category's and app's name has a mark too: `●` all the directories
 under it are added, `◐` some are, `○` none are, `−` none can be. Beside it,
 Browse counts them, such as `1 of 2 added`. `Space` on the name adds all
 the directories under it that are shown and can be added, so `Space` on
@@ -153,7 +153,7 @@ show them. A directory already in your configuration is never hidden.
 
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app
-different ecosystems, Browse uses your list's. Select a suggestion and press
+different categories, Browse uses your list's. Select a suggestion and press
 `Enter` to see which lists suggest it and what each one says.
 
 ### Write your own list
@@ -166,7 +166,7 @@ A suggestion list is a JSON file. For example:
   "apps": [
     {
       "name": "Bazel",
-      "ecosystem": "Build",
+      "category": "Build",
       "directories": [
         {"path": ".cache/bazel", "advice": "consider",
          "reason": "Build outputs, rebuilt when needed"}
@@ -189,10 +189,10 @@ A suggestion list is a JSON file. For example:
 - `apps` holds groups. Each has a `name` and its `directories`. The
   top-level `directories` holds suggestions with no group; Browse shows them
   under "Other directories". A file needs at least one of the two.
-- `ecosystem` is optional on an app: the heading Browse shows the app
+- `category` is optional on an app: the heading Browse shows the app
   under, such as `Python`. An app with none is under "Other tools". To move
   a built-in app, such as Gradle, under another heading, name it in your
-  list with the ecosystem you want and at least one of its directories.
+  list with the category you want and at least one of its directories.
 - `path` is relative to your home directory: `.cache/bazel`, not
   `~/.cache/bazel` or `/home/me/.cache/bazel`. It cannot use `..`,
   variables such as `$USER`, or wildcards.
