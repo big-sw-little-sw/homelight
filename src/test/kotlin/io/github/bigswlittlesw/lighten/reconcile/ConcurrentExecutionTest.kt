@@ -141,6 +141,7 @@ class ConcurrentExecutionTest {
                 // This process must refuse before it opens the lock file: closing a channel to it would free the lock.
                 val again = ReconciliationExecutor().execute(migrationOnly(rival, target)).relocations.single()
                 assertEquals(refusal("this Lighten is already publishing $target"), again.actions.single().message)
+                if (step != Step.PUBLISHED) assertEquals(ActionFailure.Busy(target, here = true), again.actions.single().failure)
                 assertEquals(before, snapshot(copy))
                 assertTrue(foreign.lockIsHeld(lock))
 

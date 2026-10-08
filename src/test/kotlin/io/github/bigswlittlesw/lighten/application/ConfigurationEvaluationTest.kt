@@ -334,6 +334,23 @@ class ConfigurationEvaluationTest {
     }
 
     @Test
+    fun rowsKeepTheFilesOrderWithinEachUrgencyGroup() {
+        // In the file: zeta, mid, alpha. Reverse alphabetical, so a sort by path would show alpha first.
+        listOf("zeta", "alpha").forEach { Files.createDirectory(root.resolve(it)) }
+        bothDirectories("mid", "mid-target")
+        write(entry("zeta", "zeta-target"), entry("mid", "mid-target", mapOf("archive-root" to archive())),
+            entry("alpha", "alpha-target"))
+        val loaded = loaded()
+        assertEquals(listOf("mid", "zeta", "alpha"), names(loaded))
+        assertEquals(listOf(PlanBadge.CONFLICT, PlanBadge.MIGRATE, PlanBadge.MIGRATE), loaded.items.map { it.badge() })
+
+        // Once chosen, mid leaves the urgent group and takes its place in the file among the changes.
+        val chosen = evaluator.choose(loaded, root.resolve("mid"), DecisionChoice.ADOPT_AND_DISCARD_SOURCE)
+        assertEquals(listOf("zeta", "mid", "alpha"), names(chosen))
+        assertEquals(PlanBadge.ADOPT, chosen.items[1].badge())
+    }
+
+    @Test
     fun correctLinkIsInSyncWithoutDestructiveActions() {
         Files.createDirectories(root.resolve("home"))
         Files.createSymbolicLink(root.resolve("home/cache"), Files.createDirectories(root.resolve("local/cache")))
@@ -347,6 +364,9 @@ class ConfigurationEvaluationTest {
     private fun loaded(): ConfigurationEvaluation.Loaded {
         return assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, evaluator.load(config))
     }
+
+    private fun names(loaded: ConfigurationEvaluation.Loaded): List<String> =
+        loaded.items.map { it.relocation.sourcePath.fileName.toString() }
 
     private fun bothDirectories(source: String, target: String) {
         Files.createDirectory(root.resolve(source))

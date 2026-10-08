@@ -570,6 +570,18 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - **Ecosystem becomes category (user decision):** the suggestion-list level above apps is a **category**, and its JSON key `"ecosystem"` is now `"category"`, in the built-in list, the parser and the fixtures, with no compatibility. "Ecosystem" did not fit Editors or Other tools, and "app group" would clash with an app's own group of directories. Code names, Help's descriptions, the guide and `tui-design.md` follow; headings still show the names (JVM, Python, Editors, Other tools), so only Help's text changes on screen. The #165 entry above keeps the old word.
 - `[skipped: the repository URL, add when the user renames big-sw-little-sw/homelight; then ci/try-pr, the guide URL and the README links follow]`
 
+## 2026-10-07: A failed step says what is there and what to do
+
+#172, from the #166 walkthrough: a failed step's Details showed the executor's text, such as `expected absent at /scratch/archive/tool-b but found file`.
+
+- **A sealed `ActionFailure` (rung 6):** each failure the executor reports carries what it knows: state drift (path, expected and found state), a changed link, a staging root on another filesystem, no POSIX permissions, a busy staging lock (this or another Lighten), a copy that differs from its source or did not keep its permissions, permissions not restored after publishing, a move across filesystems, denied access, a path gone, a path already taken, and any other I/O failure with its paths and the system's reason. A copy that differs says how (a folder missing, a file or link that differs, an extra entry); permissions not restored keep the system's reason. `EnvironmentException` carries one; I/O exceptions are recognized by their type (`AccessDeniedException`, `NoSuchFileException`, `FileAlreadyExistsException`, `AtomicMoveNotSupportedException`, `FileSystemException`), never by their text. A file exception the JDK throws without a reason gets one (`permission denied`, `the folder is not empty`, `not a folder`, `not a link`) or else its type's name. `stateDrift` and `targetPublished` are now read from the failure, so `StateDriftException` is gone. `deleteTree` keeps a denied access recognizable when it rejoins an entry's path.
+- **Plain words in the TUI only (rung 2, the Wording file):** `failureWords` names the path, what is there, what Lighten expected and what to do: `/scratch/archive/tool-b already exists as a file. Lighten expected nothing there. Move or remove it.` Only something in the way of a step asks the user to move or remove it; a folder that changed or went away gets no step of its own, since `r` then shows the new plan and any block. A copy that differs names the source entry, not the staged copy's hidden path.
+- **Walkthrough changes (user decisions):** paths show home as `~`, like the rest of the screen. The sentence no longer ends with `press r to check again`: the Results headline already says it. The staging-filesystem sentence says where the setting lives: `Set the staging-root setting in ~/.lighten.json to a folder on the target's filesystem.`, with the configuration file in use.
+- **No raw text in Results (user decision):** the dim `Detail:` line with the executor's text, first shipped in this PR, is dropped. In exchange the sentence keeps everything that text had for a bug report: each path it named, what was expected and found, and the system's reason inline (`Lighten couldn't change ~/x: no space left on device.`), so a screenshot of Results is still enough. A test renders every kind and checks its paths and reason. `apply --json` keeps the executor's text in `message`, unchanged: scripts get the exact error, and `press r` means nothing outside the TUI. `schema` stays 1, and `ci/native/compare.sh` is unaffected.
+- `[skipped: a machine-readable failure kind in apply --json, add when a script needs to tell failures apart]`
+- `[skipped: plain words for the preflight refusal's diagnostics ("Filesystem state changed since review: <path>"), add when a walkthrough finds them unclear]`
+- `[skipped: own words for errors the OS reports only as a reason (no space left, read-only filesystem), add when a user hits one; they read "Lighten couldn't change <path>: <reason>."]`
+
 ## 2026-10-07: Version managers and more JavaScript tools join the built-in list
 
 #176 (user decision, 2026-10-07) adds version managers and JavaScript browser and runtime caches to the built-in list (rung 1: data only; no code changes).
@@ -592,6 +604,14 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 ## 2026-10-07: Bare marks for choices
 
 #173 (user decision): Workspace Details mark one-time choices with bare `●` chosen and `○` not chosen, as Browse marks its rows. The chosen choice is green and bold whether or not Details have focus; the focused one keeps `❯`, so without color `●` and bold mark the choice and `❯` marks focus (user decision, from the #179 walkthrough). "Parentheses mean pick one" (#165 entry) is dropped: a choice list is one of many by behaviour, since choosing one clears the others, and the Help for `Space/Enter` says so.
+
+## 2026-10-07: Workspace keeps the file's order within each urgency group
+
+#183 (user decision, option B): Workspace rows were sorted by urgency, then A–Z by source path. They now keep the urgency groups (needs a choice, blocked or can't read; warning; changes; left as is; in sync) and, within a group, the order of `relocations` in the configuration file, the order Configuration's list already shows. The file's order is the one the user wrote and sees while editing, so a relocation is where they expect it on both screens.
+
+- **Stable sort (rung 1):** `Loaded.items` sorts by `PlanBadge.priority` alone; the stable sort keeps file order inside a group. Nothing new is stored.
+- **Selection unchanged:** the Workspace already restores the selection by source, so a row that moves between groups after a choice stays selected.
+- `[skipped: a way to reorder relocations in Configuration, add when users ask to rearrange without editing the file]`
 
 ## 2026-10-07: Always do this saves a choice as the rule
 

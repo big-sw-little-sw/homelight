@@ -95,6 +95,9 @@ class ReviewedJsonApplyTest {
         assertEquals(listOf("false"), values(result.output, "succeeded"), result.output + result.error)
         assertTrue(values(result.output, "status").containsAll(listOf("completed", "failed", "pending")))
         assertEquals(listOf("converged", "unresolved", "unresolved"), values(result.output, "outcome"))
+        // A failed action's message is the executor's own text, not the TUI's plain words (#172).
+        assertTrue(values(result.output, "message").contains("expected real directory at $staging"), result.output)
+        assertFalse(result.output.contains("press r"), result.output)
         assertFalse(result.output.contains("diagnostics"))
         assertTrue(Files.isSymbolicLink(root.resolve("home/data/first")))
         assertTrue(Files.isDirectory(root.resolve("home/data/second")))

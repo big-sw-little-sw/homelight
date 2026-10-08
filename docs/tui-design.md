@@ -157,8 +157,11 @@ ones.
 - Scrollbars appear only when content overflows. No numeric line counters.
 - In-sync relocations are hidden when others exist; `c` toggles them. The list
   title says how many and which key shows them: `Relocations · c: show 2 in
-  sync`, or `c: hide 2 in sync` while shown. Urgent rows (blocked, needs a
-  choice) sort first.
+  sync`, or `c: hide 2 in sync` while shown. Workspace rows are grouped by
+  urgency: needs a choice, blocked or can't read; warning; changes; left as
+  is; in sync. Within a group they keep the configuration file's order, the
+  order Configuration's list shows. A row that changes group, for example
+  after a choice, moves and stays selected.
 
 ### Dialogs
 
@@ -394,11 +397,20 @@ refused before any change (`Nothing changed: the disk no longer matches the
 reviewed plan. Check again.`), a step whose guard found something other than the
 plan (`Stopped: a step found something different from the plan. The steps after
 it did not run. See the failed step's details, then press r to check again.`;
-it does not guess when the disk changed, and the failed step's Details keep the
-exact problem), any other stop partway (`Stopped after some changes. Check
-the failed and not-run steps, then check again.`) and success (`Done. Checked
-again; results are kept until you check again.`). Results stay available through
-`2` until `r` or exit.
+it does not guess when the disk changed), any other stop partway (`Stopped after
+some changes. Check the failed and not-run steps, then check again.`) and success
+(`Done. Checked again; results are kept until you check again.`). Results stay
+available through `2` until `r` or exit.
+
+A failed step's Details start with its problem in plain words, in the error
+colour: the path, what is there, what Lighten expected and what to do, such as
+`/scratch/archive/tool-b already exists as a file. Lighten expected nothing
+there. Move or remove it.` Paths show home as `~`. The sentence does not say to
+press r: the headline does. It is the only text for the failure, so it keeps
+everything the executor's text had for a bug report: every path, what was
+expected and found, and the system's reason (`Lighten couldn't change ~/x: no
+space left on device.`). A failure Lighten cannot name, such as an internal
+error, shows its text as it is.
 
 ## 7. Configuration
 

@@ -63,13 +63,19 @@ Configure → Workspace → Review → Apply → Results
 5. **Results (`2`).** Each step shows whether it worked. Press `r` to check
    again: the Workspace then shows each relocation as it is now, normally
    `[In sync]`. If a step finds something different from the plan, Lighten
-   stops there and the steps after it do not run. Select the failed step to
-   see what it found, then press `r`.
+   stops there and the steps after it do not run. Select the failed step: its
+   Details say what is there, what Lighten expected and what to do. Do that,
+   then press `r` to check again. To report a bug, a screenshot of these
+   Details is enough.
 
 ### Change the configuration later
 
 Press `e` on the Workspace to open Configuration, change it, and press `s`.
-Lighten checks again and shows the new plan.
+Lighten checks again and shows the new plan. The Workspace lists the
+relocations that need you first (`[Choose]`, `[Blocked]`, `[Can't read]`),
+then `[Warning]`, then those with changes such as `[Move]`, then
+`[Left as is]`, then `[In sync]`. Within each of these, they keep the order
+of your configuration.
 
 - Select **Storage locations** or a relocation in the list on the left, and
   press `Enter` to change its fields. `Esc` goes back to the list. In a
@@ -327,7 +333,8 @@ Three commands never ask a question and print one line of JSON:
 - `lighten apply --json --yes`: makes that plan and, if nothing is blocked
   and no choice is needed, applies it and prints how each step went. If
   something is blocked or needs a choice, it prints the plan instead and
-  changes nothing.
+  changes nothing. A failed step's `message` is Lighten's exact error, not
+  the sentence Results show.
 
 `apply --json` needs `--yes`, which confirms the plan the command makes.
 Without `--json`, `apply` opens the Review screen, with or without `--yes`.

@@ -71,7 +71,10 @@ class ConfigurationEvaluation(
             )
         }
 
-        /** One row per configured relocation under the effective draft plan, most urgent first, then by source path. */
+        /**
+         * One row per configured relocation under the effective draft plan, most urgent first. Within an urgency
+         * group rows keep the configuration file's order, as Configuration's list does; `sortedBy` is stable.
+         */
         val items: List<PlanRelocationItem> = observations.mapIndexed { i, state ->
             val relocationPlan = plan.relocations[i]
             val relocation = relocationPlan.relocation
@@ -81,7 +84,7 @@ class ConfigurationEvaluation(
                 choicesFor(relocation.sourcePath),
                 normalize(relocation.sourcePath) in choiceAvoidsFolder,
             )
-        }.sortedWith(compareBy({ it.badge().priority }, { it.relocation.sourcePath.toString() }))
+        }.sortedBy { it.badge().priority }
 
         /** Evaluation records choices, possibly none, for every configured source. */
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))

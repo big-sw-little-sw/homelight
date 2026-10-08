@@ -4,6 +4,7 @@ import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -130,6 +131,7 @@ class ReconciliationExecutorTest {
         assertEquals(ReconciliationExecutor.ActionStatus.COMPLETED, actions.get(0).status)
         assertEquals(ReconciliationExecutor.ActionStatus.FAILED, actions.get(1).status)
         assertTrue(actions.get(1).stateDrift)
+        assertEquals(ActionFailure.Drift(target, PathState.ABSENT, PathState.DIRECTORY), actions.get(1).failure)
         assertEquals(ReconciliationExecutor.ActionStatus.PENDING, actions.get(2).status)
         assertTrue(Files.notExists(source))
     }
@@ -224,6 +226,7 @@ class ReconciliationExecutorTest {
         val failed = relocation.actions.single { it.status == ReconciliationExecutor.ActionStatus.FAILED }
         assertEquals("published $target but could not restore its permissions: injected failure", failed.message)
         assertTrue(failed.targetPublished)
+        assertEquals(ActionFailure.PermissionsNotRestored(target, "injected failure"), failed.failure)
         assertEquals("source", Files.readString(source.resolve("entry")))
         assertEquals("source", Files.readString(target.resolve("entry")))
         assertOnlyLockLeft(target)
@@ -279,6 +282,7 @@ class ReconciliationExecutorTest {
 
             assertEquals("expected real directory at $refused", failed.message, relocation.toString())
             assertTrue(failed.stateDrift)
+            assertEquals(ActionFailure.Drift(refused, PathState.DIRECTORY, PathState.SYMLINK), failed.failure)
             assertTrue(Files.notExists(relocation.targetPath, LinkOption.NOFOLLOW_LINKS))
         }
         assertEquals(listOf<Path>(), Files.list(elsewhere).use { it.toList() })
