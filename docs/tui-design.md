@@ -470,6 +470,23 @@ list does not show it.
   relocation by source as written (`~/.m2`). `a` adds a row with the source
   root filled in and focuses its Source; `d` removes the selected row; `b`
   opens Browse; Enter, → or Tab move to the fields.
+- With no relocations, the list says how to add one, in dim text under
+  `Storage locations`: `No directories yet.`, then `Press b to pick from 44
+  built-in suggestions (Maven, Cargo, npm, pip, …), or a to type one
+  yourself.` The count is the built-in list's directories, as Browse counts
+  them, and the examples are the first app of each of its first four
+  categories; both come from the list, never from the code. While a field
+  has focus, where `b` and `a` type, it reads `Esc, then b to pick …`.
+- **First run.** A new file opens on Target root. The first time focus goes
+  from the storage locations' fields to the list (Esc, or Tab past the last
+  field) with both roots valid and no relocations yet, Browse opens by
+  itself, with a two-line note over its Lists lines: `Pick what to move:
+  Space adds.`, then `Rather type a path yourself? Press Esc, then a.` Each
+  line fits 80 columns. Moving between the storage
+  locations' fields does not open it, so Source root and a list of your own
+  can be set first. Esc returns to the list. It happens once per
+  Configuration; an existing file, even one with no relocations, opens on
+  its list and never opens Browse by itself.
 - Right, top: the selected item's fields, one row each, the label in an
   18-cell column beside the value (at 80x24 a field is 32 cells wide). Text
   fields are TamboUI text inputs; Both exist and Only target are TamboUI
@@ -485,9 +502,12 @@ list does not show it.
 - Every path must be full or start with `~/`; anything else reads `Use a full
   path, or one starting with ~/`.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Suggestion list** (placeholder `optional`) with help "A file of directories
-  to suggest in Browse, for example one shared on a team drive. Built-in
-  suggestions are always included."
+  **Suggestion list** (placeholder `optional; adds to built-in list`, which
+  fits the 32-cell field at 80 columns) with help "Lighten already includes
+  44 suggestions for common tools (Maven, Cargo, npm, pip, …). Use this field
+  only to add a list of your own, for example one shared by your team. Both
+  lists are merged; yours wins where they overlap.", count and examples as
+  in the empty list.
 - Relocation fields: **Source**, **Target** (blank derives it from the target
   root; a source outside the source root needs one), **Both exist**, **Only
   target**, **Archive root** (blank means the default beside the source).
@@ -526,6 +546,9 @@ screen never says "candidate" or "draft".
   own the second line says so. A list that was not used says why on its line
   (`not used: file not found`); `i` opens **Suggestion lists** with the full
   detail.
+- When Browse opens by itself on a first run (§7), its note sits above the
+  Lists lines until Browse closes. Its Help purpose always ends `Anything
+  missing: press Esc, then a to type it.`
 - The suggestions are a TamboUI list in a panel titled **Browse**, in three
   levels. Each category (`JVM`, `Python`, …) is a heading; apps no list
   gives a category are under `Other tools`. Each app is a heading under its

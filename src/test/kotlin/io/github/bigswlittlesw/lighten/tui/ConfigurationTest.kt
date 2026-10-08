@@ -4,7 +4,9 @@ import dev.tamboui.tui.event.KeyCode
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.config.CandidateCatalog
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.application.PlanBadge
@@ -35,6 +37,9 @@ class ConfigurationTest {
         ui.press(KeyCode.UP)
         ui.ctrl('u')
         ui.type(root.resolve("home").toString())
+        ui.press(KeyCode.ESCAPE)
+        // Leaving the storage locations of a new file opens Browse once; Esc goes back to the list.
+        assertEquals(CONFIG_BROWSE, ui.focused())
         ui.press(KeyCode.ESCAPE)
         assertEquals(CONFIG_LIST, ui.focused())
         ui.press('a')
@@ -172,6 +177,8 @@ class ConfigurationTest {
         val fresh = HeadlessTui(LightenSession(root.resolve("fresh.json")))
         fresh.press('i')
         fresh.type("/srv")
+        fresh.press(KeyCode.ESCAPE)
+        // The first Esc to the list opens Browse.
         fresh.press(KeyCode.ESCAPE)
         fresh.press(KeyCode.ESCAPE)
         assertTrue(fresh.screen(240, 50).contains("╔$DISCARD_SETUP_TITLE"), fresh.screen(240, 50))
@@ -373,6 +380,113 @@ class ConfigurationTest {
         assertTrue(screen.contains("❯ Storage locations"), screen)
         assertEquals(CONFIG_LIST, ui.focused())
     }
+
+    /**
+     * A new file opens Browse once, with a note on typing what it does not list, when the user leaves the storage
+     * locations for the list; Esc then returns to the list.
+     */
+    @Test fun aNewFileOpensBrowseOnceAfterTheStorageLocations() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(LightenSession(root.resolve("new.json")), discoveryFactory = workers::get)
+            ui.press('i')
+            ui.type(root.resolve("local").toString())
+            ui.press(KeyCode.UP)
+            ui.ctrl('u')
+            ui.type(root.resolve("home").toString())
+            // Moving between the storage locations' fields does not open it, so a list of your own can be set first.
+            ui.press(KeyCode.DOWN)
+            ui.press(KeyCode.DOWN)
+            assertEquals("config-suggestion-list", ui.focused())
+            ui.press(KeyCode.TAB)
+            assertEquals(CONFIG_BROWSE, ui.focused())
+            val browse = ui.screen(80, 24).lines()
+            assertTrue(browse[0].contains("[Configuration › Browse]"), browse.joinToString("\n"))
+            // One row each at 80 columns, under the header and over the Lists lines.
+            assertEquals(FIRST_BROWSE_NOTE, browse.subList(1, 3).map { it.trim() }, browse.joinToString("\n"))
+            assertTrue(browse[3].startsWith("Built-in list"), browse.joinToString("\n"))
+            ui.press(KeyCode.ESCAPE)
+            assertEquals(CONFIG_LIST, ui.focused())
+            assertTrue(ui.screen(80, 24).contains("❯ Storage locations"), ui.screen(80, 24))
+            // Once only: leaving the fields again stays on the list, and b opens Browse without the note.
+            ui.press(KeyCode.ENTER)
+            ui.press(KeyCode.ESCAPE)
+            assertEquals(CONFIG_LIST, ui.focused())
+            ui.press('b')
+            assertEquals(CONFIG_BROWSE, ui.focused())
+            assertFalse(FIRST_BROWSE_NOTE.any { ui.screen(80, 24).contains(it) }, ui.screen(80, 24))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** An existing file opens on its list as before, even with no relocations, and leaving its fields stays there. */
+    @Test fun anExistingFileNeverOpensBrowseByItself() {
+        val root = fixture()
+        val config = Files.writeString(
+            root.resolve("config.json"), "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": []}}\n",
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
+            ui.press('e')
+            assertEquals(CONFIG_LIST, ui.focused())
+            ui.press(KeyCode.ENTER)
+            ui.press(KeyCode.DOWN)
+            ui.press(KeyCode.ESCAPE)
+            assertEquals(CONFIG_LIST, ui.focused())
+            assertFalse(ui.screen(80, 24).contains("[Configuration › Browse]"), ui.screen(80, 24))
+            assertTrue(workers.workers.isEmpty(), "no suggestions were checked")
+        }
+    }
+
+    /**
+     * With no relocations the list says how to add one: `b` with the built-in list's count and apps, or `a`. From a
+     * field the keys follow Esc, since there they type.
+     */
+    @Test fun anEmptyListOffersTheBuiltInSuggestionsAndTyping() {
+        val root = fixture()
+        val ui = HeadlessTui(LightenSession(root.resolve("new.json")))
+        ui.press('i')
+        val (count, examples) = builtInFromCatalog()
+        assertTrue(listPane(ui).contains(flat(noRelocationsYet(count, examples, inList = false))), listPane(ui))
+        assertTrue(listPane(ui).contains("Esc, then b to pick from $count built-in suggestions"), listPane(ui))
+        ui.press(KeyCode.ESCAPE)
+        assertEquals(CONFIG_LIST, ui.focused())
+        assertTrue(listPane(ui).contains(flat(noRelocationsYet(count, examples, inList = true))), listPane(ui))
+        ui.press('a')
+        assertFalse(listPane(ui).contains("No directories yet."), listPane(ui))
+    }
+
+    /** Suggestion list's Details say the built-in list is always there, with its count, and what the field adds. */
+    @Test fun suggestionListDetailsSayTheBuiltInListIsIncluded() {
+        val root = fixture()
+        val ui = HeadlessTui(LightenSession(existing(root)))
+        ui.press('e')
+        ui.press(KeyCode.ENTER)
+        ui.press(KeyCode.DOWN)
+        ui.press(KeyCode.DOWN)
+        assertEquals("config-suggestion-list", ui.focused())
+        val screen = ui.screen(120, 30)
+        assertTrue(screen.contains(SUGGESTION_LIST_PLACEHOLDER), screen)
+        val (count, examples) = builtInFromCatalog()
+        assertTrue(examples.isNotEmpty())
+        val details = flat(lightBorders(screen).lines().joinToString(" ") { it.substringAfter("││").substringBefore("│") })
+        assertTrue(details.contains(flat(suggestionListHelp(count, examples))), screen)
+    }
+
+    /** The built-in list's directories, as Browse counts them, and the first app of each category. */
+    private fun builtInFromCatalog(): Pair<Int, List<String>> {
+        val definitions = CandidateCatalog.bundled(temporary).definitions
+        assertTrue(definitions.isNotEmpty())
+        return definitions.map { it.sourcePath }.distinct().size to
+            definitions.filter { it.category != null }.distinctBy { it.category }.mapNotNull { it.app }.take(4)
+    }
+
+    /** The left pane's text at 80x24, its rows joined and whitespace collapsed. */
+    private fun listPane(ui: HeadlessTui): String = flat(
+        lightBorders(ui.screen(80, 24)).lines().filter { it.startsWith("│") }.joinToString(" ") { it.substring(1).substringBefore("│") },
+    )
+
+    private fun flat(text: String): String = text.replace(Regex("\\s+"), " ").trim()
 
     private fun fixture(): Path {
         val root = Files.createTempDirectory(temporary, "fixture-").toRealPath()

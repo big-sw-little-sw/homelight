@@ -38,10 +38,15 @@ Configure → Workspace → Review → Apply → Results
 
 1. **Configure.** Run `lighten`. The first time, there is no configuration
    file yet: press `i` to open **Configuration**. Type where storage is in
-   **Target root**, then add the directories to move: press `a` and type
-   one in, or press `b` to browse suggestions. Paths are full, such as
-   `/data/me`, or start with `~/`. Press `Esc`, then `s` to save. Saving
-   writes the configuration file and nothing else.
+   **Target root**, such as `/data/me`, then press `Esc`. **Browse** opens
+   with Lighten's built-in suggestions: directories of common tools such as
+   Maven, Gradle, npm, pip, uv and Cargo. Press `Space` on each one you
+   want to move. Anything missing? Press `Esc` to go back to Configuration's
+   list, then `a`, and type the directory yourself. Paths are full, or start
+   with `~/`. Press `s` to save. Saving writes the configuration file and
+   nothing else. Later you can add a list of your own, for example one your
+   team shares, in **Suggestion list**: Browse merges it with the built-in
+   list.
 2. **Check the plan on the Workspace (`1`).** Each directory you added is a
    *relocation*. The Workspace shows what is there now and what Lighten
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
@@ -80,8 +85,9 @@ of your configuration.
 - Select **Storage locations** or a relocation in the list on the left, and
   press `Enter` to change its fields. `Esc` goes back to the list. In a
   field every letter types, so press `Esc` before `s`.
-- `a` adds a relocation and `d` removes the selected one. Nothing changes in
-  the file until you press `s`.
+- `b` opens Browse to pick from the suggestions, `a` adds a relocation you
+  type yourself, and `d` removes the selected one. Nothing changes in the
+  file until you press `s`.
 - Saving asks first, because it replaces the whole file. Comments in the
   file are not kept.
 - If the file changed after you opened Configuration, for example because you

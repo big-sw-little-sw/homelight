@@ -6,9 +6,9 @@
 #
 # <source-root> must contain a .m2 directory; the command must point at a missing config file
 # (`lighten -c <new.json> init`). Configuration opens on Target root: types it, then the source
-# root above it, goes back to the list, opens Browse and expects the bundled Maven candidate, which
-# proves candidates.json is in the binary. Then discards the draft and quits. Prints one line of
-# key=value results; exit status 0 when every check passed.
+# root above it, and goes back to the list, which opens Browse on a new file. Expects the bundled
+# Maven candidate (.m2), which proves candidates.json is in the binary. Then discards the draft and quits.
+# Prints one line of key=value results; exit status 0 when every check passed.
 # Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
 encoding system iso8859-1
 set logfile [lindex $argv 0]
@@ -43,11 +43,10 @@ send "\033\[A"
 after 300
 send "\025$source"
 after 300
-# Back to the list, then Browse.
+# Back to the list: a new file opens Browse by itself. Configuration's empty list names Maven too, so
+# match Maven's directory, which only Browse lists.
 send "\033"
-after 300
-send "b"
-step discovery {Maven}
+step discovery {\.m2}
 send_log "\n@@QUIT@@\n"
 # Back to the list, discard the draft (q, then y to confirm), quit the workspace.
 foreach key {"\033" q y q} {
