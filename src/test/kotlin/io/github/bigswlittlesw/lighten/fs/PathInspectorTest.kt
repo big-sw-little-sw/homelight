@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.fs
+package io.github.bigswlittlesw.lighten.fs
 
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir

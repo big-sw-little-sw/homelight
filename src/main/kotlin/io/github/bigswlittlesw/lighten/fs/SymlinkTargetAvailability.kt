@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.fs
+package io.github.bigswlittlesw.lighten.fs
 
 /** The availability of the destination reached by a symlink. */
 enum class SymlinkTargetAvailability {

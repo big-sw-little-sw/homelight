@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.markdown.MarkdownStyles
 import dev.tamboui.style.Style
@@ -20,7 +20,7 @@ internal data class KeyHint(
     val text: String get() = "$keys: $action"
 }
 
-/** The steps of using HomeLight, in order; Help's "You are here" line marks the current one. */
+/** The steps of using Lighten, in order; Help's "You are here" line marks the current one. */
 internal enum class Step { CONFIGURE, WORKSPACE, REVIEW, APPLY, RESULTS }
 
 /**
@@ -48,7 +48,7 @@ internal fun helpScreen(
     screen: ScreenHelp, guide: String, tab: HelpTab, viewports: Map<HelpTab, DetailViewport>, interactive: Boolean,
 ): Element {
     val header = Toolkit.row(
-        Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$HELP_TITLE]").fg(palette.focus).bold(),
+        Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(), Toolkit.text("[$HELP_TITLE]").fg(palette.focus).bold(),
     )
     val other = if (tab == HelpTab.THIS_SCREEN) HelpTab.GUIDE else HelpTab.THIS_SCREEN
     val tabs = TabsElement(THIS_SCREEN_TAB, GUIDE_TAB).selected(tab.ordinal)

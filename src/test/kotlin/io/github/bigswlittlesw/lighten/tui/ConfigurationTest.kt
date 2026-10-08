@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.application.PlanBadge
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.application.PlanBadge
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -26,7 +26,7 @@ class ConfigurationTest {
     @Test fun createsANewFileAndSaysTheNextStep() {
         val root = fixture()
         val config = root.resolve("new/config.json")
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('i')
         // A new file opens on its one required field.
         assertEquals("config-target-root", ui.focused())
@@ -74,7 +74,7 @@ class ConfigurationTest {
     @Test fun editsAnExistingFileAndReplacesItAfterAsking() {
         val root = fixture()
         val config = existing(root)
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('e')
         assertEquals(CONFIG_LIST, ui.focused())
         assertTrue(ui.screen(240, 50).contains("existing file · no unsaved changes"), ui.screen(240, 50))
@@ -113,7 +113,7 @@ class ConfigurationTest {
     @Test fun refusesToReplaceAFileChangedSinceItWasOpened() {
         val root = fixture()
         val config = existing(root)
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('e')
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.ENTER)
@@ -136,7 +136,7 @@ class ConfigurationTest {
     @Test fun closingAsksOnlyWithUnsavedChanges() {
         val root = fixture()
         val config = existing(root)
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('e')
         ui.press(KeyCode.ESCAPE)
         assertTrue(ui.screen(240, 50).contains("[1: Workspace]"), "nothing changed, so Esc closes at once")
@@ -169,7 +169,7 @@ class ConfigurationTest {
         assertTrue(ui.screen(240, 50).contains("[1: Workspace]"))
 
         // A new file asks once anything is typed.
-        val fresh = HeadlessTui(HomeLightSession(root.resolve("fresh.json")))
+        val fresh = HeadlessTui(LightenSession(root.resolve("fresh.json")))
         fresh.press('i')
         fresh.type("/srv")
         fresh.press(KeyCode.ESCAPE)
@@ -182,7 +182,7 @@ class ConfigurationTest {
     /** In a text field every printable key types, `?` included; F1 opens Help, and Ctrl chords never act as letters. */
     @Test fun textFieldsTakeEveryLetterAndF1OpensHelp() {
         val root = fixture()
-        val ui = HeadlessTui(HomeLightSession(existing(root)))
+        val ui = HeadlessTui(LightenSession(existing(root)))
         ui.press('e')
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.ENTER)
@@ -204,7 +204,7 @@ class ConfigurationTest {
 
         ui.press(KeyCode.F1)
         val thisScreen = ui.screen(100, 40)
-        assertTrue(thisScreen.startsWith("⌂ HOMELIGHT  [Help]"), thisScreen)
+        assertTrue(thisScreen.startsWith("⌂ LIGHTEN  [Help]"), thisScreen)
         assertTrue(thisScreen.contains(place(CONFIGURATION_NAME, TARGET_LABEL)), thisScreen)
         assertTrue(thisScreen.contains("Clear the field"), thisScreen)
         ui.press(KeyCode.F1)
@@ -217,7 +217,7 @@ class ConfigurationTest {
      */
     @Test fun bothHelpLinesFitAt80ColumnsOnEveryFocus() {
         val root = fixture()
-        val ui = HeadlessTui(HomeLightSession(existing(root)))
+        val ui = HeadlessTui(LightenSession(existing(root)))
         ui.press('e')
         val seen = mutableSetOf<String?>()
         repeat(2) { row ->
@@ -242,7 +242,7 @@ class ConfigurationTest {
     @Test fun saveRefusesWhatTheLoaderRejectsAndSaysWhere() {
         val root = fixture()
         val config = root.resolve("config.json")
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('i')
         ui.press(KeyCode.ESCAPE)
         ui.press('a')
@@ -300,12 +300,12 @@ class ConfigurationTest {
         val config = Files.writeString(
             root.resolve("rules.json"),
             """
-            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}", "relocations": [
+            {"lighten": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}", "relocations": [
               {"source-path": "${root.resolve("home/team-cache")}", "when-source-and-target-directories-exist": "leave-unchanged",
                "when-adopting-target": "archive-source"}]}}
             """.trimIndent(),
         )
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('e')
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.ENTER)
@@ -348,10 +348,10 @@ class ConfigurationTest {
         }.joinToString(",\n")
         val config = Files.writeString(
             root.resolve("rules.json"),
-            "{\"homelight\": {\"source-root\": \"${root.resolve("home")}\", \"target-root\": \"${root.resolve("local")}\", " +
+            "{\"lighten\": {\"source-root\": \"${root.resolve("home")}\", \"target-root\": \"${root.resolve("local")}\", " +
                 "\"relocations\": [\n$relocations\n]}}",
         )
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('e')
         for ((_, labels) in rules) {
             ui.press(KeyCode.DOWN)
@@ -364,10 +364,10 @@ class ConfigurationTest {
         assertTrue(ui.screen(240, 50).contains("no unsaved changes"), "showing a rule changes nothing")
     }
 
-    /** `homelight init` and `config` open the file that is there, for editing. */
+    /** `lighten init` and `config` open the file that is there, for editing. */
     @Test fun openingOnConfigurationLoadsAnExistingFile() {
         val root = fixture()
-        val ui = HeadlessTui(HomeLightSession(existing(root)), openConfiguration = true)
+        val ui = HeadlessTui(LightenSession(existing(root)), openConfiguration = true)
         val screen = ui.screen(240, 50)
         assertTrue(screen.contains("existing file · no unsaved changes"), screen)
         assertTrue(screen.contains("❯ Storage locations"), screen)
@@ -385,7 +385,7 @@ class ConfigurationTest {
     private fun existing(root: Path): Path = Files.writeString(
         root.resolve("config.json"),
         """
-        {"homelight": {
+        {"lighten": {
           // Written by hand
           "target-root": "${root.resolve("local")}",
           "ignored-source-paths": ["~/never-moved"],

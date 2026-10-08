@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.cli.renderApplyJson
-import io.github.bigswlittlesw.homelight.concurrent.RELOCATION_CONCURRENCY
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.fs.PathInspector
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionExecution
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ActionStatus
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.ExecutionOutcome
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor.Step
+import io.github.bigswlittlesw.lighten.cli.renderApplyJson
+import io.github.bigswlittlesw.lighten.concurrent.RELOCATION_CONCURRENCY
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.ActionExecution
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.ActionStatus
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.ExecutionOutcome
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.Step
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -71,9 +71,9 @@ class ConcurrentExecutionTest {
 
     @Test
     fun runsSiblingsUnderAnExistingParentConcurrently() {
-        // `home` and `store` exist, and the migrations share the default staging root `store/.homelight-staging`.
+        // `home` and `store` exist, and the migrations share the default staging root `store/.lighten-staging`.
         Files.createDirectories(root.resolve("store"))
-        val staging = root.resolve("store/.homelight-staging")
+        val staging = root.resolve("store/.lighten-staging")
         val relocations = listOf("a", "b", "c").map { name -> migration("home/.$name", "store/$name", files = 20) }
         val plan = plan(relocations)
         assertEquals(listOf(listOf(0), listOf(1), listOf(2)), independentGroups(plan.relocations))
@@ -112,7 +112,7 @@ class ConcurrentExecutionTest {
     @EnumSource(Step::class, names = ["LOCKED", "COPIED", "PUBLISHED"])
     internal fun anInFlightTargetIsLockedWhileOtherTargetsShareItsStagingRoot(step: Step) {
         Files.createDirectories(root.resolve("store"))
-        val staging = root.resolve("store/.homelight-staging")
+        val staging = root.resolve("store/.lighten-staging")
         val target = root.resolve("store/paused")
         val paused = plan(listOf(migration("home/.paused", "store/paused", files = 5)))
         val rival = migration("home/.rival", "store/unused", files = 1).sourcePath
@@ -134,13 +134,13 @@ class ConcurrentExecutionTest {
             fun refusal(lockMessage: String) =
                 if (step == Step.PUBLISHED) "expected absent at $target but found directory" else lockMessage
             ForeignStagingProcess().use { foreign ->
-                assertEquals(refusal("another HomeLight is publishing $target"), foreign.migrate(rival, target))
+                assertEquals(refusal("another Lighten is publishing $target"), foreign.migrate(rival, target))
                 assertEquals(before, snapshot(copy))
                 assertTrue(foreign.lockIsHeld(lock))
 
                 // This process must refuse before it opens the lock file: closing a channel to it would free the lock.
                 val again = ReconciliationExecutor().execute(migrationOnly(rival, target)).relocations.single()
-                assertEquals(refusal("this HomeLight is already publishing $target"), again.actions.single().message)
+                assertEquals(refusal("this Lighten is already publishing $target"), again.actions.single().message)
                 assertEquals(before, snapshot(copy))
                 assertTrue(foreign.lockIsHeld(lock))
 
@@ -222,7 +222,7 @@ class ConcurrentExecutionTest {
         val defaultStaging = listOf(migration("a/one", "store/one"), migration("b/two", "store/two"))
         val nestedStaging = listOf(migration("a/one", "store/one", "e/.staging"), migration("b/two", "f/two", "e/.staging/b"))
         // A shared staging root inside a third relocation's target still overlaps it.
-        val stagingInTarget = defaultStaging + relocation("j/source", "store/.homelight-staging/k")
+        val stagingInTarget = defaultStaging + relocation("j/source", "store/.lighten-staging/k")
         val archiveIntoFirst = relocation("h/source", "c/target",
             ReconciliationAction.ArchiveDirectory(root.resolve("h/source"), root.resolve("b/target/archive/h/source")))
         val independent = relocation("j/source", "k/target")

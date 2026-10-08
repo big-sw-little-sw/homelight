@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.DEBUG_STEP_DELAY_MILLIS
-import io.github.bigswlittlesw.homelight.application.guideUrl
-import io.github.bigswlittlesw.homelight.application.internalErrorMessage
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.InvalidConfigurationException
-import io.github.bigswlittlesw.homelight.tui.launchTui
-import io.github.bigswlittlesw.homelight.tui.unreadableCli
+import io.github.bigswlittlesw.lighten.application.DEBUG_STEP_DELAY_MILLIS
+import io.github.bigswlittlesw.lighten.application.guideUrl
+import io.github.bigswlittlesw.lighten.application.internalErrorMessage
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.InvalidConfigurationException
+import io.github.bigswlittlesw.lighten.tui.launchTui
+import io.github.bigswlittlesw.lighten.tui.unreadableCli
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
@@ -21,15 +21,15 @@ import java.util.concurrent.Callable
 import java.util.concurrent.CompletionException
 import kotlin.system.exitProcess
 
-/** Root command and CLI entry point for HomeLight. */
+/** Root command and CLI entry point for Lighten. */
 @Command(
-    name = "homelight",
+    name = "lighten",
     subcommands = [StatusCommand::class, PlanCommand::class, ApplyCommand::class, InitCommand::class, GuideCommand::class],
     mixinStandardHelpOptions = true,
-    versionProvider = HomeLightVersionProvider::class,
+    versionProvider = LightenVersionProvider::class,
     description = ["Relocates selected bulky home directories to machine-local storage."],
 )
-class HomeLightCommand : Callable<Int> {
+class LightenCommand : Callable<Int> {
     @Option(
         names = ["--config", "-c"], description = ["Path to configuration file."],
         scope = CommandLine.ScopeType.INHERIT,
@@ -56,12 +56,12 @@ class HomeLightCommand : Callable<Int> {
             exitProcess(createCommandLine().execute(*args))
         }
 
-        fun createCommandLine(): CommandLine = CommandLine(HomeLightCommand())
+        fun createCommandLine(): CommandLine = CommandLine(LightenCommand())
             .setExecutionStrategy(::executeValidated)
             .setExecutionExceptionHandler(::handleExecutionException)
             // Set here, not in @Command: the address depends on the version. It has a line of its own, so picocli's
             // wrapping at 80 columns never splits it.
-            .also { it.commandSpec.usageMessage().footer("", "User guide: run homelight guide, or read it online:", guideUrl()) }
+            .also { it.commandSpec.usageMessage().footer("", "User guide: run lighten guide, or read it online:", guideUrl()) }
             .also { root -> root.subcommands.values.toSet().forEach { it.commandSpec.addOption(helpOption()) } }
 
         // mixinStandardHelpOptions is not inherited, and on a subcommand it would add -V too: --version belongs to
@@ -75,7 +75,7 @@ class HomeLightCommand : Callable<Int> {
 // picocli handles a ParameterException thrown here as a usage error: message, usage help, exit code 2.
 private fun executeValidated(parseResult: ParseResult): Int {
     val root = parseResult.commandSpec().commandLine()
-    if (root.getCommand<HomeLightCommand>().debugStepDelayMillis !in DEBUG_STEP_DELAY_MILLIS) {
+    if (root.getCommand<LightenCommand>().debugStepDelayMillis !in DEBUG_STEP_DELAY_MILLIS) {
         throw ParameterException(root,
             "--debug-step-delay-ms must be between ${DEBUG_STEP_DELAY_MILLIS.first} and ${DEBUG_STEP_DELAY_MILLIS.last}")
     }

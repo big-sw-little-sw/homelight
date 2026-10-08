@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.lighten.discovery
 
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

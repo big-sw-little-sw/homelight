@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
@@ -7,7 +7,7 @@ import java.util.concurrent.Executor
 /**
  * Presentation-neutral session holding active workflow state, typed draft decisions, and evaluated plans.
  */
-class HomeLightSession(
+class LightenSession(
     val configPath: Path,
     private val debugStepDelayMillis: Long = 0,
     private val evaluator: ConfigurationEvaluation = ConfigurationEvaluation(),
@@ -86,7 +86,7 @@ class HomeLightSession(
     /** The worker never accesses terminal state. Repeated confirmation cannot schedule another execution. */
     @Synchronized
     fun confirmApply(
-        worker: Executor = Executor { task -> Thread.ofPlatform().name("homelight-apply").start(task) },
+        worker: Executor = Executor { task -> Thread.ofPlatform().name("lighten-apply").start(task) },
     ): CompletableFuture<Void?> {
         if (applyModel() !is ApplyModel.Confirmation) {
             return execution

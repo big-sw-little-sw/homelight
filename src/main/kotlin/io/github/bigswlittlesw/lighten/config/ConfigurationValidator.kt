@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import java.io.IOException
 import java.nio.file.Files
@@ -70,7 +70,7 @@ internal fun aliasedRelocationProblem(relocations: List<Relocation>): Relocation
 /**
  * [path], absolute and normalized, with its longest existing ancestor replaced by that ancestor's real path, so that
  * different spellings of one place compare equal. The path itself is never followed: a source may be the link that
- * HomeLight created. Components that do not exist yet, and an ancestor that cannot be resolved, stay as written.
+ * Lighten created. Components that do not exist yet, and an ancestor that cannot be resolved, stay as written.
  */
 internal fun realSpelling(path: Path): Path {
     val absolute = normalized(path)

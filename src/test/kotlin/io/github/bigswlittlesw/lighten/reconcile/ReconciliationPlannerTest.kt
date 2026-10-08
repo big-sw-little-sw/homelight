@@ -1,14 +1,14 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
-import io.github.bigswlittlesw.homelight.config.validateConfiguration
-import io.github.bigswlittlesw.homelight.fs.PathInspector
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.config.defaultArchiveRoot
+import io.github.bigswlittlesw.lighten.config.validateConfiguration
+import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -146,7 +146,7 @@ class ReconciliationPlannerTest {
         fun archive(archiveRoot: Path) = plan(archiving(source, target, archiveRoot)).relocations.single()
 
         val default = archive(defaultArchiveRoot(source))
-        assertEquals(root.resolve("home/.homelight-archive/cache"),
+        assertEquals(root.resolve("home/.lighten-archive/cache"),
                 default.actions.filterIsInstance<ReconciliationAction.ArchiveDirectory>().single().target)
         for (overlapping in listOf(target.resolve("archive"), source.resolve("archive"))) {
             assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive path overlaps a relocation path")),
@@ -220,8 +220,8 @@ class ReconciliationPlannerTest {
     fun aFolderInTheWayDoesNotBlockAPlanThatDoesNotNeedIt(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = Files.createSymbolicLink(Files.createDirectories(root.resolve("home")).resolve("cache"), target)
-        Files.writeString(root.resolve("home/.homelight-archive"), "a file")
-        Files.writeString(root.resolve("local/.homelight-staging"), "a file")
+        Files.writeString(root.resolve("home/.lighten-archive"), "a file")
+        Files.writeString(root.resolve("local/.lighten-staging"), "a file")
 
         assertEquals(listOf(ReconciliationAction.NoOp(source)), plan(Relocation(source, target)).actions())
     }

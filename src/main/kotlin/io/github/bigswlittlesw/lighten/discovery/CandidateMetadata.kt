@@ -1,8 +1,8 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.lighten.discovery
 
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Diagnostic
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Diagnostic
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files

@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import java.nio.file.Path
 
@@ -19,7 +19,7 @@ data class Relocation(
 )
 
 /**
- * `.homelight-archive` beside the source. Archiving is an atomic rename, so the root must be on the source's
+ * `.lighten-archive` beside the source. Archiving is an atomic rename, so the root must be on the source's
  * filesystem; beside the source it almost always is.
  */
-fun defaultArchiveRoot(sourcePath: Path): Path = sourcePath.toAbsolutePath().normalize().resolveSibling(".homelight-archive")
+fun defaultArchiveRoot(sourcePath: Path): Path = sourcePath.toAbsolutePath().normalize().resolveSibling(".lighten-archive")

@@ -1,6 +1,6 @@
 @file:Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
 
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 // Java's String.isBlank and String.strip, for code that relies on their exact semantics.
 // Kotlin hides strip, and its isBlank and trim also treat no-break spaces as whitespace.

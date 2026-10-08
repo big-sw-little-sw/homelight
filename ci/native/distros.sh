@@ -3,7 +3,7 @@
 #
 #   ci/native/distros.sh <x86_64|arm64> <binary-dir> [results-dir]
 #
-# <binary-dir> holds homelight and jvm-reference.txt as written by build.sh. Each distro runs at
+# <binary-dir> holds lighten and jvm-reference.txt as written by build.sh. Each distro runs at
 # the level listed below (see test.sh); "noexec" mounts /tmp noexec, which the JNI terminal
 # provider cannot load its library from. Needs docker on a host of the same architecture
 # (or an emulating one such as OrbStack). Exit status is non-zero when any distro fails.

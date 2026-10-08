@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
 import java.nio.file.Path
 
 /**
@@ -15,7 +15,7 @@ object CandidateSetupPty {
         SetupDiscoveryFixture().use { fixture ->
             fixture.realTime = true
             if (args.size > 1) { fixture.block = true; fixture.releaseFile = Path.of(args[1]) }
-            runTui(HomeLightSession(Path.of(args[0])), openConfiguration = true, discoveryFactory = fixture::get)
+            runTui(LightenSession(Path.of(args[0])), openConfiguration = true, discoveryFactory = fixture::get)
         }
     }
 }

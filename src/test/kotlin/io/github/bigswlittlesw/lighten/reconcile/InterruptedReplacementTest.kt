@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.cli.HomeLightCommand
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.cli.LightenCommand
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -113,7 +113,7 @@ class InterruptedReplacementTest {
         val others = listOf(
             replacedSourcePath(source, root.resolve("local/elsewhere")),
             replacedSourcePath(source.resolveSibling("other"), target),
-            source.resolveSibling(".homelight-replaced-cache"),
+            source.resolveSibling(".lighten-replaced-cache"),
         )
         others.forEach { Files.createDirectory(it) }
 
@@ -151,7 +151,7 @@ class InterruptedReplacementTest {
     private fun plan(): ReconciliationPlan = ConfigurationEvaluation().loadRequired(config).plan
 
     private fun applyJsonYes(): Int {
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         command.setOut(PrintWriter(StringWriter(), true))
         command.setErr(PrintWriter(StringWriter(), true))
         return command.execute("apply", "--json", "--yes", "--config", config.toString())
@@ -159,7 +159,7 @@ class InterruptedReplacementTest {
 
     private fun writeConfig(rules: String = "") {
         Files.writeString(config,
-            "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [\n" +
+            "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [\n" +
                 "  {\"source-path\": \"$source\", \"target-path\": \"$target\"$rules}\n]}}\n")
     }
 

@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import java.nio.file.Path
 
 /**

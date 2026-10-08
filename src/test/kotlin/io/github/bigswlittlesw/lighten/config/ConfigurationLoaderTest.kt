@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -15,7 +15,7 @@ class ConfigurationLoaderTest {
 
     @Test fun loadsStateSpecificDecisions() {
         val relocation = load("""
-            {"homelight": {
+            {"lighten": {
               "target-root": "/local",
               "relocations": [{
                 "source-path": "/home/cache",
@@ -34,89 +34,89 @@ class ConfigurationLoaderTest {
     @Test fun archiveRootDefaultsBesideTheSource() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val relocations = load("""
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive-source"},
               {"source-path": "/home/b", "target-path": "/local/b", "archive-root": "~/archive"}]}}
             """).relocations
-        assertEquals(Path.of("/home/.homelight-archive"), relocations[0].archiveRoot)
+        assertEquals(Path.of("/home/.lighten-archive"), relocations[0].archiveRoot)
         assertEquals(home.resolve("archive"), relocations[1].archiveRoot)
     }
 
     @Test fun rejectsAPolicyObject() {
         assertEquals("Line 2: relocations[0].when-adopting-target should be text, but it is an object.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": {"policy": "archive-source"}}]}}
             """))
     }
 
     @Test fun rejectsStagingOutsideTargetRoot() {
         assertEquals("staging-root must be under target-root",
-            failure("""{"homelight": {"target-root": "/local", "staging-root": "/elsewhere"}}"""))
+            failure("""{"lighten": {"target-root": "/local", "staging-root": "/elsewhere"}}"""))
     }
 
     @Test fun reportsMissingRequiredKeysByPath() {
-        assertEquals("target-root is missing. Add it under \"homelight\".",
-            failure("""{"homelight": {"relocations": []}}"""))
+        assertEquals("target-root is missing. Add it under \"lighten\".",
+            failure("""{"lighten": {"relocations": []}}"""))
         assertEquals("source-path is missing. Add it under \"relocations[0]\".",
-            failure("""{"homelight": {"target-root": "/local", "relocations": [{"target-path": "/local/cache"}]}}"""))
-        assertEquals("homelight is missing. Add it at the top of the file.", failure("{}"))
+            failure("""{"lighten": {"target-root": "/local", "relocations": [{"target-path": "/local/cache"}]}}"""))
+        assertEquals("lighten is missing. Add it at the top of the file.", failure("{}"))
     }
 
     @Test fun rejectsNullForARequiredValue() {
         assertEquals("Line 1: target-root should be text, but it is null.",
-            failure("""{"homelight": {"target-root": null}}"""))
-        assertEquals("Line 1: homelight should be an object in { }, but it is null.", failure("""{"homelight": null}"""))
+            failure("""{"lighten": {"target-root": null}}"""))
+        assertEquals("Line 1: lighten should be an object in { }, but it is null.", failure("""{"lighten": null}"""))
     }
 
     @Test fun rejectsBlankPaths() {
-        assertEquals("homelight.target-root must not be blank", failure("""{"homelight": {"target-root": "  "}}"""))
-        assertEquals("homelight.relocations[0].target-path must not be blank", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "target-path": ""}]}}
+        assertEquals("lighten.target-root must not be blank", failure("""{"lighten": {"target-root": "  "}}"""))
+        assertEquals("lighten.relocations[0].target-path must not be blank", failure("""
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "target-path": ""}]}}
             """))
-        assertEquals("homelight.relocations[0].archive-root must not be blank", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "archive-root": ""}]}}
+        assertEquals("lighten.relocations[0].archive-root must not be blank", failure("""
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "~/cache", "archive-root": ""}]}}
             """))
-        assertEquals("homelight.ignored-source-paths[1] must not be blank",
-            failure("""{"homelight": {"target-root": "/local", "ignored-source-paths": ["~/a", " "]}}"""))
+        assertEquals("lighten.ignored-source-paths[1] must not be blank",
+            failure("""{"lighten": {"target-root": "/local", "ignored-source-paths": ["~/a", " "]}}"""))
     }
 
     @Test fun reportsValuesOfTheWrongTypeWithPositionAndPath() {
         assertEquals("Line 2: target-root should be text, but it is a list.", failure("""
-            {"homelight": {
+            {"lighten": {
               "target-root": ["/local"]}}
             """))
         assertEquals("Line 1: target-root should be text, but it is a number.",
-            failure("""{"homelight": {"target-root": 5}}"""))
+            failure("""{"lighten": {"target-root": 5}}"""))
         assertEquals("Line 1: relocations should be a list in [ ], but it is text.",
-            failure("""{"homelight": {"target-root": "/local", "relocations": "/home/cache"}}"""))
+            failure("""{"lighten": {"target-root": "/local", "relocations": "/home/cache"}}"""))
         assertEquals("Line 1: relocations[0] should be an object in { }, but it is text.",
-            failure("""{"homelight": {"target-root": "/local", "relocations": ["/home/cache"]}}"""))
-        assertEquals("Line 1: homelight should be an object in { }, but it is text.", failure("""{"homelight": "/local"}"""))
+            failure("""{"lighten": {"target-root": "/local", "relocations": ["/home/cache"]}}"""))
+        assertEquals("Line 1: lighten should be an object in { }, but it is text.", failure("""{"lighten": "/local"}"""))
         assertEquals("Line 1: The file should be an object in { }, but it is a list.", failure("[]"))
     }
 
     @Test fun rejectsUnknownKeysAtEveryLevel() {
         assertEquals("Line 1: The file has an unknown setting \"other\". Check its spelling or remove it.",
-            failure("""{"other": 1, "homelight": {"target-root": "/local"}}"""))
-        assertEquals("Line 1: homelight has an unknown setting \"target\". Check its spelling or remove it.",
-            failure("""{"homelight": {"target-root": "/local", "target": "/local"}}"""))
+            failure("""{"other": 1, "lighten": {"target-root": "/local"}}"""))
+        assertEquals("Line 1: lighten has an unknown setting \"target\". Check its spelling or remove it.",
+            failure("""{"lighten": {"target-root": "/local", "target": "/local"}}"""))
         assertEquals("Line 2: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}
             """))
         // The suggestion list moved to the top level; the old `discovery` object is unknown.
-        assertTrue(failure("""{"homelight": {"target-root": "/local", "discovery": {"suggestion-list": "/s.json"}}}""").orEmpty()
-            .endsWith("homelight has an unknown setting \"discovery\". Check its spelling or remove it."))
+        assertTrue(failure("""{"lighten": {"target-root": "/local", "discovery": {"suggestion-list": "/s.json"}}}""").orEmpty()
+            .endsWith("lighten has an unknown setting \"discovery\". Check its spelling or remove it."))
         // The removed key is unknown too.
         assertEquals("Line 2: relocations[0] has an unknown setting \"source-archive-root\". Check its spelling or remove it.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "source-archive-root": "/archive"}]}}
             """))
     }
 
     @Test fun keepsTheLastValueOfARepeatedKey() {
         val configuration = load("""
-            {"homelight": {
+            {"lighten": {
               "target-root": "/local",
               "target-root": "/other",
               "relocations": [{"source-path": "/home/a", "source-path": "/home/b", "target-path": "/other/b"}]}}
@@ -127,9 +127,9 @@ class ConfigurationLoaderTest {
 
     @Test fun acceptsCommentsAndTrailingCommas() {
         val configuration = load("""
-            // HomeLight configuration
+            // Lighten configuration
             {
-              "homelight": {
+              "lighten": {
                 /* Where relocated directories live. */
                 "target-root": "/local",
                 "relocations": [
@@ -143,27 +143,27 @@ class ConfigurationLoaderTest {
 
     @Test fun reportsTextThatIsNotJsonInPlainWordsWithPosition() {
         val cases = mapOf(
-            "homelight" to """line 1, column 1 should start with "{" but starts with "h"""",
+            "lighten" to """line 1, column 1 should start with "{" but starts with "l"""",
             "" to """line 1, column 1 should have "{" but the file ends there""",
-            """{"homelight": {"target-root": "/local"}} {}""" to
-                """line 1, column 43 should be the end of the file but has "{"""",
-            "{\"homelight\": {\"target-root\": \"unclosed\nmore" to
-                """line 1, column 40 should have a double quote (") but the line ends there""",
-            """{homelight: {"target-root": "/local"}}""" to
-                """line 1, column 2 should start with a double quote (") but starts with "h"""",
-            """{"homelight": {"target-root": tru}}""" to
-                """line 1, column 31 should start with a double quote (") but starts with "t"""",
-            """{"homelight": {"target-root" "/local"}}""" to
-                """line 1, column 30 should start with ":" but starts with a double quote (")""",
-            """{"homelight": {"target-root": "/local"}""" to """line 1, column 40 should have "}" but the file ends there""",
+            """{"lighten": {"target-root": "/local"}} {}""" to
+                """line 1, column 41 should be the end of the file but has "{"""",
+            "{\"lighten\": {\"target-root\": \"unclosed\nmore" to
+                """line 1, column 38 should have a double quote (") but the line ends there""",
+            """{lighten: {"target-root": "/local"}}""" to
+                """line 1, column 2 should start with a double quote (") but starts with "l"""",
+            """{"lighten": {"target-root": tru}}""" to
+                """line 1, column 29 should start with a double quote (") but starts with "t"""",
+            """{"lighten": {"target-root" "/local"}}""" to
+                """line 1, column 28 should start with ":" but starts with a double quote (")""",
+            """{"lighten": {"target-root": "/local"}""" to """line 1, column 38 should have "}" but the file ends there""",
             """
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/a"} {"source-path": "/b"}]}}
             """ to """line 2, column 25 should start with a comma or "]"""",
-            """{"homelight": {"target-root": "C:\local"}}""" to
-                """line 1, column 32 has a backslash before "l", which JSON does not allow; write \\ for one backslash""",
-            """{"homelight": {"target-root": "/local"}} /* end""" to
-                """line 1, column 48 should close a comment with "*/" but the file ends there""",
+            """{"lighten": {"target-root": "C:\local"}}""" to
+                """line 1, column 30 has a backslash before "l", which JSON does not allow; write \\ for one backslash""",
+            """{"lighten": {"target-root": "/local"}} /* end""" to
+                """line 1, column 46 should close a comment with "*/" but the file ends there""",
         )
         for ((text, problem) in cases) {
             assertEquals("It isn't valid JSON: $problem.", failure(text), text)
@@ -172,46 +172,46 @@ class ConfigurationLoaderTest {
 
     /** Valid JSON of the wrong kind is not a syntax error: it names the key, and the line without a column. */
     @Test fun reportsJsonOfTheWrongKindByKeyAndLine() {
-        assertEquals("Line 1: homelight should be an object in { }, but it is a list.", failure("{\"homelight\": [\n"))
-        assertEquals("Line 1: target-root should be text, but it is true.", failure("""{"homelight": {"target-root": true}}"""))
+        assertEquals("Line 1: lighten should be an object in { }, but it is a list.", failure("{\"lighten\": [\n"))
+        assertEquals("Line 1: target-root should be text, but it is true.", failure("""{"lighten": {"target-root": true}}"""))
         // kotlinx gives no line for an unknown rule value.
         assertEquals("relocations[0].when-only-target-exists can't be \"sometimes\". Use one of: prompt, adopt-target.",
             failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-only-target-exists": "sometimes"}]}}
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-only-target-exists": "sometimes"}]}}
             """))
     }
 
     @Test fun anInvalidFileNamesItsPathAndTheLineAtFault() {
-        val syntax = write("{\"homelight\": {\n  \"target-root\" \"/local\"}}")
+        val syntax = write("{\"lighten\": {\n  \"target-root\" \"/local\"}}")
         val atLine = assertThrows<InvalidConfigurationException> { ConfigurationLoader().load(syntax) }
         assertEquals(syntax, atLine.path)
         assertEquals(2, atLine.line)
         // A value check names a setting, not a line.
-        val relative = write("""{"homelight": {"target-root": "local"}}""")
+        val relative = write("""{"lighten": {"target-root": "local"}}""")
         val atSetting = assertThrows<InvalidConfigurationException> { ConfigurationLoader().load(relative) }
         assertEquals(relative, atSetting.path)
         assertEquals(0, atSetting.line)
-        assertEquals("homelight.target-root: $FULL_PATH", atSetting.message)
+        assertEquals("lighten.target-root: $FULL_PATH", atSetting.message)
     }
 
     @Test fun acceptsOnlyTheKebabCasePolicyValues() {
         assertEquals("relocations[0].when-only-target-exists can't be \"ADOPT_TARGET\". Use one of: prompt, adopt-target.",
             failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{
+            {"lighten": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "ADOPT_TARGET"}]}}
             """))
         assertEquals("relocations[0].when-source-and-target-directories-exist can't be \"move\"." +
             " Use one of: prompt, adopt, leave-unchanged, discard.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{
+            {"lighten": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-source-and-target-directories-exist": "move"}]}}
             """))
         assertEquals("relocations[0].when-adopting-target can't be \"archive\"." +
             " Use one of: prompt, discard-source, archive-source.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{
+            {"lighten": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache", "target-path": "/local/cache", "when-adopting-target": "archive"}]}}
             """))
         val relocation = load("""
-            {"homelight": {"target-root": "/local", "relocations": [{
+            {"lighten": {"target-root": "/local", "relocations": [{
               "source-path": "/home/cache",
               "target-path": "/local/cache",
               "when-source-and-target-directories-exist": "leave-unchanged",
@@ -225,11 +225,11 @@ class ConfigurationLoaderTest {
 
     @Test fun errorMessagesNameNoKotlinTypes() {
         val inputs = listOf(
-            "{}", """{"homelight": {}}""", """{"homelight": {"target-root": "/l", "relocations": [{}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-only-target-exists": "x"}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": "x"}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": {}}]}}""",
-            """{"homelight": {"target-root": "/l", "relocations": [{"source-path": "/s", "archive-root": 5}]}}""",
+            "{}", """{"lighten": {}}""", """{"lighten": {"target-root": "/l", "relocations": [{}]}}""",
+            """{"lighten": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-only-target-exists": "x"}]}}""",
+            """{"lighten": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": "x"}]}}""",
+            """{"lighten": {"target-root": "/l", "relocations": [{"source-path": "/s", "when-adopting-target": {}}]}}""",
+            """{"lighten": {"target-root": "/l", "relocations": [{"source-path": "/s", "archive-root": 5}]}}""",
         )
         for (input in inputs) {
             val message = failure(input).orEmpty()
@@ -242,7 +242,7 @@ class ConfigurationLoaderTest {
     @Test fun treatsNullOptionalValuesAsAbsent() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val configuration = load("""
-            {"homelight": {
+            {"lighten": {
               "target-root": "/local",
               "staging-root": "/local/staging/../.staging",
               "ignored-source-paths": ["~/ignored"],
@@ -258,22 +258,22 @@ class ConfigurationLoaderTest {
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
         assertEquals(Path.of("/shared/candidates.json"), configuration.sharedList)
         // A blank shared list is the documented "none" of parseSharedList.
-        assertNull(load("""{"homelight": {"target-root": "/local", "suggestion-list": ""}}""").sharedList)
+        assertNull(load("""{"lighten": {"target-root": "/local", "suggestion-list": ""}}""").sharedList)
     }
 
     @Test fun expandsUserAndRequiresAnExplicitTargetOutsideTheDefaultSourceRoot() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val user = System.getenv().getOrDefault("USER", "")
-        assertEquals(Path.of("/local/$user"), load("""{"homelight": {"target-root": "/local/${'$'}{USER}"}}""").targetRoot)
+        assertEquals(Path.of("/local/$user"), load("""{"lighten": {"target-root": "/local/${'$'}{USER}"}}""").targetRoot)
         assertEquals("A source outside source-root $home requires an explicit target-path: /outside/cache", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/outside/cache"}]}}
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/outside/cache"}]}}
             """))
     }
 
     @Test fun derivesTargetsUnderACustomSourceRoot() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
         val relocations = load("""
-            {"homelight": {"source-root": "/data", "target-root": "/local", "relocations": [
+            {"lighten": {"source-root": "/data", "target-root": "/local", "relocations": [
               {"source-path": "/data/cache/a"},
               {"source-path": "/elsewhere/b", "target-path": "/local/b"}]}}
             """).relocations
@@ -281,18 +281,18 @@ class ConfigurationLoaderTest {
         assertEquals(Path.of("/local/b"), relocations[1].targetPath)
         // `~` expands in the root, and a source under the home directory but outside the root has no derived target.
         assertEquals(Path.of("/local/x"), load("""
-            {"homelight": {"source-root": "~/work", "target-root": "/local", "relocations": [{"source-path": "~/work/x"}]}}
+            {"lighten": {"source-root": "~/work", "target-root": "/local", "relocations": [{"source-path": "~/work/x"}]}}
             """).relocations.single().targetPath)
         assertEquals("A source outside source-root /data requires an explicit target-path: $home/cache", failure("""
-            {"homelight": {"source-root": "/data", "target-root": "/local", "relocations": [{"source-path": "~/cache"}]}}
+            {"lighten": {"source-root": "/data", "target-root": "/local", "relocations": [{"source-path": "~/cache"}]}}
             """))
-        assertEquals("homelight.source-root must not be blank",
-            failure("""{"homelight": {"source-root": " ", "target-root": "/local"}}"""))
+        assertEquals("lighten.source-root must not be blank",
+            failure("""{"lighten": {"source-root": " ", "target-root": "/local"}}"""))
     }
 
     @Test fun pathOverrideReplacesOnlyTheFirstRelocationPaths() {
         val file = write("""
-            {"homelight": {"target-root": "/local", "relocations": [
+            {"lighten": {"target-root": "/local", "relocations": [
               {"source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "adopt-target"},
               {"source-path": "/home/second", "target-path": "/local/second"}]}}
             """)
@@ -303,14 +303,14 @@ class ConfigurationLoaderTest {
         assertEquals(WhenOnlyTargetExists.ADOPT_TARGET, relocations.first().whenOnlyTargetExists)
         assertEquals(Relocation(Path.of("/home/second"), Path.of("/local/second")), relocations.last())
 
-        val empty = write("""{"homelight": {"target-root": "/local"}}""")
+        val empty = write("""{"lighten": {"target-root": "/local"}}""")
         assertEquals(listOf(Relocation(Path.of("/override/source"), Path.of("/override/target"))),
             ConfigurationLoader().load(empty, override).relocations)
     }
 
     @Test fun roundTripsEveryPolicyAndKeepsPathsAsWritten() {
         val text = """
-            {"homelight": {
+            {"lighten": {
               "target-root": "~/local/${'$'}{USER}",
               "staging-root": "~/local/.staging",
               "suggestion-list": "~/shared.json",
@@ -328,7 +328,7 @@ class ConfigurationLoaderTest {
         val decoded = decodeJson(ConfigurationFile.serializer(), text)
         val encoded = encodeConfiguration(decoded)
         assertEquals(decoded, decodeJson(ConfigurationFile.serializer(), encoded))
-        val relocations = decoded.homelight.relocations
+        val relocations = decoded.lighten.relocations
         assertEquals(WhenSourceAndTargetDirectoriesExist.entries, relocations.map { it.whenSourceAndTargetDirectoriesExist })
         assertEquals(listOf(WhenOnlyTargetExists.PROMPT, WhenOnlyTargetExists.ADOPT_TARGET, WhenOnlyTargetExists.PROMPT,
             WhenOnlyTargetExists.PROMPT), relocations.map { it.whenOnlyTargetExists })
@@ -344,24 +344,24 @@ class ConfigurationLoaderTest {
 
     @Test fun roundTripsTheSourceRootAndOmitsTheDefault() {
         val set = encodeConfiguration(decodeJson(ConfigurationFile.serializer(),
-            """{"homelight": {"source-root": "~/work", "target-root": "/local"}}"""))
+            """{"lighten": {"source-root": "~/work", "target-root": "/local"}}"""))
         assertTrue(set.contains("\"source-root\": \"~/work\""), set)
-        assertEquals("~/work", decodeJson(ConfigurationFile.serializer(), set).homelight.sourceRoot)
+        assertEquals("~/work", decodeJson(ConfigurationFile.serializer(), set).lighten.sourceRoot)
         // Absent and an explicit `~` are the same setting, and neither is written.
-        for (text in listOf("""{"homelight": {"target-root": "/local"}}""",
-                """{"homelight": {"source-root": "~", "target-root": "/local"}}""")) {
+        for (text in listOf("""{"lighten": {"target-root": "/local"}}""",
+                """{"lighten": {"source-root": "~", "target-root": "/local"}}""")) {
             val decoded = decodeJson(ConfigurationFile.serializer(), text)
-            assertEquals(DEFAULT_SOURCE_ROOT, decoded.homelight.sourceRoot)
+            assertEquals(DEFAULT_SOURCE_ROOT, decoded.lighten.sourceRoot)
             assertFalse(encodeConfiguration(decoded).contains("source-root"), text)
         }
     }
 
     @Test fun omittedAndExplicitPromptRulesLoadAlikeAndAreNotWritten() {
         val omitted = """
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache"}]}}
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache"}]}}
             """
         val explicit = """
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache",
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache",
               "when-source-and-target-directories-exist": "prompt", "when-only-target-exists": "prompt",
               "when-adopting-target": "prompt"}]}}
             """
@@ -369,7 +369,7 @@ class ConfigurationLoaderTest {
             val relocation = load(text).relocations.single()
             assertEquals(Relocation(relocation.sourcePath, relocation.targetPath), relocation, text)
             val decoded = decodeJson(ConfigurationFile.serializer(), text)
-            assertEquals(RelocationFile("/home/cache", "/local/cache"), decoded.homelight.relocations.single(), text)
+            assertEquals(RelocationFile("/home/cache", "/local/cache"), decoded.lighten.relocations.single(), text)
             val written = encodeConfiguration(decoded)
             assertFalse(written.contains("when-"), written)
             assertEquals(relocation, load(written).relocations.single())
@@ -385,7 +385,7 @@ class ConfigurationLoaderTest {
         )
         for ((name, relocation) in listOf("prompt" to prompt, "decided" to decided)) {
             val path = temporary.resolve("$name.json")
-            val file = HomeLightFile(targetRoot = temporary.resolve("local").toString(), relocations = listOf(relocation))
+            val file = LightenFile(targetRoot = temporary.resolve("local").toString(), relocations = listOf(relocation))
             ConfigurationPublisher().saveNew(path, file)
             assertEquals(relocation == decided, Files.readString(path).contains("when-"), name)
             assertEquals(relocation, ConfigurationLoader().read(path).file.relocations.single(), name)
@@ -395,17 +395,17 @@ class ConfigurationLoaderTest {
     /** A rule has a default instead of null, so `null` is a wrong value type, as for `source-root`. */
     @Test fun rejectsANullRule() {
         assertEquals("Line 1: relocations[0].when-adopting-target should be text, but it is null.", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "when-adopting-target": null}]}}
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "when-adopting-target": null}]}}
             """))
     }
 
     @Test fun writesOnlyTheSettingsThatAreSet() {
-        val file = ConfigurationFile(HomeLightFile(targetRoot = "/local", relocations = listOf(
+        val file = ConfigurationFile(LightenFile(targetRoot = "/local", relocations = listOf(
             RelocationFile("/home/cache", whenAdoptingTarget = WhenAdoptingTarget.ARCHIVE_SOURCE),
         )))
         assertEquals("""
             {
-                "homelight": {
+                "lighten": {
                     "target-root": "/local",
                     "relocations": [
                         {
@@ -423,7 +423,7 @@ class ConfigurationLoaderTest {
         val source = temporary.resolve("home/it's \"quoted\"").toString()
         for (policy in WhenAdoptingTarget.entries) {
             for (archiveRoot in listOf(null, temporary.resolve("archive").toString())) {
-                val file = HomeLightFile(
+                val file = LightenFile(
                     targetRoot = temporary.resolve("local").toString(),
                     suggestionList = temporary.resolve("shared.json").toString(),
                     relocations = listOf(RelocationFile(source, temporary.resolve("local/it's").toString(),
@@ -439,34 +439,34 @@ class ConfigurationLoaderTest {
         }
     }
 
-    /** A relative path would depend on where HomeLight runs, so every path in the file is full or starts with `~/`. */
+    /** A relative path would depend on where Lighten runs, so every path in the file is full or starts with `~/`. */
     @Test fun refusesRelativePathsEverywhere() {
         val relocation = """"relocations": [{"source-path": "/home/cache", "target-path": "/local/cache"}]"""
         for ((key, text) in listOf(
-            "homelight.source-root" to """{"homelight": {"source-root": "home", "target-root": "/local"}}""",
-            "homelight.target-root" to """{"homelight": {"target-root": "local"}}""",
-            "homelight.target-root" to """{"homelight": {"target-root": "${'$'}{USER}/local"}}""",
-            "homelight.staging-root" to """{"homelight": {"target-root": "/local", "staging-root": "staging"}}""",
-            "homelight.relocations[0].source-path" to """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "cache"}]}}""",
-            "homelight.relocations[0].target-path" to
-                """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "cache"}]}}""",
-            "homelight.relocations[0].archive-root" to
-                """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache", "archive-root": "a"}]}}""",
-            "homelight.ignored-source-paths[0]" to """{"homelight": {"target-root": "/local", "ignored-source-paths": ["x"], $relocation}}""",
-            "homelight.suggestion-list" to """{"homelight": {"target-root": "/local", "suggestion-list": "list.json"}}""",
+            "lighten.source-root" to """{"lighten": {"source-root": "home", "target-root": "/local"}}""",
+            "lighten.target-root" to """{"lighten": {"target-root": "local"}}""",
+            "lighten.target-root" to """{"lighten": {"target-root": "${'$'}{USER}/local"}}""",
+            "lighten.staging-root" to """{"lighten": {"target-root": "/local", "staging-root": "staging"}}""",
+            "lighten.relocations[0].source-path" to """{"lighten": {"target-root": "/local", "relocations": [{"source-path": "cache"}]}}""",
+            "lighten.relocations[0].target-path" to
+                """{"lighten": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "cache"}]}}""",
+            "lighten.relocations[0].archive-root" to
+                """{"lighten": {"target-root": "/local", "relocations": [{"source-path": "/home/cache", "target-path": "/local/cache", "archive-root": "a"}]}}""",
+            "lighten.ignored-source-paths[0]" to """{"lighten": {"target-root": "/local", "ignored-source-paths": ["x"], $relocation}}""",
+            "lighten.suggestion-list" to """{"lighten": {"target-root": "/local", "suggestion-list": "list.json"}}""",
         )) {
             assertEquals("$key: $FULL_PATH", failure(text), text)
         }
-        assertEquals(Path.of(System.getProperty("user.home"), "local"), load("""{"homelight": {"target-root": "~/local"}}""").targetRoot)
+        assertEquals(Path.of(System.getProperty("user.home"), "local"), load("""{"lighten": {"target-root": "~/local"}}""").targetRoot)
     }
 
     @Test fun reportsRejectedPathValuesAgainstTheirKey() {
-        assertEquals("homelight.suggestion-list: Use a full path, or one starting with ~/",
-            failure("""{"homelight": {"target-root": "/local", "suggestion-list": "relative.json"}}"""))
-        assertEquals("homelight.source-root: Nul character not allowed",
-            failure("""{"homelight": {"source-root": "/a\u0000b", "target-root": "/local"}}"""))
-        assertEquals("homelight.relocations[0].source-path: Nul character not allowed", failure("""
-            {"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a\u0000b", "target-path": "/local/b"}]}}
+        assertEquals("lighten.suggestion-list: Use a full path, or one starting with ~/",
+            failure("""{"lighten": {"target-root": "/local", "suggestion-list": "relative.json"}}"""))
+        assertEquals("lighten.source-root: Nul character not allowed",
+            failure("""{"lighten": {"source-root": "/a\u0000b", "target-root": "/local"}}"""))
+        assertEquals("lighten.relocations[0].source-path: Nul character not allowed", failure("""
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/a\u0000b", "target-path": "/local/b"}]}}
             """))
     }
 
@@ -484,7 +484,7 @@ class ConfigurationLoaderTest {
         val real = Files.createDirectory(temporary.resolve("real-local"))
         val local = Files.createSymbolicLink(temporary.resolve("local"), real)
         val home = temporary.resolve("home")
-        fun config(vararg pairs: Pair<Path, Path>) = """{"homelight": {"target-root": "$local", "relocations": [""" +
+        fun config(vararg pairs: Pair<Path, Path>) = """{"lighten": {"target-root": "$local", "relocations": [""" +
             pairs.joinToString { (source, target) -> """{"source-path": "$source", "target-path": "$target"}""" } + "]}}"
 
         val sameTarget = failure(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to real.resolve("x"))).orEmpty()
@@ -498,7 +498,7 @@ class ConfigurationLoaderTest {
         assertEquals(2, load(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to local.resolve("x"))).relocations.size)
     }
 
-    private fun load(json: String): HomeLightConfiguration = ConfigurationLoader().load(write(json))
+    private fun load(json: String): LightenConfiguration = ConfigurationLoader().load(write(json))
 
     private fun failure(json: String): String? {
         val file = write(json)
@@ -508,5 +508,5 @@ class ConfigurationLoaderTest {
 
     /** Raw-string literals are trimmed so that reported lines and columns count from the first character. */
     private fun write(json: String): Path =
-        Files.writeString(Files.createTempFile(temporary, "homelight", ".json"), json.trimIndent())
+        Files.writeString(Files.createTempFile(temporary, "lighten", ".json"), json.trimIndent())
 }

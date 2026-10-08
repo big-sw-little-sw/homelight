@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.buffer.Buffer
 import dev.tamboui.layout.Rect
@@ -7,13 +7,13 @@ import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -28,7 +28,7 @@ class WorkspaceViewTest {
 
     @Test
     fun partitionsAllSixRelocationsAndKeepsIndependentRisksAfterExecution() {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val summary = WorkspaceView.summary(model.items)
         assertEquals(
@@ -57,7 +57,7 @@ class WorkspaceViewTest {
 
     @Test
     fun everyChoiceAndConsequenceStaysAccessibleAcrossResizeAndCancel() {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val ui = HeadlessTui(session)
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val source = model.items.first().relocation.sourcePath
@@ -97,7 +97,7 @@ class WorkspaceViewTest {
 
     @Test
     fun completePathsPoliciesAndDiagnosticsCanBeScrolledWithoutChangingChoice() {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
             val viewport = DetailViewport()
@@ -118,7 +118,7 @@ class WorkspaceViewTest {
 
     @Test
     fun adoptionRuleFollowsTheSavedEnum() {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
         val rule = WorkspaceView.rule(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
@@ -139,7 +139,7 @@ class WorkspaceViewTest {
     fun bothDirectoriesRuleUsesTheConfigurationWords(
         both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget, expected: String,
     ) {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
         val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, whenAdoptingTarget = adopting)
@@ -157,15 +157,15 @@ class WorkspaceViewTest {
         val target = Files.createDirectories(root.resolve("local/only"))
         Files.createDirectories(source.parent)
         val config = Files.writeString(root.resolve("config.json"),
-            "{\"homelight\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
-        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, HomeLightSession(config).evaluation()).items.single()
+            "{\"lighten\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
+        val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, LightenSession(config).evaluation()).items.single()
         val relocation = Relocation(source, target, whenOnlyTargetExists = onlyTarget)
         assertEquals(expected, WorkspaceView.rule(relocation, item.sourceObservation.state, item.targetObservation.state))
     }
 
     @Test
     fun leftUnchangedRelocationReadsUnchangedEverywhere() {
-        val session = HomeLightSession(fixture(temporary))
+        val session = LightenSession(fixture(temporary))
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
         val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
@@ -213,7 +213,7 @@ class WorkspaceViewTest {
 
         fun fixture(directory: Path): Path {
             val root = directory.toRealPath()
-            val body = StringBuilder("{\"homelight\": {\"target-root\": \"" + root.resolve("local") + "\", \"relocations\": [\n")
+            val body = StringBuilder("{\"lighten\": {\"target-root\": \"" + root.resolve("local") + "\", \"relocations\": [\n")
             for (name in listOf("conflict", "migrate", "adopt", "discard", "synced", "unchanged")) {
                 val source = root.resolve("home/$name")
                 val target = root.resolve("local/$name")

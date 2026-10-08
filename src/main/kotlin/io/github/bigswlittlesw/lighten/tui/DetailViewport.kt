@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.layout.Rect
 import dev.tamboui.markdown.MarkdownStyles

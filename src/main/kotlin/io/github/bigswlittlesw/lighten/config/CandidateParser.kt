@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
-import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic.Kind
+import io.github.bigswlittlesw.lighten.config.CandidateDiagnostic.Kind
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.nio.ByteBuffer

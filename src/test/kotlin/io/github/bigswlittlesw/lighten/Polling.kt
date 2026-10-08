@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight
+package io.github.bigswlittlesw.lighten
 
 import org.junit.jupiter.api.fail
 import java.util.concurrent.TimeUnit

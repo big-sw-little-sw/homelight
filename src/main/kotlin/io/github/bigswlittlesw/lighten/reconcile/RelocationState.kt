@@ -1,9 +1,9 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.realSpelling
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.realSpelling
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -114,7 +114,7 @@ private fun sourceName(source: Path): Path =
 
 /**
  * Where replacing [source] with a link to [target] sets the source aside before deleting it:
- * `<source parent>/.homelight-replaced-<source name>-<SHA-256 of the target's absolute normalized path>`.
+ * `<source parent>/.lighten-replaced-<source name>-<SHA-256 of the target's absolute normalized path>`.
  *
  * The recognition rule: a directory at exactly this name is the remains of an interrupted replacement only while
  * [source] is a link to [target] and [target] is a directory. The planner then deletes it, and never treats it as a
@@ -127,6 +127,6 @@ private fun sourceName(source: Path): Path =
 internal fun replacedSourcePath(source: Path, target: Path): Path {
     val absolute = source.toAbsolutePath().normalize()
     return absolute.resolveSibling(
-        ".homelight-replaced-${absolute.fileName}-${sha256Hex(target.toAbsolutePath().normalize().toString())}",
+        ".lighten-replaced-${absolute.fileName}-${sha256Hex(target.toAbsolutePath().normalize().toString())}",
     )
 }

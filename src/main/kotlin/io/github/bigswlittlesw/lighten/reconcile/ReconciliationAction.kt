@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
 import java.nio.file.Path
 
@@ -62,7 +62,7 @@ sealed interface ReconciliationAction {
      */
     data class MigrateDirectoryForPublication(override val path: Path, val target: Path, val stagingRoot: Path? = null) :
         ReconciliationAction {
-        /** The staging root this migration uses: [stagingRoot], or `.homelight-staging` beside [target]. */
+        /** The staging root this migration uses: [stagingRoot], or `.lighten-staging` beside [target]. */
         val effectiveStagingRoot: Path
             get() = effectiveStagingRoot(target, stagingRoot)
     }
@@ -89,8 +89,8 @@ sealed interface ReconciliationAction {
     data class Blocked(override val path: Path, val reason: String) : ReconciliationAction
 }
 
-/** A configured [stagingRoot], or `.homelight-staging` beside [target]. */
+/** A configured [stagingRoot], or `.lighten-staging` beside [target]. */
 internal fun effectiveStagingRoot(target: Path, stagingRoot: Path?): Path =
     stagingRoot ?: target.resolveSibling(DEFAULT_STAGING_NAME)
 
-private const val DEFAULT_STAGING_NAME = ".homelight-staging"
+private const val DEFAULT_STAGING_NAME = ".lighten-staging"

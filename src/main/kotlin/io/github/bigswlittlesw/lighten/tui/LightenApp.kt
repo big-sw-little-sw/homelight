@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
@@ -13,15 +13,15 @@ import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.MouseEvent
 import dev.tamboui.tui.event.MouseEventKind
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
-import io.github.bigswlittlesw.homelight.application.userGuide
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
+import io.github.bigswlittlesw.lighten.application.userGuide
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import java.nio.file.Path
 
 /**
@@ -47,10 +47,10 @@ internal const val HELP_GUIDE = "help-guide"
  *
  * Focus is TamboUI's: the focused element takes its own keys first (a list moves its selection, a dialog answers),
  * and [keyHandler] gets every key it leaves. `discoveryFactory` gives each opened Configuration its own discovery
- * lifetime. With `openConfiguration`, HomeLight starts on Configuration, as `homelight init` and `config` do.
+ * lifetime. With `openConfiguration`, Lighten starts on Configuration, as `lighten init` and `config` do.
  */
-internal class HomeLightApp(
-    val session: HomeLightSession,
+internal class LightenApp(
+    val session: LightenSession,
     private val focus: FocusManager,
     openConfiguration: Boolean = false,
     private val discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },

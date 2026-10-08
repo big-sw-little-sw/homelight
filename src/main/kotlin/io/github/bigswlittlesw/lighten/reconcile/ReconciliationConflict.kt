@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
 import java.nio.file.Path
 

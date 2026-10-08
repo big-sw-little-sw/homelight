@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import kotlinx.serialization.json.Json
 import java.io.IOException
@@ -19,7 +19,7 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
  * written: a [ConfigurationException] for a value the loader rejects, an [IllegalArgumentException] for the rest.
  */
 class ConfigurationPublisher {
-    internal fun saveNew(path: Path, file: HomeLightFile) {
+    internal fun saveNew(path: Path, file: LightenFile) {
         check(file)
         val destination = path.toAbsolutePath().normalize()
         try {
@@ -44,7 +44,7 @@ class ConfigurationPublisher {
      * file between the comparison and the move still loses its change; closing that window needs a lock that every
      * writer honors, which hand edits do not.
      */
-    internal fun replace(path: Path, file: HomeLightFile, loaded: ByteArray) {
+    internal fun replace(path: Path, file: LightenFile, loaded: ByteArray) {
         check(file)
         val shown = path.toAbsolutePath().normalize()
         try {
@@ -63,13 +63,13 @@ class ConfigurationPublisher {
         }
     }
 
-    private fun check(file: HomeLightFile) = validateConfiguration(ConfigurationLoader().configuration(file).relocations)
+    private fun check(file: LightenFile) = validateConfiguration(ConfigurationLoader().configuration(file).relocations)
 
     /** Writes [file] to a temporary file beside [destination] and hands it to [publish]; the file never outlives it. */
-    private fun writeThrough(destination: Path, file: HomeLightFile, publish: (Path) -> Unit) {
+    private fun writeThrough(destination: Path, file: LightenFile, publish: (Path) -> Unit) {
         val parent = destination.parent ?: throw IOException("Configuration path has no parent: $destination")
         Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, ".homelight-", ".json")
+        val temporary = Files.createTempFile(parent, ".lighten-", ".json")
         try {
             Files.writeString(temporary, encodeConfiguration(ConfigurationFile(file)), StandardCharsets.UTF_8)
             publish(temporary)

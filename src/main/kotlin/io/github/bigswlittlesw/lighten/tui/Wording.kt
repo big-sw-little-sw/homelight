@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
@@ -133,9 +133,9 @@ internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("us
     if (path.startsWith(home) && home.nameCount > 0) "~" + path.toString().substring(home.toString().length)
     else path.toString()
 
-internal const val QUIT_TITLE = "Quit HomeLight?"
+internal const val QUIT_TITLE = "Quit Lighten?"
 internal const val RESULTS_NOT_KEPT = "Results on this screen are not kept after you exit."
-internal val QUIT_BODY = listOf("HomeLight finishes the changes it is making first, even if one fails.", RESULTS_NOT_KEPT)
+internal val QUIT_BODY = listOf("Lighten finishes the changes it is making first, even if one fails.", RESULTS_NOT_KEPT)
 internal const val QUIT_KEYS = "y: Exit when it finishes · n/Esc: Keep running"
 internal const val QUIT_CHOICES_KEYS = "y: Quit · n/Esc: Go back"
 internal fun unappliedChoices(n: Int): List<String> = listOf(
@@ -143,7 +143,7 @@ internal fun unappliedChoices(n: Int): List<String> = listOf(
     else "You have $n choices that are not applied yet. Quitting forgets them.",
     "Press n to go back. You can keep choosing, or press a to review and apply.",
 )
-internal const val QUITTING = "HomeLight will exit when the changes finish."
+internal const val QUITTING = "Lighten will exit when the changes finish."
 
 // Configuration (tui-design §7).
 internal const val DISCARD_SETUP_TITLE = "Discard this configuration?"
@@ -203,21 +203,21 @@ internal const val CHANGED_SINCE_LOADED =
         "To start again from the file, press q, then y, then e."
 internal fun cannotOpen(reason: String) = "Cannot open Configuration: $reason"
 
-// A configuration file HomeLight can't read (#164). The Workspace, its Help purpose and the CLI say the same; only the
+// A configuration file Lighten can't read (#164). The Workspace, its Help purpose and the CLI say the same; only the
 // way to check again differs. `positioned`: the problem names a line, not a setting such as a missing key.
 internal fun unreadable(path: Path, problem: String, positioned: Boolean) = listOf(
     cannotRead(displayPath(path)), problem,
     "To fix it: open the file in a text editor, ${correct(positioned)}, then press r to check again.",
-    "To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.",
+    "To start over: rename or delete the file, then press r. Lighten then offers i to create a new one.",
 )
 /** For the CLI's stderr; `init` creates a new file, as `i` does. */
 internal fun unreadableCli(path: Path, problem: String, positioned: Boolean) = listOf(
     cannotRead(path.toString()), problem,
     "To fix it: open the file in a text editor, ${correct(positioned)}, then run the command again.",
-    "To start over: rename or delete the file, then run homelight init" +
+    "To start over: rename or delete the file, then run lighten init" +
         (if (path == ConfigurationLoader.DEFAULT_PATH) "" else " --config $path") + " to create a new one.",
 )
-private fun cannotRead(path: String) = "HomeLight can't read $path"
+private fun cannotRead(path: String) = "Lighten can't read $path"
 private fun correct(positioned: Boolean) = if (positioned) "correct that line" else "correct that setting"
 internal fun cannotBrowse(reason: String) = "Fix the storage locations to browse: $reason"
 /** What the Workspace says after a save, once it has checked again (tui-design §1, Say the next step). */
@@ -232,7 +232,7 @@ internal const val SAVED = "Saved."
 
 /** Asked before saving over an existing configuration (tui-design §7); a new file is created without asking. */
 internal fun replaceConfigurationTitle(path: Path) = "Replace ${displayPath(path)}?"
-internal val REPLACE_CONFIGURATION_BODY = listOf("HomeLight rewrites the whole file.", "Comments in it are not kept.")
+internal val REPLACE_CONFIGURATION_BODY = listOf("Lighten rewrites the whole file.", "Comments in it are not kept.")
 internal const val REPLACE_CONFIGURATION_KEYS = "y: Replace · n/Esc: Keep editing"
 
 internal const val NO_CONFIGURATION = "No configuration file yet. Press i to create one; nothing is written until you save."
@@ -282,7 +282,7 @@ internal const val NOTHING_TO_REVIEW = "Nothing to review yet. Choose what to do
 internal const val NO_CHANGES = "No changes to apply."
 internal const val CONFIRM = "Nothing has changed yet. Press y to apply this plan."
 internal const val CONFIRM_DESTRUCTIVE = "Nothing has changed yet. Some steps delete or replace data for good."
-internal const val APPLYING = "Applying. Leave HomeLight running until it finishes."
+internal const val APPLYING = "Applying. Leave Lighten running until it finishes."
 internal const val REFUSED = "Nothing changed: the disk no longer matches the reviewed plan. Check again."
 internal const val STALE = "Stopped: a step found something different from the plan. The steps after it did not run. " +
     "See the failed step's details, then press r to check again."
@@ -308,9 +308,9 @@ internal const val KEYS_LEAD_IN = "They work after you go back (Esc or q). In He
 internal const val MOVE_AROUND = "Move around"
 internal const val DO_KEYS = "Do"
 internal const val HELP_HINT = "Press ? for help."
-internal const val FIRST_RUN_HINT = "New to HomeLight? Press ? to read the guide."
+internal const val FIRST_RUN_HINT = "New to Lighten? Press ? to read the guide."
 
-/** The steps of using HomeLight, as "You are here" names them. */
+/** The steps of using Lighten, as "You are here" names them. */
 internal fun stepLabel(step: Step): String = when (step) {
     Step.CONFIGURE -> "Configure"
     Step.WORKSPACE -> "Workspace"
@@ -331,12 +331,12 @@ internal const val PURPOSE_NO_CONFIGURATION =
 internal const val PURPOSE_NO_RELOCATIONS =
     "The configuration lists no directories to move yet. Press e to open Configuration and add them."
 internal const val PURPOSE_WORKSPACE =
-    "Each relocation and what HomeLight plans for it. Pick a choice where one is needed, then press a to review."
+    "Each relocation and what Lighten plans for it. Pick a choice where one is needed, then press a to review."
 internal const val PURPOSE_REVIEW =
     "Every step apply will take. Nothing has changed yet: y applies the plan, n goes back without changing anything."
 internal const val PURPOSE_NO_CHANGES = "Nothing needs to change. Press 1 or Enter to go back to the Workspace."
 internal const val PURPOSE_APPLYING =
-    "HomeLight is making the changes. Leave it running until it finishes; Help does not stop it."
+    "Lighten is making the changes. Leave it running until it finishes; Help does not stop it."
 internal const val PURPOSE_RESULTS =
     "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
 internal const val PURPOSE_CONFIGURATION =
@@ -364,7 +364,7 @@ internal val HELP_KEY = KeyHint("?", "Help")
 /** Help's key in a text field, where `?` types. */
 internal val TEXT_FIELD_HELP_KEY = KeyHint("F1", "Help")
 internal val QUIT_KEY =
-    KeyHint("q", "Quit", description = "Quit HomeLight; asks first if choices are not applied or changes are running")
+    KeyHint("q", "Quit", description = "Quit Lighten; asks first if choices are not applied or changes are running")
 internal val CHECK_AGAIN_KEY = KeyHint(
     "r", "Check again", description = "Read the configuration and the disk again and make a new plan; forgets choices",
 )

@@ -1,9 +1,9 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.style.AnsiColor
 import dev.tamboui.style.Color
 import dev.tamboui.tui.event.KeyCode
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.lighten.application.LightenSession
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -37,7 +37,7 @@ class PaletteTest {
 
     @Test
     fun everyCellUsesTheBackgroundAndOnlyPaletteColors() {
-        val session = HomeLightSession(WorkspaceViewTest.fixture(temporary))
+        val session = LightenSession(WorkspaceViewTest.fixture(temporary))
         val ui = HeadlessTui(session)
         val colors = roles(palette).values.toSet()
         val steps = listOf(

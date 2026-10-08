@@ -24,4 +24,4 @@ elif command -v apk > /dev/null; then
   apk add -q bash $packages
 fi
 
-exec bash /ci/test.sh /hl/homelight /hl/jvm-reference.txt "$level" "/results/$name"
+exec bash /ci/test.sh /hl/lighten /hl/jvm-reference.txt "$level" "/results/$name"

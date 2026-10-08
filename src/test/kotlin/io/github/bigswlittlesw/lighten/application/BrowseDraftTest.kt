@@ -1,12 +1,12 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.config.CandidateCatalog
-import io.github.bigswlittlesw.homelight.config.CandidateParser
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.discovery.CandidateMetadata
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
-import io.github.bigswlittlesw.homelight.discovery.Workers
-import io.github.bigswlittlesw.homelight.pollUntil
+import io.github.bigswlittlesw.lighten.config.CandidateCatalog
+import io.github.bigswlittlesw.lighten.config.CandidateParser
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.discovery.CandidateMetadata
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.discovery.Workers
+import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

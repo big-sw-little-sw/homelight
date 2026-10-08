@@ -1,15 +1,15 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.layout.Position
 import dev.tamboui.layout.Size
 import dev.tamboui.terminal.AbstractBackend
 import dev.tamboui.tui.TuiConfig
 import dev.tamboui.tui.event.KeyEvent
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.pollUntil
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.pollUntil
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -51,7 +51,7 @@ class TuiLauncherTest {
     fun closesTerminalExactlyOnceAfterNormalAndExceptionalSettlement() {
         for (exceptional in booleanArrayOf(false, true)) {
             val root = Files.createDirectory(temporary.resolve("case-$exceptional"))
-            val session = HomeLightSession(HomeLightExitTest.configuration(root))
+            val session = LightenSession(LightenExitTest.configuration(root))
             session.requestApply()
             val completion = session.confirmApply(Executor(Runnable::run))
             val result = session.applyModel()
@@ -70,7 +70,7 @@ class TuiLauncherTest {
 
     @Test
     fun aFailedFrameWaitsForActiveWorkBeforeRestoringTerminal() {
-        val session = HomeLightSession(HomeLightExitTest.configuration(temporary))
+        val session = LightenSession(LightenExitTest.configuration(temporary))
         session.requestApply()
         val tasks = mutableListOf<Runnable>()
         val completion = session.confirmApply(Executor { tasks.add(it) })
@@ -111,7 +111,7 @@ class TuiLauncherTest {
         val evaluator = ConfigurationEvaluation(plan = { states ->
             if (failing.get()) throw IllegalStateException("injected planner bug") else planner.plan(states)
         })
-        val session = HomeLightSession(HomeLightExitTest.configuration(temporary), evaluator = evaluator)
+        val session = LightenSession(LightenExitTest.configuration(temporary), evaluator = evaluator)
         // `r` checks again, which loads the configuration while the TUI runs.
         val backend = LifecycleBackend("r")
         failing.set(true)
@@ -126,7 +126,7 @@ class TuiLauncherTest {
         val planner = ReconciliationPlanner()
         // A plan without its review snapshot makes the executor's preflight fail a `require`: a bug.
         val evaluator = ConfigurationEvaluation(plan = { states -> planner.plan(states).copy(expectedStates = listOf()) })
-        val session = HomeLightSession(HomeLightExitTest.configuration(temporary), evaluator = evaluator)
+        val session = LightenSession(LightenExitTest.configuration(temporary), evaluator = evaluator)
         val ui = HeadlessTui(session)
         ui.app.switchScreen(Screen.APPLY)
         session.confirmApply(Executor(Runnable::run))

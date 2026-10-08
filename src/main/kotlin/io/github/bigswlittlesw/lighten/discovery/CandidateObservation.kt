@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.lighten.discovery
 
 import java.nio.file.Path
 import java.time.Instant

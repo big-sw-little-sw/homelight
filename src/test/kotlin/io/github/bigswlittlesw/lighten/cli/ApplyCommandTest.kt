@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.reconcile.lockOf
-import io.github.bigswlittlesw.homelight.reconcile.stagedCopy
+import io.github.bigswlittlesw.lighten.reconcile.lockOf
+import io.github.bigswlittlesw.lighten.reconcile.stagedCopy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -54,7 +54,7 @@ class ApplyCommandTest {
 
         assertEquals(0, result.exitCode, result.output)
         assertTrue(Files.isDirectory(stagingRoot))
-        assertTrue(Files.notExists(target.parent.resolve(".homelight-staging")))
+        assertTrue(Files.notExists(target.parent.resolve(".lighten-staging")))
         Files.list(stagingRoot).use { entries ->
             assertEquals(listOf(lockOf(stagedCopy(stagingRoot, target))), entries.toList())
         }
@@ -164,7 +164,7 @@ class ApplyCommandTest {
     fun jsonAndNonInteractiveApplyRequireYes(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         assertEquals(2, execute("apply", "--config", config.toString()).exitCode)
@@ -208,7 +208,7 @@ class ApplyCommandTest {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("--config", config.toString(), "apply", "--json", "--yes")
@@ -222,7 +222,7 @@ class ApplyCommandTest {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("-c", config.toString(), "apply", "--json", "--yes")
@@ -236,7 +236,7 @@ class ApplyCommandTest {
         val root = temporary.toRealPath()
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, configuration(root, source, target))
 
         val result = execute("apply", "-c", config.toString(), "--json", "--yes")
@@ -246,19 +246,19 @@ class ApplyCommandTest {
     }
 
     private fun apply(json: String): Result {
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, json)
         val output = StringWriter()
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         command.setOut(PrintWriter(output, true))
         return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
     }
 
     private fun applyJson(json: String): Result {
-        val config = Files.createTempFile(configDirectory, "homelight", ".json")
+        val config = Files.createTempFile(configDirectory, "lighten", ".json")
         Files.writeString(config, json)
         val output = StringWriter()
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         command.setOut(PrintWriter(output, true))
         return Result(command.execute("apply", "--json", "--yes", "--config", config.toString()), output.toString())
     }
@@ -268,7 +268,7 @@ class ApplyCommandTest {
     private companion object {
         fun execute(vararg arguments: String): Result {
             val output = StringWriter()
-            val command = HomeLightCommand.createCommandLine()
+            val command = LightenCommand.createCommandLine()
             command.setOut(PrintWriter(output, true))
             return Result(command.execute(*arguments), output.toString())
         }
@@ -284,7 +284,7 @@ class ApplyCommandTest {
 
         /** `decisions` are relocation members without a trailing comma; `globals` are members each followed by one. */
         fun configuration(root: Path, source: Path, target: Path, decisions: String, globals: String): String =
-            "{\"homelight\": {\"target-root\": \"$root\", $globals\"relocations\": [\n" +
+            "{\"lighten\": {\"target-root\": \"$root\", $globals\"relocations\": [\n" +
                 "  {\"source-path\": \"$source\", \"target-path\": \"$target\"" +
                 (if (decisions.isEmpty()) "" else ", $decisions") + "}\n]}}\n"
     }

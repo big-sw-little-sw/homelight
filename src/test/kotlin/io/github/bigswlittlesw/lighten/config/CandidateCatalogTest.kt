@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -514,7 +514,7 @@ class CandidateCatalogTest {
         private val HOME = Path.of("/home/alex")
         private val OTHER = Path.of("/srv/build/alex")
         private val FIXTURES = Path.of("docs/research/session-b-fixtures")
-        private val SHARED = CandidateSource(CandidateSource.Kind.SHARED, "/net/team/homelight/candidates.json")
+        private val SHARED = CandidateSource(CandidateSource.Kind.SHARED, "/net/team/lighten/candidates.json")
         private const val EMPTY = """{"directories": []}"""
 
         private fun directories(count: Int): String =

@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.style.Color
 import dev.tamboui.style.Style
@@ -10,10 +10,10 @@ import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.spinner.SpinnerState
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.pendingSteps
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.pendingSteps
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import java.nio.file.Path
 
 /** One row of Review's plan: a relocation's heading, or one of its steps. */
@@ -50,14 +50,14 @@ internal object ApplyView {
 
     /**
      * `focused` is the focused element's id; `interactive` is false while a dialog is open over the screen.
-     * `quitting` is true once HomeLight will exit when the apply finishes, so `q` no longer does anything.
+     * `quitting` is true once Lighten will exit when the apply finishes, so `q` no longer does anything.
      */
     fun render(
         config: Path, model: ApplyModel, list: ListElement<Any>, spinnerFrame: Int = 0,
         focused: String? = REVIEW_LIST, interactive: Boolean = true, viewport: DetailViewport = DetailViewport(),
         quitting: Boolean = false,
     ): Element {
-        val brand = Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold()
+        val brand = Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold()
         // While applying, neither destination is reachable, so the header names only what is happening.
         val header = when (model) {
             is ApplyModel.Running -> Toolkit.row(brand, Toolkit.text("[Applying]").fg(palette.focus).bold())
@@ -163,7 +163,7 @@ internal object ApplyView {
                     KeyHint("y", "Apply", description = "Apply the plan; this changes files on disk"),
                     KeyHint("n/Esc/1", "Cancel", description = "Back to the Workspace; nothing changes"), HELP_KEY, QUIT_KEY,
                 )
-            // Once HomeLight will exit when the apply finishes, `q` does nothing.
+            // Once Lighten will exit when the apply finishes, `q` does nothing.
             is ApplyModel.Running -> listOfNotNull(HELP_KEY, QUIT_KEY.takeUnless { quitting })
             is ApplyModel.Result -> listOf(
                 KeyHint("1/Enter", "Workspace", description = "Back to the Workspace; the results stay until you check again"),

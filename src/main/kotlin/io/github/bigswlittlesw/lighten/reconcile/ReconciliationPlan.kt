@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
 /**
  * The complete, filesystem-independent result of reconciliation planning.

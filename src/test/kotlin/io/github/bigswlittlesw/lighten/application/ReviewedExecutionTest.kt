@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -166,7 +166,7 @@ class ReviewedExecutionTest {
             val target = if (parentPerRelocation) root.resolve("local/$name/data") else root.resolve("local").resolve(name)
             "    {\"source-path\": \"$source\", \"target-path\": \"$target\"}"
         }
-        val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n"
+        val json = "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n"
         val config = Files.writeString(root.resolve("config.json"), json)
         return assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ConfigurationEvaluation().load(config)).plan
     }

@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -87,14 +87,14 @@ class DiscoverySettingTest {
     }
 
     /** A configuration with the suggestion list at `list` and one relocation per name, from `home` to `target`. */
-    private fun file(list: Path?, vararg names: String) = HomeLightFile(
+    private fun file(list: Path?, vararg names: String) = LightenFile(
         targetRoot = temporary.resolve("target").toString(),
         suggestionList = list?.toString(),
         relocations = names.map { RelocationFile(temporary.resolve("home/$it").toString(), temporary.resolve("target/$it").toString()) },
     )
 
     companion object {
-        private fun save(path: Path, file: HomeLightFile, gate: CyclicBarrier): Boolean {
+        private fun save(path: Path, file: LightenFile, gate: CyclicBarrier): Boolean {
             gate.await()
             try { ConfigurationPublisher().saveNew(path, file); return true }
             catch (expected: ConfigurationException) { return false }

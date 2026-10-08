@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.pollUntil
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -19,13 +19,13 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-class HomeLightExitTest {
+class LightenExitTest {
     @TempDir lateinit var temporary: Path
 
     @Test
     fun escapeNavigatesWithoutExitingOrMutating() {
         val config = configuration(temporary)
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         for (screen in Screen.values()) {
             ui.app.switchScreen(screen)
             ui.press(KeyCode.ESCAPE)
@@ -64,8 +64,8 @@ class HomeLightExitTest {
             "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
         }
         val config = Files.writeString(root.resolve("config.json"),
-            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
-        val ui = HeadlessTui(HomeLightSession(config))
+            "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+        val ui = HeadlessTui(LightenSession(config))
         fun choose() {
             ui.press(KeyCode.TAB)
             ui.press(KeyCode.ENTER)
@@ -75,7 +75,7 @@ class HomeLightExitTest {
         ui.press('q')
         for ((width, height) in listOf(80 to 24, 120 to 30)) {
             val text = ui.screen(width, height)
-            assertTrue(text.contains("╔Quit HomeLight?"), text)
+            assertTrue(text.contains("╔Quit Lighten?"), text)
             assertTrue(text.contains("You have 1 choice that is not applied yet. Quitting forgets it."), text)
             assertTrue(text.contains("Press n to go back. You can keep choosing, or press a to review and apply."), text)
             assertTrue(text.contains("y: Quit · n/Esc: Go back"), text)
@@ -94,7 +94,7 @@ class HomeLightExitTest {
         assertTrue(plural.contains("You have 2 choices that are not applied yet. Quitting forgets them."), plural)
         ui.press(KeyCode.ESCAPE)
         assertFalse(ui.app.exitRequested())
-        assertFalse(ui.screen().contains("Quit HomeLight?"))
+        assertFalse(ui.screen().contains("Quit Lighten?"))
 
         // Review keeps the choices unapplied, so it asks there too.
         ui.press('a')
@@ -108,7 +108,7 @@ class HomeLightExitTest {
 
     @Test
     fun quittingWithoutChoicesExitsAtOnceEvenWithAPlanToApply() {
-        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        val ui = HeadlessTui(LightenSession(configuration(temporary)))
         assertTrue(ui.app.session.isPlanReady())
         ui.press('q')
         assertTrue(ui.app.exitRequested())
@@ -118,7 +118,7 @@ class HomeLightExitTest {
     fun completionNeverAnswersOrDismissesTheQuitDialog() {
         for (answer in listOf('n', 'y')) {
             val root = Files.createDirectory(temporary.resolve("case-$answer"))
-            val ui = HeadlessTui(HomeLightSession(configuration(root)))
+            val ui = HeadlessTui(LightenSession(configuration(root)))
             ui.app.switchScreen(Screen.APPLY)
             val tasks = mutableListOf<Runnable>()
             ui.app.session.confirmApply(Executor { tasks.add(it) })
@@ -126,7 +126,7 @@ class HomeLightExitTest {
             tasks.first().run()
             for ((width, height) in listOf(80 to 24, 120 to 30)) {
                 val text = ui.screen(width, height)
-                assertTrue(text.contains("╔Quit HomeLight?"), text)
+                assertTrue(text.contains("╔Quit Lighten?"), text)
                 assertTrue(text.contains("y: Exit when it finishes · n/Esc: Keep running"), text)
                 assertTrue(text.contains("not kept after you exit"), text)
                 assertEquals(DIALOG, ui.focused())
@@ -137,7 +137,7 @@ class HomeLightExitTest {
             assertEquals(1, tasks.size)
             assertTrue(Files.isSymbolicLink(root.resolve("source")))
             if (answer == 'n') {
-                assertFalse(ui.screen().contains("Quit HomeLight?"))
+                assertFalse(ui.screen().contains("Quit Lighten?"))
                 assertEquals(REVIEW_LIST, ui.focused())
                 ui.press(KeyCode.ESCAPE)
                 assertEquals(Screen.APPLY, ui.app.activeScreen)
@@ -148,7 +148,7 @@ class HomeLightExitTest {
 
     @Test
     fun theQuitDialogTakesEveryKeyAndEscapeReturnsToTheFocusedPane() {
-        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        val ui = HeadlessTui(LightenSession(configuration(temporary)))
         ui.press('a')
         val tasks = mutableListOf<Runnable>()
         ui.app.session.confirmApply(Executor { tasks.add(it) })
@@ -158,7 +158,7 @@ class HomeLightExitTest {
         assertTrue(ctrlC.isQuit)
         ui.press(ctrlC)
         val open = ui.screen()
-        assertTrue(open.contains("Quit HomeLight?"), open)
+        assertTrue(open.contains("Quit Lighten?"), open)
         // Help behind the dialog would advertise keys that do nothing.
         assertFalse(open.contains("q: Quit"), open)
         for (key in listOf(KeyCode.ENTER, KeyCode.TAB, KeyCode.DOWN, KeyCode.LEFT, KeyCode.HOME)) ui.press(key)
@@ -169,7 +169,7 @@ class HomeLightExitTest {
         assertFalse(ui.app.exitRequested())
 
         ui.press(KeyCode.ESCAPE)
-        assertFalse(ui.screen().contains("Quit HomeLight?"))
+        assertFalse(ui.screen().contains("Quit Lighten?"))
         assertEquals(REVIEW_DETAILS, ui.focused())
         tasks.first().run()
         ui.frame()
@@ -179,7 +179,7 @@ class HomeLightExitTest {
 
     @Test
     fun deferredExitWaitsForWorkerAndOnlyTheUiRequestsExit() {
-        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        val ui = HeadlessTui(LightenSession(configuration(temporary)))
         ui.app.switchScreen(Screen.APPLY)
         val started = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -201,7 +201,7 @@ class HomeLightExitTest {
             ui.press('y')
             for (c in "qyra123") ui.press(c)
             ui.press(KeyCode.ESCAPE)
-            assertTrue(ui.screen().contains("HomeLight will exit when the changes finish."))
+            assertTrue(ui.screen().contains("Lighten will exit when the changes finish."))
             assertFalse(ui.app.exitRequested())
             assertFalse(completion.isDone)
             assertFalse(Files.exists(temporary.resolve("source")))
@@ -221,7 +221,7 @@ class HomeLightExitTest {
 
     @Test
     fun publishedResultDoesNotMeanCompletionHasSettled() {
-        val session = HomeLightSession(configuration(temporary))
+        val session = LightenSession(configuration(temporary))
         session.requestApply()
         val ui = HeadlessTui(session)
         // The re-check after an apply takes the session's monitor, so holding it keeps a published result unsettled.
@@ -246,14 +246,14 @@ class HomeLightExitTest {
 
     @Test
     fun rejectionWhileQuitDialogOpensKeepsRunningAndNeverReschedules() {
-        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        val ui = HeadlessTui(LightenSession(configuration(temporary)))
         ui.app.switchScreen(Screen.APPLY)
         val completion = ui.app.session.confirmApply(Executor {
             ui.press('q')
             throw RejectedExecutionException("worker unavailable")
         })
         assertTrue(completion.isDone)
-        assertTrue(ui.screen().contains("Quit HomeLight?"))
+        assertTrue(ui.screen().contains("Quit Lighten?"))
         assertFalse(ui.app.exitRequested())
         ui.press('n')
         ui.press('y')
@@ -264,7 +264,7 @@ class HomeLightExitTest {
 
     @Test
     fun deferredExitIncludesFailureAndExceptionalCompletionWithRetainedEvidence() {
-        val ui = HeadlessTui(HomeLightSession(configuration(temporary)))
+        val ui = HeadlessTui(LightenSession(configuration(temporary)))
         ui.app.switchScreen(Screen.APPLY)
         val tasks = mutableListOf<Runnable>()
         val completion = ui.app.session.confirmApply(Executor { tasks.add(it) })
@@ -287,7 +287,7 @@ class HomeLightExitTest {
     companion object {
         fun configuration(root: Path): Path =
             Files.writeString(root.resolve("config.json"), ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"}

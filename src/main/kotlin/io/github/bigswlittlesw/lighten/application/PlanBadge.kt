@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
 /** Operation badge and urgency category for a planned relocation item. A lower `priority` sorts first. */
 enum class PlanBadge(val priority: Int) {

@@ -1,21 +1,21 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
 import java.io.IOException
 import java.util.Properties
 
 // The version and the user guide are resources of this jar, so both the CLI and the TUI read them from here.
 
-private const val RESOURCES = "/io/github/bigswlittlesw/homelight/"
+private const val RESOURCES = "/io/github/bigswlittlesw/lighten/"
 
 internal fun resolveVersion(): String {
     val version = try {
-        HomeLightSession::class.java.getResourceAsStream(RESOURCES + "version.properties")
+        LightenSession::class.java.getResourceAsStream(RESOURCES + "version.properties")
             ?.use { stream -> Properties().apply { load(stream) }.getProperty("version") }
     } catch (_: IOException) {
         null // fall back when the resource is unreadable
     }
     if (version != null && version.isNotBlank() && !version.startsWith("\${")) return version
-    val implementationVersion: String? = HomeLightSession::class.java.`package`.implementationVersion
+    val implementationVersion: String? = LightenSession::class.java.`package`.implementationVersion
     if (implementationVersion != null && implementationVersion.isNotBlank()) return implementationVersion
     return "unknown"
 }
@@ -30,7 +30,7 @@ internal fun guideUrl(version: String = resolveVersion()): String =
 /** `docs/user-guide.md` as packaged in this build, with its online link pointing at [guideUrl]. */
 internal fun userGuide(version: String = resolveVersion()): String {
     // The build copies the guide into the jar; a build without it is broken, not a user error.
-    val text = checkNotNull(HomeLightSession::class.java.getResourceAsStream(RESOURCES + "user-guide.md")) {
+    val text = checkNotNull(LightenSession::class.java.getResourceAsStream(RESOURCES + "user-guide.md")) {
         "user-guide.md is missing from the build"
     }.use { stream -> stream.readBytes().decodeToString() }
     return text.replace(GUIDE_ON_MAIN, guideUrl(version))

@@ -1,16 +1,16 @@
-# HomeLight Product Specification
+# Lighten Product Specification
 
 ## Purpose
 
-HomeLight keeps a space-constrained or shared `$HOME` directory lightweight by relocating selected directories to machine-local storage and safely reconciling symlinks.
+Lighten keeps a space-constrained or shared `$HOME` directory lightweight by relocating selected directories to machine-local storage and safely reconciling symlinks.
 
 The primary use case is Linux systems where `$HOME` is mounted over NFS or is quota-constrained, while each machine has larger local storage.
 
-HomeLight is a Kotlin terminal application. Its primary human interface is a full-screen TUI, with prompt-free JSON commands for automation. A desktop GUI is deferred.
+Lighten is a Kotlin terminal application. Its primary human interface is a full-screen TUI, with prompt-free JSON commands for automation. A desktop GUI is deferred.
 
 ## Scope
 
-HomeLight manages:
+Lighten manages:
 
 - relocation of configured directories from `$HOME` to machine-local storage
 - creation and repair of symlinks back into `$HOME`
@@ -21,7 +21,7 @@ HomeLight manages:
 - ownership conflicts with externally managed dotfiles
 - full-screen discovery and configuration of candidate heavy paths
 
-HomeLight does not replace GNU Stow or become a general dotfile or workstation manager.
+Lighten does not replace GNU Stow or become a general dotfile or workstation manager.
 
 ## Configuration
 
@@ -56,15 +56,15 @@ The schema may evolve. Path expansion and validation belong at the configuration
 
 ## TUI and automation
 
-Running HomeLight without arguments opens the TUI home screen. Named commands deep-link to the corresponding workflow:
+Running Lighten without arguments opens the TUI home screen. Named commands deep-link to the corresponding workflow:
 
 ```text
-homelight
-homelight init
-homelight config
-homelight plan
-homelight apply
-homelight status
+lighten
+lighten init
+lighten config
+lighten plan
+lighten apply
+lighten status
 ```
 
 Expected behavior:
@@ -78,17 +78,17 @@ Expected behavior:
 Passing `--json` bypasses the TUI and selects the automation contract:
 
 ```text
-homelight apply --json --yes
-homelight plan --json
-homelight status --json
-homelight config validate --json
+lighten apply --json --yes
+lighten plan --json
+lighten status --json
+lighten config validate --json
 ```
 
 JSON commands never initialize TamboUI, prompt, emit color, or write non-JSON content to standard output. They use stable exit codes and versioned response envelopes. `apply --json` requires `--yes`; `--yes` never resolves missing decisions. Without `--json`, a non-interactive terminal fails with a clear diagnostic rather than silently changing modes.
 
 The reconciliation engine returns structured actions, warnings, conflicts, and unresolved decisions. It does not depend on TamboUI, command routing, JSON serialization, or prompt wording.
 
-The TUI holds an exact structured plan in memory between review and application. Immediately before mutation it preflights that plan's expected state. If state has drifted, the plan is marked stale and the user must re-plan; HomeLight never substitutes an unreviewed plan behind an existing confirmation.
+The TUI holds an exact structured plan in memory between review and application. Immediately before mutation it preflights that plan's expected state. If state has drifted, the plan is marked stale and the user must re-plan; Lighten never substitutes an unreviewed plan behind an existing confirmation.
 
 The TUI asks only for decisions that the configuration's rules leave open. A decision made in the TUI applies to the next apply only; the user saves it as a rule explicitly, and saving never applies.
 
@@ -111,13 +111,13 @@ Choices must be derived from the detected state and available reconciliation opt
 
 One persistent TamboUI application owns navigation, focus, configuration editing, decision resolution, plan review, confirmation, execution progress, and the retained final result. Workflows are screens within this application, not separate short-lived inline applications.
 
-The interface must be recognizably designed for HomeLight. It must avoid generic dashboard-card layouts, gratuitous gradients, excessive borders, decorative clutter, canned copy, and other presentation patterns that make the product look template-generated. Information hierarchy, typography, spacing, color, keyboard behavior, empty states, failure states, and narrow-terminal layouts must be deliberate.
+The interface must be recognizably designed for Lighten. It must avoid generic dashboard-card layouts, gratuitous gradients, excessive borders, decorative clutter, canned copy, and other presentation patterns that make the product look template-generated. Information hierarchy, typography, spacing, color, keyboard behavior, empty states, failure states, and narrow-terminal layouts must be deliberate.
 
 The Plan/Apply workflow shows relocations and their actions as a navigable hierarchy. During execution, action state changes in place through pending, running, completed, and failed states. It must not append duplicate plan and progress trees. Progress claims must match executor capabilities; per-file or byte progress and cancellation are not promised until the executor supports them safely.
 
 ## Built-in candidate defaults
 
-HomeLight should provide optional candidate defaults for commonly large machine-local directories, such as:
+Lighten should provide optional candidate defaults for commonly large machine-local directories, such as:
 
 - `~/.m2`
 - `~/.cargo`
@@ -133,7 +133,7 @@ Defaults are candidate policies, not unconditional mutations. Users must be able
 
 ## Reconciliation model
 
-For every configured path, HomeLight determines:
+For every configured path, Lighten determines:
 
 1. actual filesystem state
 2. desired state
@@ -185,11 +185,11 @@ The configuration names the decision for the observed state:
 - `when-source-and-target-directories-exist`: `prompt`, `adopt`, `leave-unchanged`, or `discard`
 - `when-only-target-exists`: `prompt` or `adopt-target`
 - `when-adopting-target`: `prompt`, `discard-source`, or `archive-source`
-- `archive-root`: where `archive-source` moves the source; optional, defaulting to `.homelight-archive` beside the source. It must be on the source's filesystem, because archiving is an atomic rename. The source moves to `<archive-root>/<source name>`. When that name is taken, by an existing entry or by another relocation with the same source name and archive root, it becomes `<source name>-<first 8 hex digits of the SHA-256 of the source's real path>`, so the same state always plans the same destination.
+- `archive-root`: where `archive-source` moves the source; optional, defaulting to `.lighten-archive` beside the source. It must be on the source's filesystem, because archiving is an atomic rename. The source moves to `<archive-root>/<source name>`. When that name is taken, by an existing entry or by another relocation with the same source name and archive root, it becomes `<source name>-<first 8 hex digits of the SHA-256 of the source's real path>`, so the same state always plans the same destination.
 
 An absent target with a source directory is staged, verified, and atomically published as one relocation. `adopt` makes the target authoritative, but a separate source disposition remains mandatory. `leave-unchanged` is intentional success, not convergence or a no-op.
 
-HomeLight must be idempotent. Once the desired state is reached, repeated planning produces no unnecessary actions and repeated application is safe.
+Lighten must be idempotent. Once the desired state is reached, repeated planning produces no unnecessary actions and repeated application is safe.
 
 ## Planning and safety
 
@@ -216,22 +216,22 @@ The system must not silently overwrite or destroy data when desired behavior can
 
 ## External dotfile managers
 
-Ownership is exclusive: a destination path is owned by either HomeLight or an external dotfile manager, never both.
+Ownership is exclusive: a destination path is owned by either Lighten or an external dotfile manager, never both.
 
-Ordinary dotfiles remain managed by systems such as Stow. If a directory is relocated by HomeLight, HomeLight owns placement within that relocated subtree.
+Ordinary dotfiles remain managed by systems such as Stow. If a directory is relocated by Lighten, Lighten owns placement within that relocated subtree.
 
-`externallyManagedSourceRoots` identifies source trees such as `~/dotfiles/stow`. HomeLight inspects symlinks under paths it intends to manage. If an existing link resolves into an external source root:
+`externallyManagedSourceRoots` identifies source trees such as `~/dotfiles/stow`. Lighten inspects symlinks under paths it intends to manage. If an existing link resolves into an external source root:
 
 - `plan` surfaces the intersection
 - the TUI asks how to handle it when necessary
 - `apply` never silently replaces it
 - a safe existing external link may be preserved when consistent with desired state
 
-HomeLight must not parse or depend on Stow internals. Detection operates on filesystem state and configured source roots, so it also works with chezmoi, yadm, plain Git-managed dotfiles, or other systems.
+Lighten must not parse or depend on Stow internals. Detection operates on filesystem state and configured source roots, so it also works with chezmoi, yadm, plain Git-managed dotfiles, or other systems.
 
 ## Managed links inside relocated trees
 
-HomeLight may create a link whose source is under an external source root while its destination is inside a HomeLight-managed relocated directory.
+Lighten may create a link whose source is under an external source root while its destination is inside a Lighten-managed relocated directory.
 
 For example:
 
@@ -243,15 +243,15 @@ For example:
     -> ~/dotfiles/agent-guidance/global-agent-defaults.md
 ```
 
-This is supported when HomeLight owns the destination and the external system owns only the source. HomeLight ensures the configured destination link exists and resolves as intended; the source repository remains independently managed.
+This is supported when Lighten owns the destination and the external system owns only the source. Lighten ensures the configured destination link exists and resolves as intended; the source repository remains independently managed.
 
 ## Existing heavy-storage setup
 
 An existing dotfiles setup uses concepts such as `~/.local-heavy`, `heavy-dirs`, `heavy-links`, `agent-guidance-heavy`, and helper scripts.
 
-HomeLight should eventually replace that special-purpose machinery. The dotfiles repository may continue to store configuration sources, manage ordinary dotfiles, contain HomeLight configuration, and invoke HomeLight during machine setup.
+Lighten should eventually replace that special-purpose machinery. The dotfiles repository may continue to store configuration sources, manage ordinary dotfiles, contain Lighten configuration, and invoke Lighten during machine setup.
 
-HomeLight must not depend on that repository. Safe migration from the existing setup is desirable but sophisticated automated migration can wait until the core reconciliation model is stable.
+Lighten must not depend on that repository. Safe migration from the existing setup is desirable but sophisticated automated migration can wait until the core reconciliation model is stable.
 
 ## Architecture constraints
 

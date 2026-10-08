@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.backend.jline3.JLineBackend
 import dev.tamboui.error.RuntimeIOException
@@ -8,9 +8,9 @@ import dev.tamboui.toolkit.app.ToolkitRunner
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.tui.TuiConfig
 import dev.tamboui.tui.error.RenderErrorHandler
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import org.jline.terminal.Terminal
 import java.io.IOException
 import java.io.PrintWriter
@@ -18,8 +18,8 @@ import java.io.UncheckedIOException
 import java.nio.file.Path
 import java.util.function.Supplier
 
-internal const val NOT_INTERACTIVE = "HomeLight TUI requires an interactive terminal. Use --json for automation."
-internal const val DUMB_TERMINAL = "HomeLight TUI does not support a dumb terminal. " +
+internal const val NOT_INTERACTIVE = "Lighten TUI requires an interactive terminal. Use --json for automation."
+internal const val DUMB_TERMINAL = "Lighten TUI does not support a dumb terminal. " +
     "Set TERM to a terminal type such as xterm-256color, or use --json for automation."
 
 /**
@@ -37,14 +37,14 @@ internal fun launchTui(
         return 2
     }
     try {
-        runTui(HomeLightSession(configPath, debugStepDelayMillis), openConfiguration = openConfiguration)
+        runTui(LightenSession(configPath, debugStepDelayMillis), openConfiguration = openConfiguration)
         return 0
     } catch (_: DumbTerminalException) {
         errorOutput.println(DUMB_TERMINAL)
         return 2
     } catch (exception: Exception) {
         if (!isTerminalFailure(exception)) throw exception
-        errorOutput.println("Failed to run HomeLight TUI: " + (exception.message ?: exception.toString()))
+        errorOutput.println("Failed to run Lighten TUI: " + (exception.message ?: exception.toString()))
         return 1
     }
 }
@@ -53,7 +53,7 @@ private fun isTerminalFailure(exception: Exception): Boolean = exception is IOEx
     || exception is UncheckedIOException || exception is RuntimeIOException || exception is TerminalIOException
 
 /**
- * Opens Configuration: on the file when it loads, on a new file when there is none. A file HomeLight cannot read is
+ * Opens Configuration: on the file when it loads, on a new file when there is none. A file Lighten cannot read is
  * refused, as `e` refuses it on the Workspace: it is fixed by hand.
  */
 internal fun launchConfiguration(configPath: Path, debugStepDelayMillis: Long, errorOutput: PrintWriter): Int {
@@ -75,8 +75,8 @@ internal fun terminalRefusal(interactive: Boolean, term: String?): String? = whe
 /**
  * The key handlers depend on [KEY_BINDINGS], so a custom configuration gets them too.
  *
- * The mouse is captured so the wheel reaches HomeLight as wheel events. Without capture a terminal sends it as arrow
- * keys, and a trackpad's sideways scrolling as ←/→, which switched Help's tabs. HomeLight uses only the wheel; to
+ * The mouse is captured so the wheel reaches Lighten as wheel events. Without capture a terminal sends it as arrow
+ * keys, and a trackpad's sideways scrolling as ←/→, which switched Help's tabs. Lighten uses only the wheel; to
  * select text, the user holds the terminal's bypass modifier (tui-design §3). TamboUI turns capture off again when
  * the runner closes, on every exit path.
  */
@@ -85,7 +85,7 @@ internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig =
 
 /** Runs the TUI on [config]'s backend, or the system terminal when it has none, until the user exits. */
 internal fun runTui(
-    session: HomeLightSession, config: TuiConfig = TuiConfig.defaults(), openConfiguration: Boolean = false,
+    session: LightenSession, config: TuiConfig = TuiConfig.defaults(), openConfiguration: Boolean = false,
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
 ) {
     val configured = tuiConfig(config)
@@ -97,7 +97,7 @@ internal fun runTui(
         builder.backend(systemBackend())
     }
     ToolkitRunner.create(builder.build()).use { runner ->
-        val app = HomeLightApp(session, runner.focusManager(), openConfiguration, discoveryFactory)
+        val app = LightenApp(session, runner.focusManager(), openConfiguration, discoveryFactory)
         runner.eventRouter().addGlobalHandler(app.keyHandler)
         try {
             runner.run(Supplier<Element> {

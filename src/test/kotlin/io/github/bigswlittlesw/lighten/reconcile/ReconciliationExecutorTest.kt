@@ -1,9 +1,9 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.fs.PathInspector
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -183,7 +183,7 @@ class ReconciliationExecutorTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
         val target = root.resolve("local/cache")
-        val staging = target.resolveSibling(".homelight-staging")
+        val staging = target.resolveSibling(".lighten-staging")
         val plan = plan(Relocation(source, target))
         val bug = IllegalStateException("injected bug")
         // The copy's contents can be deleted, but the copy cannot be removed from the read-only staging root.
@@ -255,12 +255,12 @@ class ReconciliationExecutorTest {
         assertEquals("source", Files.readString(real.resolve("cache/entry")))
         assertEquals(newTarget, Files.readSymbolicLink(absentSource))
         assertEquals(explicitStaging.targetPath, Files.readSymbolicLink(explicitStaging.sourcePath))
-        for (created in listOf("cache", ".homelight-staging", "store", "store/new", "store/other", "store/.staging")) {
+        for (created in listOf("cache", ".lighten-staging", "store", "store/new", "store/other", "store/.staging")) {
             assertTrue(Files.isDirectory(real.resolve(created), LinkOption.NOFOLLOW_LINKS), created)
         }
     }
 
-    /** A symlink where HomeLight needs a real directory, the staging root itself or one it would create, is refused. */
+    /** A symlink where Lighten needs a real directory, the staging root itself or one it would create, is refused. */
     @Test
     fun refusesASymlinkedStagingRootOrADanglingLinkWhereADirectoryWouldBeCreated(@TempDir root: Path) {
         val elsewhere = Files.createDirectory(root.resolve("elsewhere"))
@@ -291,7 +291,7 @@ class ReconciliationExecutorTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "source")
         val target = root.resolve("local/cache")
-        val staging = Files.createDirectories(target.resolveSibling(".homelight-staging"))
+        val staging = Files.createDirectories(target.resolveSibling(".lighten-staging"))
         val elsewhere = root.resolve("elsewhere")
         Files.createSymbolicLink(lockOf(stagedCopy(staging, target)), elsewhere)
 

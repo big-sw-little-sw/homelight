@@ -1,14 +1,14 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.fs.PathInspector
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.reconcile.replacedSourcePath
-import io.github.bigswlittlesw.homelight.tui.WorkspaceViewTest.Companion.render
-import io.github.bigswlittlesw.homelight.tui.WorkspaceViewTest.Companion.rightPane
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.replacedSourcePath
+import io.github.bigswlittlesw.lighten.tui.WorkspaceViewTest.Companion.render
+import io.github.bigswlittlesw.lighten.tui.WorkspaceViewTest.Companion.rightPane
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -20,14 +20,14 @@ import java.nio.file.Path
 class WorkspaceDetailsTest {
     @TempDir lateinit var temporary: Path
     private lateinit var root: Path
-    private lateinit var session: HomeLightSession
+    private lateinit var session: LightenSession
 
     @BeforeEach
     fun fixture() {
         root = temporary.toRealPath()
         val local = Files.createDirectories(root.resolve("local"))
         val home = Files.createDirectories(root.resolve("home"))
-        val body = StringBuilder("{\"homelight\": {\"target-root\": \"$local\", \"relocations\": [\n")
+        val body = StringBuilder("{\"lighten\": {\"target-root\": \"$local\", \"relocations\": [\n")
         fun add(name: String, extra: String = "") {
             body.append("  {\"source-path\": \"${home.resolve(name)}\", \"target-path\": \"${local.resolve(name)}\"$extra},\n")
         }
@@ -64,7 +64,7 @@ class WorkspaceDetailsTest {
         val inspect = { path: Path ->
             if (path == home.resolve("unreadable")) PathObservation(PathState.INACCESSIBLE) else inspector.inspect(path)
         }
-        session = HomeLightSession(config, evaluator = ConfigurationEvaluation(inspect = inspect))
+        session = LightenSession(config, evaluator = ConfigurationEvaluation(inspect = inspect))
     }
 
     @Test
@@ -106,7 +106,7 @@ class WorkspaceDetailsTest {
         assertTrue(squeezed(details).contains(squeezed("Decision: keep target, archive source (your choice, this run only)")), details)
         assertTrue(squeezed(details).contains(squeezed("Archive: " + archive("choose"))), details)
         assertTrue(details.contains("Move the source to the archive and"), details)
-        assertEquals(1, Regex(Regex.escape(".homelight-archive")).findAll(details).count(), details)
+        assertEquals(1, Regex(Regex.escape(".lighten-archive")).findAll(details).count(), details)
     }
 
     @Test

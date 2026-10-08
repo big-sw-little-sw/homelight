@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 /**
  * Line and column are one-based; zero means unavailable. Only [Kind.SYNTAX] diagnostics,

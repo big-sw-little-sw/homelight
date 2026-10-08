@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.fs.PathInspector
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.fs.PathInspector
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -165,7 +165,7 @@ class StagedPermissionTest {
         Files.writeString(nested.resolve("entry"), "keep")
         mode(source, "rwx------")
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val unrelated = Files.writeString(staging.resolve("unowned"), "keep")
         val planned = plan(source, target)
         mode(nested, "---------")
@@ -193,7 +193,7 @@ class StagedPermissionTest {
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val unrelated = Files.writeString(staging.resolve("unowned"), "keep")
         mode(staging, "r-x------")
         try {
@@ -254,7 +254,7 @@ class StagedPermissionTest {
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val outside = Files.createDirectory(root.resolve("outside"))
         Files.writeString(outside.resolve("entry"), "keep")
         val copy = Files.createDirectory(stagedCopy(staging, target))
@@ -288,7 +288,7 @@ class StagedPermissionTest {
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val foreign = Files.createDirectory(staging.resolve("foreign"))
         val otherCopy = Files.createDirectory(stagedCopy(staging, root.resolve("local/other")))
         val otherLock = Files.createFile(lockOf(otherCopy))
@@ -318,7 +318,7 @@ class StagedPermissionTest {
         val source = Files.createDirectory(root.resolve("source"))
         Files.writeString(source.resolve("entry"), "keep")
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val copy = Files.createDirectory(stagedCopy(staging, target))
         Files.writeString(copy.resolve("entry"), "stale")
         Files.createFile(lockOf(copy))
@@ -351,7 +351,7 @@ class StagedPermissionTest {
         val source = Files.createDirectory(root.resolve("source"))
         Files.createSymbolicLink(source.resolve("link"), outside)
         val target = root.resolve("local/target")
-        val staging = Files.createDirectories(target.parent.resolve(".homelight-staging"))
+        val staging = Files.createDirectories(target.parent.resolve(".lighten-staging"))
         val planned = plan(source, target)
         // The staged copy, link included, is complete; only the final rename into the parent fails.
         mode(target.parent, "r-x------")

@@ -1,6 +1,6 @@
-# HomeLight
+# Lighten
 
-HomeLight frees space in your home directory. It moves large directories, such
+Lighten frees space in your home directory. It moves large directories, such
 as caches, to other storage and leaves a link at the old path, so programs
 still find them.
 
@@ -14,12 +14,12 @@ y.
 - **Prepares directories that do not exist yet.** It creates them in storage
   and links to them, so they never fill your home directory.
 - **Handles copies already in storage.** When storage already has the
-  directory, a rule decides what happens, or HomeLight asks you.
+  directory, a rule decides what happens, or Lighten asks you.
 - **Suggests what to move.** Browse lists directories that are usually safe
   and worth moving, such as tool caches.
 - **Shows every step before it runs.** You review the whole plan and confirm
   it with `y`.
-- **Checks again at any time.** Press `r` and HomeLight looks at the disk
+- **Checks again at any time.** Press `r` and Lighten looks at the disk
   again and makes a new plan.
 - **Works in scripts.** `status`, `plan` and `apply` can print JSON.
 
@@ -36,37 +36,37 @@ Configure → Workspace → Review → Apply → Results
                 └────── r: check again ─────┘
 ```
 
-1. **Configure.** Run `homelight`. The first time, there is no configuration
+1. **Configure.** Run `lighten`. The first time, there is no configuration
    file yet: press `i` to open **Configuration**. Type where storage is in
    **Target root**, then add the directories to move: press `a` and type
    one in, or press `b` to browse suggestions. Paths are full, such as
    `/data/me`, or start with `~/`. Press `Esc`, then `s` to save. Saving
    writes the configuration file and nothing else.
 2. **Check the plan on the Workspace (`1`).** Each directory you added is a
-   *relocation*. The Workspace shows what is there now and what HomeLight
+   *relocation*. The Workspace shows what is there now and what Lighten
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
    needs your choice: select it, press `Tab`, pick a choice and press
    `Enter`. A relocation marked `[Blocked]` cannot be done as things are, for
    example because a file is where its archive folder should be. Its
    Details say what is in the way: fix that, then press `r`. If Details say
    you can, pick a choice below that doesn't need that folder instead.
-3. **Review (`2`).** Press `a` to see every step HomeLight will take, listed
+3. **Review (`2`).** Press `a` to see every step Lighten will take, listed
    under the relocation it belongs to. Select a relocation to see its decision
    and paths, or a step to see what it does. Nothing has changed yet. Press
    `y` to apply, or `n` to go back.
-4. **Apply.** HomeLight makes the changes and shows each step as it runs.
+4. **Apply.** Lighten makes the changes and shows each step as it runs.
    Leave it running until it finishes. If you press `q`, it finishes the
    changes first, then exits.
 5. **Results (`2`).** Each step shows whether it worked. Press `r` to check
    again: the Workspace then shows each relocation as it is now, normally
-   `[In sync]`. If a step finds something different from the plan, HomeLight
+   `[In sync]`. If a step finds something different from the plan, Lighten
    stops there and the steps after it do not run. Select the failed step to
    see what it found, then press `r`.
 
 ### Change the configuration later
 
 Press `e` on the Workspace to open Configuration, change it, and press `s`.
-HomeLight checks again and shows the new plan.
+Lighten checks again and shows the new plan.
 
 - Select **Storage locations** or a relocation in the list on the left, and
   press `Enter` to change its fields. `Esc` goes back to the list. In a
@@ -76,34 +76,34 @@ HomeLight checks again and shows the new plan.
 - Saving asks first, because it replaces the whole file. Comments in the
   file are not kept.
 - If the file changed after you opened Configuration, for example because you
-  edited it by hand, HomeLight does not replace it. Your changes stay on
+  edited it by hand, Lighten does not replace it. Your changes stay on
   screen: press `q`, then `y`, then `e` to start again from the file.
 
-`homelight config` opens Configuration directly. The configuration file is
-`~/.homelight.json`, or the file you gave with `--config`. You can also edit
-it by hand, then press `r` in HomeLight to check again.
+`lighten config` opens Configuration directly. The configuration file is
+`~/.lighten.json`, or the file you gave with `--config`. You can also edit
+it by hand, then press `r` in Lighten to check again.
 
-Run HomeLight again whenever you like, for example after you add a
+Run Lighten again whenever you like, for example after you add a
 directory. It changes only what is not in sync yet.
 
-### If HomeLight can't read your configuration
+### If Lighten can't read your configuration
 
-If the file has a mistake, the Workspace says `HomeLight can't read`, the
+If the file has a mistake, the Workspace says `Lighten can't read`, the
 file's name, and what is wrong, such as one of these:
 
 ```
-target-root is missing. Add it under "homelight".
+target-root is missing. Add it under "lighten".
 Line 2: relocations[0].source-path should be text, but it is a number.
-homelight.target-root: Use a full path, or one starting with ~/
+lighten.target-root: Use a full path, or one starting with ~/
 ```
 
 - **To fix it:** open the file in a text editor, correct the line or
   setting it names, then press `r` to check again.
-- **To start over:** rename or delete the file, then press `r`. HomeLight
+- **To start over:** rename or delete the file, then press `r`. Lighten
   then offers `i` to create a new one.
 
-Configuration can't open a file HomeLight can't read, so `e` is not offered
-until the file is fixed. `homelight config` and the `--json` commands print
+Configuration can't open a file Lighten can't read, so `e` is not offered
+until the file is fixed. `lighten config` and the `--json` commands print
 the same explanation and exit with code 1.
 
 ## Suggestion lists
@@ -111,7 +111,7 @@ the same explanation and exit with code 1.
 Browse, inside Configuration, suggests directories to move. The suggestions
 come from two suggestion lists:
 
-- **The built-in list.** It comes with HomeLight and names directories that
+- **The built-in list.** It comes with Lighten and names directories that
   are usually large and safe to move: package caches and toolchains for
   Maven, Gradle, npm, pip, uv, pixi, Cargo, Go, VS Code and others.
 - **Your list** (optional). A file you write, for example one on a shared
@@ -162,7 +162,7 @@ A suggestion list is a JSON file. For example:
 
 ```json
 {
-  // Suggestions for HomeLight's Browse.
+  // Suggestions for Lighten's Browse.
   "apps": [
     {
       "name": "Bazel",
@@ -203,7 +203,7 @@ A suggestion list is a JSON file. For example:
 - The file can be up to 1 MiB and list up to 10,000 directories.
 
 One error rejects the whole file. Browse then says so on your list's line
-(press `i` for the detail) and uses the built-in list alone. HomeLight waits
+(press `i` for the detail) and uses the built-in list alone. Lighten waits
 at most 5 seconds for the file, so a slow or missing drive never blocks you.
 Configuration saves either way.
 
@@ -211,7 +211,7 @@ To use a list, enter its path in Configuration's **Suggestion list** field,
 or add it to the configuration file:
 
 ```json
-"suggestion-list": "/net/team/homelight/suggestions.json"
+"suggestion-list": "/net/team/lighten/suggestions.json"
 ```
 
 The path must be full or start with `~/`. Each person keeps their own
@@ -220,7 +220,7 @@ press `r` in Browse to check again.
 
 ## Words to know
 
-**Relocation.** One directory HomeLight manages. Its **source** is where
+**Relocation.** One directory Lighten manages. Its **source** is where
 programs look for it, in your home directory. Its **target** is where its
 contents live, in storage. After a move, the source is a link to the target.
 
@@ -233,8 +233,8 @@ apply only. Checking again or applying forgets it.
 **Archive or delete.** Archive moves the source's contents into an archive
 folder, so you can move them back. Delete removes them for good.
 
-**Check again.** HomeLight looks at the disk again and makes a new plan. Do it
-after you change files or the configuration outside HomeLight.
+**Check again.** Lighten looks at the disk again and makes a new plan. Do it
+after you change files or the configuration outside Lighten.
 
 ## Undo
 
@@ -245,18 +245,18 @@ you can reverse a change by hand:
   example: `rm ~/.cache/uv` (removes only the link), then
   `mv /local/home/me/.cache/uv ~/.cache/uv`.
 - **Archived:** remove the link, then move the archive back, for example
-  `mv ~/.cache/.homelight-archive/uv ~/.cache/uv`. The target keeps its own
+  `mv ~/.cache/.lighten-archive/uv ~/.cache/uv`. The target keeps its own
   contents.
-- **Deleted:** HomeLight cannot recover it. Restore it from a backup.
+- **Deleted:** Lighten cannot recover it. Restore it from a backup.
 
-Remove the relocation from the configuration first, or HomeLight plans to
+Remove the relocation from the configuration first, or Lighten plans to
 move it again: press `e`, select it, press `d`, then `s`.
 
 ## Reference
 
 ### What each rule does on disk
 
-HomeLight looks at the source and the target, then:
+Lighten looks at the source and the target, then:
 
 - **Only the source exists:** it copies the source to the target, checks the
   copy, then replaces the source with a link. The Workspace marks it `[Move]`.
@@ -288,9 +288,9 @@ and, for what happens to the source when the target is kept,
   source's contents are gone for good.
 - **Keep target, archive source** (`adopt`, `archive-source`): moves the
   source into the archive folder, then links it to the target (`[Archive]`).
-  The archive folder is `.homelight-archive` beside the source unless
+  The archive folder is `.lighten-archive` beside the source unless
   `archive-root` says otherwise, so `~/.cache/uv` goes to
-  `~/.cache/.homelight-archive/uv`.
+  `~/.cache/.lighten-archive/uv`.
 - **Leave both as they are** (`leave-unchanged`): nothing (`[Left as is]`).
 - **Delete both, start empty** (`discard`): deletes both, creates an empty
   target and links the source to it (`[Delete]`). Both contents are gone for
@@ -303,13 +303,13 @@ apply only.
 
 Three commands never ask a question and print one line of JSON:
 
-- `homelight status --json`: what is on disk now for each relocation. Without
+- `lighten status --json`: what is on disk now for each relocation. Without
   a configuration file at the default path, `configured` is `false` and
   `relocations` is empty.
-- `homelight plan --json`: the steps HomeLight would take for each
+- `lighten plan --json`: the steps Lighten would take for each
   relocation, any choices still needed (`conflicts`) and any warnings. It
   changes nothing.
-- `homelight apply --json --yes`: makes that plan and, if nothing is blocked
+- `lighten apply --json --yes`: makes that plan and, if nothing is blocked
   and no choice is needed, applies it and prints how each step went. If
   something is blocked or needs a choice, it prints the plan instead and
   changes nothing.
@@ -329,16 +329,16 @@ Exit codes:
   or had a step fail (JSON on stdout).
 - `2`: the command line is wrong, such as an unknown option or
   `apply --json` without `--yes` (a message on stderr).
-- `70`: a bug in HomeLight (one line on stderr). Please report it.
+- `70`: a bug in Lighten (one line on stderr). Please report it.
 
 ### More help
 
 - This guide online:
   https://github.com/big-sw-little-sw/homelight/blob/main/docs/user-guide.md
-- `homelight --help` lists the commands and options.
-- `homelight apply --help` shows the options of one command, here `apply`.
-- `homelight guide` prints this guide, for example to read with
-  `homelight guide | less`.
-- To select and copy text while HomeLight runs, hold Shift as you drag
-  (WezTerm, Ghostty) or Option (iTerm2). HomeLight uses the mouse wheel to
+- `lighten --help` lists the commands and options.
+- `lighten apply --help` shows the options of one command, here `apply`.
+- `lighten guide` prints this guide, for example to read with
+  `lighten guide | less`.
+- To select and copy text while Lighten runs, hold Shift as you drag
+  (WezTerm, Ghostty) or Option (iTerm2). Lighten uses the mouse wheel to
   scroll.

@@ -1,19 +1,19 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.HomeLightConfiguration
-import io.github.bigswlittlesw.homelight.config.InvalidConfigurationException
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.fs.PathInspector
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
-import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
-import io.github.bigswlittlesw.homelight.reconcile.RelocationState
-import io.github.bigswlittlesw.homelight.reconcile.inspectRelocations
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.LightenConfiguration
+import io.github.bigswlittlesw.lighten.config.InvalidConfigurationException
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
+import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
+import io.github.bigswlittlesw.lighten.reconcile.RelocationState
+import io.github.bigswlittlesw.lighten.reconcile.inspectRelocations
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -47,7 +47,7 @@ class ConfigurationEvaluation(
      */
     @ConsistentCopyVisibility
     data class Loaded private constructor(
-        override val configPath: Path, val savedConfiguration: HomeLightConfiguration,
+        override val configPath: Path, val savedConfiguration: LightenConfiguration,
         val observations: List<RelocationState>, val savedPlan: ReconciliationPlan,
         val draft: Map<Path, DecisionChoice>, val availableChoices: Map<Path, List<DecisionChoice>>,
         val plan: ReconciliationPlan, val choiceAvoidsFolder: Set<Path>,
@@ -55,7 +55,7 @@ class ConfigurationEvaluation(
         companion object {
             /** Copies the collections, including each list of choices. */
             fun of(
-                configPath: Path, savedConfiguration: HomeLightConfiguration,
+                configPath: Path, savedConfiguration: LightenConfiguration,
                 observations: List<RelocationState>, savedPlan: ReconciliationPlan,
                 draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
                 plan: ReconciliationPlan, choiceAvoidsFolder: Set<Path>,

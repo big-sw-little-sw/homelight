@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import java.io.IOException
 import java.nio.file.Path
@@ -18,7 +18,7 @@ object CandidateCatalog {
         return bundledBytes.fold(
             { bytes ->
                 if (bytes == null) {
-                    parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE, "The built-in list is missing from HomeLight")
+                    parser.failure(BUNDLED, root, CandidateDiagnostic.Kind.RESOURCE, "The built-in list is missing from Lighten")
                 } else parser.parse(BUNDLED, root, bytes)
             },
             { e ->

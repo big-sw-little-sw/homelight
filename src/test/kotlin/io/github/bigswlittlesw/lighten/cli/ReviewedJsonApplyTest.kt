@@ -1,8 +1,8 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.ReviewedExecution
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.ReviewedExecution
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -115,7 +115,7 @@ class ReviewedJsonApplyTest {
             Path.of(System.getProperty("java.home"), "bin", "java").toString(),
             "-Xlog:class+init=info:file=$classes",
             "-cp", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
-            HomeLightCommand::class.java.name, "--config", config.toString(), "apply", "--json", "--yes")
+            LightenCommand::class.java.name, "--config", config.toString(), "apply", "--json", "--yes")
             .redirectInput(ProcessBuilder.Redirect.from(root.resolve("stdin").toFile()))
             .redirectOutput(output.toFile()).redirectError(error.toFile())
         Files.createFile(root.resolve("stdin"))
@@ -261,7 +261,7 @@ class ReviewedJsonApplyTest {
 
     private companion object {
         fun execute(config: Path, worker: Executor, vararg options: String): Result {
-            val command = CommandLine(HomeLightCommand(), object : CommandLine.IFactory {
+            val command = CommandLine(LightenCommand(), object : CommandLine.IFactory {
                 override fun <K> create(type: Class<K>): K =
                     if (type == ApplyCommand::class.java) type.cast(ApplyCommand(worker))
                     else CommandLine.defaultFactory().create(type)
@@ -276,14 +276,14 @@ class ReviewedJsonApplyTest {
             return Result(exitCode, output.toString(), error.toString())
         }
 
-        /** `globals` are JSON members of `homelight`, each followed by a comma. */
+        /** `globals` are JSON members of `lighten`, each followed by a comma. */
         fun configuration(root: Path, globals: String, vararg names: String): Path {
             Files.createDirectories(root.resolve("home"))
             val relocations = names.joinToString(",\n") { name ->
                 "    {\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
                     " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
             }
-            val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
+            val json = "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
             return Files.writeString(root.resolve("config.json"), json)
         }
 

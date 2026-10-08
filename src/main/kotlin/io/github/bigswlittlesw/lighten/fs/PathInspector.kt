@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.fs
+package io.github.bigswlittlesw.lighten.fs
 
 import java.io.IOException
 import java.io.UncheckedIOException

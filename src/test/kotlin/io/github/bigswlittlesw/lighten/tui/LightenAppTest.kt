@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.toolkit.event.EventResult
 import dev.tamboui.tui.event.KeyCode
@@ -6,17 +6,17 @@ import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
 import dev.tamboui.tui.event.MouseButton
 import dev.tamboui.tui.event.MouseEvent
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
-import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
+import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -29,7 +29,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
 
-class HomeLightAppTest {
+class LightenAppTest {
 
     @Test
     fun finishingMovesTheSelectionToTheFirstFailureOrElseTheLastCompletedStep() {
@@ -58,9 +58,9 @@ class HomeLightAppTest {
             "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
         }
         val config = Files.writeString(root.resolve("config.json"),
-            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+            "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
         // Each changing step stays running for this long, so frames render while steps start and finish.
-        val ui = HeadlessTui(HomeLightSession(config, debugStepDelayMillis = 150))
+        val ui = HeadlessTui(LightenSession(config, debugStepDelayMillis = 150))
         ui.press('a')
         val steps = ApplyView.steps(ui.app.session.applyModel())
         val rows = ApplyView.rows(steps)
@@ -99,7 +99,7 @@ class HomeLightAppTest {
 
     @Test
     fun reviewSelectionMovesThroughRelocationAndStepRows(@TempDir temporary: Path) {
-        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
+        val ui = HeadlessTui(LightenSession(twoMissingSources(temporary)))
         ui.press('a')
         val rows = ApplyView.rows(ApplyView.steps(ui.app.session.applyModel()))
         assertEquals(REVIEW_LIST, ui.focused())
@@ -129,7 +129,7 @@ class HomeLightAppTest {
      */
     @Test
     fun theReviewListKeepsReviewKeys(@TempDir temporary: Path) {
-        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
+        val ui = HeadlessTui(LightenSession(twoMissingSources(temporary)))
         ui.press('a')
         val rows = ApplyView.rows(ApplyView.steps(ui.app.session.applyModel()))
         val start = ui.screen()
@@ -159,7 +159,7 @@ class HomeLightAppTest {
     /** The wheel over the list moves its selection one row; clicks on it neither focus it nor change it. */
     @Test
     fun theWheelMovesTheReviewSelectionAndClicksChangeNothing(@TempDir temporary: Path) {
-        val ui = HeadlessTui(HomeLightSession(twoMissingSources(temporary)))
+        val ui = HeadlessTui(LightenSession(twoMissingSources(temporary)))
         ui.press('a')
         val top = ui.screen().lines().indexOfFirst { it.contains("Plan") } + 1
         ui.press(MouseEvent.scrollDown(3, top + 1))
@@ -208,10 +208,10 @@ class HomeLightAppTest {
         val root = temporary.toRealPath()
         Files.createDirectories(root.resolve("home/both"))
         Files.createDirectories(root.resolve("local/both"))
-        val config = Files.writeString(root.resolve("config.json"), "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\"," +
+        val config = Files.writeString(root.resolve("config.json"), "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\"," +
             " \"relocations\": [{\"source-path\": \"${root.resolve("home/both")}\", \"target-path\": \"${root.resolve("local/both")}\"," +
             " \"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\"}]}}\n")
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('a')
         val review = WorkspaceViewTest.rightPane(ui.screen(120, 30), 120)
         assertTrue(compact(review).contains(compact("Decision: keep target, delete source (your configuration)")), review)
@@ -223,14 +223,14 @@ class HomeLightAppTest {
         val source = root.resolve("home/cache")
         val target = root.resolve("local/cache")
         val config = Files.writeString(root.resolve("config.json"), ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"}
                   ]
                 }}
                 """.trimIndent() + "\n").format(root, source, target))
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
 
         ui.press('2')
         assertEquals(Screen.APPLY, ui.app.activeScreen)
@@ -265,14 +265,14 @@ class HomeLightAppTest {
     fun runningApplyConsumesQuitRefreshAndRepeatedConfirmation(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
         val config = Files.writeString(root.resolve("config.json"), ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"}
                   ]
                 }}
                 """.trimIndent() + "\n").format(root, root.resolve("source"), root.resolve("target")))
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         ui.press('a')
         val tasks = mutableListOf<Runnable>()
         ui.app.session.confirmApply(Executor { tasks.add(it) })
@@ -376,7 +376,7 @@ class HomeLightAppTest {
 
     @Test
     fun switchesScreensViaKeys() {
-        val ui = HeadlessTui(HomeLightSession(Path.of("/nonexistent/config.json")))
+        val ui = HeadlessTui(LightenSession(Path.of("/nonexistent/config.json")))
         assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
 
         ui.press('2')
@@ -402,9 +402,9 @@ class HomeLightAppTest {
         val target = Files.createDirectories(root.resolve("local/cache"))
         Files.writeString(target.resolve("file.txt"), "target content")
 
-        val config = Files.createTempFile(root, "homelight", ".json")
+        val config = Files.createTempFile(root, "lighten", ".json")
         Files.writeString(config, ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"}
@@ -412,7 +412,7 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
         assertTrue(ui.app.session.hasConflicts())
         assertEquals(WORKSPACE_LIST, ui.focused())
@@ -451,9 +451,9 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile(root, "homelight", ".json")
+        val config = Files.createTempFile(root, "lighten", ".json")
         Files.writeString(config, ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"},
@@ -462,7 +462,7 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         assertEquals(WORKSPACE_LIST, ui.focused())
         assertEquals(0, ui.app.selectedIndex())
 
@@ -539,9 +539,9 @@ class HomeLightAppTest {
         val target2 = Files.createDirectories(root.resolve("local/cache2"))
         Files.writeString(target2.resolve("file2.txt"), "target content 2")
 
-        val config = Files.createTempFile(root, "homelight", ".json")
+        val config = Files.createTempFile(root, "lighten", ".json")
         Files.writeString(config, ("""
-                {"homelight": {
+                {"lighten": {
                   "target-root": "%s",
                   "relocations": [
                     {"source-path": "%s", "target-path": "%s"},
@@ -550,7 +550,7 @@ class HomeLightAppTest {
                 }}
                 """.trimIndent() + "\n").format(root, source1, target1, source2, target2))
 
-        val ui = HeadlessTui(HomeLightSession(config))
+        val ui = HeadlessTui(LightenSession(config))
         assertEquals(0, ui.app.selectedIndex())
         assertEquals(WORKSPACE_LIST, ui.focused())
 
@@ -631,7 +631,7 @@ class HomeLightAppTest {
             }
             Files.createDirectories(root.resolve("home"))
             return Files.writeString(root.resolve("config.json"),
-                "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+                "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
         }
 
         fun steps(plan: ReconciliationPlan, status: (Int) -> ApplyModel.StepStatus): List<ApplyModel.Step> =
@@ -639,7 +639,7 @@ class HomeLightAppTest {
                 .mapIndexed { i, (relocation, action) -> ApplyModel.Step(relocation, action, status(i), status(i).toString()) }
 
         /** A real session whose `inSync` sources already link to their targets and whose `conflicts` have both directories. */
-        fun session(temporary: Path, inSync: List<String> = listOf(), conflicts: List<String> = listOf()): HomeLightSession {
+        fun session(temporary: Path, inSync: List<String> = listOf(), conflicts: List<String> = listOf()): LightenSession {
             val root = temporary.toRealPath()
             for (name in inSync) {
                 Files.createDirectories(root.resolve("home"))
@@ -653,8 +653,8 @@ class HomeLightAppTest {
                 "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"}"
             }
             val config = Files.writeString(root.resolve("config.json"),
-                "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
-            return HomeLightSession(config)
+                "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n")
+            return LightenSession(config)
         }
 
         fun type(ui: HeadlessTui, value: String) {

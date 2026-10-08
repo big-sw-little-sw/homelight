@@ -1,17 +1,17 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.lighten.discovery
 
-import io.github.bigswlittlesw.homelight.concurrent.DISCOVERY_CONCURRENCY
-import io.github.bigswlittlesw.homelight.concurrent.mapBounded
-import io.github.bigswlittlesw.homelight.config.CandidateCatalog
-import io.github.bigswlittlesw.homelight.config.CandidateDiagnostic
-import io.github.bigswlittlesw.homelight.config.CandidateParser
-import io.github.bigswlittlesw.homelight.config.CandidateSource
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceOutcome
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceProblem
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery.SourceStatus
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Diagnostic
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Kind
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.lighten.concurrent.DISCOVERY_CONCURRENCY
+import io.github.bigswlittlesw.lighten.concurrent.mapBounded
+import io.github.bigswlittlesw.lighten.config.CandidateCatalog
+import io.github.bigswlittlesw.lighten.config.CandidateDiagnostic
+import io.github.bigswlittlesw.lighten.config.CandidateParser
+import io.github.bigswlittlesw.lighten.config.CandidateSource
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceOutcome
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceProblem
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceStatus
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Diagnostic
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -127,7 +127,7 @@ class CandidateDiscovery internal constructor(
         sources[source] = SourceOutcome(source, null, SourceStatus.PENDING, listOf(), listOf())
         val started = clock()
         sharedRead = Attempt.Running(started)
-        Thread.ofVirtual().name("homelight-shared-list").start {
+        Thread.ofVirtual().name("lighten-shared-list").start {
             val result = catching {
                 val bytes = sharedReader(location)
                 SharedFile(CandidateParser().parse(source, root, bytes), modified(location))
@@ -290,7 +290,7 @@ internal class Workers(val n: Int = DISCOVERY_CONCURRENCY) {
     @Synchronized
     fun chain(run: () -> Unit) {
         val previous = last
-        last = Thread.ofVirtual().name("homelight-discovery").start {
+        last = Thread.ofVirtual().name("lighten-discovery").start {
             previous?.join()
             run()
         }

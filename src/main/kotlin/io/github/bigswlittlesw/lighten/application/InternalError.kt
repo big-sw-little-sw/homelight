@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
 /**
  * The one line that reports a bug: any failure that is not a configuration, I/O or environment failure.

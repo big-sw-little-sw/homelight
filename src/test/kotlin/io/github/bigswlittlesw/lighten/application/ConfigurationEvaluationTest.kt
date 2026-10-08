@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlanner
-import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
+import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -97,7 +97,7 @@ class ConfigurationEvaluationTest {
         Files.createDirectory(root.resolve("source"))
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target", mapOf("archive-root" to archive())))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         val original = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val observation = original.observations.first()
         val archive = checkNotNull(observation.archiveDestination)
@@ -128,7 +128,7 @@ class ConfigurationEvaluationTest {
     fun replacingChoiceCancelsReviewAndRecheckClearsIt() {
         bothDirectories("source", "target")
         write(entry("source", "target", mapOf("archive-root" to archive())))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertTrue(session.requestApply())
         session.choose(root.resolve("source"), DecisionChoice.LEAVE_UNCHANGED)
@@ -149,7 +149,7 @@ class ConfigurationEvaluationTest {
     fun rejectsUnknownAndUnavailableChoicesWithoutChangingReview() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
         val review = session.applyModel()
@@ -164,7 +164,7 @@ class ConfigurationEvaluationTest {
         // Archiving is always offered; without an archive-root it goes beside the source.
         val archived = evaluator.choose(loaded(), root.resolve("other-source"), DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         val archive = archived.plan.actions().filterIsInstance<ReconciliationAction.ArchiveDirectory>().single()
-        assertEquals(root.resolve(".homelight-archive/other-source"), archive.target)
+        assertEquals(root.resolve(".lighten-archive/other-source"), archive.target)
     }
 
     @Test
@@ -181,7 +181,7 @@ class ConfigurationEvaluationTest {
     fun recheckClassifiesCurrentSourceWithoutTheEarlierChoice() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         Files.createSymbolicLink(root.resolve("source"), root.resolve("target"))
         session.refresh()
@@ -194,10 +194,10 @@ class ConfigurationEvaluationTest {
     fun missingAndMalformedConfigClearDraftAndRequireFreshReview() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
-        Files.writeString(config, "{\"homelight\": [")
+        Files.writeString(config, "{\"lighten\": [")
         session.refresh()
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, session.evaluation())
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
@@ -216,17 +216,17 @@ class ConfigurationEvaluationTest {
         val source = root.resolve("source")
         val relocation = "\"source-path\": \"$source\", \"target-path\": \"$target\""
         val cases = mapOf(
-            "malformed" to "{\"homelight\": [",
-            "unknown key" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{$relocation, \"existing\": \"move\"}]}}",
-            "bad enum" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
+            "malformed" to "{\"lighten\": [",
+            "unknown key" to "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [{$relocation, \"existing\": \"move\"}]}}",
+            "bad enum" to "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [" +
                 "{$relocation, \"when-only-target-exists\": \"sometimes\"}]}}",
-            "missing key" to "{\"homelight\": {\"relocations\": []}}",
-            "relative suggestion-list" to "{\"homelight\": {\"target-root\": \"$root\", \"suggestion-list\": \"x.json\"}}",
-            "NUL in a path" to "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [" +
+            "missing key" to "{\"lighten\": {\"relocations\": []}}",
+            "relative suggestion-list" to "{\"lighten\": {\"target-root\": \"$root\", \"suggestion-list\": \"x.json\"}}",
+            "NUL in a path" to "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [" +
                 "{\"source-path\": \"/a\\u0000b\", \"target-path\": \"$target\"}]}}",
-            "blank source-root" to "{\"homelight\": {\"source-root\": \" \", \"target-root\": \"$root\"}}",
-            "NUL in source-root" to "{\"homelight\": {\"source-root\": \"/a\\u0000b\", \"target-root\": \"$root\"}}",
-            "source outside source-root" to "{\"homelight\": {\"source-root\": \"$root/home\", \"target-root\": \"$root\"," +
+            "blank source-root" to "{\"lighten\": {\"source-root\": \" \", \"target-root\": \"$root\"}}",
+            "NUL in source-root" to "{\"lighten\": {\"source-root\": \"/a\\u0000b\", \"target-root\": \"$root\"}}",
+            "source outside source-root" to "{\"lighten\": {\"source-root\": \"$root/home\", \"target-root\": \"$root\"," +
                 " \"relocations\": [{\"source-path\": \"$source\"}]}}",
         )
         for ((name, content) in cases) {
@@ -255,7 +255,7 @@ class ConfigurationEvaluationTest {
     fun runningAndRetainedResultsRejectEditsUntilExplicitReplan() {
         Files.createDirectory(root.resolve("target"))
         write(entry("source", "target"))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         session.choose(root.resolve("source"), DecisionChoice.ADOPT_TARGET)
         assertTrue(session.requestApply())
         val tasks = mutableListOf<Runnable>()
@@ -295,7 +295,7 @@ class ConfigurationEvaluationTest {
     fun onlyTargetConflictOffersAdoptTargetAndChoosingLinks() {
         Files.writeString(Files.createDirectories(root.resolve("local/cache")).resolve("file.txt"), "target")
         write(entry("home/cache", "local/cache"))
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items.single()
         assertEquals(PlanBadge.CONFLICT, item.badge())
         assertTrue(item.hasConflict())
@@ -358,7 +358,7 @@ class ConfigurationEvaluationTest {
     }
 
     private fun document(vararg entries: String): String =
-        "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [\n" + entries.joinToString(",\n") + "\n]}}\n"
+        "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [\n" + entries.joinToString(",\n") + "\n]}}\n"
 
     private fun entry(source: String, target: String, policies: Map<String, String> = mapOf()): String {
         val fields = mapOf("source-path" to root.resolve(source).toString(), "target-path" to root.resolve(target).toString()) + policies

@@ -1,23 +1,23 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.buffer.Buffer
 import dev.tamboui.layout.Rect
 import dev.tamboui.terminal.Frame
 import dev.tamboui.toolkit.element.RenderContext
 import dev.tamboui.toolkit.event.EventResult
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.pendingSteps
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
-import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
-import io.github.bigswlittlesw.homelight.reconcile.RelocationState
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.pendingSteps
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
+import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
+import io.github.bigswlittlesw.lighten.reconcile.RelocationState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -101,9 +101,9 @@ class ApplyViewTest {
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
             val text = lightBorders(render(ApplyModel.Running.of(plan, steps), 1, size[0], size[1]))
             // Only what is happening: neither destination can be reached while applying.
-            assertTrue(text.contains("⌂ HOMELIGHT  [Applying]"), text)
+            assertTrue(text.contains("⌂ LIGHTEN  [Applying]"), text)
             assertFalse(text.contains("Workspace"), text)
-            assertTrue(text.contains("Applying. Leave HomeLight running until it finishes."), text)
+            assertTrue(text.contains("Applying. Leave Lighten running until it finishes."), text)
             assertTrue(text.contains("1 of 2 changes done · 1 running · 0 failed"), text)
             assertTrue(render(ApplyModel.Running.of(plan, steps), 1, size[0], size[1]).contains("━"), text)
             // The relocation's heading and its running step both spin; the done step is checked. Steps are indented
@@ -148,7 +148,7 @@ class ApplyViewTest {
     }
 
     @Test
-    fun runningViewStopsOfferingQuitOnceHomeLightWillExit() {
+    fun runningViewStopsOfferingQuitOnceLightenWillExit() {
         val plan = plan()
         val relocation = plan.relocations.first()
         val steps = listOf(

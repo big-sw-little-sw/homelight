@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.userGuide
+import io.github.bigswlittlesw.lighten.application.userGuide
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Spec

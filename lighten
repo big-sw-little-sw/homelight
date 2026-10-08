@@ -4,4 +4,4 @@ set -euo pipefail
 # Runs the installed start script rather than `gradlew run`, so the TUI gets the real terminal.
 here=$(cd "$(dirname "$0")" && pwd)
 "$here/gradlew" -q -p "$here" installDist
-exec "$here/build/install/homelight/bin/homelight" "$@"
+exec "$here/build/install/lighten/bin/lighten" "$@"

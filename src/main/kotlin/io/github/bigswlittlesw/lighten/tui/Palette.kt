@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.style.AnsiColor
 import dev.tamboui.style.Color
@@ -6,7 +6,7 @@ import dev.tamboui.style.Color
 /**
  * The TUI's colors by role. Views name roles only; `docs/tui-design.md` §4 says what each role is for.
  *
- * HomeLight paints [background] itself, so these colors never depend on the terminal's own background.
+ * Lighten paints [background] itself, so these colors never depend on the terminal's own background.
  */
 internal data class Palette(
     val background: Color,
@@ -59,5 +59,5 @@ internal val HARBOR_BASIC = Palette(
 internal fun paletteFor(colorTerm: String?): Palette =
     if (colorTerm == "truecolor" || colorTerm == "24bit") HARBOR else HARBOR_BASIC
 
-/** Read once: the terminal's color support does not change while HomeLight runs. */
+/** Read once: the terminal's color support does not change while Lighten runs. */
 internal val palette: Palette = paletteFor(System.getenv("COLORTERM"))

@@ -1,8 +1,8 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.intersects
-import io.github.bigswlittlesw.homelight.config.realSpelling
-import io.github.bigswlittlesw.homelight.config.relocationProblem
+import io.github.bigswlittlesw.lighten.config.intersects
+import io.github.bigswlittlesw.lighten.config.realSpelling
+import io.github.bigswlittlesw.lighten.config.relocationProblem
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path

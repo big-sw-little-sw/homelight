@@ -1,8 +1,8 @@
-# HomeLight Architecture
+# Lighten Architecture
 
 ## Architectural direction
 
-HomeLight should be a small Kotlin library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
+Lighten should be a small Kotlin library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
 
 The design should support future integrations without placing presentation, serialization, Git, or HTTP concerns in the reconciliation engine.
 
@@ -125,7 +125,7 @@ Third-party libraries are acceptable when they are isolated behind an adapter an
 
 Drive complete user journeys through the presentation-neutral workflow/session boundary. These tests assert externally visible state transitions and effects rather than TamboUI implementation details. Test the pure reconciliation engine with state and policy combinations and filesystem behavior with temporary directory trees.
 
-Keep adapter tests narrow: deterministic TamboUI rendering and navigation at fixed terminal sizes, exact JSON schemas and exit codes, and a small real-terminal smoke test for startup, resizing, deep links, and clean shutdown. Visual review establishes the HomeLight-specific design language before the complete workflow is built.
+Keep adapter tests narrow: deterministic TamboUI rendering and navigation at fixed terminal sizes, exact JSON schemas and exit codes, and a small real-terminal smoke test for startup, resizing, deep links, and clean shutdown. Visual review establishes the Lighten-specific design language before the complete workflow is built.
 
 Important invariants include:
 
@@ -135,4 +135,4 @@ Important invariants include:
 - repeated planning after convergence is a no-op
 - mutation does not follow symlinks unexpectedly
 - external source ownership is not silently replaced
-- managed links inside HomeLight-relocated trees are supported
+- managed links inside Lighten-relocated trees are supported

@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import kotlinx.serialization.Serializable
 import java.io.PrintWriter
 import java.util.Locale

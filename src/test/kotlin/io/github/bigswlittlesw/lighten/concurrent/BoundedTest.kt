@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.concurrent
+package io.github.bigswlittlesw.lighten.concurrent
 
-import io.github.bigswlittlesw.homelight.pollUntil
+import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame

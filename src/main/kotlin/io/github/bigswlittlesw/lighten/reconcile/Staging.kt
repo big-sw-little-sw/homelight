@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.realSpelling
+import io.github.bigswlittlesw.lighten.config.realSpelling
 import java.io.IOException
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
@@ -87,14 +87,14 @@ internal class StagingOperation private constructor(
         ): StagingOperation {
             val key = sha256Hex(realSpelling(target).toString())
             if (!stagingKeys.add(key)) {
-                throw EnvironmentException("this HomeLight is already publishing $target")
+                throw EnvironmentException("this Lighten is already publishing $target")
             }
             try {
                 val copy = stagingRoot.resolve("operation-$key")
                 val channel = FileChannel.open(copy.resolveSibling("operation-$key.lock"), LOCK_OPTIONS, OWNER_ONLY_FILE)
                 try {
                     if (channel.tryLock() == null) {
-                        throw EnvironmentException("another HomeLight is publishing $target")
+                        throw EnvironmentException("another Lighten is publishing $target")
                     }
                     stagingStep(ReconciliationExecutor.Step.LOCKED, copy)
                     clearCopy(copy)

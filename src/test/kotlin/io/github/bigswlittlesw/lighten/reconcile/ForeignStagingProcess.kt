@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.realSpelling
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.realSpelling
 import java.io.BufferedReader
 import java.io.Closeable
 import java.io.InputStreamReader
@@ -16,13 +16,13 @@ import java.util.HexFormat
 import java.util.concurrent.TimeUnit
 
 /**
- * Another JVM that publishes targets and probes locks, as a second homelight process would. File locks belong to a
+ * Another JVM that publishes targets and probes locks, as a second lighten process would. File locks belong to a
  * process, so only another process can show whether a lock is really held.
  */
 internal class ForeignStagingProcess : Closeable {
     private val process = ProcessBuilder(
         ProcessHandle.current().info().command().orElseThrow(), "-cp", System.getProperty("java.class.path"),
-        "io.github.bigswlittlesw.homelight.reconcile.ForeignStagingProcessKt",
+        "io.github.bigswlittlesw.lighten.reconcile.ForeignStagingProcessKt",
     ).redirectError(ProcessBuilder.Redirect.INHERIT).start()
     private val input = PrintWriter(process.outputStream, true)
     private val output = BufferedReader(InputStreamReader(process.inputStream))
@@ -83,6 +83,6 @@ internal fun lockOf(copy: Path): Path = copy.resolveSibling("${copy.fileName}.lo
 
 /** After a migration, the default staging root holds only the target's lock file, which is never deleted. */
 internal fun assertOnlyLockLeft(target: Path) {
-    val staging = target.resolveSibling(".homelight-staging")
+    val staging = target.resolveSibling(".lighten-staging")
     Files.list(staging).use { entries -> assertEquals(listOf(lockOf(stagedCopy(staging, target))), entries.toList()) }
 }

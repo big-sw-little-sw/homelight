@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

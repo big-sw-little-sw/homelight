@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a Linux native binary of homelight in a container. Needs docker; runs on Linux or macOS.
+# Builds a Linux native binary of lighten in a container. Needs docker; runs on Linux or macOS.
 #
 #   ci/native/build.sh <x86_64|arm64> [out-dir]
 #
@@ -7,16 +7,16 @@
 # arm64:  --static-nolibc binary (glibc 2.17+), built on Oracle Linux 8 with gcc-toolset-12.
 #         OL7's gcc 4.8 libgcc lacks the aarch64 outline atomics GraalVM's static libraries need.
 #
-# Writes <out-dir>/homelight (default build/native-<arch>) and <out-dir>/jvm-reference.txt,
+# Writes <out-dir>/lighten (default build/native-<arch>) and <out-dir>/jvm-reference.txt,
 # the CLI comparison transcript from the same build run on the JVM (see compare.sh).
 # Downloads and the Gradle user home (wrapper distribution, dependencies) are kept in
-# $HOMELIGHT_CI_CACHE (default ~/.cache/homelight-ci).
+# $LIGHTEN_CI_CACHE (default ~/.cache/lighten-ci).
 set -euo pipefail
 
 arch=${1:?usage: build.sh <x86_64|arm64> [out-dir]}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 out=${2:-$repo/build/native-$arch}
-cache=${HOMELIGHT_CI_CACHE:-$HOME/.cache/homelight-ci}
+cache=${LIGHTEN_CI_CACHE:-$HOME/.cache/lighten-ci}
 
 graalvm_version=25.0.3
 musl_toolchain=musl-toolchain-1.2.5-oracle-00001-linux-amd64
@@ -55,4 +55,4 @@ docker run --rm --platform "$platform" \
   -e MUSL="${musl_toolchain}.tar.gz" \
   "$image" bash /src/ci/native/build-in-container.sh
 
-ls -l "$out/homelight"
+ls -l "$out/lighten"

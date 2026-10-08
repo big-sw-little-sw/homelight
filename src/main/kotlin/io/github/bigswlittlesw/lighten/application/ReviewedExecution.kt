@@ -1,9 +1,9 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.reconcile.RelocationPlan
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import java.io.InterruptedIOException
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture

@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -14,7 +14,7 @@ class WorkspaceObservationTest {
 
     @Test
     fun missingWhenNonDefaultPathDoesNotExist(@TempDir tempDir: Path) {
-        val result = ConfigurationEvaluation().load(tempDir.resolve(".homelight.json"))
+        val result = ConfigurationEvaluation().load(tempDir.resolve(".lighten.json"))
 
         assertInstanceOf(ConfigurationEvaluation.Missing::class.java, result)
     }
@@ -29,7 +29,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"}
@@ -55,7 +55,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-only-target-exists": "adopt-target"}
@@ -81,7 +81,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "prompt"}
@@ -106,7 +106,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"}
@@ -133,7 +133,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"}
@@ -178,7 +178,7 @@ class WorkspaceObservationTest {
         val config = tempDir.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"},

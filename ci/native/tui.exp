@@ -1,5 +1,5 @@
 #!/usr/bin/expect -f
-# Drives the homelight TUI on a pty: render, keys, Help, resizes, quit, terminal restore.
+# Drives the lighten TUI on a pty: render, keys, Help, resizes, quit, terminal restore.
 #
 #   expect ci/native/tui.exp <logfile> <command...>
 #
@@ -74,7 +74,7 @@ set start [clock milliseconds]
 send "$cmd; echo EXITCODE=\$?\r"
 set timeout 20
 expect {
-  -re {HOMELIGHT|Workspace|Relocat} {
+  -re {LIGHTEN|Workspace|Relocat} {
     dict set res render "[expr {[clock milliseconds] - $start}]ms"
     puts -nonewline $lf $expect_out(buffer)
   }

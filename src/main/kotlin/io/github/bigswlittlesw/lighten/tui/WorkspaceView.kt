@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.style.Color
 import dev.tamboui.style.Style
@@ -7,21 +7,21 @@ import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.toolkit.element.Element
 import dev.tamboui.toolkit.elements.ListElement
 import dev.tamboui.widgets.common.ScrollBarPolicy
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.application.PlanRelocationItem
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.fs.SymlinkTargetAvailability
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
-import io.github.bigswlittlesw.homelight.reconcile.RelocationOutcome
-import io.github.bigswlittlesw.homelight.tui.DetailViewport.Anchored
-import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
+import io.github.bigswlittlesw.lighten.tui.DetailViewport.Anchored
+import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Path
 
 /** Renders the workspace screen. The object names the screen; it holds no state. */
@@ -48,12 +48,12 @@ internal object WorkspaceView {
      * such as the next step after a save, shows once below the panes.
      */
     fun render(
-        session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?, interactive: Boolean,
+        session: LightenSession, list: ListElement<Any>, showInSync: Boolean, focused: String?, interactive: Boolean,
         choice: Int, viewport: DetailViewport, notice: Line? = null,
     ): Element {
         val retained = session.applyModel() is ApplyModel.Result
         val header = Toolkit.row(
-            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+            Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(),
             Toolkit.text("[1: Workspace]").fg(palette.focus).bold(),
             Toolkit.text(
                 if (retained) "  [2: Results]" else if (session.isPlanReady()) "  [2: Review]" else "  [Review unavailable]",
@@ -126,7 +126,7 @@ internal object WorkspaceView {
     }
 
     /** Workspace's purpose and keys in its current state, for its help lines and the Help screen. */
-    fun screenHelp(session: HomeLightSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenHelp {
+    fun screenHelp(session: LightenSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenHelp {
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
             val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured

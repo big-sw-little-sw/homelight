@@ -1,4 +1,4 @@
-# HomeLight TUI Design
+# Lighten TUI Design
 
 The current rules for the full-screen TUI. Decisions and the alternatives they
 rejected are in [decisions.md](decisions.md); this file holds only what the TUI
@@ -35,7 +35,7 @@ not screens.
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
 | Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | Esc, `q`, `?` or F1 returns where you were |
 
-Header: `⌂ HOMELIGHT` followed by the numbered destinations, for example
+Header: `⌂ LIGHTEN` followed by the numbered destinations, for example
 `[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
 are retained and `[Review unavailable]` when the plan cannot be reviewed. During a
 run the header shows only `[Applying]`. Configuration and Browse show as
@@ -43,9 +43,9 @@ run the header shows only `[Applying]`. Configuration and Browse show as
 
 Entry points:
 
-- `homelight`, `status`, `plan` and `apply` open Workspace. `apply` never starts
+- `lighten`, `status`, `plan` and `apply` open Workspace. `apply` never starts
   changes without review.
-- `homelight init` and `homelight config` open Configuration: an existing file is
+- `lighten init` and `lighten config` open Configuration: an existing file is
   loaded for editing, a missing one starts a new file. The header says
   `existing file` or `new file`.
 - From Workspace, `e` opens Configuration; with no configuration, `i` does.
@@ -72,7 +72,7 @@ Entry points:
   focus or a tab; sideways scrolling, clicks, drags and taps do nothing. With
   capture on, selecting text takes the terminal's bypass modifier: Shift-drag
   in WezTerm and Ghostty, Option-drag in iTerm2. The guide says so. TamboUI
-  turns capture off when HomeLight exits, on every exit path.
+  turns capture off when Lighten exits, on every exit path.
 
 Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
 check again, `q` quit. `2` never starts changes.
@@ -85,7 +85,7 @@ check again, `q` quit. `2` never starts changes.
   first. The count reads `1 choice` or `2 choices`:
 
   ```
-  Quit HomeLight?
+  Quit Lighten?
   You have 2 choices that are not applied yet. Quitting forgets them.
   Press n to go back. You can keep choosing, or press a to review and apply.
   y: Quit · n/Esc: Go back
@@ -94,14 +94,14 @@ check again, `q` quit. `2` never starts changes.
   A plan with no one-time choices does not ask: the next run plans it again.
 - **During an apply:** see §6.
 
-Once HomeLight is set to exit when the apply finishes, the help stops showing
+Once Lighten is set to exit when the apply finishes, the help stops showing
 `q: Quit`, because `q` then does nothing.
 
 ## 4. Visual language
 
 ### Color
 
-HomeLight paints its own dark background on the whole screen and uses the
+Lighten paints its own dark background on the whole screen and uses the
 **Harbor** palette as exact RGB colors. Unless `COLORTERM` is `truecolor` or
 `24bit`, each role falls back to the basic ANSI color of the same hue (ANSI
 names: white is light gray, bright black is dark gray). Views name roles only;
@@ -111,7 +111,7 @@ one palette file maps roles to colors. Headings inside panes are bold body text.
 | --- | --- | --- | --- |
 | background | `#1b1d22` | black | Whole screen |
 | text | `#d8dbe2` | white | Body text |
-| brand | `#7fd1c7` | cyan | `⌂ HOMELIGHT` |
+| brand | `#7fd1c7` | cyan | `⌂ LIGHTEN` |
 | focus | `#6cb6e8` | bright blue | Focused pane border, `❯` pointer, running spinner, active header slot, scrollbar thumb |
 | ok | `#7cc79a` | green | Done, in sync, the chosen value, gauge fill |
 | change | `#7fd1c7` | cyan | Rows that apply will change |
@@ -187,7 +187,7 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
 ### Help screen
 
 `?` (or F1) opens a full-screen **Help** screen from any screen. Header
-`⌂ HOMELIGHT  [Help]`, then a TamboUI tab bar with two tabs:
+`⌂ LIGHTEN  [Help]`, then a TamboUI tab bar with two tabs:
 
 1. **This screen**: a pane titled with the place, the purpose line, then
    `Step: Configure › Workspace › Review › Apply › Results` with the current
@@ -200,7 +200,7 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
    A key's `description` defaults to its help-line `action`. Where the short
    label needs its screen to make sense, the description names what the key
    acts on and whether it asks first, for example `↑/↓  Select a relocation`
-   or `q  Quit HomeLight; asks first if choices are not applied or changes are
+   or `q  Quit Lighten; asks first if choices are not applied or changes are
    running`. One `KeyHint` holds both, so the two places share one source.
 2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
    TamboUI's Markdown element in the palette's colors. The guide is the only
@@ -208,7 +208,7 @@ disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
 
 Help opens on This screen, except from the empty Workspace before there is a
 configuration file: then it opens on Guide, and that Workspace says `New to
-HomeLight? Press ? to read the guide.` (with no relocations it says `Press ? for
+Lighten? Press ? to read the guide.` (with no relocations it says `Press ? for
 help.`). From Configuration it opens on This screen, text field or not.
 
 Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
@@ -229,7 +229,7 @@ left out, as on any screen.
 
 The tab bar shows the open tab bold in the focus color and the other dim
 (`TabsElement` highlight style). Bold marks the open tab and the current step
-without color too: HomeLight keeps bold in the basic palette, and neither it nor
+without color too: Lighten keeps bold in the basic palette, and neither it nor
 TamboUI drops styles for `NO_COLOR`, so no extra marker is needed.
 
 
@@ -240,7 +240,7 @@ other's.
 The mouse wheel scrolls the open tab and never switches it (see §3 Keys and
 focus).
 
-`homelight guide` prints the same guide as Markdown; `homelight --help` ends
+`lighten guide` prints the same guide as Markdown; `lighten --help` ends
 with its online address.
 
 ## 5. Workspace
@@ -275,7 +275,7 @@ The details pane answers, in this order:
    option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply, only when one is needed. While archiving
    is only offered, its choice names the destination: `Move the source to
-   ~/.cache/.homelight-archive/… and replace it with a link to the target.`
+   ~/.cache/.lighten-archive/… and replace it with a link to the target.`
 5. **Paths:** source, target and current link destination, each once.
    `Archive:` appears only when the rule or choice archives the source, and
    `Left behind:` only when apply deletes what an interrupted replacement left.
@@ -289,24 +289,24 @@ re-checks and says the next step.
 Below the panes, when review is unavailable, one line says why: `Choose what to do
 for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
 
-`e: Edit` opens Configuration on the file whenever it loads. A file HomeLight
-cannot read is fixed by hand: `e` is not offered, and `homelight init` and
+`e: Edit` opens Configuration on the file whenever it loads. A file Lighten
+cannot read is fixed by hand: `e` is not offered, and `lighten init` and
 `config` refuse it with the explanation below.
 
-A file HomeLight cannot read fills the Workspace's only pane with what is wrong
+A file Lighten cannot read fills the Workspace's only pane with what is wrong
 and how to fix it, and Help's purpose line repeats it:
 
 ```
-HomeLight can't read ~/.homelight.json
-It isn't valid JSON: line 1, column 1 should start with "{" but starts with "h".
+Lighten can't read ~/.lighten.json
+It isn't valid JSON: line 1, column 1 should start with "{" but starts with "l".
 
 To fix it: open the file in a text editor, correct that line, then press r to check again.
-To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.
+To start over: rename or delete the file, then press r. Lighten then offers i to create a new one.
 ```
 
 The path is the file in use, `--config` included. Text that is not JSON gets
 plain words with its line and column. A missing key (`target-root is
-missing. Add it under "homelight".`) and a value of the wrong kind (`Line 2:
+missing. Add it under "lighten".`) and a value of the wrong kind (`Line 2:
 relocations[0].source-path should be text, but it is a number.`) get plain
 words too, with the line but no column, as do an unknown key (`Line 2:
 relocations[0] has an unknown setting "existing". Check its spelling or
@@ -314,7 +314,7 @@ remove it.`) and a bad rule value (`relocations[0].when-only-target-exists
 can't be "sometimes". Use one of: prompt, adopt-target.`). The loader's own
 checks (a relative path, a blank path) keep their words. A problem with no
 line says `correct that setting`. The help lines offer only `r`, `?` and `q`.
-The CLI prints the same lines on stderr, with `run the command again` for `press r` and `run homelight
+The CLI prints the same lines on stderr, with `run the command again` for `press r` and `run lighten
 init` for `press r … i`.
 
 Empty states: no configuration (offer `i: Create configuration`), no relocations
@@ -363,7 +363,7 @@ return.
   its actions runs, `✔` when all are done, `✖` if any failed, `○` otherwise.
   The marks show status, not selection (§4). Action rows use the same glyphs.
 - The selection stays where the user put it. It never follows running steps.
-- Header line `Applying. Leave HomeLight running until it finishes.`, then a
+- Header line `Applying. Leave Lighten running until it finishes.`, then a
   TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·
   2 running · 0 failed`. In-sync relocations appear as one row,
   `─ ~/.npm (in sync)`.
@@ -430,7 +430,7 @@ show (such as `ignored-source-paths`) are kept.
   checked first: the first field the loader would reject is selected and named
   (`Not saved. Storage locations › Target root: …`), and overlapping
   relocations are refused as a whole. A new file is created directly.
-  Replacing an existing file asks first: `Replace ~/.homelight.json?`, noting
+  Replacing an existing file asks first: `Replace ~/.lighten.json?`, noting
   that comments are not kept. Save refuses if the file changed since it was
   loaded, keeps the draft and says so: `Not saved: the configuration file
   changed after Configuration opened it. Your changes are still here. To start

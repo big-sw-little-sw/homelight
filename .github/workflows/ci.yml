@@ -48,21 +48,21 @@ jobs:
       # GraalVM and the musl toolchain; build.sh pins their versions and checksums.
       - uses: actions/cache@v6
         with:
-          path: ~/.cache/homelight-ci/dl
+          path: ~/.cache/lighten-ci/dl
           key: native-dl-${{ matrix.arch }}-${{ hashFiles('ci/native/build.sh') }}
       # Gradle user home of the build container: wrapper distribution and dependencies.
       - uses: actions/cache@v6
         with:
           path: |
-            ~/.cache/homelight-ci/gradle/wrapper/dists
-            ~/.cache/homelight-ci/gradle/caches/modules-2
+            ~/.cache/lighten-ci/gradle/wrapper/dists
+            ~/.cache/lighten-ci/gradle/caches/modules-2
           key: native-gradle-${{ matrix.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', '*.gradle.kts') }}
           restore-keys: native-gradle-${{ matrix.arch }}-
       - run: ci/native/build.sh ${{ matrix.arch }} dist
       - uses: actions/upload-artifact@v7
         with:
-          name: homelight-linux-${{ matrix.arch }}
-          path: dist/homelight
+          name: lighten-linux-${{ matrix.arch }}
+          path: dist/lighten
           if-no-files-found: error
           retention-days: 3
       - uses: actions/upload-artifact@v7
@@ -87,7 +87,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
-          name: homelight-linux-${{ matrix.arch }}
+          name: lighten-linux-${{ matrix.arch }}
           path: dist
       - uses: actions/download-artifact@v8
         with:
@@ -99,8 +99,8 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends expect ncurses-term python3-pyte
       - name: CLI comparison and TUI checks
         run: |
-          chmod +x dist/homelight
-          ci/native/test.sh dist/homelight dist/jvm-reference.txt full results
+          chmod +x dist/lighten
+          ci/native/test.sh dist/lighten dist/jvm-reference.txt full results
       - name: Rendered TUI screens
         if: ${{ !cancelled() }}
         run: |
@@ -138,12 +138,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
-          name: homelight-linux-${{ matrix.arch }}
+          name: lighten-linux-${{ matrix.arch }}
           path: dist
       - uses: actions/download-artifact@v8
         with:
           name: jvm-reference-${{ matrix.arch }}
           path: dist
       - run: |
-          chmod +x dist/homelight
+          chmod +x dist/lighten
           ci/native/distros.sh ${{ matrix.arch }} dist results

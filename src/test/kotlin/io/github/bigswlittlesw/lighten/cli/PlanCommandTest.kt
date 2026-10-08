@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -19,7 +19,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         val json = ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"},
@@ -32,7 +32,7 @@ class PlanCommandTest {
         Files.writeString(config, json)
         val source = root.resolve("new-source")
         val target = root.resolve("new-target")
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         val err = StringWriter()
         command.setOut(PrintWriter(out, true))
@@ -62,7 +62,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
@@ -71,7 +71,7 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
@@ -91,7 +91,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "adopt",
@@ -100,7 +100,7 @@ class PlanCommandTest {
                   }
                 }
                 """.trimIndent() + "\n").format(root, source, target, archive))
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
@@ -118,7 +118,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
@@ -127,7 +127,7 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
@@ -145,7 +145,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
@@ -154,7 +154,7 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
@@ -172,7 +172,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s", "when-source-and-target-directories-exist": "leave-unchanged"}
@@ -181,7 +181,7 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 
@@ -199,7 +199,7 @@ class PlanCommandTest {
         val config = root.resolve("config.json")
         Files.writeString(config, ("""
                 {
-                  "homelight": {
+                  "lighten": {
                     "target-root": "%s",
                     "relocations": [
                       {"source-path": "%s", "target-path": "%s"}
@@ -208,17 +208,17 @@ class PlanCommandTest {
                 }
                 """.trimIndent() + "\n").format(root, source, target))
 
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val err = StringWriter()
         command.setErr(PrintWriter(err, true))
 
         assertEquals(2, command.execute("plan", "--config", config.toString()))
-        assertTrue(err.toString().contains("HomeLight TUI requires an interactive terminal. Use --json for automation."))
+        assertTrue(err.toString().contains("Lighten TUI requires an interactive terminal. Use --json for automation."))
     }
 
     @Test
     fun rendersUnconfiguredPlanAsJson() {
-        val command = HomeLightCommand.createCommandLine()
+        val command = LightenCommand.createCommandLine()
         val out = StringWriter()
         command.setOut(PrintWriter(out, true))
 

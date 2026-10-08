@@ -3,14 +3,14 @@
 #
 #   ci/try-pr <pr-number>
 #
-# Downloads homelight-linux-arm64 from the PR branch's latest successful CI run (gh run download),
+# Downloads lighten-linux-arm64 from the PR branch's latest successful CI run (gh run download),
 # starts a throwaway ubuntu:24.04 arm64 container with fixture directories and a sample
-# ~/.homelight.json, and opens the homelight TUI. Quitting the TUI leaves you in a bash shell in
-# the same container (try `homelight plan --json`); exiting the shell removes the container.
+# ~/.lighten.json, and opens the lighten TUI. Quitting the TUI leaves you in a bash shell in
+# the same container (try `lighten plan --json`); exiting the shell removes the container.
 #
 # Needs gh (authenticated) and docker on an arm64 host, e.g. OrbStack on an Apple silicon Mac.
 # Nothing is mounted from the host except the downloaded binary (read-only); the container's home
-# is its own. TERM inside is xterm-256color; set HOMELIGHT_TERM to try another value. COLORTERM is
+# is its own. TERM inside is xterm-256color; set LIGHTEN_TERM to try another value. COLORTERM is
 # passed through from the host, so the TUI uses Harbor's full colors when your terminal reports them.
 set -euo pipefail
 
@@ -26,25 +26,25 @@ if [ -z "$run" ]; then
 fi
 read -r run_id sha <<< "$run"
 
-dir=$(mktemp -d "${TMPDIR:-/tmp}/homelight-pr$pr.XXXXXX")
+dir=$(mktemp -d "${TMPDIR:-/tmp}/lighten-pr$pr.XXXXXX")
 trap 'rm -rf "$dir"' EXIT
-echo "PR #$pr ($branch @ $sha), run $run_id: downloading homelight-linux-arm64"
-gh run download "$run_id" --repo "$repo" --name homelight-linux-arm64 --dir "$dir"
+echo "PR #$pr ($branch @ $sha), run $run_id: downloading lighten-linux-arm64"
+gh run download "$run_id" --repo "$repo" --name lighten-linux-arm64 --dir "$dir"
 
 # Mirrors the CLI comparison fixture (ci/native/compare.sh): a directory to migrate, one that
 # conflicts with an existing target, and one already relocated.
 setup='
 set -e
-install -m 755 /hl/homelight /usr/local/bin/homelight
+install -m 755 /hl/lighten /usr/local/bin/lighten
 mkdir -p ~/.cache/tool-a/sub ~/.cache/tool-b /scratch/local/tool-b /scratch/local/tool-c /scratch/archive
 echo a > ~/.cache/tool-a/file.txt
 echo nested > ~/.cache/tool-a/sub/n.txt
 echo b-src > ~/.cache/tool-b/src.txt
 echo b-tgt > /scratch/local/tool-b/tgt.txt
 ln -s /scratch/local/tool-c ~/.cache/tool-c
-cat > ~/.homelight.json <<EOF
+cat > ~/.lighten.json <<EOF
 {
-  "homelight": {
+  "lighten": {
     "target-root": "/scratch/local",
     "relocations": [
       {"source-path": "~/.cache/tool-a", "target-path": "/scratch/local/tool-a"},
@@ -61,11 +61,11 @@ cat > ~/.homelight.json <<EOF
 }
 EOF
 cd ~
-homelight || echo "homelight exited with status $?"
-echo "Shell in the disposable container: config ~/.homelight.json, targets /scratch. exit to remove it."
+lighten || echo "lighten exited with status $?"
+echo "Shell in the disposable container: config ~/.lighten.json, targets /scratch. exit to remove it."
 exec bash
 '
 
-docker run --rm -it --platform linux/arm64 --hostname "homelight-pr$pr" \
-  -e TERM="${HOMELIGHT_TERM:-xterm-256color}" -e COLORTERM -v "$dir:/hl:ro" \
+docker run --rm -it --platform linux/arm64 --hostname "lighten-pr$pr" \
+  -e TERM="${LIGHTEN_TERM:-xterm-256color}" -e COLORTERM -v "$dir:/hl:ro" \
   ubuntu:24.04 bash -c "$setup"

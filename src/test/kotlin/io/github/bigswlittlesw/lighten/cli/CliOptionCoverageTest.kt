@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.resolveVersion
-import io.github.bigswlittlesw.homelight.application.userGuide
+import io.github.bigswlittlesw.lighten.application.resolveVersion
+import io.github.bigswlittlesw.lighten.application.userGuide
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -32,12 +32,12 @@ class CliOptionCoverageTest {
     @TestFactory
     fun configBeforeAndAfterTheCommandName(): List<DynamicTest> {
         val missing = root.resolve("missing.json").toString()
-        val malformed = Files.writeString(root.resolve("malformed.json"), "{\"homelight\": [").toString()
+        val malformed = Files.writeString(root.resolve("malformed.json"), "{\"lighten\": [").toString()
         // The file each command reads, and what it prints when it read that file.
         fun target(command: String) = when (command) {
             "status", "plan", "apply" -> missing to Expect(1, err = "Configuration file does not exist: $missing")
-            "init", "config" -> malformed to Expect(1, err = "HomeLight can't read $malformed")
-            "guide" -> missing to Expect(0, out = "# HomeLight")
+            "init", "config" -> malformed to Expect(1, err = "Lighten can't read $malformed")
+            "guide" -> missing to Expect(0, out = "# Lighten")
             else -> error(command)
         }
         fun json(command: String) = when (command) {
@@ -77,7 +77,7 @@ class CliOptionCoverageTest {
                 add(Case("delay after $command", listOf("-c", config, command, "--debug-step-delay-ms", "3000"),
                     Expect(2, err = NOT_A_TERMINAL)))
             }
-            add(Case("delay after guide", listOf("guide", "--debug-step-delay-ms", "5"), Expect(0, out = "# HomeLight")))
+            add(Case("delay after guide", listOf("guide", "--debug-step-delay-ms", "5"), Expect(0, out = "# Lighten")))
             for (value in listOf("-1", "60001", "abc", "1.5")) {
                 add(Case("delay $value before", listOf("--debug-step-delay-ms", value, "status", "--json"), Expect(2)))
                 add(Case("delay $value after", listOf("status", "--json", "--debug-step-delay-ms", value), Expect(2)))
@@ -93,17 +93,17 @@ class CliOptionCoverageTest {
     fun helpAndVersion(): List<DynamicTest> {
         val cases = buildList {
             for (option in listOf("--help", "-h")) {
-                add(Case("root $option", listOf(option), Expect(0, out = "Usage: homelight", hidden = true)))
+                add(Case("root $option", listOf(option), Expect(0, out = "Usage: lighten", hidden = true)))
             }
             for (command in commands) {
                 // `config` is an alias, so its help names `init`.
                 val name = if (command == "config") "init" else command
-                add(Case("$command --help", listOf(command, "--help"), Expect(0, out = "Usage: homelight $name",
+                add(Case("$command --help", listOf(command, "--help"), Expect(0, out = "Usage: lighten $name",
                     hidden = true)))
             }
-            add(Case("status -h", listOf("status", "-h"), Expect(0, out = "Usage: homelight status", hidden = true)))
+            add(Case("status -h", listOf("status", "-h"), Expect(0, out = "Usage: lighten status", hidden = true)))
             for (option in listOf("--version", "-V")) {
-                add(Case("root $option", listOf(option), Expect(0, out = "homelight ${resolveVersion()}")))
+                add(Case("root $option", listOf(option), Expect(0, out = "lighten ${resolveVersion()}")))
             }
             add(Case("status --version", listOf("status", "--version"), Expect(2)))
         }
@@ -147,7 +147,7 @@ class CliOptionCoverageTest {
             Files.createDirectories(dir.resolve("home/a"))
             Files.createDirectories(dir.resolve("local/a"))
             Files.writeString(dir.resolve("local/a/t"), "t")
-            Files.writeString(dir.resolve("config.json"), """{"homelight": {"target-root": "$dir/local", "relocations":
+            Files.writeString(dir.resolve("config.json"), """{"lighten": {"target-root": "$dir/local", "relocations":
                 [{"source-path": "$dir/home/a", "target-path": "$dir/local/a"}]}}""").toString()
         }
         return listOf(
@@ -172,7 +172,7 @@ class CliOptionCoverageTest {
     @TestFactory
     fun configIsInitAndGuidePrintsTheGuide(): List<DynamicTest> {
         val good = writeConfig("alias")
-        val malformed = Files.writeString(root.resolve("alias-malformed.json"), "{\"homelight\": [").toString()
+        val malformed = Files.writeString(root.resolve("alias-malformed.json"), "{\"lighten\": [").toString()
         val init = { args: List<String> -> run(listOf("init") + args) }
         val config = { args: List<String> -> run(listOf("config") + args) }
         return listOf(
@@ -195,7 +195,7 @@ class CliOptionCoverageTest {
         val dir = Files.createDirectories(root.resolve(name))
         Files.createDirectories(dir.resolve("home/a"))
         Files.writeString(dir.resolve("home/a/f"), "a")
-        return Files.writeString(dir.resolve("config.json"), """{"homelight": {"target-root": "$dir/local",
+        return Files.writeString(dir.resolve("config.json"), """{"lighten": {"target-root": "$dir/local",
             "relocations": [{"source-path": "$dir/home/a", "target-path": "$dir/local/a"}]}}""").toString()
     }
 
@@ -219,7 +219,7 @@ class CliOptionCoverageTest {
     private fun run(args: List<String>): Run {
         val out = StringWriter()
         val err = StringWriter()
-        val commandLine = HomeLightCommand.createCommandLine()
+        val commandLine = LightenCommand.createCommandLine()
         commandLine.setOut(PrintWriter(out, true))
         commandLine.setErr(PrintWriter(err, true))
         val exit = commandLine.execute(*args.toTypedArray())
@@ -227,6 +227,6 @@ class CliOptionCoverageTest {
     }
 
     private companion object {
-        const val NOT_A_TERMINAL = "HomeLight TUI requires an interactive terminal"
+        const val NOT_A_TERMINAL = "Lighten TUI requires an interactive terminal"
     }
 }

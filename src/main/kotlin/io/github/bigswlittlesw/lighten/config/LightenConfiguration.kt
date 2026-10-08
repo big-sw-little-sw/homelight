@@ -1,10 +1,10 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import java.nio.file.Path
 
 /** Resolved paths used by the status and reconciliation adapters. */
 @ConsistentCopyVisibility
-data class HomeLightConfiguration private constructor(
+data class LightenConfiguration private constructor(
     val targetRoot: Path,
     val relocations: List<Relocation>,
     val ignoredSourcePaths: List<Path>,
@@ -17,7 +17,7 @@ data class HomeLightConfiguration private constructor(
             relocations: List<Relocation>,
             ignoredSourcePaths: List<Path>,
             sharedList: Path? = null,
-        ): HomeLightConfiguration = HomeLightConfiguration(
+        ): LightenConfiguration = LightenConfiguration(
             targetRoot, relocations.toList(), ignoredSourcePaths.toList(), sharedList?.let(::normalizeSharedList),
         )
     }

@@ -1,18 +1,18 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.MouseButton
 import dev.tamboui.tui.event.MouseEvent
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
-import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
-import io.github.bigswlittlesw.homelight.pollUntil
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -333,13 +333,13 @@ class BrowseTest {
         val config = Files.writeString(
             root.resolve("config.json"),
             """
-            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+            {"lighten": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
               "relocations": [{"source-path": "${root.resolve("home/.m2")}"}]}}
             """.trimIndent(),
         )
         val bytes = Files.readAllBytes(config)
         SetupDiscoveryFixture().use { workers ->
-            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
             key(ui, 'e'); key(ui, 'b'); await(workers, ui)
             choose(ui, ".m2")
             assertTrue(render(ui).contains("Space: Remove"), render(ui))
@@ -385,12 +385,12 @@ class BrowseTest {
         val config = Files.writeString(
             root.resolve("config.json"),
             """
-            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+            {"lighten": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
               "relocations": [{"source-path": "${root.resolve("home/manual")}"}, {"source-path": "${root.resolve("home/zz-last")}"}]}}
             """.trimIndent(),
         )
         SetupDiscoveryFixture().use { workers ->
-            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
             key(ui, 'e'); key(ui, 'b'); await(workers, ui)
             assertTrue(render(ui).contains("[Configuration › Browse]"), render(ui))
             choose(ui, "manual")
@@ -685,12 +685,12 @@ class BrowseTest {
         val config = Files.writeString(
             root.resolve("config.json"),
             """
-            {"homelight": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+            {"lighten": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
               "relocations": [{"source-path": "${root.resolve("home/.m2")}"}]}}
             """.trimIndent(),
         )
         SetupDiscoveryFixture().use { workers ->
-            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
             key(ui, 'e'); key(ui, 'b'); await(workers, ui)
             choose(ui, ".m2")
             assertTrue(selected(render(ui), "● .m2"), render(ui))
@@ -777,7 +777,7 @@ class BrowseTest {
 
     private companion object {
         fun ui(root: Path, workers: SetupDiscoveryFixture): HeadlessTui {
-            val ui = HeadlessTui(HomeLightSession(root.resolve("config.json")), discoveryFactory = workers::get); key(ui, 'i'); return ui
+            val ui = HeadlessTui(LightenSession(root.resolve("config.json")), discoveryFactory = workers::get); key(ui, 'i'); return ui
         }
 
         /** From the Target root field a new file opens on: both roots and the suggestion list, then back to the list. */

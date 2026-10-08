@@ -4,10 +4,10 @@
       "glob": "candidates.json"
     },
     {
-      "glob": "io/github/bigswlittlesw/homelight/version.properties"
+      "glob": "io/github/bigswlittlesw/lighten/version.properties"
     },
     {
-      "glob": "io/github/bigswlittlesw/homelight/user-guide.md"
+      "glob": "io/github/bigswlittlesw/lighten/user-guide.md"
     },
     {
       "glob": "org/commonmark/internal/util/entities.txt"

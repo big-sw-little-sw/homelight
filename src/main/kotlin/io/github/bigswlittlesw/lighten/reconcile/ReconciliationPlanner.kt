@@ -1,13 +1,13 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.config.intersects
-import io.github.bigswlittlesw.homelight.config.relocationProblem
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
-import io.github.bigswlittlesw.homelight.fs.PathState
-import io.github.bigswlittlesw.homelight.fs.SymlinkTargetAvailability
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.config.intersects
+import io.github.bigswlittlesw.lighten.config.relocationProblem
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import java.nio.file.Path
 
 /** Computes safe filesystem actions from observations and never mutates the filesystem. */
@@ -115,7 +115,7 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): String {
         PathState.SYMLINK ->
             if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) "$path is a broken link, not a folder"
             else "$path is a link, not a folder"
-        PathState.INACCESSIBLE -> "$path can't be read, so HomeLight can't tell if it is a folder"
+        PathState.INACCESSIBLE -> "$path can't be read, so Lighten can't tell if it is a folder"
         PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> "$path is not a folder"
     }
 }

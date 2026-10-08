@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.layout.Rect
 import dev.tamboui.style.Style
@@ -17,26 +17,26 @@ import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.input.TextInputState
 import dev.tamboui.widgets.select.Select
 import dev.tamboui.widgets.select.SelectState
-import io.github.bigswlittlesw.homelight.application.BrowseDraft
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.Suggestions
-import io.github.bigswlittlesw.homelight.config.ConfigurationChangedException
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.ConfigurationPublisher
-import io.github.bigswlittlesw.homelight.config.HomeLightFile
-import io.github.bigswlittlesw.homelight.config.Relocation
-import io.github.bigswlittlesw.homelight.config.RelocationFile
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.config.defaultArchiveRoot
-import io.github.bigswlittlesw.homelight.config.derivedTarget
-import io.github.bigswlittlesw.homelight.config.parseSharedList
-import io.github.bigswlittlesw.homelight.config.relocationProblem
-import io.github.bigswlittlesw.homelight.config.resolvePath
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
+import io.github.bigswlittlesw.lighten.application.BrowseDraft
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.Suggestions
+import io.github.bigswlittlesw.lighten.config.ConfigurationChangedException
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
+import io.github.bigswlittlesw.lighten.config.LightenFile
+import io.github.bigswlittlesw.lighten.config.Relocation
+import io.github.bigswlittlesw.lighten.config.RelocationFile
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.config.defaultArchiveRoot
+import io.github.bigswlittlesw.lighten.config.derivedTarget
+import io.github.bigswlittlesw.lighten.config.parseSharedList
+import io.github.bigswlittlesw.lighten.config.relocationProblem
+import io.github.bigswlittlesw.lighten.config.resolvePath
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -51,13 +51,13 @@ import java.nio.file.Path
  * discovery workers only publish snapshots.
  */
 internal class ConfigurationView private constructor(
-    private val session: HomeLightSession,
+    private val session: LightenSession,
     private val focus: FocusManager,
     private val discoveryFactory: () -> CandidateDiscovery,
     /** The app's key handler, which Browse's list passes every key to (see [CandidateBrowser]). */
     keys: KeyEventHandler,
     /** The file as opened. A new file starts from an empty draft, so typing into it counts as a change. */
-    private val loaded: HomeLightFile,
+    private val loaded: LightenFile,
     /** The bytes the file was read from, which a replace compares; null for a new file. */
     private val loadedBytes: ByteArray?,
 ) : AutoCloseable {
@@ -75,7 +75,7 @@ internal class ConfigurationView private constructor(
 
     private enum class Question { DISCARD, REPLACE }
 
-    private var draft: HomeLightFile = loaded
+    private var draft: LightenFile = loaded
     // Each draft relocation's index in the loaded file, or null when added here. Only adding and removing a row
     // change it, so an edited row still counts as one change.
     private var origins: List<Int?> = loaded.relocations.indices.toList()
@@ -108,12 +108,12 @@ internal class ConfigurationView private constructor(
     /** `interactive` is false while a dialog, this view's or the app's, is open over Configuration. */
     fun render(interactive: Boolean): Element {
         val header = Toolkit.row(
-            Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(), Toolkit.text("[$CONFIGURATION_NAME]").fg(palette.focus).bold(),
+            Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(), Toolkit.text("[$CONFIGURATION_NAME]").fg(palette.focus).bold(),
         )
         // Browse keeps its own selection, so the screen is one focusable while it is open.
         if (browsing) {
             val browseHeader = Toolkit.row(
-                Toolkit.text("⌂ HOMELIGHT  ").fg(palette.brand).bold(),
+                Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(),
                 Toolkit.text("[" + place(CONFIGURATION_NAME, BROWSE_NAME) + "]").fg(palette.focus).bold(),
             )
             return Toolkit.column(browseHeader, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE)
@@ -538,7 +538,7 @@ internal class ConfigurationView private constructor(
     }
 
     /** A blank optional field is left out of the file, as the loader reads a missing one. */
-    private fun withText(field: Field, row: Int, value: String): HomeLightFile {
+    private fun withText(field: Field, row: Int, value: String): LightenFile {
         fun edited(change: (RelocationFile) -> RelocationFile) =
             draft.copy(relocations = draft.relocations.mapIndexed { i, it -> if (i == row - 1) change(it) else it })
         return when (field) {
@@ -619,12 +619,12 @@ internal class ConfigurationView private constructor(
          * @throws ConfigurationException when the file cannot be read as JSON in the configuration's shape
          */
         fun open(
-            session: HomeLightSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery, keys: KeyEventHandler,
+            session: LightenSession, focus: FocusManager, discoveryFactory: () -> CandidateDiscovery, keys: KeyEventHandler,
         ): ConfigurationView {
             val view = if (Files.isRegularFile(session.configPath)) {
                 val file = ConfigurationLoader().read(session.configPath)
                 ConfigurationView(session, focus, discoveryFactory, keys, file.file, file.bytes)
-            } else ConfigurationView(session, focus, discoveryFactory, keys, HomeLightFile(targetRoot = ""), null)
+            } else ConfigurationView(session, focus, discoveryFactory, keys, LightenFile(targetRoot = ""), null)
             // A new file needs its target root first; an existing one opens on its list.
             focus.setFocus(if (view.loadedBytes == null) Field.TARGET_ROOT.id else CONFIG_LIST)
             return view

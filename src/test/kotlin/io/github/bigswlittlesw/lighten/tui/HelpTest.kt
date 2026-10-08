@@ -1,16 +1,16 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.markdown.MarkdownStyles
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.MouseButton
 import dev.tamboui.tui.event.MouseEvent
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.application.userGuide
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
-import io.github.bigswlittlesw.homelight.discovery.SetupDiscoveryFixture
-import io.github.bigswlittlesw.homelight.pollUntil
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.userGuide
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -26,11 +26,11 @@ class HelpTest {
 
     @Test
     fun thisScreenListsEveryKeyTheHelpLinesShow() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         checkThisScreen(
             ui, WORKSPACE_NAME, PURPOSE_WORKSPACE, Step.WORKSPACE, "c", "PageUp/PageDown",
             pinned = mapOf(
-                "q" to "Quit HomeLight; asks first if choices are not applied or changes are running",
+                "q" to "Quit Lighten; asks first if choices are not applied or changes are running",
                 "↑/↓" to "Select a relocation",
             ),
         )
@@ -41,7 +41,7 @@ class HelpTest {
         ui.press('a')
         checkThisScreen(ui, REVIEW_NAME, PURPOSE_REVIEW, Step.REVIEW, "y", "Home/End")
 
-        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        val setup = HeadlessTui(LightenSession(temporary.resolve("new.json")))
         setup.press('i')
         checkThisScreen(setup, place(CONFIGURATION_NAME, TARGET_ROOT_LABEL), PURPOSE_CONFIGURATION, Step.CONFIGURE, "←/→", "Home/End")
         setup.press(KeyCode.ESCAPE)
@@ -55,9 +55,9 @@ class HelpTest {
         checkThisScreen(setup, place(CONFIGURATION_NAME, BOTH_EXIST_LABEL), PURPOSE_CONFIGURATION, Step.CONFIGURE)
 
         val empty = Files.writeString(
-            temporary.resolve("empty.json"), "{\"homelight\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
+            temporary.resolve("empty.json"), "{\"lighten\": {\"target-root\": \"$temporary\", \"relocations\": []}}\n",
         )
-        checkThisScreen(HeadlessTui(HomeLightSession(empty)), WORKSPACE_NAME, PURPOSE_NO_RELOCATIONS, Step.WORKSPACE, "r")
+        checkThisScreen(HeadlessTui(LightenSession(empty)), WORKSPACE_NAME, PURPOSE_NO_RELOCATIONS, Step.WORKSPACE, "r")
     }
 
     /**
@@ -71,11 +71,11 @@ class HelpTest {
         val shared = Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), temporary.resolve("shared.json"))
         val config = Files.writeString(
             temporary.resolve("config.json"),
-            """{"homelight": {"source-root": "$home", "target-root": "${temporary.resolve("local")}", "suggestion-list": "$shared",
+            """{"lighten": {"source-root": "$home", "target-root": "${temporary.resolve("local")}", "suggestion-list": "$shared",
               "relocations": []}}""",
         )
         SetupDiscoveryFixture().use { workers ->
-            val ui = HeadlessTui(HomeLightSession(config), discoveryFactory = workers::get)
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
             ui.press('e')
             ui.press('b')
             pollUntil("Discovery did not settle") {
@@ -122,7 +122,7 @@ class HelpTest {
         // Tall enough to show the whole tab.
         val help = ui.screen(100, 80)
         val rows = help.lines()
-        assertTrue(rows[0].startsWith("⌂ HOMELIGHT  [Help]"), help)
+        assertTrue(rows[0].startsWith("⌂ LIGHTEN  [Help]"), help)
         assertTrue(rows[1].contains(THIS_SCREEN_TAB) && rows[1].contains(GUIDE_TAB), help)
         assertTrue(rows[2].startsWith("┏$place━"), help)
         val text = paneText(help)
@@ -167,7 +167,7 @@ class HelpTest {
 
     @Test
     fun tabSwitchesTabsAndEachKeepsItsScroll() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         ui.press(KeyCode.DOWN)
         val before = ui.screen(80, 24)
         ui.press('?')
@@ -182,7 +182,7 @@ class HelpTest {
         assertTabBar(ui, open = GUIDE_TAB, other = THIS_SCREEN_TAB)
         val guide = ui.screen(80, 24)
         assertTrue(guide.lines()[2].startsWith("┏$GUIDE_TAB━"), guide)
-        assertTrue(paneText(guide).contains("HomeLight frees space in your home directory."), guide)
+        assertTrue(paneText(guide).contains("Lighten frees space in your home directory."), guide)
         ui.press(KeyCode.PAGE_DOWN)
         val paged = ui.screen(80, 24)
         // A page keeps one line of context: the last line of the first page is now the first.
@@ -193,7 +193,7 @@ class HelpTest {
         ui.press(KeyCode.TAB)
         assertEquals(paged, ui.screen(80, 24), "the guide keeps its scroll position")
         ui.press(KeyCode.END)
-        assertTrue(paneText(ui.screen(80, 24)).contains("homelight guide | less"))
+        assertTrue(paneText(ui.screen(80, 24)).contains("lighten guide | less"))
 
         for (c in listOf('a', 'r', 'c', '2', 'i', 'y', '1')) ui.press(c)
         ui.press(KeyCode.ENTER)
@@ -221,7 +221,7 @@ class HelpTest {
     /** At either edge of either tab the scroll keys do nothing; only Tab switches tabs. */
     @Test
     fun scrollKeysAtAnEdgeKeepTheTab() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         ui.press('?')
         for (tab in listOf(HELP_THIS_SCREEN, HELP_GUIDE)) {
             assertEquals(tab, ui.focused())
@@ -232,7 +232,7 @@ class HelpTest {
             ui.press(KeyCode.TAB)
         }
         // A tab that fits has nothing to scroll: each key is at both edges at once.
-        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        val setup = HeadlessTui(LightenSession(temporary.resolve("new.json")))
         setup.press('i')
         setup.press(KeyCode.F1)
         setup.screen(120, 30)
@@ -245,7 +245,7 @@ class HelpTest {
     /** ← and → switch Help's tabs, like Tab, and each tab keeps its scroll position. */
     @Test
     fun leftAndRightSwitchTabsAndEachKeepsItsScroll() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         ui.press('?')
         ui.press(KeyCode.DOWN)
         val thisScreen = ui.screen(80, 24)
@@ -267,7 +267,7 @@ class HelpTest {
      */
     @Test
     fun theMouseOnlyScrollsAndNeverSwitchesTabs() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         ui.press('?')
         for (tab in listOf(HELP_THIS_SCREEN, HELP_GUIDE)) {
             val top = ui.screen(80, 24)
@@ -299,7 +299,7 @@ class HelpTest {
     /** On the Workspace the wheel scrolls Details or moves the list's selection, and clicks never move focus. */
     @Test
     fun theWheelScrollsThePaneUnderThePointerOnTheWorkspace() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         val start = ui.screen(80, 24)
         // Over the list (left), the wheel moves the selection; focus stays on the list.
         ui.press(MouseEvent.scrollDown(5, 7))
@@ -325,7 +325,7 @@ class HelpTest {
     /** The focused pane has a thick border and the others a plain one, so focus shows without color. */
     @Test
     fun theFocusedPaneShowsWithoutColor() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         var rows = ui.screen(80, 24).lines()
         val top = rows.first { it.contains("Relocations") }
         assertTrue(top.startsWith("┏Relocations"), top)
@@ -343,23 +343,23 @@ class HelpTest {
     }
 
     /**
-     * A file HomeLight can't read: the Workspace and Help › This screen both say why and how to fix it, and the help
+     * A file Lighten can't read: the Workspace and Help › This screen both say why and how to fix it, and the help
      * lines offer only the keys that work: `r`, `?` and `q`.
      */
     @Test
     fun anUnreadableConfigurationSaysWhyAndHowToFixIt() {
         val cases = mapOf(
-            "homelight" to listOf("It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"h\".", "correct that line"),
-            """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "existing": "move"}]}}""" to listOf(
+            "lighten" to listOf("It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"l\".", "correct that line"),
+            """{"lighten": {"target-root": "/local", "relocations": [{"source-path": "/a", "existing": "move"}]}}""" to listOf(
                 "Line 1: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.", "correct that line",
             ),
-            """{"homelight": {"target-root": "local"}}""" to
-                listOf("homelight.target-root: Use a full path, or one starting with ~/", "correct that setting"),
-            """{"homelight": {"relocations": []}}""" to
-                listOf("target-root is missing. Add it under \"homelight\".", "correct that setting"),
-            """{"homelight": {"target-root": 5}}""" to
+            """{"lighten": {"target-root": "local"}}""" to
+                listOf("lighten.target-root: Use a full path, or one starting with ~/", "correct that setting"),
+            """{"lighten": {"relocations": []}}""" to
+                listOf("target-root is missing. Add it under \"lighten\".", "correct that setting"),
+            """{"lighten": {"target-root": 5}}""" to
                 listOf("Line 1: target-root should be text, but it is a number.", "correct that line"),
-            """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-adopting-target": "x"}]}}""" to
+            """{"lighten": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-adopting-target": "x"}]}}""" to
                 listOf(
                     "relocations[0].when-adopting-target can't be \"x\". Use one of: prompt, discard-source, archive-source.",
                     "correct that setting",
@@ -369,11 +369,11 @@ class HelpTest {
             val (problem, correct) = expected
             val config = Files.writeString(temporary.resolve("config.json"), content)
             val explanation = listOf(
-                "HomeLight can't read ${displayPath(config)}", problem,
+                "Lighten can't read ${displayPath(config)}", problem,
                 "To fix it: open the file in a text editor, $correct, then press r to check again.",
-                "To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.",
+                "To start over: rename or delete the file, then press r. Lighten then offers i to create a new one.",
             )
-            val ui = HeadlessTui(HomeLightSession(config))
+            val ui = HeadlessTui(LightenSession(config))
             // Wide enough that no sentence wraps inside the temporary path.
             val workspace = paneText(ui.screen(200, 24))
             for (line in explanation) assertTrue(workspace.contains(line), "$line\n$workspace")
@@ -388,20 +388,20 @@ class HelpTest {
 
     @Test
     fun aFirstRunOpensTheGuide() {
-        val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))
+        val ui = HeadlessTui(LightenSession(temporary.resolve("missing.json")))
         val empty = ui.screen(80, 24)
         assertTrue(empty.contains(FIRST_RUN_HINT), empty)
         ui.press('?')
         assertEquals(HELP_GUIDE, ui.focused())
         val guide = ui.screen(80, 24)
-        assertTrue(paneText(guide).contains("HomeLight frees space"), guide)
+        assertTrue(paneText(guide).contains("Lighten frees space"), guide)
         ui.press(KeyCode.TAB)
         assertTrue(paneText(ui.screen(100, 60)).contains(PURPOSE_NO_CONFIGURATION))
     }
 
     @Test
     fun f1OpensHelpFromATextFieldWhereQuestionMarkTypes() {
-        val ui = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        val ui = HeadlessTui(LightenSession(temporary.resolve("new.json")))
         ui.press('i')
         ui.type("/srv/what?")
         val field = ui.screen(80, 24)
@@ -411,7 +411,7 @@ class HelpTest {
         assertFalse(helpLines(field).contains("?: Help"), field)
 
         ui.press(KeyCode.F1)
-        assertTrue(ui.screen(80, 24).startsWith("⌂ HOMELIGHT  [Help]"))
+        assertTrue(ui.screen(80, 24).startsWith("⌂ LIGHTEN  [Help]"))
         // Still no configuration file, but Help opened from Configuration starts on This screen.
         assertEquals(HELP_THIS_SCREEN, ui.focused())
         // At this size This screen fits, so no scroll key is offered.
@@ -429,17 +429,17 @@ class HelpTest {
         assertEquals(field, ui.screen(80, 24))
     }
 
-    /** As in less, man and other help screens, `q` leaves Help: it never quits HomeLight or discards a draft. */
+    /** As in less, man and other help screens, `q` leaves Help: it never quits Lighten or discards a draft. */
     @Test
     fun qInHelpGoesBack() {
-        val ui = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val ui = HeadlessTui(LightenSession(conflictConfiguration()))
         val workspace = ui.screen(80, 24)
         ui.press('?')
         ui.press('q')
         assertFalse(ui.app.exitRequested())
         assertEquals(workspace, ui.screen(80, 24))
 
-        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        val setup = HeadlessTui(LightenSession(temporary.resolve("new.json")))
         setup.press('i')
         setup.type("/srv")
         setup.press(KeyCode.ESCAPE)
@@ -462,12 +462,12 @@ class HelpTest {
     /** Ctrl+C quits from Help as it does everywhere, so a draft or unapplied choices still get their question. */
     @Test
     fun ctrlCInHelpQuitsThroughTheUsualQuestions() {
-        val plain = HeadlessTui(HomeLightSession(conflictConfiguration()))
+        val plain = HeadlessTui(LightenSession(conflictConfiguration()))
         plain.press('?')
         plain.ctrl('c')
         assertTrue(plain.app.exitRequested(), "no choices, nothing running: it quits at once")
 
-        val choices = HeadlessTui(HomeLightSession(conflictConfiguration(temporary.resolve("second"))))
+        val choices = HeadlessTui(LightenSession(conflictConfiguration(temporary.resolve("second"))))
         choices.press(KeyCode.TAB)
         choices.press(KeyCode.ENTER)
         choices.press('?')
@@ -475,7 +475,7 @@ class HelpTest {
         assertFalse(choices.app.exitRequested())
         assertTrue(choices.screen(80, 24).contains("╔$QUIT_TITLE"))
 
-        val setup = HeadlessTui(HomeLightSession(temporary.resolve("new.json")))
+        val setup = HeadlessTui(LightenSession(temporary.resolve("new.json")))
         setup.press('i')
         setup.type("/srv")
         setup.press(KeyCode.F1)
@@ -497,7 +497,7 @@ class HelpTest {
     /** TamboUI wraps between a code span and the punctuation after it, which would leave the punctuation alone. */
     @Test
     fun noGuideLineStartsWithPunctuationAtEitherSize() {
-        val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))
+        val ui = HeadlessTui(LightenSession(temporary.resolve("missing.json")))
         ui.press('?')
         for ((width, height) in listOf(80 to 24, 120 to 30)) {
             // Page through at the real size, so the wrap width leaves room for the scrollbar as it does on screen.
@@ -513,7 +513,7 @@ class HelpTest {
 
     @Test
     fun theGuideRendersAsMarkdown() {
-        val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))
+        val ui = HeadlessTui(LightenSession(temporary.resolve("missing.json")))
         ui.press('?')
         val text = paneRows(ui.screen(100, 400))
         assertTrue(text.contains("Free space on this machine"), text.toString())
@@ -533,7 +533,7 @@ class HelpTest {
         assertTrue(screen.contains("Save & quit, then © and A."), screen)
 
         val metadata = Files.readString(
-            Path.of("src/main/resources/META-INF/native-image/io.github.bigswlittlesw/homelight/reachability-metadata.json"),
+            Path.of("src/main/resources/META-INF/native-image/io.github.bigswlittlesw/lighten/reachability-metadata.json"),
         )
         val globs = Regex("\"glob\": \"([^\"*]+)\"").findAll(metadata).map { it.groupValues[1] }.toList()
         assertTrue("org/commonmark/internal/util/entities.txt" in globs, metadata)
@@ -562,7 +562,7 @@ class HelpTest {
         }
         return Files.writeString(
             root.resolve("config.json"),
-            "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n",
+            "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [\n$relocations\n]}}\n",
         )
     }
 }

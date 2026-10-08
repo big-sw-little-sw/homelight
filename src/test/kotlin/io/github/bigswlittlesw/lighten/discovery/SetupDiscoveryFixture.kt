@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.discovery
+package io.github.bigswlittlesw.lighten.discovery
 
-import io.github.bigswlittlesw.homelight.config.CandidateCatalog
-import io.github.bigswlittlesw.homelight.config.CandidateParser
+import io.github.bigswlittlesw.lighten.config.CandidateCatalog
+import io.github.bigswlittlesw.lighten.config.CandidateParser
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path

@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
-import io.github.bigswlittlesw.homelight.application.DecisionChoice
-import io.github.bigswlittlesw.homelight.application.PlanBadge
-import io.github.bigswlittlesw.homelight.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.homelight.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.homelight.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
+import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
+import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -74,8 +74,8 @@ class WordingTest {
 
     @Test
     fun replaceDialogNamesTheFileAsShownAndSaysCommentsAreLost() {
-        assertEquals("Replace ~/.homelight.json?",
-            replaceConfigurationTitle(Path.of(System.getProperty("user.home"), ".homelight.json")))
+        assertEquals("Replace ~/.lighten.json?",
+            replaceConfigurationTitle(Path.of(System.getProperty("user.home"), ".lighten.json")))
         assertEquals(1, REPLACE_CONFIGURATION_BODY.count { "Comments" in it })
     }
 

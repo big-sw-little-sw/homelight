@@ -1,7 +1,7 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.config.isJavaBlank
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.config.isJavaBlank
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -17,14 +17,14 @@ import java.nio.file.Path
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 
-class HomeLightSessionTest {
+class LightenSessionTest {
     @TempDir
     lateinit var directory: Path
 
     @Test
     fun rejectedWorkerRetainsResultAndRefreshesStatusWithoutMutation() {
         val root = directory.toRealPath()
-        val session = HomeLightSession(configuration(root, "", "cache"))
+        val session = LightenSession(configuration(root, "", "cache"))
         assertTrue(session.requestApply())
         Files.createDirectories(root.resolve("local/cache"))
         val completion = session.confirmApply { task ->
@@ -45,9 +45,9 @@ class HomeLightSessionTest {
     fun invalidConfigurationAtStatusRefreshDoesNotEraseExecutionResult() {
         val root = directory.toRealPath()
         val config = configuration(root, "", "cache")
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         assertTrue(session.requestApply())
-        Files.writeString(config, "{\"homelight\": [invalid")
+        Files.writeString(config, "{\"lighten\": [invalid")
         session.confirmApply(Runnable::run).join()
         assertTrue(assertInstanceOf(ApplyModel.Result::class.java, session.applyModel()).succeeded())
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, session.evaluation())
@@ -57,7 +57,7 @@ class HomeLightSessionTest {
     @Test
     fun visualDelayHoldsEachActionBeforeCompletion() {
         val root = directory.toRealPath()
-        val session = HomeLightSession(configuration(root, "", "cache"), 20)
+        val session = LightenSession(configuration(root, "", "cache"), 20)
         val actionCount = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan.actions().size
         session.requestApply()
         val started = System.nanoTime()
@@ -72,7 +72,7 @@ class HomeLightSessionTest {
         val source = Files.createDirectories(root.resolve("home/cache"))
         Files.writeString(source.resolve("entry"), "keep this content")
         val config = configuration(root, "", "cache")
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         val reviewed = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).plan
 
         assertTrue(session.requestApply())
@@ -111,7 +111,7 @@ class HomeLightSessionTest {
     @Test
     fun cancellationAndLeavingConfirmationDoNotMutate() {
         val root = directory.toRealPath()
-        val session = HomeLightSession(configuration(root, "", "cache"))
+        val session = LightenSession(configuration(root, "", "cache"))
         session.requestApply()
         session.cancelApply()
         session.confirmApply(Runnable::run)
@@ -127,7 +127,7 @@ class HomeLightSessionTest {
     fun unresolvedAndBlockedPlansCannotBeConfirmed() {
         val root = directory.toRealPath()
         Files.createDirectories(root.resolve("local/cache"))
-        val session = HomeLightSession(configuration(root, "", "cache"))
+        val session = LightenSession(configuration(root, "", "cache"))
         assertFalse(session.requestApply())
         session.confirmApply(Runnable::run)
         assertFalse(Files.exists(root.resolve("home/cache")))
@@ -143,7 +143,7 @@ class HomeLightSessionTest {
     @Test
     fun preflightsEveryRelocationBeforeAnyMutationAndRequiresExplicitReplanning() {
         val root = directory.toRealPath()
-        val session = HomeLightSession(configuration(root, "", "first", "second"))
+        val session = LightenSession(configuration(root, "", "first", "second"))
         session.requestApply()
         Files.createDirectories(root.resolve("local/second"))
         session.confirmApply(Runnable::run).join()
@@ -176,7 +176,7 @@ class HomeLightSessionTest {
         Files.createDirectories(root.resolve("local/cache"))
         val config = configuration(root, "", "cache", policies = "\"when-source-and-target-directories-exist\": \"adopt\"," +
             " \"when-adopting-target\": \"archive-source\", \"archive-root\": \"${root.resolve("archive")}\", ")
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         assertTrue(session.requestApply())
         val archive = root.resolve("archive/cache")
         Files.createDirectories(archive)
@@ -191,7 +191,7 @@ class HomeLightSessionTest {
     @Test
     fun runningSnapshotIsImmutableAndRepeatedIntentsCannotStartOrReplaceExecution() {
         val root = directory.toRealPath()
-        val session = HomeLightSession(configuration(root, "", "cache"))
+        val session = LightenSession(configuration(root, "", "cache"))
         val tasks = mutableListOf<Runnable>()
         session.requestApply()
         val execution = session.confirmApply(tasks::add)
@@ -220,7 +220,7 @@ class HomeLightSessionTest {
         Files.createDirectories(root.resolve("home/data/second"))
         val staging = Files.createDirectories(root.resolve("local")).resolve("staging-file")
         val config = configuration(root, "\"staging-root\": \"$staging\", ", "data/first", "data/second", "data/third")
-        val session = HomeLightSession(config)
+        val session = LightenSession(config)
         assertTrue(session.requestApply(), session.evaluation().toString())
         Files.writeString(staging, "not a directory")
         session.confirmApply(Runnable::run).join()
@@ -246,7 +246,7 @@ class HomeLightSessionTest {
         assertEquals(3, inSync(session))
     }
 
-    private fun inSync(session: HomeLightSession): Int =
+    private fun inSync(session: LightenSession): Int =
         assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .count { it.badge() == PlanBadge.IN_SYNC }
 
@@ -256,7 +256,7 @@ class HomeLightSessionTest {
             "    {$policies\"source-path\": \"${root.resolve("home").resolve(name)}\"," +
                 " \"target-path\": \"${root.resolve("local").resolve(name)}\"}"
         }
-        val json = "{\"homelight\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
+        val json = "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", $globals\"relocations\": [\n$relocations\n]}}\n"
         return Files.writeString(root.resolve("config.json"), json)
     }
 }

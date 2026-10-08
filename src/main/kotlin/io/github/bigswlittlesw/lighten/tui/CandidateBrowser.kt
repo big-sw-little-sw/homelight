@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.style.Color
 import dev.tamboui.style.Style
@@ -13,12 +13,12 @@ import dev.tamboui.toolkit.event.KeyEventHandler
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.widgets.common.ScrollBarPolicy
-import io.github.bigswlittlesw.homelight.application.BrowseDraft
-import io.github.bigswlittlesw.homelight.config.CandidateDefinition
-import io.github.bigswlittlesw.homelight.config.CandidateSource
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.homelight.discovery.CandidateObservation
-import io.github.bigswlittlesw.homelight.tui.DetailViewport.Line
+import io.github.bigswlittlesw.lighten.application.BrowseDraft
+import io.github.bigswlittlesw.lighten.config.CandidateDefinition
+import io.github.bigswlittlesw.lighten.config.CandidateSource
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Path
 
 /** What a Browse key asks of the Configuration draft. */
@@ -575,7 +575,7 @@ private fun attribution(entry: BrowseDraft.Entry): List<Line> {
             Line(listName(d.source) + " · " + literal(d.app ?: OTHER_DIRECTORIES)),
             Line(adviceLine(adviceLabel(d.advice))),
             d.reason?.let { Line(reasonLine(literal(it))) },
-            // The built-in list is inside HomeLight, so only your list has a location worth showing.
+            // The built-in list is inside Lighten, so only your list has a location worth showing.
             Line(
                 fromLine(
                     d.source.location.takeIf { d.source.kind == CandidateSource.Kind.SHARED }?.let(::literal),

@@ -1,10 +1,10 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationPlan
-import io.github.bigswlittlesw.homelight.tui.launchTui
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.isUnconfiguredDefault
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
+import io.github.bigswlittlesw.lighten.tui.launchTui
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Option
@@ -17,7 +17,7 @@ import java.util.concurrent.Callable
 @Command(name = "plan", description = ["Show the filesystem actions required to converge configured relocations."])
 internal class PlanCommand : Callable<Int> {
     @ParentCommand
-    private lateinit var parent: HomeLightCommand
+    private lateinit var parent: LightenCommand
 
     @Option(names = ["--json"], description = ["Emit JSON."])
     private var json = false

@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.text.CharWidth
 import dev.tamboui.toolkit.Toolkit
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.LightenSession
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -73,7 +73,7 @@ class D3PolishTest {
 
     @Test
     fun reviewIsDiscoverableFromBothPanesAndNumberOnePreservesDraftFocus() {
-        val session = HomeLightSession(WorkspaceViewTest.fixture(temporary))
+        val session = LightenSession(WorkspaceViewTest.fixture(temporary))
         val ui = HeadlessTui(session)
         ui.press('2')
         assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
@@ -110,12 +110,12 @@ class D3PolishTest {
     @Test
     fun emptyWorkspaceAndUnresolvedWorkspaceHaveDifferentExplanations() {
         val config = Files.writeString(temporary.resolve("empty.json"),
-            "{\"homelight\": {\"target-root\": \"" + temporary.resolve("target") + "\", \"relocations\": []}}\n")
-        val empty = HeadlessTui(HomeLightSession(config)).screen(80, 24)
+            "{\"lighten\": {\"target-root\": \"" + temporary.resolve("target") + "\", \"relocations\": []}}\n")
+        val empty = HeadlessTui(LightenSession(config)).screen(80, 24)
         assertTrue(empty.contains("No relocations in the configuration."), empty)
         assertFalse(empty.contains("already in sync"), empty)
         assertFalse(empty.contains("c: show"), empty)
-        val conflict = HeadlessTui(HomeLightSession(WorkspaceViewTest.fixture(temporary))).screen(200, 50)
+        val conflict = HeadlessTui(LightenSession(WorkspaceViewTest.fixture(temporary))).screen(200, 50)
         assertTrue(conflict.contains("Will do: nothing until you choose."), conflict)
         assertFalse(conflict.contains("Planned actions"), conflict)
         assertFalse(conflict.contains("Overlapping risks"), conflict)

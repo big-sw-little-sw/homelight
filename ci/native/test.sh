@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests a Linux native homelight binary. Runs on a Linux host or inside a test container.
+# Tests a Linux native lighten binary. Runs on a Linux host or inside a test container.
 #
 #   ci/native/test.sh <binary> <jvm-reference> <smoke|cli|full> [results-dir]
 #
@@ -19,7 +19,7 @@ binary=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 reference=$2
 level=$3
 here=$(cd "$(dirname "$0")" && pwd)
-results=${4:-$(mktemp -d "${TMPDIR:-/tmp}/homelight-test.XXXXXX")}
+results=${4:-$(mktemp -d "${TMPDIR:-/tmp}/lighten-test.XXXXXX")}
 mkdir -p "$results"
 results=$(cd "$results" && pwd)
 failed=0
@@ -35,7 +35,7 @@ version=$("$binary" --version 2>&1) && pass "--version: $version" || fail "--ver
 fx=$results/smoke
 mkdir -p "$fx/home/a" "$fx/local"
 echo x > "$fx/home/a/f"
-printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
+printf '{"lighten": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
   "$fx" "$fx" "$fx" > "$fx/config.json"
 if "$binary" -c "$fx/config.json" plan --json > "$results/smoke-plan.json" 2>&1 && grep -q '"relocations"' "$results/smoke-plan.json"; then
   pass "plan --json"
@@ -59,7 +59,7 @@ fi
 fx=$results/tui
 mkdir -p "$fx/home/a" "$fx/home/b" "$fx/local/b"
 echo a > "$fx/home/a/f"; echo b > "$fx/home/b/f"; echo t > "$fx/local/b/t"
-printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}, {"source-path": "%s/home/b", "target-path": "%s/local/b"}]}}\n' \
+printf '{"lighten": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}, {"source-path": "%s/home/b", "target-path": "%s/local/b"}]}}\n' \
   "$fx" "$fx" "$fx" "$fx" "$fx" > "$fx/config.json"
 # The TUI captures the mouse; the last mouse-tracking switch it writes must turn tracking off again.
 mouse_off() { [ "$(grep -ao $'\e\\[?1000[hl]' "$1" | tail -n 1)" = $'\e[?1000l' ]; }
@@ -101,7 +101,7 @@ for placement in none before after; do
   fx=$results/delay-$placement
   mkdir -p "$fx/home/a" "$fx/local"
   echo a > "$fx/home/a/f"
-  printf '{"homelight": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
+  printf '{"lighten": {"target-root": "%s/local", "relocations": [{"source-path": "%s/home/a", "target-path": "%s/local/a"}]}}\n' \
     "$fx" "$fx" "$fx" > "$fx/config.json"
   case $placement in
     none)   args=(-c "$fx/config.json" apply) ;;

@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.concurrent
+package io.github.bigswlittlesw.lighten.concurrent
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger

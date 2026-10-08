@@ -70,7 +70,7 @@ Status: done (PR #34). The repo is public, and `main` is protected: PRs are requ
 - Replace SmallRye with snakeyaml in `config/ConfigurationLoader` (about 150–250
   lines). Walk nodes into records; reject unknown keys and missing required keys;
   parse the three policy enums; report line and column like `CandidateParser`.
-- Replace indexed string overrides (`homelight.relocations[0].source-path` in
+- Replace indexed string overrides (`lighten.relocations[0].source-path` in
   `PlanCommand` and tests) with a typed override.
 - Add tests for missing keys, wrong types and unknown keys (`ConfigurationLoaderTest`
   has three today).
@@ -161,7 +161,7 @@ behavior; the Java tests guard behavior until K5.
 Done when: the user merges `kotlin-migration` into `main` with all 7 checks green
 and both native binaries working.
 
-Status: done (PR #68, merged 2026-10-02). All later work is on the Kotlin codebase: conventions in `AGENTS.md`, `./gradlew build`, and configuration in `~/.homelight.json`.
+Status: done (PR #68, merged 2026-10-02). All later work is on the Kotlin codebase: conventions in `AGENTS.md`, `./gradlew build`, and configuration in `~/.lighten.json`.
 
 ### 4d. Post-migration cleanup and #25
 
@@ -219,7 +219,7 @@ Status: done (2026-10-04, docs PR for branch `docs/tui-design-pass`). Ten decisi
 Order (each issue lists its blockers):
 
 1. Independent, any order or in parallel: #102 (application cleanup), #103 (missing rule means prompt), #104 (one-time choices), #105 (discovery cuts), #106 (standard keys), #107 (palette), #112 (`source-root`).
-2. #108 TamboUI focus foundation, after #106 and #107. `HomeLightApp.kt` and `WorkspaceView.kt` are conflict hotspots: avoid running several tickets that touch them at once.
+2. #108 TamboUI focus foundation, after #106 and #107. `LightenApp.kt` and `WorkspaceView.kt` are conflict hotspots: avoid running several tickets that touch them at once.
 3. #109 wording, then #110 Workspace details and #111 apply progress.
 4. #113 safe replace, #114 configuration editor, #115 Browse in the editor, #116 `s: Always do this`.
 5. #11 integration verification once the above settle.

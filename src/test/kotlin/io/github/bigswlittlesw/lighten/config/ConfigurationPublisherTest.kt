@@ -1,9 +1,9 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import dev.tamboui.tui.event.KeyCode
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.tui.HeadlessTui
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.tui.HeadlessTui
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -21,7 +21,7 @@ class ConfigurationPublisherTest {
     @Test fun validatesThenCreatesAndReloadsWithoutApplying(@TempDir root: Path) {
         val path = root.resolve("new/config.json")
         val draft = draft(root)
-        val session = HomeLightSession(path)
+        val session = LightenSession(path)
         assertFalse(session.requestApply())
 
         ConfigurationPublisher().saveNew(path, draft)
@@ -51,13 +51,13 @@ class ConfigurationPublisherTest {
     /** The file keeps the user's spelling of paths: `~` and `${USER}` are written as typed, never expanded. */
     @Test fun writesPathsAsGiven(@TempDir root: Path) {
         val path = root.resolve("config.json")
-        val file = HomeLightFile(
+        val file = LightenFile(
             targetRoot = root.resolve("local/\${USER}").toString(),
-            relocations = listOf(RelocationFile("~/.cache/homelight-test-tool", archiveRoot = "~/archive")),
+            relocations = listOf(RelocationFile("~/.cache/lighten-test-tool", archiveRoot = "~/archive")),
         )
         ConfigurationPublisher().saveNew(path, file)
         val written = Files.readString(path)
-        assertTrue(written.contains("\"source-path\": \"~/.cache/homelight-test-tool\""), written)
+        assertTrue(written.contains("\"source-path\": \"~/.cache/lighten-test-tool\""), written)
         assertTrue(written.contains("\${USER}"), written)
         assertEquals(file, ConfigurationLoader().read(path).file)
     }
@@ -69,9 +69,9 @@ class ConfigurationPublisherTest {
             ConfigurationPublisher().saveNew(blockedParent.resolve("config.json"), draft) }
 
         val path = root.resolve("config.json")
-        Files.writeString(path, "{\"homelight\": [")
+        Files.writeString(path, "{\"lighten\": [")
         assertThrows<ConfigurationException> { ConfigurationPublisher().saveNew(path, draft) }
-        assertEquals("{\"homelight\": [", Files.readString(path))
+        assertEquals("{\"lighten\": [", Files.readString(path))
         assertThrows<RuntimeException> { ConfigurationLoader().load(path) }
     }
 
@@ -126,7 +126,7 @@ class ConfigurationPublisherTest {
     }
 
     @Test fun replacesASymlinkedConfigurationAtItsTarget(@TempDir root: Path) {
-        val real = root.resolve("dotfiles/homelight.json")
+        val real = root.resolve("dotfiles/lighten.json")
         Files.createDirectories(real.parent)
         val loaded = existing(real, root)
         val path = Files.createSymbolicLink(root.resolve("config.json"), real)
@@ -153,7 +153,7 @@ class ConfigurationPublisherTest {
 
     @Test fun closingANewConfigurationWritesNothing(@TempDir root: Path) {
         val path = root.resolve("config.json")
-        val ui = HeadlessTui(HomeLightSession(path))
+        val ui = HeadlessTui(LightenSession(path))
         ui.press('i')
         // From the Target root field to the list, then closed: nothing was typed, so it does not ask.
         ui.press(KeyCode.ESCAPE)
@@ -164,7 +164,7 @@ class ConfigurationPublisherTest {
     }
 
     companion object {
-        private fun save(publisher: ConfigurationPublisher, path: Path, draft: HomeLightFile): Boolean {
+        private fun save(publisher: ConfigurationPublisher, path: Path, draft: LightenFile): Boolean {
             try { publisher.saveNew(path, draft); return true }
             catch (expected: ConfigurationException) { return false }
         }
@@ -177,9 +177,9 @@ class ConfigurationPublisherTest {
         private fun replaceOrRefuse(publisher: ConfigurationPublisher, path: Path, loaded: ByteArray, root: Path) {
             try { publisher.replace(path, draft(root), loaded) } catch (expected: ConfigurationException) {}
         }
-        private fun draft(root: Path): HomeLightFile = file(root, relocation(root.resolve("home/cache"), root.resolve("local/cache")))
+        private fun draft(root: Path): LightenFile = file(root, relocation(root.resolve("home/cache"), root.resolve("local/cache")))
         private fun relocation(source: Path, target: Path) = RelocationFile(source.toString(), target.toString())
         private fun file(root: Path, vararg relocations: RelocationFile) =
-            HomeLightFile(targetRoot = root.resolve("local").toString(), relocations = relocations.toList())
+            LightenFile(targetRoot = root.resolve("local").toString(), relocations = relocations.toList())
     }
 }

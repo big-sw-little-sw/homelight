@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -23,10 +23,10 @@ private val INPUT = Json {
 
 /**
  * Rejected input. `line` and `column` are one-based, and zero when kotlinx gives no offset (missing keys,
- * unknown enum values). The column counts UTF-16 characters. `path` is dotted, e.g. `homelight.relocations[0]`,
+ * unknown enum values). The column counts UTF-16 characters. `path` is dotted, e.g. `lighten.relocations[0]`,
  * and empty for the document.
  *
- * `message` keeps kotlinx's words. `problem` says the same in plain parts when kotlinx's message is one HomeLight
+ * `message` keeps kotlinx's words. `problem` says the same in plain parts when kotlinx's message is one Lighten
  * recognizes, and is null otherwise, such as for an unknown key.
  */
 internal class JsonInputException(

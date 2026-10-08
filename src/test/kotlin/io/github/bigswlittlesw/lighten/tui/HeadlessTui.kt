@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.tui
+package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.buffer.Buffer
 import dev.tamboui.layout.Rect
@@ -11,11 +11,11 @@ import dev.tamboui.tui.event.Event
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
-import io.github.bigswlittlesw.homelight.application.HomeLightSession
-import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 
 /**
- * Runs a [HomeLightApp] the way `ToolkitRunner` does, without a terminal: TamboUI's own [FocusManager] and
+ * Runs a [LightenApp] the way `ToolkitRunner` does, without a terminal: TamboUI's own [FocusManager] and
  * [EventRouter] route each key, and a frame renders after every key, so focus, Tab and dialogs behave as they do
  * on screen.
  *
@@ -23,7 +23,7 @@ import io.github.bigswlittlesw.homelight.discovery.CandidateDiscovery
  * focusable when focus is missing or stale.
  */
 internal class HeadlessTui(
-    session: HomeLightSession,
+    session: LightenSession,
     openConfiguration: Boolean = false,
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
     private val width: Int = 80,
@@ -32,7 +32,7 @@ internal class HeadlessTui(
     val focus = FocusManager()
     private val router = EventRouter(focus, ElementRegistry())
     private val context = DefaultRenderContext(focus, router).apply { setBindings(KEY_BINDINGS) }
-    val app = HomeLightApp(session, focus, openConfiguration, discoveryFactory)
+    val app = LightenApp(session, focus, openConfiguration, discoveryFactory)
 
     init {
         router.addGlobalHandler(app.keyHandler)

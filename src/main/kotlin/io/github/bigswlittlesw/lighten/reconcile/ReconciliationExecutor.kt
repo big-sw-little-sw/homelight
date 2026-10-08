@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.concurrent.RELOCATION_CONCURRENCY
-import io.github.bigswlittlesw.homelight.concurrent.Outcome
-import io.github.bigswlittlesw.homelight.concurrent.mapBounded
-import io.github.bigswlittlesw.homelight.fs.PathInspector
-import io.github.bigswlittlesw.homelight.fs.PathObservation
-import io.github.bigswlittlesw.homelight.fs.PathState
+import io.github.bigswlittlesw.lighten.concurrent.RELOCATION_CONCURRENCY
+import io.github.bigswlittlesw.lighten.concurrent.Outcome
+import io.github.bigswlittlesw.lighten.concurrent.mapBounded
+import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
 import java.io.IOException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileStore
@@ -248,7 +248,7 @@ class ReconciliationExecutor internal constructor(
     private fun replaceWithLink(
         path: Path, target: Path, replaceExisting: Boolean = false, beforeMove: () -> Unit = {},
     ) {
-        val temporary = Files.createTempFile(path.parent, ".homelight-", ".link")
+        val temporary = Files.createTempFile(path.parent, ".lighten-", ".link")
         Files.delete(temporary)
         Files.createSymbolicLink(temporary, target)
         try {
@@ -365,7 +365,7 @@ private fun requirePosixPermissions(path: Path, store: FileStore) {
  *
  * The symlink rule: an existing ancestor of a path that an action works on may be a symlink to a directory, as
  * `/var` is on macOS and `/home` on Fedora Atomic, so existing components here are followed. Every directory
- * HomeLight creates must be real, and so must the paths that actions work on (source, target, staging root): their
+ * Lighten creates must be real, and so must the paths that actions work on (source, target, staging root): their
  * guards and [ensureRealDirectory] do not follow links. Once a component is missing, the rest are created too, so a
  * symlink that appears there meanwhile is refused.
  */

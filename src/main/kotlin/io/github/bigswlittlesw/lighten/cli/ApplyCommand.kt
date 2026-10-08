@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ApplyModel
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.ReviewedExecution
-import io.github.bigswlittlesw.homelight.application.isUnconfiguredDefault
-import io.github.bigswlittlesw.homelight.reconcile.ReconciliationExecutor
-import io.github.bigswlittlesw.homelight.tui.launchTui
+import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.ReviewedExecution
+import io.github.bigswlittlesw.lighten.application.isUnconfiguredDefault
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
+import io.github.bigswlittlesw.lighten.tui.launchTui
 import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -21,7 +21,7 @@ import java.util.concurrent.Executor
 @Command(name = "apply", description = ["Review and apply a fully resolved reconciliation plan."])
 internal class ApplyCommand(private val worker: Executor = Executor { it.run() }) : Callable<Int> {
     @ParentCommand
-    private lateinit var parent: HomeLightCommand
+    private lateinit var parent: LightenCommand
 
     @Option(names = ["--yes"], description = ["Confirm a resolved plan in JSON automation mode."])
     private var yes = false

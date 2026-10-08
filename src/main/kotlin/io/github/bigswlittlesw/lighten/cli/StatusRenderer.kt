@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import kotlinx.serialization.Serializable
 import java.io.PrintWriter
 import java.nio.file.Path

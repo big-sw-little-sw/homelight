@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.homelight.config
+package io.github.bigswlittlesw.lighten.config
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -11,7 +11,7 @@ import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
 /**
- * Loads one JSON configuration rooted at `homelight`.
+ * Loads one JSON configuration rooted at `lighten`.
  *
  * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
  * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
@@ -27,7 +27,7 @@ class ConfigurationLoader {
     data class PathOverride(val sourcePath: Path, val targetPath: Path)
 
     /** @throws InvalidConfigurationException when the file's text or values are wrong */
-    fun load(path: Path, override: PathOverride? = null): HomeLightConfiguration {
+    fun load(path: Path, override: PathOverride? = null): LightenConfiguration {
         val file = read(path).file
         return try {
             configuration(file, override)
@@ -63,33 +63,33 @@ class ConfigurationLoader {
             // The message is complete; the cause would only repeat it.
             throw InvalidConfigurationException(path, problem(exception), exception.line)
         }
-        return LoadedFile(file.homelight, bytes)
+        return LoadedFile(file.lighten, bytes)
     }
 
     /** The file's values resolved and checked, as [load] does after reading them. */
-    internal fun configuration(homelight: HomeLightFile, override: PathOverride? = null): HomeLightConfiguration {
-        val sourceRoot = resolvePath(homelight.sourceRoot, "homelight.source-root")
-        val targetRoot = resolvePath(homelight.targetRoot, "homelight.target-root")
-        val stagingRoot = homelight.stagingRoot?.let { resolvePath(it, "homelight.staging-root") }
+    internal fun configuration(lighten: LightenFile, override: PathOverride? = null): LightenConfiguration {
+        val sourceRoot = resolvePath(lighten.sourceRoot, "lighten.source-root")
+        val targetRoot = resolvePath(lighten.targetRoot, "lighten.target-root")
+        val stagingRoot = lighten.stagingRoot?.let { resolvePath(it, "lighten.staging-root") }
         if (stagingRoot != null && !stagingRoot.startsWith(targetRoot)) {
             throw ConfigurationException("staging-root must be under target-root")
         }
         // The override replaces the first relocation's paths, or supplies it when none is configured.
-        val relocations = homelight.relocations.mapIndexed { i, fields ->
-            relocation(fields, "homelight.relocations[$i]", sourceRoot, targetRoot, stagingRoot, if (i == 0) override else null)
+        val relocations = lighten.relocations.mapIndexed { i, fields ->
+            relocation(fields, "lighten.relocations[$i]", sourceRoot, targetRoot, stagingRoot, if (i == 0) override else null)
         }.ifEmpty {
             listOfNotNull(override?.let {
                 Relocation(overridden(it.sourcePath), overridden(it.targetPath), stagingRoot = stagingRoot)
             })
         }
         aliasedRelocationProblem(relocations)?.let { problem -> throw ConfigurationException(problem.message) }
-        val ignoredSourcePaths = homelight.ignoredSourcePaths.mapIndexed { i, value ->
-            resolvePath(value, "homelight.ignored-source-paths[$i]")
+        val ignoredSourcePaths = lighten.ignoredSourcePaths.mapIndexed { i, value ->
+            resolvePath(value, "lighten.ignored-source-paths[$i]")
         }
-        val sharedList = homelight.suggestionList?.let { value ->
-            convert("homelight.suggestion-list") { parseSharedList(value) }
+        val sharedList = lighten.suggestionList?.let { value ->
+            convert("lighten.suggestion-list") { parseSharedList(value) }
         }
-        return HomeLightConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
+        return LightenConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
 
     private fun relocation(
@@ -111,13 +111,13 @@ class ConfigurationLoader {
     }
 
     companion object {
-        val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".homelight.json")
+        val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".lighten.json")
     }
 }
 
 /**
  * A path from the file, named `name` in any error. It must be absolute, or start with `~/` (or be `~`), after
- * `${USER}` is filled in: a relative path would depend on the directory HomeLight happens to run in. Configuration
+ * `${USER}` is filled in: a relative path would depend on the directory Lighten happens to run in. Configuration
  * resolves its fields with this too, naming them as its screen does.
  */
 internal fun resolvePath(value: String, name: String): Path {
@@ -128,11 +128,11 @@ internal fun resolvePath(value: String, name: String): Path {
 /**
  * A rejected file in plain words where [JsonProblem] has them, else in kotlinx's. Text that is not JSON leads with
  * its line and column; a value in valid JSON leads with its line when known (user decision), since the column of a
- * value or key is less exact. Keys are named below `homelight`, as the file's reader sees them.
+ * value or key is less exact. Keys are named below `lighten`, as the file's reader sees them.
  */
 private fun problem(exception: JsonInputException): String {
     val line = if (exception.line > 0) "Line ${exception.line}: " else ""
-    val name = exception.path.removePrefix("homelight.")
+    val name = exception.path.removePrefix("lighten.")
     return when (val problem = exception.problem) {
         is JsonProblem.Syntax ->
             "It isn't valid JSON: line ${exception.line}, column ${exception.column} ${problem.words}."
@@ -180,7 +180,7 @@ private fun expand(value: String): Path {
 private fun overridden(path: Path): Path = expand(path.toString()).toAbsolutePath().normalize()
 
 /** A configuration file as read: its contents, and its bytes for [ConfigurationPublisher.replace]. */
-internal class LoadedFile(val file: HomeLightFile, val bytes: ByteArray)
+internal class LoadedFile(val file: LightenFile, val bytes: ByteArray)
 
 // The configuration file format, shared by ConfigurationLoader and ConfigurationPublisher. Paths stay as
 // written (`~/x`, `${USER}`) and expand only in the loader. Optional values default to null, empty, `~` for
@@ -192,11 +192,11 @@ internal const val DEFAULT_SOURCE_ROOT = "~"
 
 @Serializable
 @SerialName("configuration")
-internal data class ConfigurationFile(val homelight: HomeLightFile)
+internal data class ConfigurationFile(val lighten: LightenFile)
 
 @Serializable
-@SerialName("homelight")
-internal data class HomeLightFile(
+@SerialName("lighten")
+internal data class LightenFile(
     /** Targets derive from a source's path under this root. */
     @SerialName("source-root") val sourceRoot: String = DEFAULT_SOURCE_ROOT,
     @SerialName("target-root") val targetRoot: String,

@@ -1,4 +1,4 @@
-# HomeLight Design Decisions
+# Lighten Design Decisions
 
 This document records decisions that affect implementation direction. Add entries when a product or architecture choice is made, especially when an alternative is intentionally rejected.
 
@@ -559,6 +559,15 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: moving an app to another ecosystem without naming one of its directories, add when teams want to retag built-in apps wholesale]`
 - `[skipped: the ecosystem in Details' "Suggested by" lines, add when users ask which list set it]`
 - `[skipped: folding ecosystems, add when the built-in list grows past a few screens]`
+
+## 2026-10-07: Rename HomeLight to Lighten
+
+#174 (user decision): the tool is **Lighten** and its command `lighten`. `homelight` was long to type, and HomeLight, Inc. (real estate) holds HOMELIGHT trademarks and owns the search results. Among the names the user liked, `lighten` had the fewest collisions.
+
+- **Everything that carries the name:** the header `⌂ LIGHTEN` (the `⌂` mark stays), Help, dialogs, `--help`, `--version`, the guide, the binary and CI artifacts `lighten-linux-<arch>`, the Kotlin package `io.github.bigswlittlesw.lighten`, class names, the config file `~/.lighten.json` and its key `"lighten"`, the hidden names written to disk (`.lighten-staging`, `.lighten-archive`, `.lighten-replaced-…`, temporary `.lighten-*` files), thread names and CI environment variables. A test renders every screen and Help tab and fails if the old name shows.
+- **No compatibility with the old names:** nothing is released. The README tells anyone who ran an earlier build how to rename the file, its key and leftover folders; the guide does not mention HomeLight.
+- **History stays:** `docs/research/` and the dated entries above keep the old name.
+- `[skipped: the repository URL, add when the user renames big-sw-little-sw/homelight; then ci/try-pr, the guide URL and the README links follow]`
 
 ## How to add decisions
 

@@ -1,6 +1,6 @@
-package io.github.bigswlittlesw.homelight.reconcile
+package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.homelight.config.Relocation
+import io.github.bigswlittlesw.lighten.config.Relocation
 
 /** The planned outcome for one configured relocation. */
 data class RelocationPlan(

@@ -1,11 +1,11 @@
-package io.github.bigswlittlesw.homelight.cli
+package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.homelight.application.ConfigurationEvaluation
-import io.github.bigswlittlesw.homelight.application.guideUrl
-import io.github.bigswlittlesw.homelight.application.resolveVersion
-import io.github.bigswlittlesw.homelight.application.userGuide
-import io.github.bigswlittlesw.homelight.config.ConfigurationException
-import io.github.bigswlittlesw.homelight.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.guideUrl
+import io.github.bigswlittlesw.lighten.application.resolveVersion
+import io.github.bigswlittlesw.lighten.application.userGuide
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -22,7 +22,7 @@ import java.util.Locale
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletionException
 
-class HomeLightCommandTest {
+class LightenCommandTest {
 
     @Test
     fun acceptsVisualDelayAtRootAndOnEveryTuiCommand() {
@@ -33,9 +33,9 @@ class HomeLightCommandTest {
             arrayOf("apply", "--debug-step-delay-ms", "3000"),
             arrayOf("init", "--debug-step-delay-ms", "3000"),
         )) {
-            val command = HomeLightCommand.createCommandLine()
+            val command = LightenCommand.createCommandLine()
             command.parseArgs(*arguments)
-            val root: HomeLightCommand = command.getCommand()
+            val root: LightenCommand = command.getCommand()
             assertEquals(3000L, root.debugStepDelayMillis)
         }
     }
@@ -63,30 +63,30 @@ class HomeLightCommandTest {
     @Test
     fun explainsAConfigurationErrorWithoutJsonOutput(@TempDir root: Path) {
         fun explained(name: String, problem: String, fix: String) = listOf(
-            "HomeLight can't read ${root.resolve(name)}", problem,
+            "Lighten can't read ${root.resolve(name)}", problem,
             "To fix it: open the file in a text editor, $fix, then run the command again.",
-            "To start over: rename or delete the file, then run homelight init --config ${root.resolve(name)} to create a new one.",
+            "To start over: rename or delete the file, then run lighten init --config ${root.resolve(name)} to create a new one.",
         )
         val configs = mapOf(
             "missing.json" to (null to listOf("Configuration file does not exist: ${root.resolve("missing.json")}")),
-            "malformed.json" to ("{\"homelight\": {\"target-root\": \"unclosed\n" to explained("malformed.json",
-                "It isn't valid JSON: line 1, column 40 should have a double quote (\") but the line ends there.",
+            "malformed.json" to ("{\"lighten\": {\"target-root\": \"unclosed\n" to explained("malformed.json",
+                "It isn't valid JSON: line 1, column 38 should have a double quote (\") but the line ends there.",
                 "correct that line")),
-            "missing-key.json" to ("""{"homelight": {"relocations": []}}""" to explained("missing-key.json",
-                "target-root is missing. Add it under \"homelight\".", "correct that setting")),
-            "wrong-kind.json" to ("""{"homelight": {"target-root": "/local",
+            "missing-key.json" to ("""{"lighten": {"relocations": []}}""" to explained("missing-key.json",
+                "target-root is missing. Add it under \"lighten\".", "correct that setting")),
+            "wrong-kind.json" to ("""{"lighten": {"target-root": "/local",
                 "relocations": [{"source-path": 5}]}}""" to explained("wrong-kind.json",
                 "Line 2: relocations[0].source-path should be text, but it is a number.", "correct that line")),
-            "unknown-key.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
+            "unknown-key.json" to ("""{"lighten": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}""" to explained(
                 "unknown-key.json", "Line 2: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.",
                 "correct that line")),
-            "bad-enum.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
+            "bad-enum.json" to ("""{"lighten": {"target-root": "/local", "relocations": [
                 {"source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "sometimes"}]}}""" to
                 explained("bad-enum.json", "relocations[0].when-only-target-exists can't be \"sometimes\"." +
                     " Use one of: prompt, adopt-target.", "correct that setting")),
-            "relative-path.json" to ("""{"homelight": {"target-root": "local"}}""" to
-                explained("relative-path.json", "homelight.target-root: Use a full path, or one starting with ~/",
+            "relative-path.json" to ("""{"lighten": {"target-root": "local"}}""" to
+                explained("relative-path.json", "lighten.target-root: Use a full path, or one starting with ~/",
                     "correct that setting")),
         )
         for ((name, case) in configs) {
@@ -109,7 +109,7 @@ class HomeLightCommandTest {
         for (arguments in listOf(
             arrayOf("fail"), arrayOf("fail", "--json"), arrayOf("fail", "--worker"), arrayOf("fail", "--worker", "--json"),
         )) {
-            val commandLine = HomeLightCommand.createCommandLine().addSubcommand("fail", FailingCommand())
+            val commandLine = LightenCommand.createCommandLine().addSubcommand("fail", FailingCommand())
             val output = StringWriter()
             val errorOutput = StringWriter()
             commandLine.setOut(PrintWriter(output, true))
@@ -141,7 +141,7 @@ class HomeLightCommandTest {
 
         assertEquals(0, result.exitCode)
         val output: String = result.output
-        assertTrue(output.contains("Usage: homelight"))
+        assertTrue(output.contains("Usage: lighten"))
         assertTrue(output.contains("--help"))
         assertTrue(output.contains("--version"))
         assertTrue(output.contains("--config"))
@@ -153,7 +153,7 @@ class HomeLightCommandTest {
 
         assertEquals(0, result.exitCode)
         val output: String = result.output
-        assertTrue(output.contains("Usage: homelight"))
+        assertTrue(output.contains("Usage: lighten"))
     }
 
     @Test
@@ -161,7 +161,7 @@ class HomeLightCommandTest {
         val result = execute("--help")
 
         assertTrue(result.output.lines().contains(guideUrl()), result.output)
-        assertTrue(result.output.contains("homelight guide"), result.output)
+        assertTrue(result.output.contains("lighten guide"), result.output)
     }
 
     @Test
@@ -170,7 +170,7 @@ class HomeLightCommandTest {
 
         assertEquals(0, result.exitCode)
         assertEquals(userGuide(), result.output)
-        assertTrue(result.output.startsWith("# HomeLight\n"))
+        assertTrue(result.output.startsWith("# Lighten\n"))
     }
 
     @Test
@@ -186,7 +186,7 @@ class HomeLightCommandTest {
         val result = execute("--version")
 
         assertEquals(0, result.exitCode)
-        assertTrue(result.output.contains("homelight " + resolveVersion()))
+        assertTrue(result.output.contains("lighten " + resolveVersion()))
     }
 
     @Test
@@ -194,7 +194,7 @@ class HomeLightCommandTest {
         val result = execute("-V")
 
         assertEquals(0, result.exitCode)
-        assertTrue(result.output.contains("homelight " + resolveVersion()))
+        assertTrue(result.output.contains("lighten " + resolveVersion()))
     }
 
     @Test
@@ -202,7 +202,7 @@ class HomeLightCommandTest {
         val result = execute()
 
         assertEquals(2, result.exitCode)
-        assertTrue(result.errorOutput.contains("HomeLight TUI requires an interactive terminal"))
+        assertTrue(result.errorOutput.contains("Lighten TUI requires an interactive terminal"))
     }
 
     @Test
@@ -210,7 +210,7 @@ class HomeLightCommandTest {
         val result = execute("--config", "/tmp/custom.json")
 
         assertEquals(2, result.exitCode)
-        assertTrue(result.errorOutput.contains("HomeLight TUI requires an interactive terminal"))
+        assertTrue(result.errorOutput.contains("Lighten TUI requires an interactive terminal"))
     }
 
     @Test
@@ -218,7 +218,7 @@ class HomeLightCommandTest {
         val result = execute("status")
 
         assertEquals(2, result.exitCode)
-        assertTrue(result.errorOutput.contains("HomeLight TUI requires an interactive terminal"))
+        assertTrue(result.errorOutput.contains("Lighten TUI requires an interactive terminal"))
     }
 
     @Test
@@ -230,18 +230,18 @@ class HomeLightCommandTest {
         }
     }
 
-    /** Configuration opens a file that loads, or a new one; a file HomeLight cannot read is fixed by hand. */
+    /** Configuration opens a file that loads, or a new one; a file Lighten cannot read is fixed by hand. */
     @Test
     fun configRefusesAFileItCannotReadAndSaysHowToFixIt(@TempDir root: Path) {
-        val config = Files.writeString(root.resolve("config.json"), "homelight")
+        val config = Files.writeString(root.resolve("config.json"), "lighten")
         val result = execute("-c", config.toString(), "config")
         assertEquals(1, result.exitCode)
         assertEquals(
             listOf(
-                "HomeLight can't read $config",
-                "It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"h\".",
+                "Lighten can't read $config",
+                "It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"l\".",
                 "To fix it: open the file in a text editor, correct that line, then run the command again.",
-                "To start over: rename or delete the file, then run homelight init --config $config to create a new one.",
+                "To start over: rename or delete the file, then run lighten init --config $config to create a new one.",
             ),
             result.errorOutput.lines().dropLast(1),
         )
@@ -249,11 +249,11 @@ class HomeLightCommandTest {
 
     @Test
     fun shouldProvideVersionFromVersionProvider() {
-        val provider = HomeLightVersionProvider()
+        val provider = LightenVersionProvider()
         val version: Array<String> = provider.getVersion()
 
         assertEquals(1, version.size)
-        assertEquals("homelight " + resolveVersion(), version[0])
+        assertEquals("lighten " + resolveVersion(), version[0])
     }
 
     @Test
@@ -263,7 +263,7 @@ class HomeLightCommandTest {
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
         val config = root.resolve("config.json")
-        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("status", "--config", config.toString(), "--json")
 
@@ -277,7 +277,7 @@ class HomeLightCommandTest {
         val sourcePath = root.resolve("home/cache")
         Files.createDirectories(sourcePath)
         val config = root.resolve("config.json")
-        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root/local\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$root/local/cache\"}]}}\n")
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"$root/local\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$root/local/cache\"}]}}\n")
 
         for (arguments in listOf(arrayOf("status", "--json"), arrayOf("plan", "--json"), arrayOf("apply", "--json", "--yes"))) {
             val result = execute("-c", config.toString(), *arguments)
@@ -299,7 +299,7 @@ class HomeLightCommandTest {
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
         val config = root.resolve("config.json")
-        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("status", "-c", config.toString(), "--json")
 
@@ -315,7 +315,7 @@ class HomeLightCommandTest {
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
         val config = root.resolve("config.json")
-        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("--config", config.toString(), "status", "--json")
 
@@ -331,7 +331,7 @@ class HomeLightCommandTest {
         Files.createDirectories(targetPath)
         Files.createSymbolicLink(sourcePath, targetPath)
         val config = root.resolve("config.json")
-        Files.writeString(config, "{\"homelight\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"$root\", \"relocations\": [{\"source-path\": \"$sourcePath\", \"target-path\": \"$targetPath\"}]}}\n")
 
         val result = execute("-c", config.toString(), "status", "--json")
 
@@ -346,7 +346,7 @@ class HomeLightCommandTest {
         val snapshot = StatusSnapshot(Path.of("/source/line\nbreak"), Path.of("/target"),
             RelocationSourceState.ABSENT)
 
-        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
+        renderStatusJson(Path.of("/tmp/.lighten.json"), listOf(snapshot), PrintWriter(output, true))
 
         assertTrue(output.toString().contains("line\\nbreak"))
     }
@@ -360,7 +360,7 @@ class HomeLightCommandTest {
         // Turkish lower-cases I to a dotless ı.
         Locale.setDefault(Locale.forLanguageTag("tr"))
         try {
-            renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
+            renderStatusJson(Path.of("/tmp/.lighten.json"), listOf(snapshot), PrintWriter(output, true))
         } finally {
             Locale.setDefault(previous)
         }
@@ -372,9 +372,9 @@ class HomeLightCommandTest {
     fun unconfiguredStatusReportsJson() {
         val output = StringWriter()
 
-        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(), PrintWriter(output, true), configured = false)
+        renderStatusJson(Path.of("/tmp/.lighten.json"), listOf(), PrintWriter(output, true), configured = false)
 
-        assertEquals("{\"schema\":1,\"configured\":false,\"configPath\":\"/tmp/.homelight.json\",\"relocations\":[]}",
+        assertEquals("{\"schema\":1,\"configured\":false,\"configPath\":\"/tmp/.lighten.json\",\"relocations\":[]}",
             output.toString().trim())
     }
 
@@ -383,9 +383,9 @@ class HomeLightCommandTest {
         val output = StringWriter()
         val snapshot = StatusSnapshot(Path.of("/source"), Path.of("/target"), RelocationSourceState.ABSENT)
 
-        renderStatusJson(Path.of("/tmp/.homelight.json"), listOf(snapshot), PrintWriter(output, true))
+        renderStatusJson(Path.of("/tmp/.lighten.json"), listOf(snapshot), PrintWriter(output, true))
 
-        assertEquals("{\"schema\":1,\"configured\":true,\"configPath\":\"/tmp/.homelight.json\"," +
+        assertEquals("{\"schema\":1,\"configured\":true,\"configPath\":\"/tmp/.lighten.json\"," +
             "\"relocations\":[{\"sourcePath\":\"/source\",\"targetPath\":\"/target\",\"state\":\"absent\"}]}",
             output.toString().trim())
     }
@@ -394,7 +394,7 @@ class HomeLightCommandTest {
 
     private companion object {
         fun execute(vararg args: String): CapturedOutput {
-            val commandLine = HomeLightCommand.createCommandLine()
+            val commandLine = LightenCommand.createCommandLine()
             val output = StringWriter()
             val errorOutput = StringWriter()
             commandLine.setOut(PrintWriter(output, true))

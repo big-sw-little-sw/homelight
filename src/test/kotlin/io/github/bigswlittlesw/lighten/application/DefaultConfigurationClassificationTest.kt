@@ -1,8 +1,8 @@
-package io.github.bigswlittlesw.homelight.application
+package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.homelight.cli.HomeLightCommand
-import io.github.bigswlittlesw.homelight.config.ConfigurationLoader
-import io.github.bigswlittlesw.homelight.config.javaStrip
+import io.github.bigswlittlesw.lighten.cli.LightenCommand
+import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.javaStrip
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -55,7 +55,7 @@ class DefaultConfigurationClassificationTest {
                     defaultPath.resolveSibling("explicit.json") else defaultPath
                 when (args[0]) {
                     "default-directory", "explicit-directory" -> Files.createDirectory(config)
-                    "default-malformed" -> Files.writeString(config, "{\"homelight\": [")
+                    "default-malformed" -> Files.writeString(config, "{\"lighten\": [")
                     "default-missing" -> { }
                     else -> throw IllegalArgumentException(args[0])
                 }
@@ -63,7 +63,7 @@ class DefaultConfigurationClassificationTest {
                 val evaluator = ConfigurationEvaluation()
                 // Include a lexically different spelling of the same default path.
                 for (path in listOf(config, config.parent.resolve(".").resolve(config.fileName))) {
-                    val session = HomeLightSession(path)
+                    val session = LightenSession(path)
                     assertClassification(evaluator.load(path), unconfigured)
                     assertClassification(session.evaluation(), unconfigured)
                     session.refresh()
@@ -71,7 +71,7 @@ class DefaultConfigurationClassificationTest {
                     assertFalse(session.requestApply())
                 }
                 for (command in listOf("status", "plan", "apply")) {
-                    val cli = HomeLightCommand.createCommandLine()
+                    val cli = LightenCommand.createCommandLine()
                     val out = StringWriter()
                     val err = StringWriter()
                     cli.setOut(PrintWriter(out, true))
@@ -97,7 +97,7 @@ class DefaultConfigurationClassificationTest {
                 }
                 if (args[0].equals("default-directory")) {
                     Files.delete(config)
-                    Files.writeString(config, "{\"homelight\": [")
+                    Files.writeString(config, "{\"lighten\": [")
                     assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
                 }
             }

@@ -32,7 +32,7 @@ gradle nativeCompile installDist
 echo "native build: $(( $(date +%s) - start ))s, NATIVE_IMAGE_OPTIONS=$NATIVE_IMAGE_OPTIONS"
 
 # Fail the build when the binary needs more of the C library than the release target allows.
-binary=build/native/nativeCompile/homelight
+binary=build/native/nativeCompile/lighten
 case $ARCH in
   x86_64)
     if readelf -d "$binary" | grep -q NEEDED; then
@@ -49,7 +49,7 @@ case $ARCH in
 esac
 
 # The JVM transcript every native test run is compared against.
-bash ci/native/compare.sh /out/jvm-reference.txt build/install/homelight/bin/homelight
+bash ci/native/compare.sh /out/jvm-reference.txt build/install/lighten/bin/lighten
 
-cp "$binary" /out/homelight
+cp "$binary" /out/lighten
 chown -R "$HOST_UID:$HOST_GID" /out /gradle
