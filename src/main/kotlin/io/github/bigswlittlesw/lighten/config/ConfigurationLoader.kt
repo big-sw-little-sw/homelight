@@ -27,15 +27,16 @@ class ConfigurationLoader {
     data class PathOverride(val sourcePath: Path, val targetPath: Path)
 
     /** @throws InvalidConfigurationException when the file's text or values are wrong */
-    fun load(path: Path, override: PathOverride? = null): LightenConfiguration {
-        val file = read(path).file
-        return try {
-            configuration(file, override)
+    fun load(path: Path, override: PathOverride? = null): LightenConfiguration = resolve(path, read(path), override)
+
+    /** [load] for a file [read] from [path], so a caller can keep the bytes it was read from. */
+    internal fun resolve(path: Path, read: LoadedFile, override: PathOverride? = null): LightenConfiguration =
+        try {
+            configuration(read.file, override)
         } catch (exception: ConfigurationException) {
             // The value checks are shared with Configuration's draft, which has no file yet.
             throw InvalidConfigurationException(path, exception.message.orEmpty())
         }
-    }
 
     /**
      * The file at [path] in its own shape, with the bytes it was read from, so a later replace can tell whether the

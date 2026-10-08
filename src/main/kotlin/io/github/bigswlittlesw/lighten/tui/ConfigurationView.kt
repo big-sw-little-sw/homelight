@@ -20,7 +20,6 @@ import dev.tamboui.widgets.select.SelectState
 import io.github.bigswlittlesw.lighten.application.BrowseDraft
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.Suggestions
-import io.github.bigswlittlesw.lighten.config.ConfigurationChangedException
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
@@ -395,16 +394,8 @@ internal class ConfigurationView private constructor(
     }
 
     private fun publish(write: () -> Unit) {
-        try {
-            write()
-        } catch (_: ConfigurationChangedException) {
-            message = CHANGED_SINCE_LOADED
-            return
-        } catch (error: ConfigurationException) {
-            message = notSaved(error.message.orEmpty())
-            return
-        } catch (error: IllegalArgumentException) {
-            message = notSaved(error.message.orEmpty())
+        saveProblem(CHANGED_SINCE_LOADED, write)?.let { problem ->
+            message = problem
             return
         }
         saved = true
