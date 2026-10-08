@@ -80,6 +80,24 @@ class ConfigurationLoaderTest {
             failure("""{"lighten": {"target-root": "/local", "ignored-source-paths": ["~/a", " "]}}"""))
     }
 
+    /** Lighten plans nothing for an ignored path, so the same path can't also be a relocation, however it is spelled. */
+    @Test fun refusesAPathThatIsBothARelocationAndIgnored() {
+        assertEquals(
+            "relocations[1].source-path and ignored-source-paths[0] are both ~/b/. A path can't be both a relocation " +
+                "and ignored: remove it from one of the two lists.",
+            failure("""
+                {"lighten": {"target-root": "/local",
+                  "relocations": [{"source-path": "~/a"}, {"source-path": "~/b"}],
+                  "ignored-source-paths": ["~/b/", "~/c"]}}
+                """),
+        )
+        // A folder inside a relocation, or around one, may be ignored.
+        val file = write("""
+            {"lighten": {"target-root": "/local", "relocations": [{"source-path": "~/a/b"}], "ignored-source-paths": ["~/a", "~/a/b/c"]}}
+            """)
+        assertEquals(2, ConfigurationLoader().load(file).ignoredSourcePaths.size)
+    }
+
     @Test fun reportsValuesOfTheWrongTypeWithPositionAndPath() {
         assertEquals("Line 2: target-root should be text, but it is a list.", failure("""
             {"lighten": {

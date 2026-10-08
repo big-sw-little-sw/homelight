@@ -15,7 +15,7 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
  * stay as the user wrote them.
  *
  * The check is the loader's own ([ConfigurationLoader.configuration]), so a saved file always loads, plus
- * [validateConfiguration]: at least one relocation, none overlapping. Either failure throws before anything is
+ * [validateConfiguration]: at least one relocation or ignored path, no relocations overlapping. Either failure throws before anything is
  * written: a [ConfigurationException] for a value the loader rejects, an [IllegalArgumentException] for the rest.
  */
 class ConfigurationPublisher {
@@ -63,7 +63,10 @@ class ConfigurationPublisher {
         }
     }
 
-    private fun check(file: LightenFile) = validateConfiguration(ConfigurationLoader().configuration(file).relocations)
+    private fun check(file: LightenFile) {
+        val configuration = ConfigurationLoader().configuration(file)
+        validateConfiguration(configuration.relocations, configuration.ignoredSourcePaths)
+    }
 
     /** Writes [file] to a temporary file beside [destination] and hands it to [publish]; the file never outlives it. */
     private fun writeThrough(destination: Path, file: LightenFile, publish: (Path) -> Unit) {

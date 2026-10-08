@@ -477,6 +477,76 @@ class BrowseTest {
     }
 
     /**
+     * An ignored suggestion is marked `⊘`, never hidden, and can't be added; `x` stops ignoring it, and saving writes
+     * that. A directory no list suggests stays listed so it can be seen and no longer ignored.
+     */
+    @Test fun anIgnoredSuggestionIsMarkedAndXStopsIgnoringIt() {
+        val root = fixture()
+        val config = ignoring(root, "team-cache", ".cache/example", "unlisted")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            val list = render(ui)
+            // .cache/example is usually not needed by every list, yet it shows: it is ignored.
+            for (row in listOf("⊘ team-cache", "⊘ .cache/example", "⊘ unlisted")) assertTrue(list.contains(row), "$row\n$list")
+            assertTrue(list.lines().any { it.contains("⊘ team-cache") && it.contains("ignored by you") }, list)
+            choose(ui, "team-cache")
+            assertTrue(render(ui).contains("x: Stop ignoring") && !render(ui).contains("Space: Add"), render(ui))
+            key(ui, ' ')
+            assertTrue(selected(render(ui), "⊘ team-cache"), render(ui))
+            enter(ui)
+            val details = all(ui)
+            assertTrue(details.contains(IGNORED_BY_YOU) && details.contains("Press x to stop ignoring it"), details)
+            escape(ui)
+            key(ui, 'x')
+            assertTrue(selected(render(ui), "○ team-cache"), render(ui))
+            assertTrue(render(ui).contains("x: Ignore"), render(ui))
+            escape(ui)
+            assertTrue(render(ui).contains("1 unsaved change"), render(ui))
+            key(ui, 's'); key(ui, 'y')
+            val saved = ConfigurationLoader().load(config)
+            assertEquals(listOf(root.resolve("home/.cache/example"), root.resolve("home/unlisted")), saved.ignoredSourcePaths)
+        }
+    }
+
+    /** `x` on a suggestion ignores it, and on an added row moves it from the relocations to the ignored paths. */
+    @Test fun xIgnoresASuggestionOrAnAddedRow() {
+        val root = fixture()
+        val config = ignoring(root, "unlisted")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            choose(ui, "datasets"); key(ui, 'x')
+            assertTrue(selected(render(ui), "⊘ datasets"), render(ui))
+            choose(ui, ".m2"); key(ui, ' '); key(ui, 'x')
+            assertTrue(selected(render(ui), "⊘ .m2"), render(ui))
+            escape(ui); key(ui, 's'); key(ui, 'y')
+            val saved = ConfigurationLoader().load(config)
+            assertTrue(saved.relocations.isEmpty())
+            assertEquals(
+                setOf(root.resolve("home/unlisted"), root.resolve("home/datasets"), root.resolve("home/.m2")),
+                saved.ignoredSourcePaths.toSet(),
+            )
+        }
+    }
+
+    /** Space on a heading adds what it can and skips the ignored rows, and says so. */
+    @Test fun spaceOnAGroupSkipsIgnoredRows() {
+        val root = fixture()
+        val config = ignoring(root, "team-cache")
+        SetupDiscoveryFixture().use { workers ->
+            val ui = HeadlessTui(LightenSession(config), discoveryFactory = workers::get)
+            key(ui, 'e'); key(ui, 'b'); await(workers, ui)
+            chooseGroup(ui, "Other directories")
+            key(ui, ' ')
+            val other = render(ui)
+            assertTrue(other.contains("Added 5. Skipped 1 you ignored."), other)
+            assertTrue(other.contains("⊘ team-cache"), other)
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
      * Categories head their apps, in the order they first appear; Other tools (apps no list gives a category) and
      * Other directories come last. Each level is two cells further in, and every count starts in the notes column.
      */
@@ -787,6 +857,16 @@ class BrowseTest {
         return root
     }
 
+    /** An existing configuration with no relocations that ignores each of `relative` under the fixture's home. */
+    private fun ignoring(root: Path, vararg relative: String): Path = Files.writeString(
+        root.resolve("config.json"),
+        """
+        {"lighten": {"source-root": "${root.resolve("home")}", "target-root": "${root.resolve("local")}",
+          "suggestion-list": "${root.resolve("shared.json")}",
+          "ignored-source-paths": [${relative.joinToString(", ") { "\"${root.resolve("home").resolve(it)}\"" }}]}}
+        """.trimIndent(),
+    )
+
     private companion object {
         fun ui(root: Path, workers: SetupDiscoveryFixture): HeadlessTui {
             val ui = HeadlessTui(LightenSession(root.resolve("config.json")), discoveryFactory = workers::get); key(ui, 'i'); return ui
@@ -811,7 +891,7 @@ class BrowseTest {
         fun choose(ui: HeadlessTui, relative: String) {
             ui.press(KeyCode.HOME)
             repeat(100) {
-                if (render(ui).lines().any { line -> line.matches(Regex(".*❯    [●○−] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
+                if (render(ui).lines().any { line -> line.matches(Regex(".*❯    [●○−⊘] " + Pattern.quote(relative) + "(?: +.*|┃.*)")) }) return
                 down(ui)
             }
             fail<Unit>("Could not focus " + relative + "\n" + render(ui))

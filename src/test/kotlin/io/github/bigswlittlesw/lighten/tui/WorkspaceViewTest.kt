@@ -130,7 +130,7 @@ class WorkspaceViewTest {
             val viewport = DetailViewport()
             val all = StringBuilder()
             repeat(160) {
-                all.append(rightPane(render(WorkspaceView.render(session, WorkspaceView.list(), false, WORKSPACE_DETAILS, true, 0, viewport), size[0], size[1]), size[0]))
+                all.append(rightPane(render(WorkspaceView.render(session, WorkspaceView.list(), false, false, WORKSPACE_DETAILS, true, 0, viewport), size[0], size[1]), size[0]))
                 viewport.scroll(1)
             }
             val item = model.items.first()
@@ -195,7 +195,7 @@ class WorkspaceViewTest {
         val session = LightenSession(fixture(temporary))
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val index = WorkspaceView.visibleItems(model, false).indexOfFirst { it.relocation.sourcePath.endsWith("unchanged") }
-        val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
+        val screen = render(WorkspaceView.render(session, WorkspaceView.list().selected(index), false, false, WORKSPACE_DETAILS, true, 0, DetailViewport()), 200, 50)
         assertTrue(screen.contains("[Left as is] "), screen)
         assertTrue(screen.contains("Decision: leave both as they are (your configuration)"), screen)
         assertTrue(screen.contains("Will do: nothing; source and target are left as they are."), screen)

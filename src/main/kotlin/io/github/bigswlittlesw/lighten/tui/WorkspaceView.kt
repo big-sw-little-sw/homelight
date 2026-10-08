@@ -24,12 +24,39 @@ import io.github.bigswlittlesw.lighten.tui.DetailViewport.Anchored
 import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Path
 
+/**
+ * A row of the Workspace list: a relocation, then, last, the heading of the ignored sources and, while it is open,
+ * each of them. `source` is what the selection follows across a re-check; the heading has none.
+ */
+internal sealed interface WorkspaceRow {
+    val source: Path?
+
+    data class Planned(val item: PlanRelocationItem) : WorkspaceRow {
+        override val source: Path get() = item.relocation.sourcePath
+    }
+
+    data class IgnoredGroup(val count: Int, val shown: Boolean) : WorkspaceRow {
+        override val source: Path? get() = null
+    }
+
+    data class Ignored(override val source: Path) : WorkspaceRow
+}
+
 /** Renders the workspace screen. The object names the screen; it holds no state. */
 internal object WorkspaceView {
     fun visibleItems(model: ConfigurationEvaluation.Loaded, showInSync: Boolean): List<PlanRelocationItem> {
         if (showInSync) return model.items
         val active = model.items.filter { item -> item.badge() != PlanBadge.IN_SYNC }
         return if (active.isEmpty()) model.items else active
+    }
+
+    /** The list's rows: the visible relocations, then the ignored group, below in sync, collapsed unless `showIgnored`. */
+    fun rows(model: ConfigurationEvaluation.Loaded, showInSync: Boolean, showIgnored: Boolean): List<WorkspaceRow> {
+        val ignored = model.ignored
+        val group = if (ignored.isEmpty()) listOf()
+        else listOf(WorkspaceRow.IgnoredGroup(ignored.size, showIgnored)) +
+            (if (showIgnored) ignored.map(WorkspaceRow::Ignored) else listOf())
+        return visibleItems(model, showInSync).map(WorkspaceRow::Planned) + group
     }
 
     /** The in-sync rows `c` hides or shows: none when every row is in sync, because then they always show. */
@@ -48,8 +75,8 @@ internal object WorkspaceView {
      * such as the next step after a save, shows once below the panes.
      */
     fun render(
-        session: LightenSession, list: ListElement<Any>, showInSync: Boolean, focused: String?, interactive: Boolean,
-        choice: Int, viewport: DetailViewport, notice: Line? = null,
+        session: LightenSession, list: ListElement<Any>, showInSync: Boolean, showIgnored: Boolean, focused: String?,
+        interactive: Boolean, choice: Int, viewport: DetailViewport, notice: Line? = null,
     ): Element {
         val retained = session.applyModel() is ApplyModel.Result
         val header = Toolkit.row(
@@ -77,20 +104,25 @@ internal object WorkspaceView {
                 viewport.render(
                     "Configuration", lines + listOfNotNull(notice), interactive, 0, WORKSPACE_DETAILS, interactive,
                 ),
-                viewport.help(screenHelp(session, list, showInSync, focused), interactive),
+                viewport.help(screenHelp(session, list, showInSync, showIgnored, focused), interactive),
             )
         }
         val configured = model
-        val items = visibleItems(configured, showInSync)
-        val selected = selection(list, items)
-        val item = items.getOrNull(selected)
-        val rows = items.mapIndexed { i, listed ->
-            val label = badgeLabel(listed.badge())
-            Toolkit.row(
-                Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2),
-                Toolkit.text("[$label] ").fg(color(listed.badge())).length(label.length + 3),
-                Toolkit.text(displayPath(listed.relocation.sourcePath)).ellipsisMiddle().fill(),
+        val listed = rows(configured, showInSync, showIgnored)
+        val selected = selection(list, listed)
+        val row = listed.getOrNull(selected)
+        val rows = listed.mapIndexed { i, shown ->
+            val pointer = Toolkit.text(if (i == selected) "❯ " else "  ").fg(palette.focus).length(2)
+            fun badged(label: String, color: Color, path: Path) = Toolkit.row(
+                pointer, Toolkit.text("[$label] ").fg(color).length(label.length + 3),
+                Toolkit.text(displayPath(path)).ellipsisMiddle().fill(),
             )
+            when (shown) {
+                is WorkspaceRow.Planned -> badged(badgeLabel(shown.item.badge()), color(shown.item.badge()), shown.source)
+                is WorkspaceRow.IgnoredGroup ->
+                    Toolkit.row(pointer, Toolkit.text(ignoredHeading(shown.count, shown.shown)).fg(palette.dim).fill())
+                is WorkspaceRow.Ignored -> badged(IGNORED_LABEL, palette.dim, shown.source)
+            }
         }
         val inSync = toggledInSync(configured)
         // In the title, not a row, so the list's own selection never lands on it.
@@ -98,8 +130,16 @@ internal object WorkspaceView {
         // The list is framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
         val listPane = framed(Toolkit.panel(relocationsTitle(inSync, showInSync), list), focused == WORKSPACE_LIST)
         val detailsFocused = focused == WORKSPACE_DETAILS
-        val details = if (item == null) Anchored(listOf(Line(NO_RELOCATIONS), Line(HELP_HINT)), 0)
-        else details(configured, item, choice, detailsFocused, retained)
+        val details = when (row) {
+            null -> Anchored(listOf(Line(NO_RELOCATIONS), Line(HELP_HINT)), 0)
+            is WorkspaceRow.Planned -> details(configured, row.item, choice, detailsFocused, retained)
+            is WorkspaceRow.IgnoredGroup -> Anchored(ignoredGroupDetails(row.count, row.shown).map(::Line), 0)
+            is WorkspaceRow.Ignored -> Anchored(
+                listOf(Line(IGNORED_BY_YOU, palette.text, true)) + ignoredDetails(row.source, retained).map(::Line) +
+                    listOf(Line(""), Line(PATHS, palette.text, true), Line(sourceLine(row.source))),
+                0,
+            )
+        }
         val lines = details.lines + configured.plan.diagnostics.map { Line(it.message, palette.warn, false) }
         val summary = summary(configured.items)
         val content = buildList {
@@ -120,13 +160,33 @@ internal object WorkspaceView {
                     palette.warn,
                 ),
             )
-            add(viewport.help(screenHelp(session, list, showInSync, focused), interactive))
+            add(viewport.help(screenHelp(session, list, showInSync, showIgnored, focused), interactive))
         }
         return Toolkit.column(*content.toTypedArray()).fill()
     }
 
+    /**
+     * What `x` acts on for the selected row: a relocation to ignore or an ignored source to manage again; null when it
+     * has nothing to save (the group heading, no file to save to, or results kept, which a check again clears).
+     */
+    fun ignoreTarget(session: LightenSession, row: WorkspaceRow?): WorkspaceRow? {
+        val model = session.evaluation() as? ConfigurationEvaluation.Loaded ?: return null
+        if (session.applyModel() is ApplyModel.Result) return null
+        return when (row) {
+            is WorkspaceRow.Planned -> row.takeIf { model.ignoredFile(it.source) != null }
+            is WorkspaceRow.Ignored -> row.takeIf { model.unignoredFile(it.source) != null }
+            is WorkspaceRow.IgnoredGroup, null -> null
+        }
+    }
+
+    /** The selected row of `list`, as [rows] lists it. */
+    fun selectedRow(model: ConfigurationEvaluation.Loaded, list: ListElement<Any>, showInSync: Boolean, showIgnored: Boolean): WorkspaceRow? =
+        rows(model, showInSync, showIgnored).let { it.getOrNull(selection(list, it)) }
+
     /** Workspace's purpose and keys in its current state, for its help lines and the Help screen. */
-    fun screenHelp(session: LightenSession, list: ListElement<Any>, showInSync: Boolean, focused: String?): ScreenHelp {
+    fun screenHelp(
+        session: LightenSession, list: ListElement<Any>, showInSync: Boolean, showIgnored: Boolean, focused: String?,
+    ): ScreenHelp {
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
             val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
@@ -142,22 +202,29 @@ internal object WorkspaceView {
             )
         }
         val retained = session.applyModel() is ApplyModel.Result
-        val items = visibleItems(model, showInSync)
-        val item = items.getOrNull(selection(list, items))
+        val row = selectedRow(model, list, showInSync, showIgnored)
+        val item = (row as? WorkspaceRow.Planned)?.item
         // On the navigation line beside the choice keys, as the commands line has no room for it at 80 columns; Help
         // lists it under Do.
         val always = KeyHint(
             "s", "Always do this",
             description = "Save the choice as this relocation's rule in the configuration file; asks first", acts = true,
         ).takeIf { item != null && model.ruleFile(item.relocation.sourcePath) != null }
+        // Beside `s`, for the same reason.
+        val ignore = when (ignoreTarget(session, row)) {
+            is WorkspaceRow.Planned -> KeyHint("x", "Ignore", description = IGNORE_DESCRIPTION, acts = true)
+            is WorkspaceRow.Ignored -> KeyHint("x", "Stop ignoring", description = STOP_IGNORING_DESCRIPTION, acts = true)
+            is WorkspaceRow.IgnoredGroup, null -> null
+        }
         val navigation = if (focused == WORKSPACE_DETAILS) {
             val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
             (if (choices) listOfNotNull(
                 KeyHint("↑/↓", "Choose", description = "Move between the choices"),
                 KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice in place of the others, for the next apply only"),
-                always, HOME_END_KEYS,
+                // With the choice keys the line has no room for `x` at 80 columns, so it is Help-only there.
+                always, ignore?.copy(inHelpArea = false), HOME_END_KEYS,
             )
-            else listOf(SCROLL_KEY, SCROLL_ENDS_KEYS)) +
+            else listOfNotNull(SCROLL_KEY, ignore, SCROLL_ENDS_KEYS)) +
                 listOf(
                     // Tab is Help-only so the line with `s` fits 80 columns while Details scroll.
                     SCROLL_DETAILS_KEYS, KeyHint("Esc", "Back", description = "Back to the relocation list"),
@@ -167,7 +234,7 @@ internal object WorkspaceView {
             KeyHint("↑/↓", "Select", description = "Select a relocation"),
             KeyHint("Tab/→", "Details", description = "Move to Details for the selected relocation"),
             KeyHint("Enter", "Details", inHelpArea = false, description = "Move to Details for the selected relocation"),
-            always, PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+            always, ignore, PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
         )
         val review = when {
             retained -> listOf(KeyHint("2", "Results", description = "Show what the last apply did"))
@@ -184,21 +251,30 @@ internal object WorkspaceView {
             "c", (if (showInSync) "Hide " else "Show ") + "$inSync in sync", inHelpArea = false,
             description = (if (showInSync) "Hide" else "Show") + " the relocations already in sync",
         )
+        // The group's heading row shows `i`, so the help lines leave it out too.
+        val ignored = model.ignored.size
+        val toggleIgnored = KeyHint(
+            "i", (if (showIgnored) "Hide " else "Show ") + "$ignored ignored", inHelpArea = false,
+            description = (if (showIgnored) "Hide" else "Show") + " the sources you ignored",
+        )
         val edit = KeyHint(
             "e", "Edit", description = "Open Configuration to change the configuration file; nothing is saved until you press s there",
         )
         return ScreenHelp(
             if (focused == WORKSPACE_DETAILS) place(WORKSPACE_NAME, DETAILS_NAME) else WORKSPACE_NAME,
             if (model.items.isEmpty()) PURPOSE_NO_RELOCATIONS else PURPOSE_WORKSPACE, Step.WORKSPACE,
-            navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, edit, HELP_KEY, QUIT_KEY),
+            navigation,
+            review + listOfNotNull(
+                toggle.takeIf { inSync > 0 }, toggleIgnored.takeIf { ignored > 0 }, CHECK_AGAIN_KEY, edit, HELP_KEY, QUIT_KEY,
+            ),
         )
     }
 
     private fun unreadable(model: ConfigurationEvaluation.Invalid): List<String> =
         unreadable(model.configPath, model.message, model.line > 0)
 
-    private fun selection(list: ListElement<Any>, items: List<PlanRelocationItem>): Int =
-        list.selected().coerceIn(0, maxOf(0, items.size - 1))
+    private fun selection(list: ListElement<Any>, rows: List<WorkspaceRow>): Int =
+        list.selected().coerceIn(0, maxOf(0, rows.size - 1))
 
     /** What the Workspace says after Configuration saves and it has checked again: the next step. */
     fun savedNotice(model: ConfigurationEvaluation.Evaluation): String {

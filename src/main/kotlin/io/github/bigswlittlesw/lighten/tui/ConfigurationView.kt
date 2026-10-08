@@ -455,7 +455,15 @@ internal class ConfigurationView private constructor(
             is BrowseAction.AddAll -> {
                 // Each add sees the ones before it, so two suggestions in one group that overlap add only the first.
                 val refusals = action.sources.map { source -> addRefusal(source) }
-                browser.addedGroup(refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable)
+                browser.addedGroup(
+                    refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable, action.ignored,
+                )
+            }
+            is BrowseAction.Ignore -> ignore(action.source, action.row)
+            is BrowseAction.StopIgnoring -> {
+                draft = draft.copy(ignoredSourcePaths = draft.ignoredSourcePaths.filter { resolvedPath(it) != action.source })
+                // Listed until Browse closes, as a removed row is, so x or Space can follow.
+                kept = kept + action.source
             }
             is BrowseAction.Edit -> {
                 leaveBrowse()
@@ -483,6 +491,16 @@ internal class ConfigurationView private constructor(
         return null
     }
 
+    /**
+     * Adds `source` to the ignored paths, as the Workspace's `x` does: a relocation at `row` moves there with its source
+     * as written, and a suggestion is written as Browse adds one. The ignored entry keeps it listed.
+     */
+    private fun ignore(source: Path, row: Int?) {
+        val written = row?.let { draft.relocations[it].sourcePath } ?: displayPath(source)
+        if (row != null) remove(row + 1)
+        draft = draft.copy(ignoredSourcePaths = draft.ignoredSourcePaths + written)
+    }
+
     /** Takes the draft rows at `rows` out, keeping their sources listed in Browse until it closes. */
     private fun removeRows(rows: List<Int>) {
         kept = kept + rows.mapNotNull { row -> (resolve(draft.relocations[row]).source as? Resolved.Found)?.path }
@@ -494,8 +512,13 @@ internal class ConfigurationView private constructor(
         // Browse opens only after a check starts, which sets the request.
         val request = checkNotNull(suggestions?.request)
         val sources = draft.relocations.map { (resolve(it).source as? Resolved.Found)?.path }
-        return BrowseDraft(request.root, sources, suggestions?.result(), kept)
+        return BrowseDraft(
+            request.root, sources, suggestions?.result(), kept, draft.ignoredSourcePaths.mapNotNull(::resolvedPath).toSet(),
+        )
     }
+
+    /** An ignored path as the loader reads it, or null when it can't; saving then names the problem. */
+    private fun resolvedPath(value: String): Path? = (resolved(value, SOURCE_LABEL) as? Resolved.Found)?.path
 
     /** Takes the shown row's typed text into the draft, field by field, when it differs. */
     private fun pull() {
@@ -552,16 +575,19 @@ internal class ConfigurationView private constructor(
         else listOf(Field.SOURCE, Field.TARGET, Field.BOTH_EXIST, Field.ONLY_TARGET, Field.ARCHIVE_ROOT)
 
     /**
-     * Draft changes against the file as opened: each storage location that differs, and each relocation added,
-     * removed or edited.
+     * Draft changes against the file as opened: each storage location that differs, each relocation added, removed
+     * or edited, and each path ignored or no longer ignored (in Browse).
      */
     private fun unsaved(): Int {
+        val ignored = draft.ignoredSourcePaths.toSet()
+        val loadedIgnored = loaded.ignoredSourcePaths.toSet()
         val locations = listOf(
             draft.sourceRoot != loaded.sourceRoot, draft.targetRoot != loaded.targetRoot, draft.suggestionList != loaded.suggestionList,
         ).count { it }
         val kept = origins.withIndex().filter { it.value != null }
         val edited = kept.count { (i, origin) -> draft.relocations[i] != loaded.relocations[checkNotNull(origin)] }
-        return locations + origins.count { it == null } + edited + (loaded.relocations.size - kept.size)
+        return locations + origins.count { it == null } + edited + (loaded.relocations.size - kept.size) +
+            (ignored - loadedIgnored).size + (loadedIgnored - ignored).size
     }
 
     /** What the Resolved section shows for `row`: each field's label and its path as the loader reads it. */

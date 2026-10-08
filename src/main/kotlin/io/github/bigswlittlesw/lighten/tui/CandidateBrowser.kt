@@ -28,8 +28,17 @@ internal sealed interface BrowseAction {
     /** Remove the relocation at `row` from the draft. */
     data class Remove(val row: Int) : BrowseAction
 
-    /** Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried. */
-    data class AddAll(val sources: List<Path>, val unaddable: Int) : BrowseAction
+    /**
+     * Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried, and
+     * `ignored` those skipped because they are ignored.
+     */
+    data class AddAll(val sources: List<Path>, val unaddable: Int, val ignored: Int) : BrowseAction
+
+    /** Ignore `source`, taking the relocation at `row` out of the draft when it is in it. */
+    data class Ignore(val source: Path, val row: Int?) : BrowseAction
+
+    /** Take `source` out of the draft's ignored paths. */
+    data class StopIgnoring(val source: Path) : BrowseAction
 
     /** Remove the relocations at `rows` from the draft. */
     data class RemoveAll(val rows: List<Int>) : BrowseAction
@@ -148,7 +157,10 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 val entry = focusedEntry(draft)
                 help(
                     listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, scroll, KeyHint("Esc", "Back", description = BACK_TO_SUGGESTIONS)),
-                    listOf(entry?.let { toggleKey(it, draft) }, entry?.let(::editKey), checkAgain, HELP_KEY, close),
+                    listOf(
+                        entry?.let { toggleKey(it, draft) }, entry?.let(::editKey), entry?.let(::ignoreKey), checkAgain,
+                        HELP_KEY, close,
+                    ),
                 )
             }
             View.LIST -> {
@@ -173,7 +185,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                         HOME_END_KEYS.takeIf { item != null },
                     ),
                     listOf(
-                        checkAgain, KeyHint("i", "Lists", description = SEE_LISTS),
+                        entry?.let(::ignoreKey), checkAgain, KeyHint("i", "Lists", description = SEE_LISTS),
                         KeyHint("u", (if (reveal) "Hide " else "Show ") + hidden, description = showHidden(reveal))
                             .takeIf { hidden > 0 },
                         HELP_KEY, close,
@@ -207,7 +219,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                     GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
                     GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
                         members.filter { it.row == null && draft.canAdd(it) }.map(::path),
-                        unaddable = members.count { it.row == null && !draft.canAdd(it) },
+                        unaddable = members.count { it.row == null && !it.ignored && !draft.canAdd(it) },
+                        ignored = members.count { it.ignored },
                     )
                     GroupState.EMPTY -> null
                 }
@@ -220,6 +233,11 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 else if (draft.canAdd(entry)) BrowseAction.Add(path(entry)) else null
             }
             key.isCharIgnoreCase('e') && row != null -> return BrowseAction.Edit(row)
+            key.isCharIgnoreCase('x') && entry != null -> {
+                focus = item
+                message = ""
+                return if (entry.ignored) BrowseAction.StopIgnoring(path(entry)) else BrowseAction.Ignore(path(entry), row)
+            }
             view == View.DETAILS -> scroll(key)
             key.isCharIgnoreCase('i') -> { view = View.LISTS; viewport.reset(); message = "" }
             key.isCharIgnoreCase('u') && hiddenCount(draft) > 0 -> reveal = !reveal
@@ -239,8 +257,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
      * After [BrowseAction.AddAll]: `added` were added, and each of `overlapped` was not, naming the relocation it
      * overlaps when known. Says so only when something was skipped.
      */
-    fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int) {
-        message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable).orEmpty()
+    fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int, ignored: Int) {
+        message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable, ignored).orEmpty()
     }
 
     fun back(): Boolean {
@@ -395,11 +413,11 @@ private fun categories(draft: BrowseDraft): Map<String, String> =
 
 /**
  * Hidden when every list that names it marks it usually not needed, and only while each of those lists is read in
- * this check; never when it is in the configuration.
+ * this check; never when it is in the configuration or ignored, so the user always sees what they chose.
  */
 private fun hidden(entry: BrowseDraft.Entry, draft: BrowseDraft): Boolean {
     val definitions = definitions(entry)
-    return entry.row == null && definitions.isNotEmpty() && definitions.all { d ->
+    return entry.row == null && !entry.ignored && definitions.isNotEmpty() && definitions.all { d ->
         d.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY &&
             draft.discovery?.sources.orEmpty().any { s -> s.source == d.source && s.status == CandidateDiscovery.SourceStatus.CURRENT }
     }
@@ -413,16 +431,21 @@ private fun toggleKey(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = 
     else -> null
 }
 
+private fun ignoreKey(entry: BrowseDraft.Entry): KeyHint =
+    if (entry.ignored) KeyHint("x", "Stop ignoring", description = BROWSE_STOP_IGNORING)
+    else KeyHint("x", "Ignore", description = BROWSE_IGNORE)
+
 private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
     KeyHint("e", "Edit", description = EDIT_SUGGESTION).takeIf { entry.row != null }
 
 /**
- * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, `○` not added, `−` cannot be
- * added), the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
+ * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, `○` not added, `⊘` ignored, `−`
+ * cannot be added), the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
  */
 private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
     val marker = when {
         entry.row != null -> ADDED_MARK
+        entry.ignored -> IGNORED_MARK
         draft.canAdd(entry) -> NOT_ADDED_MARK
         else -> CANNOT_ADD_MARK
     }
@@ -430,6 +453,7 @@ private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected:
     val main = if (entry.row != null) palette.ok else palette.text
     val kind = entry.discovery?.observation?.kind
     val notes = listOfNotNull(
+        (IGNORED_NOTE to palette.text).takeIf { entry.ignored },
         state(entry).takeIf { kind != CandidateObservation.Kind.DIRECTORY }?.let { note ->
             note to when (kind) {
                 CandidateObservation.Kind.MISSING, CandidateObservation.Kind.PENDING, null -> palette.dim
@@ -443,7 +467,7 @@ private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected:
     return line(
         pointer(selected),
         Span.styled(" ".repeat(DIRECTORY_INDENT), weight(main, selected)),
-        Span.styled(marker, weight(if (marker == CANNOT_ADD_MARK) palette.dim else main, selected)),
+        Span.styled(marker, weight(if (marker == CANNOT_ADD_MARK || marker == IGNORED_MARK) palette.dim else main, selected)),
         Span.styled(" " + path + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(path))), weight(main, selected)),
         *notes.flatMapIndexed { i, (note, color) ->
             listOfNotNull(Span.styled(" · ", weight(palette.dim, selected)).takeIf { i > 0 }, Span.styled(note, weight(color, selected)))
@@ -542,7 +566,14 @@ private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDra
     val observation = candidate?.observation
     val missing = observation?.kind == CandidateObservation.Kind.MISSING
     return listOfNotNull(
-        Line(if (entry.row != null) IN_CONFIGURATION else NOT_IN_CONFIGURATION, palette.text, true),
+        Line(
+            when {
+                entry.row != null -> IN_CONFIGURATION
+                entry.ignored -> IGNORED_BY_YOU
+                else -> NOT_IN_CONFIGURATION
+            },
+            palette.text, true,
+        ),
         Line(sourceText(literal(path(entry).toString()))),
         Line(stateLine(state(entry))),
     ) + (if (missing) MISSING_SUGGESTION.map(::Line) else listOf()) +
@@ -558,6 +589,7 @@ private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDra
         Line(
             when {
                 entry.row != null -> CHANGE_IN_CONFIGURATION
+                entry.ignored -> IGNORED_IN_BROWSE
                 draft.canAdd(entry) -> ADDING_ASKS
                 else -> CANNOT_ADD
             },

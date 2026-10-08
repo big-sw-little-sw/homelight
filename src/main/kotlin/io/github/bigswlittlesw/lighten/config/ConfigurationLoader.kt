@@ -17,7 +17,7 @@ import java.nio.file.Path
  * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
  * missing target is the source's path under `source-root` (default `~`) placed under `target-root`; a missing
  * archive root is [defaultArchiveRoot]; staging-root must be under target-root; relocations must not overlap
- * through a symlink ([aliasedRelocationProblem]). Environment variables and system properties never override values.
+ * through a symlink ([aliasedRelocationProblem]); a relocation's source must not also be ignored. Environment variables and system properties never override values.
  */
 class ConfigurationLoader {
     /**
@@ -87,6 +87,7 @@ class ConfigurationLoader {
         val ignoredSourcePaths = lighten.ignoredSourcePaths.mapIndexed { i, value ->
             resolvePath(value, "lighten.ignored-source-paths[$i]")
         }
+        ignoredRelocationProblem(lighten, relocations, ignoredSourcePaths)?.let { throw ConfigurationException(it) }
         val sharedList = lighten.suggestionList?.let { value ->
             convert("lighten.suggestion-list") { parseSharedList(value) }
         }
@@ -109,6 +110,20 @@ class ConfigurationLoader {
             fields.archiveRoot?.let { resolvePath(it, "$key.archive-root") } ?: defaultArchiveRoot(sourcePath),
             stagingRoot,
         )
+    }
+
+    /**
+     * A relocation whose source is also ignored, in plain words naming both settings, or null. Lighten plans nothing
+     * for an ignored path, so it can't also manage it. Only the same path counts: ignoring a folder inside or around
+     * a relocation is not refused.
+     */
+    private fun ignoredRelocationProblem(lighten: LightenFile, relocations: List<Relocation>, ignored: List<Path>): String? {
+        for ((i, relocation) in relocations.withIndex()) {
+            val j = ignored.indexOf(relocation.sourcePath).takeIf { it >= 0 } ?: continue
+            return "relocations[$i].source-path and ignored-source-paths[$j] are both ${lighten.ignoredSourcePaths[j]}. " +
+                "A path can't be both a relocation and ignored: remove it from one of the two lists."
+        }
+        return null
     }
 
     companion object {

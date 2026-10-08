@@ -4,9 +4,12 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Rejects a configuration with no relocations, or whose relocations are unsafe together; see [relocationProblem]. */
-fun validateConfiguration(relocations: List<Relocation>) {
-    require(relocations.isNotEmpty()) { "Choose at least one relocation" }
+/**
+ * Rejects a configuration with nothing in it, or whose relocations are unsafe together; see [relocationProblem]. One
+ * that only ignores paths is kept: ignoring the last relocation leaves it so.
+ */
+fun validateConfiguration(relocations: List<Relocation>, ignoredSourcePaths: List<Path> = listOf()) {
+    require(relocations.isNotEmpty() || ignoredSourcePaths.isNotEmpty()) { "Choose at least one relocation" }
     relocationProblem(relocations)?.let { throw IllegalArgumentException(it.message) }
 }
 

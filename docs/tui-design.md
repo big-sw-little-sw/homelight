@@ -142,8 +142,11 @@ ones.
   choice keys says so.
   - Progress (Review, Applying, Results): `○` not run yet, spinner running,
     `✔` done, `✖` failed.
-  - Included or not (Browse): `●` added, `○` not added, `−` can't be added,
-    and on a category or app heading `◐` some added. A group row gets a mark only when
+  - Included or not (Browse): `●` added, `○` not added, `⊘` ignored by
+    you, `−` can't be added, and on a category or app heading `◐` some
+    added. `⊘` is the empty circle struck through: not included, on purpose.
+    Its shape differs from every other mark, and its note says `ignored by
+    you`, so it reads without color. A group row gets a mark only when
     the group itself can be selected and acted on; a heading that is only a
     label gets none. Review, Applying and Results relocation rows keep their
     progress marks: those are status, not selection.
@@ -162,6 +165,13 @@ ones.
   is; in sync. Within a group they keep the configuration file's order, the
   order Configuration's list shows. A row that changes group, for example
   after a choice, moves and stays selected.
+- Ignored sources come last, below in sync, as a group that starts closed
+  each run. Its heading is a row, `i: show 2 ignored` (`i: hide 2 ignored`
+  while open), in dim text; `i` opens and closes it from anywhere on the
+  Workspace, and Help lists `i`. While open, each ignored source follows as
+  `[Ignored] ~/path`, in the file's order. The heading can be selected: its
+  Details say what ignoring means and how to open the group, and `x` does
+  nothing there.
 
 ### Dialogs
 
@@ -190,7 +200,8 @@ Each screen builds its help in one function (`ScreenHelp`): its place (such as
 `Configuration › Target root`), one purpose line for its current state, its step,
 and its keys. The help lines and the Help screen both read it, so they cannot
 disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
-`[`/`]`, `←` back, `c` in the list title) are marked Help-only there.
+`[`/`]`, `←` back, `c` in the list title, `i` on the ignored group's heading)
+are marked Help-only there.
 
 ### Help screen
 
@@ -303,6 +314,36 @@ next step. Focus returns to the list with Details at the top, as after a save in
 Configuration, so the Decision line is in view. A refused save keeps the choice and says so below the panes. In Details
 the help line shows `Esc: Back`; `Tab` and `←` go back too and are Help-only, so the
 line fits 80 columns. Help › This screen lists `s` under Do all the same.
+
+**Ignoring a source.** An ignored source is one the user told Lighten to leave
+alone, for example because another tool such as Stow manages it. Lighten plans
+nothing for it and never offers to add it, but always shows it: in the
+Workspace's ignored group and in Browse. A path can't be both a relocation and
+ignored; the loader refuses such a file (`relocations[1].source-path and
+ignored-source-paths[0] are both ~/b. A path can't be both a relocation and
+ignored: remove it from one of the two lists.`), and so does every save.
+
+- `x: Ignore` on a relocation opens a dialog, `Ignore ~/.cache/uv?`: Lighten
+  will stop managing it, `y` moves it from relocations to
+  ignored-source-paths in the configuration file (named), the whole file is
+  rewritten and comments are not kept, and nothing on disk changes. When the
+  relocation is linked now (`The source link already points to the
+  target.`), a `⚠` line in the warning color says the link and the files at
+  the target stay as they are, and how to undo the move by hand: `rm` the
+  link, then `mv` the target back.
+- `x: Stop ignoring` on an ignored row asks `Stop ignoring ~/x?` the same
+  way, adding that Lighten manages it only once it is added as a relocation.
+- `y` saves through the same path as `s` (refused if the file changed since
+  it was read: `Not saved: the configuration file changed after Lighten read
+  it. Press r to read the file again, then x again; that forgets one-time
+  choices.`), checks again and says the next step. `n`/Esc cancel.
+- `x` sits on the navigation line beside `s`; Help lists it under Do. In
+  Details with choices the line has no room, so there it is Help-only; it
+  works from both panes. It is not offered while results are kept.
+- An ignored row's Details: `Ignored by you`, that Lighten plans nothing for
+  it and leaves it as it is, how to undo (`x`), and its path.
+- Ignoring the last relocation is allowed: a file that only ignores paths
+  saves and loads, and the Workspace then has no relocations.
 
 Below the panes, when review is unavailable, one line says why: `Choose what to do
 for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
@@ -418,7 +459,8 @@ error, shows its text as it is.
 
 The draft is the configuration file's own shape, validated by the same loader the
 app uses. `~` and `${USER}` stay as written, and settings the screen does not
-show (such as `ignored-source-paths`) are kept.
+show are kept. `ignored-source-paths` changes only through Browse's `x`; the
+list does not show it.
 
 - Left list (`Storage and relocations`): `Storage locations`, then each
   relocation by source as written (`~/.m2`). `a` adds a row with the source
@@ -451,8 +493,9 @@ show (such as `ignored-source-paths`) are kept.
   target, link source. A rule left at "Ask each time" is not written to the file.
   Delete both, start empty shows a warning in Details.
 - Under the header: file path, `existing file`/`new file`, and `N unsaved
-  changes`: each storage location that differs from the file as opened, and
-  each relocation added, removed or edited. Changing a field back is no change.
+  changes`: each storage location that differs from the file as opened, each
+  relocation added, removed or edited, and each path ignored or no longer
+  ignored. Changing a field back is no change.
 - `s` saves from the list or a Select (in a text field it types). The draft is
   checked first: the first field the loader would reject is selected and named
   (`Not saved. Storage locations › Target root: …`), and overlapping
@@ -516,12 +559,22 @@ screen never says "candidate" or "draft".
   configuration on screen, and `s` in Configuration writes it. A row taken out
   stays listed as `○` until Browse closes, even when no list suggests it.
   `e` on a `●` row edits it in Configuration.
+- `x` on a directory ignores it (`x: Ignore`): a `●` row moves from the
+  relocations to the ignored paths, as on the Workspace, and any other row
+  joins them. On a `⊘` row `x` stops ignoring it (`x: Stop ignoring`), and it
+  shows as `○` until Browse closes. Like Space, `x` changes only the
+  configuration on screen; `s` writes it. An ignored row is `⊘`, notes
+  `ignored by you`, is never hidden, can't be added (Space does nothing and is
+  not offered), and is listed even when no list suggests it (under Other
+  directories). Its Details start `Ignored by you` and say to press `x` to
+  stop ignoring it.
 - Space on a `○` or `◐` heading, a category's or an app's, adds every shown directory under it that can be added,
   each as it would be one by one, so one that overlaps is skipped; on `●` it
   takes them all out, and on `−` it does nothing. Each directory is one unsaved change. When
   rows were skipped, a line says so: `Added 3. Skipped 1 that overlaps
-  ~/.cache.`, `Skipped 1 that can't be added.` Enter on a heading does
-  nothing.
+  ~/.cache.`, `Skipped 1 that can't be added.`, `Skipped 1 you ignored.`
+  Ignored rows are not counted in a heading's `1 of 2 added`. Enter on a
+  heading does nothing.
 - Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
   directory`, `can't read: <reason>`, `usually not needed`. A note that only
   says the directory is not there yet (`not created yet`, `checking…`) is
@@ -533,7 +586,7 @@ screen never says "candidate" or "draft".
   built-in list's. Details shows every list's advice, yours first.
 - A directory is hidden only when every list that names it marks it usually
   not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
-  Rows already in the configuration are never hidden.
+  Rows already in the configuration, and ignored rows, are never hidden.
 - `r` is **Check again**: it reads the lists again and rows read `checking…`
   until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size
@@ -552,7 +605,7 @@ screen never says "candidate" or "draft".
 | --- | --- |
 | Policy | rule |
 | `prompt` or missing | Ask each time |
-| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]` |
+| Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]`, and `[Ignored]` for an ignored source |
 | Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
 
 All screen text lives in one TUI wording file.

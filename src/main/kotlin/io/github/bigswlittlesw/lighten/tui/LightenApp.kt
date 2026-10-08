@@ -22,6 +22,7 @@ import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
 import io.github.bigswlittlesw.lighten.application.userGuide
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import java.nio.file.Path
 
 /**
@@ -81,6 +82,11 @@ internal class LightenApp(
     private var focusBeforeDialog: String? = null
     // The source whose one-time choice the Always do this dialog asks to save, while it is open.
     private var savingChoice: Path? = null
+    // The row the Ignore or Stop ignoring dialog asks about, while it is open.
+    private var ignoring: WorkspaceRow? = null
+    // Whether the ignored group is open; it starts closed every run.
+    var showIgnored = false
+        private set
     private var editor: ConfigurationView? = null
     // Said on the Workspace after Configuration closes, until the next key the app handles (moving in a list keeps it).
     private var notice: DetailViewport.Line? = null
@@ -123,7 +129,7 @@ internal class LightenApp(
         settleDeferredExit()
         // The discard and replace dialogs close Configuration without a key reaching handleKey.
         dropClosedEditor()
-        val dialog = editor?.dialog() ?: quitDialog() ?: saveChoiceDialog()
+        val dialog = editor?.dialog() ?: quitDialog() ?: saveChoiceDialog() ?: ignoreDialog()
         val interactive = dialog == null
         val view = when {
             helpOpen -> renderHelp(interactive)
@@ -158,9 +164,31 @@ internal class LightenApp(
         val choice = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.get(source) ?: return null
         return confirmDialog(
             ALWAYS_DO_THIS_TITLE, alwaysDoThis(source, choice, session.configPath), ALWAYS_DO_THIS_KEYS,
-            onYes = { closeSaveChoiceDialog(); saveChoice(source) },
+            onYes = { closeSaveChoiceDialog(); save(CHOICE_NOT_SAVED) { session.saveChoice(source) } },
             onNo = ::closeSaveChoiceDialog, warning = alwaysDoThisWarning(choice),
         )
+    }
+
+    private fun ignoreDialog(): Element? = when (val row = ignoring) {
+        null, is WorkspaceRow.IgnoredGroup -> null
+        is WorkspaceRow.Planned -> confirmDialog(
+            ignoreTitle(row.source), ignoreBody(session.configPath), IGNORE_KEYS,
+            onYes = { closeSaveChoiceDialog(); save(IGNORE_NOT_SAVED) { session.ignore(row.source) } },
+            onNo = ::closeSaveChoiceDialog,
+            warning = if (row.item.sourceState != RelocationSourceState.CORRECT_SYMLINK) listOf()
+            else ignoreLinkedWarning(row.source, row.item.relocation.targetPath),
+        )
+        is WorkspaceRow.Ignored -> confirmDialog(
+            stopIgnoringTitle(row.source), stopIgnoringBody(session.configPath), STOP_IGNORING_KEYS,
+            onYes = { closeSaveChoiceDialog(); save(IGNORE_NOT_SAVED) { session.stopIgnoring(row.source) } },
+            onNo = ::closeSaveChoiceDialog,
+        )
+    }
+
+    private fun askToIgnore() {
+        ignoring = WorkspaceView.ignoreTarget(session, selectedRow()) ?: return
+        // A dialog is the only focusable while it is open, so the next frame focuses it.
+        focusBeforeDialog = focus.focusedId()
     }
 
     /** The selected relocation's source when `s` has a one-time choice to save as its rule. */
@@ -174,18 +202,21 @@ internal class LightenApp(
         focusBeforeDialog = focus.focusedId()
     }
 
+    /** Closes the Always do this, Ignore or Stop ignoring dialog. */
     private fun closeSaveChoiceDialog() {
         savingChoice = null
+        ignoring = null
         focus.setFocus(focusBeforeDialog)
     }
 
     /**
-     * As a save in Configuration does: check again, so the rule decides and the choice is gone, then say the next
-     * step. Focus returns to the list with Details at the top, where the Decision line names the rule. A file that
-     * changed since it was read is left as it is, and the choice stays.
+     * Runs `write`, a save the Workspace asked about, as a save in Configuration does: check again, so the file
+     * decides (a saved rule, an ignored source) and any choice is gone, then say the next step. Focus returns to the
+     * list with Details at the top, where the Decision line names the rule. A file that changed since it was read is
+     * left as it is, and `changed` says so.
      */
-    private fun saveChoice(source: Path) {
-        saveProblem(CHOICE_NOT_SAVED) { session.saveChoice(source) }?.let { problem ->
+    private fun save(changed: String, write: () -> Unit) {
+        saveProblem(changed, write)?.let { problem ->
             notice = DetailViewport.Line(problem, palette.warn)
             return
         }
@@ -196,7 +227,7 @@ internal class LightenApp(
 
     /** The screen behind Help, with the focus it had when Help opened. */
     private fun screenHelp(): ScreenHelp = editor?.screenHelp(focusBeforeHelp) ?: when (activeScreen) {
-        Screen.WORKSPACE -> WorkspaceView.screenHelp(session, workspaceList, showInSync, focusBeforeHelp)
+        Screen.WORKSPACE -> WorkspaceView.screenHelp(session, workspaceList, showInSync, showIgnored, focusBeforeHelp)
         Screen.APPLY ->
             ApplyView.screenHelp(session.applyModel(), focusBeforeHelp, quitting = exitIntent == ExitIntent.AFTER_EXECUTION)
     }
@@ -272,7 +303,7 @@ internal class LightenApp(
                     moveSelection(reviewList, ApplyView.rows(ApplyView.steps(session.applyModel())).size, delta)
             }
             workspaceDetails.contains(x, y) -> workspaceDetails.scroll(delta)
-            workspaceDetails.besideOnTheLeft(x, y) -> moveSelection(workspaceList, visibleItems().size, delta)
+            workspaceDetails.besideOnTheLeft(x, y) -> moveSelection(workspaceList, workspaceRows().size, delta)
         }
     }
 
@@ -284,7 +315,7 @@ internal class LightenApp(
     private fun unappliedChoiceCount(): Int = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.size ?: 0
 
     private fun renderWorkspace(interactive: Boolean): Element {
-        val source = selectedPlanItem()?.relocation?.sourcePath
+        val source = selectedRow()?.source
         if (source != detailsSource) {
             detailsSource = source
             resetDetailSelection()
@@ -294,7 +325,8 @@ internal class LightenApp(
         if (detailsFocused && !detailsWereFocused) workspaceDetails.followChoice()
         detailsWereFocused = detailsFocused
         return WorkspaceView.render(
-            session, workspaceList, showInSync, focus.focusedId(), interactive, detailSelectedIndex, workspaceDetails, notice,
+            session, workspaceList, showInSync, showIgnored, focus.focusedId(), interactive, detailSelectedIndex,
+            workspaceDetails, notice,
         )
     }
 
@@ -356,6 +388,8 @@ internal class LightenApp(
             key.isCharIgnoreCase('a') -> switchScreen(Screen.APPLY)
             key.isCharIgnoreCase('c') -> toggleInSync()
             key.isCharIgnoreCase('s') -> askToSaveChoice()
+            key.isCharIgnoreCase('x') -> askToIgnore()
+            key.isCharIgnoreCase('i') -> toggleIgnored()
             key.isChar('[') || key.isChar(']') -> workspaceDetails.scroll(if (key.isChar(']')) 1 else -1)
             focus.focusedId() == WORKSPACE_LIST && (key.isRight() || key.isSelect()) -> focus.setFocus(WORKSPACE_DETAILS)
             focus.focusedId() == WORKSPACE_DETAILS -> detailsKey(key)
@@ -481,7 +515,7 @@ internal class LightenApp(
 
     private fun refresh() {
         if (session.isApplying() || !session.executionSettled()) return
-        val source = selectedPlanItem()?.relocation?.sourcePath
+        val source = selectedRow()?.source
         session.refresh()
         if (activeScreen != Screen.WORKSPACE) focus.setFocus(workspaceFocus)
         activeScreen = Screen.WORKSPACE
@@ -500,20 +534,31 @@ internal class LightenApp(
         workspaceDetails.followChoice()
     }
 
-    private fun visibleItems(): List<PlanRelocationItem> {
+    private fun workspaceRows(): List<WorkspaceRow> {
         val model = session.evaluation()
-        return if (model is ConfigurationEvaluation.Loaded) WorkspaceView.visibleItems(model, showInSync) else listOf()
+        return if (model is ConfigurationEvaluation.Loaded) WorkspaceView.rows(model, showInSync, showIgnored) else listOf()
     }
 
-    private fun selectedPlanItem(): PlanRelocationItem? = visibleItems().let { items -> items.getOrNull(workspaceSelection(items)) }
+    private fun selectedRow(): WorkspaceRow? = workspaceRows().let { rows -> rows.getOrNull(workspaceSelection(rows)) }
 
-    private fun workspaceSelection(items: List<PlanRelocationItem>): Int =
-        workspaceList.selected().coerceIn(0, maxOf(0, items.size - 1))
+    private fun selectedPlanItem(): PlanRelocationItem? = (selectedRow() as? WorkspaceRow.Planned)?.item
+
+    private fun workspaceSelection(rows: List<WorkspaceRow>): Int =
+        workspaceList.selected().coerceIn(0, maxOf(0, rows.size - 1))
 
     private fun toggleInSync() {
-        val source = selectedPlanItem()?.relocation?.sourcePath
+        val source = selectedRow()?.source
         showInSync = !showInSync
         userShowInSync = showInSync
+        restoreSelection(source)
+    }
+
+    /** Opens or closes the ignored group; the selection stays on its row, or goes to the heading when it closes. */
+    private fun toggleIgnored() {
+        val model = session.evaluation() as? ConfigurationEvaluation.Loaded ?: return
+        if (model.ignored.isEmpty()) return
+        val source = selectedRow()?.source
+        showIgnored = !showIgnored
         restoreSelection(source)
     }
 
@@ -523,17 +568,18 @@ internal class LightenApp(
         workspaceDetails.reset()
     }
 
+    /** Selects the row for `source`; without one listed, the row at the same place. The heading has no source. */
     private fun restoreSelection(source: Path?) {
-        val items = visibleItems()
-        val index = items.indexOfFirst { it.relocation.sourcePath == source }
-        workspaceList.selected(if (index >= 0) index else workspaceSelection(items))
+        val rows = workspaceRows()
+        val index = if (source == null) -1 else rows.indexOfFirst { it.source == source }
+        workspaceList.selected(if (index >= 0) index else workspaceSelection(rows))
     }
 
     private fun syncInSyncSetting() {
         showInSync = userShowInSync ?: session.evaluation().let { model ->
             model is ConfigurationEvaluation.Loaded && model.items.all { it.badge() == PlanBadge.IN_SYNC }
         }
-        workspaceList.selected(workspaceSelection(visibleItems()))
+        workspaceList.selected(workspaceSelection(workspaceRows()))
     }
 
     // Read only by tests: Configuration's help for the focused element, while it is open.
@@ -541,7 +587,7 @@ internal class LightenApp(
 
     // Read only by tests.
     internal fun selectedIndex(): Int =
-        if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(visibleItems())
+        if (activeScreen == Screen.APPLY) reviewList.selected() else workspaceSelection(workspaceRows())
 }
 
 /**
