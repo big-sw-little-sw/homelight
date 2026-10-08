@@ -7,6 +7,8 @@ import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import java.nio.file.Path
 import java.time.Instant
@@ -287,6 +289,86 @@ internal const val REFUSED = "Nothing changed: the disk no longer matches the re
 internal const val STALE = "Stopped: a step found something different from the plan. The steps after it did not run. " +
     "See the failed step's details, then press r to check again."
 internal const val DONE = "Done. Checked again; results are kept until you check again."
+
+/**
+ * A failed step in plain words: what is at the path, what Lighten expected, and what to do. Paths are absolute, as in
+ * the rest of a step's Details. The executor's own text follows as [failureDetail].
+ */
+internal fun failureWords(failure: ActionFailure): String = when (failure) {
+    is ActionFailure.Drift -> driftWords(failure)
+    is ActionFailure.LinkChanged ->
+        (failure.found?.let { "${failure.path} now links to $it." } ?: "${failure.path} has changed.") +
+            " Lighten expected it to link to ${failure.expected}. $CHECK_AGAIN"
+    is ActionFailure.StagingElsewhere ->
+        "The staging folder ${failure.stagingRoot} is not on the same filesystem as ${failure.target}, so Lighten " +
+            "can't move the copy there in one step. Set staging-root in the configuration file to a folder on the " +
+            "target's filesystem, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.NoPosixPermissions ->
+        "${failure.path} is on a filesystem without Unix permissions, so Lighten can't keep the folder's " +
+            "permissions when it copies it. Use a location on a filesystem that has them, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.Busy ->
+        if (failure.here) "Lighten is already moving another folder to ${failure.target}. $CHECK_AGAIN"
+        else "Another Lighten is moving a folder to ${failure.target}. Wait for it to finish, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.CopyChanged ->
+        "${failure.entry} changed while Lighten was copying it, so Lighten threw the copy away and moved nothing. " +
+            "Close any app that uses it, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.PermissionsNotKept ->
+        "The copy of ${failure.entry} didn't keep its permissions, so Lighten threw the copy away and moved " +
+            "nothing. Check that the target's filesystem keeps Unix permissions, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.PermissionsNotRestored ->
+        "Lighten copied the folder to ${failure.target} but couldn't set the copy's permissions back. The source " +
+            "is still in place. Give ${failure.target} the source's permissions, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.DifferentFilesystems ->
+        "${failure.from} and ${failure.to} are on different filesystems, so Lighten can't move one to the other " +
+            "in one step. Change the configuration so both are on one filesystem, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.AccessDenied ->
+        "Lighten isn't allowed to change ${failure.path}. Check its owner and permissions, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.Gone -> "${failure.path} no longer exists. Lighten expected it there. $CHECK_AGAIN"
+    is ActionFailure.AlreadyExists ->
+        "${failure.path} already exists. Lighten expected nothing there. Move or remove it, then $CHECK_AGAIN_LOWER"
+    is ActionFailure.Io -> when {
+        failure.path == null -> "Lighten couldn't read or change a file. See the detail below, then $CHECK_AGAIN_LOWER"
+        failure.reason.isNullOrBlank() -> "Lighten couldn't change ${failure.path}. $CHECK_AGAIN"
+        else -> "Lighten couldn't change ${failure.path}: ${failure.reason.replaceFirstChar { it.lowercase() }}. " +
+            "Fix that, then $CHECK_AGAIN_LOWER"
+    }
+}
+
+/** The executor's own text under [failureWords], dim, for bug reports. */
+internal fun failureDetail(message: String) = "Detail: $message"
+
+private const val CHECK_AGAIN = "Press r to check again."
+private const val CHECK_AGAIN_LOWER = "press r to check again."
+
+/**
+ * Says what is there before what Lighten expected; only something in the way of a step is the user's to move, so only
+ * that asks them to move or remove it.
+ */
+private fun driftWords(drift: ActionFailure.Drift): String {
+    val path = drift.path
+    val found = when (drift.found) {
+        PathState.ABSENT -> "$path no longer exists."
+        PathState.INACCESSIBLE -> "$path can't be read."
+        PathState.FILE, PathState.DIRECTORY, PathState.SYMLINK, PathState.OTHER ->
+            if (drift.expected == PathState.ABSENT) "$path already exists as ${thing(drift.found)}."
+            else "$path is ${thing(drift.found)}."
+    }
+    val then = when {
+        drift.found == PathState.INACCESSIBLE -> "Check its permissions, then $CHECK_AGAIN_LOWER"
+        drift.expected == PathState.ABSENT -> "Move or remove it, then $CHECK_AGAIN_LOWER"
+        else -> CHECK_AGAIN
+    }
+    return "$found Lighten expected ${thing(drift.expected)} there. $then"
+}
+
+private fun thing(state: PathState): String = when (state) {
+    PathState.ABSENT -> "nothing"
+    PathState.FILE -> "a file"
+    PathState.DIRECTORY -> "a folder"
+    PathState.SYMLINK -> "a link"
+    PathState.OTHER -> "a special file"
+    PathState.INACCESSIBLE -> "something it can't read"
+}
 internal const val WORKER_STOPPED =
     "Stopped unexpectedly; some changes may have been made. Check the steps, then check again."
 internal const val STOPPED = "Stopped after some changes. Check the failed and not-run steps, then check again."

@@ -13,6 +13,7 @@ import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
@@ -86,6 +87,30 @@ class ApplyViewTest {
         assertTrue(text.contains("Source changed"), text)
         assertTrue(text.contains("r: Check again"), text)
         assertTrue(text.contains("Enter: Workspace"), text)
+    }
+
+    /** A failed step's Details lead with plain words; the executor's own text follows, dim, for bug reports. */
+    @Test
+    fun failedStepDetailsSayWhatIsThereAndWhatToDoThenTheRawDetail() {
+        val plan = plan()
+        val relocation = plan.relocations.first()
+        val raw = "expected absent at /local/cache but found file"
+        val steps = listOf(
+            ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.FAILED, raw,
+                ActionFailure.Drift(Path.of("/local/cache"), PathState.ABSENT, PathState.FILE)),
+            ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.PENDING, "not run after a previous failure"))
+        val result = ApplyModel.Result.of(plan, steps, null, listOf(), true)
+        val words = "/local/cache already exists as a file. Lighten expected nothing there. " +
+            "Move or remove it, then press r to check again."
+        for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
+            // Row 0 is the relocation, row 1 the failed step.
+            val details = WorkspaceViewTest.rightPane(render(result, 1, size[0], size[1]), size[0]).filterNot(Char::isWhitespace)
+            assertTrue(details.contains(words.filterNot(Char::isWhitespace)), details)
+            assertTrue(details.contains("Detail:$raw".filterNot(Char::isWhitespace)), details)
+            assertTrue(details.indexOf("alreadyexists") < details.indexOf("Detail:"), details)
+        }
+        val lines = ApplyView.details(steps.first())
+        assertEquals(palette.dim, lines.single { it.text.startsWith("Detail: ") }.color)
     }
 
     @Test

@@ -221,7 +221,13 @@ internal object ApplyView {
     fun details(step: ApplyModel.Step): List<DetailViewport.Line> = buildList {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
-        if (step.status != ApplyModel.StepStatus.PENDING) add(DetailViewport.Line(step.message, color(step), false))
+        val failure = step.failure
+        if (failure != null) {
+            add(DetailViewport.Line(failureWords(failure), color(step), false))
+            add(DetailViewport.Line(failureDetail(step.message), palette.dim, false))
+        } else if (step.status != ApplyModel.StepStatus.PENDING) {
+            add(DetailViewport.Line(step.message, color(step), false))
+        }
         if (action.destructive) add(DetailViewport.Line(DELETES_OR_REPLACES, palette.warn, true))
         add(DetailViewport.Line(affectedPath(action)))
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))

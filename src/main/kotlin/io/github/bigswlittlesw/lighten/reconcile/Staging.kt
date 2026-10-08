@@ -63,7 +63,7 @@ internal class StagingOperation private constructor(
             }
         } catch (exception: IOException) {
             throw PartlyPublishedException(
-                "published $target but could not restore its permissions: ${exception.message}", exception,
+                target, "published $target but could not restore its permissions: ${exception.message}", exception,
             )
         }
     }
@@ -87,14 +87,14 @@ internal class StagingOperation private constructor(
         ): StagingOperation {
             val key = sha256Hex(realSpelling(target).toString())
             if (!stagingKeys.add(key)) {
-                throw EnvironmentException("this Lighten is already publishing $target")
+                throw EnvironmentException(ActionFailure.Busy(target, here = true), "this Lighten is already publishing $target")
             }
             try {
                 val copy = stagingRoot.resolve("operation-$key")
                 val channel = FileChannel.open(copy.resolveSibling("operation-$key.lock"), LOCK_OPTIONS, OWNER_ONLY_FILE)
                 try {
                     if (channel.tryLock() == null) {
-                        throw EnvironmentException("another Lighten is publishing $target")
+                        throw EnvironmentException(ActionFailure.Busy(target, here = false), "another Lighten is publishing $target")
                     }
                     stagingStep(ReconciliationExecutor.Step.LOCKED, copy)
                     clearCopy(copy)

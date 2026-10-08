@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.ExecutionResult
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
@@ -65,9 +66,10 @@ sealed interface ApplyModel {
         }
     }
 
+    /** [failure] says why a failed step failed, when the executor knows; [message] is then its own text. */
     data class Step(
         val relocation: RelocationPlan, val action: ReconciliationAction, val status: StepStatus,
-        val message: String,
+        val message: String, val failure: ActionFailure? = null,
     )
 
     enum class StepStatus { PENDING, RUNNING, COMPLETED, FAILED }

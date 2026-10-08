@@ -128,9 +128,9 @@ class ReconciliationExecutor internal constructor(
             progress.started(relocation, action)
             ActionExecution(action, ActionStatus.COMPLETED, apply(action))
         } catch (exception: IOException) {
-            failure(action, exception)
+            failure(action, exception.message ?: exception.toString(), ioFailure(exception))
         } catch (exception: EnvironmentException) {
-            failure(action, exception)
+            failure(action, exception.message.orEmpty(), exception.failure)
         }
         if (execution.status == ActionStatus.FAILED) halted.set(true)
         progress.finished(relocation, execution)
@@ -172,7 +172,10 @@ class ReconciliationExecutor internal constructor(
         requirePosixPermissions(targetParent, targetStore)
         // The same store rules out a cross-device rename, so `publish` fails only before it changes anything.
         if (fileStoreOfExistingAncestor(stagingRoot) != targetStore) {
-            throw EnvironmentException("staging root is not on the target filesystem: $stagingRoot")
+            throw EnvironmentException(
+                ActionFailure.StagingElsewhere(stagingRoot, action.target),
+                "staging root is not on the target filesystem: $stagingRoot",
+            )
         }
         ensureDirectories(targetParent)
         ensureRealDirectory(stagingRoot)
@@ -236,7 +239,10 @@ class ReconciliationExecutor internal constructor(
         val actualTarget = requireState(action.path, PathState.SYMLINK).symlinkTarget
         requireState(action.target, PathState.DIRECTORY)
         if (actualTarget != action.expectedSourceTarget) {
-            throw StateDriftException("expected symlink target ${action.expectedSourceTarget} at ${action.path}")
+            throw EnvironmentException(
+                ActionFailure.LinkChanged(action.path, action.expectedSourceTarget, actualTarget),
+                "expected symlink target ${action.expectedSourceTarget} at ${action.path}",
+            )
         }
         replaceWithLink(action.path, action.target, replaceExisting = true)
     }
@@ -268,7 +274,8 @@ class ReconciliationExecutor internal constructor(
         val observation = inspector.inspect(path)
         val actual = observation.state
         if (actual != expected) {
-            throw StateDriftException(
+            throw EnvironmentException(
+                ActionFailure.Drift(path, expected, actual),
                 "expected ${expected.name.lowercase(Locale.ROOT)} at $path but found ${actual.name.lowercase(Locale.ROOT)}",
             )
         }
@@ -287,11 +294,17 @@ class ReconciliationExecutor internal constructor(
         }
     }
 
-    /** [targetPublished] marks a failed migration that had already moved its copy to the target. */
+    /** [message] is the executor's own text; a failed action also has its [failure], for plain wording. */
     data class ActionExecution(
         val action: ReconciliationAction, val status: ActionStatus, val message: String,
-        val stateDrift: Boolean = false, val targetPublished: Boolean = false,
-    )
+        val failure: ActionFailure? = null,
+    ) {
+        /** A guard found something other than the plan. */
+        val stateDrift: Boolean get() = failure is ActionFailure.Drift || failure is ActionFailure.LinkChanged
+
+        /** A failed migration that had already moved its copy to the target. */
+        val targetPublished: Boolean get() = failure is ActionFailure.PermissionsNotRestored
+    }
 
     data class RelocationExecution(val relocation: RelocationPlan, val actions: List<ActionExecution>) {
         /** Returns the execution outcome after accounting for an interrupted source replacement. */
@@ -332,21 +345,16 @@ class ReconciliationExecutor internal constructor(
  * An expected failure of the environment an action runs in, which [ReconciliationExecutor.execute] reports, like an
  * [IOException], as a failed action. Every other exception from an action is a bug and propagates.
  */
-internal open class EnvironmentException(message: String) : Exception(message)
+internal class EnvironmentException(val failure: ActionFailure, message: String) : Exception(message)
 
-/** The filesystem no longer matches an action's guard; reported as [ReconciliationExecutor.ActionExecution.stateDrift]. */
-private class StateDriftException(message: String) : EnvironmentException(message)
-
-/** Publication moved the copy to the target and then failed; see [ReconciliationExecutor.ActionExecution.targetPublished]. */
-internal class PartlyPublishedException(message: String, cause: IOException) : IOException(message, cause)
+/** Publication moved the copy to [target] and then failed; see [ReconciliationExecutor.ActionExecution.targetPublished]. */
+internal class PartlyPublishedException(val target: Path, message: String, cause: IOException) : IOException(message, cause)
 
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
 
-private fun failure(action: ReconciliationAction, exception: Exception) = ReconciliationExecutor.ActionExecution(
-    action, ReconciliationExecutor.ActionStatus.FAILED, exception.message ?: exception.toString(),
-    stateDrift = exception is StateDriftException, targetPublished = exception is PartlyPublishedException,
-)
+private fun failure(action: ReconciliationAction, message: String, failure: ActionFailure) =
+    ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.FAILED, message, failure)
 
 /**
  * Refuses publication where directory permission bits cannot be read or set, rather than letting
@@ -356,7 +364,9 @@ private fun failure(action: ReconciliationAction, exception: Exception) = Reconc
  */
 private fun requirePosixPermissions(path: Path, store: FileStore) {
     if (!store.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
-        throw EnvironmentException("cannot preserve directory permissions: no POSIX permission support at $path")
+        throw EnvironmentException(
+            ActionFailure.NoPosixPermissions(path), "cannot preserve directory permissions: no POSIX permission support at $path",
+        )
     }
 }
 
@@ -394,9 +404,7 @@ private fun createRealDirectory(path: Path) {
     } catch (_: FileAlreadyExistsException) {
         // An independent relocation running concurrently may create a shared ancestor first.
     }
-    if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
-        throw StateDriftException("expected real directory at $path")
-    }
+    if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) throw notRealDirectory(path)
 }
 
 /** Follows a symlink at the nearest existing component, as [ensureDirectories] would. */
@@ -404,8 +412,10 @@ private fun fileStoreOfExistingAncestor(path: Path): FileStore {
     val existing = generateSequence(path.toAbsolutePath().normalize()) { it.parent }
         .firstOrNull { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
         ?: throw IOException("no existing ancestor for $path")
-    if (!Files.isDirectory(existing)) {
-        throw StateDriftException("expected real directory at $existing")
-    }
+    if (!Files.isDirectory(existing)) throw notRealDirectory(existing)
     return Files.getFileStore(existing)
 }
+
+private fun notRealDirectory(path: Path) = EnvironmentException(
+    ActionFailure.Drift(path, PathState.DIRECTORY, PathInspector().inspect(path).state), "expected real directory at $path",
+)

@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
@@ -93,12 +94,12 @@ class ReviewedExecution(
             }
 
             override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
-                updateStep(relocation, action.action, stepStatus(action.status), action.message)
+                updateStep(relocation, action.action, stepStatus(action.status), action.message, action.failure)
             }
         })
         val steps = result.relocations.flatMap { relocation ->
             relocation.actions.map { action ->
-                ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message)
+                ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message, action.failure)
             }
         }
         val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
@@ -124,12 +125,12 @@ class ReviewedExecution(
     @Synchronized
     private fun updateStep(
         relocation: RelocationPlan, action: ReconciliationAction,
-        status: ApplyModel.StepStatus, message: String,
+        status: ApplyModel.StepStatus, message: String, failure: ActionFailure? = null,
     ) {
         val running = snapshot as? ApplyModel.Running ?: return
         val steps = running.steps.map { step ->
             if (step.relocation === relocation && step.action === action) {
-                ApplyModel.Step(relocation, action, status, message)
+                ApplyModel.Step(relocation, action, status, message, failure)
             } else step
         }
         snapshot = ApplyModel.Running.of(running.plan, steps, choices)

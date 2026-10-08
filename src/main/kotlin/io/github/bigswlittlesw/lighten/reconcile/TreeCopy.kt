@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
 import java.io.IOException
+import java.nio.file.AccessDeniedException
 import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
 import java.nio.file.FileVisitor
@@ -33,7 +34,7 @@ internal fun directoryPermissions(directory: Path): Set<PosixFilePermission> =
  * Deletes [root] and everything under it without following links; a missing root is a no-op.
  *
  * `deleteRecursively` continues past failures and reports them only as suppressed exceptions of a
- * generic one. The first failure's message is rethrown, so the reported message names the entry.
+ * generic one. The first failure is rethrown instead, so the reported failure names the entry.
  */
 internal fun deleteTree(root: Path) {
     try {
@@ -41,21 +42,21 @@ internal fun deleteTree(root: Path) {
         root.deleteRecursively()
     } catch (failure: FileSystemException) {
         val first = failure.suppressed.firstOrNull() ?: throw failure
-        throw IOException(deleteFailureMessage(first), failure)
+        throw entryFailure(first).apply { initCause(failure) }
     }
 }
 
 /**
  * With `SecureDirectoryStream`, an entry's exception carries only its name, so `deleteRecursively`
- * wraps it in one that holds the full path. Rejoin that path with the cause's reason to give the
- * message the entry's own exception would have had.
+ * wraps it in one that holds the full path. Rejoin that path with the cause's reason, keeping a denied
+ * access recognizable as one, to give the failure the entry's own exception would have had.
  */
-private fun deleteFailureMessage(failure: Throwable): String? {
+private fun entryFailure(failure: Throwable): IOException {
     val cause = failure.cause
-    return if (failure is FileSystemException && cause is FileSystemException) {
-        FileSystemException(failure.file, cause.otherFile, cause.reason).message
-    } else {
-        failure.message
+    return when {
+        failure !is FileSystemException || cause !is FileSystemException -> IOException(failure.message)
+        cause is AccessDeniedException -> AccessDeniedException(failure.file, cause.otherFile, cause.reason)
+        else -> FileSystemException(failure.file, cause.otherFile, cause.reason)
     }
 }
 
@@ -91,24 +92,28 @@ internal fun verifyCopy(source: Path, copy: Path) {
         val copied = copiedPath(source, copy, entry)
         if (entry.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
             if (!copied.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
-                throw IOException("copied directory is missing: $copied")
+                throw copyChanged(entry, "copied directory is missing: $copied")
             }
             if (directoryPermissions(entry) != directoryPermissions(copied)) {
-                throw IOException("copied directory permissions differ: $copied")
+                throw EnvironmentException(ActionFailure.PermissionsNotKept(entry), "copied directory permissions differ: $copied")
             }
         } else if (entry.isSymbolicLink()) {
             if (!copied.isSymbolicLink() || entry.readSymbolicLink() != copied.readSymbolicLink()) {
-                throw IOException("copied symlink differs: $copied")
+                throw copyChanged(entry, "copied symlink differs: $copied")
             }
         } else if (!copied.isRegularFile(LinkOption.NOFOLLOW_LINKS) || entry.fileSize() != copied.fileSize()) {
-            throw IOException("copied file differs: $copied")
+            throw copyChanged(entry, "copied file differs: $copied")
         }
     }
     for (copied in copy.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
-        if (copiedPath(copy, source, copied).notExists(LinkOption.NOFOLLOW_LINKS)) {
-            throw IOException("copied directory has an unexpected entry: $copied")
+        val entry = copiedPath(copy, source, copied)
+        if (entry.notExists(LinkOption.NOFOLLOW_LINKS)) {
+            throw copyChanged(entry, "copied directory has an unexpected entry: $copied")
         }
     }
 }
+
+/** The copy of [entry], a path under the source, does not match it: the source most likely changed during the copy. */
+private fun copyChanged(entry: Path, message: String) = EnvironmentException(ActionFailure.CopyChanged(entry), message)
 
 private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))
