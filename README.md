@@ -10,9 +10,9 @@ The project is at the initial design and implementation stage. Configuration loa
 
 ## Install
 
-Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later; on Alpine only with the `gcompat` package). It needs no Java.
+Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later; on Alpine, install the `gcompat` package first). It needs no Java.
 
-The install script downloads the binary for your machine from the latest release, checks it against the release's `SHA256SUMS`, and installs it as `~/.local/bin/lighten`. It never uses sudo. If that directory is not on your `PATH`, it shows the line it would add to your shell's startup file and asks first. It works once the first release is published:
+The install script downloads the binary for your machine from the latest release, checks it against the release's `SHA256SUMS`, and installs it as `~/.local/bin/lighten`. It never uses sudo. If that directory is not on your `PATH`, it shows the line that adds it and the startup files in your home it would add it to (for bash, `~/.bashrc` and `~/.bash_profile` or `~/.profile`), and asks first. It skips a file you do not own or cannot write, and says so. It works once the first release is published:
 
 ```text
 curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh
@@ -32,7 +32,7 @@ Options go after `sh install.sh`, or after `sh -s --` when piping:
 --version 1.2.3     install that release instead of the latest
 --dir ~/bin         install into another directory
 --no-modify-path    do not offer to change PATH; only show the line
---force             install the arm64 binary on Alpine (needs: apk add gcompat)
+--force             skip the gcompat check on Alpine arm64
 ```
 
 Run the script again to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
