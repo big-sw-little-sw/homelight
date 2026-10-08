@@ -568,13 +568,13 @@ private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDra
 /** Which lists suggest it and what each says, your list's first, so the built-in advice shows too. */
 private fun attribution(entry: BrowseDraft.Entry): List<Line> {
     val definitions = definitions(entry)
-    val lead = Line(ADVICE_IS_OPTIONAL, palette.dim)
-    if (definitions.isEmpty()) return listOf(lead, Line(NO_LIST_SUGGESTS))
-    return listOf(lead, Line(SUGGESTED_BY, palette.text, true)) + definitions.flatMap { d ->
+    if (definitions.isEmpty()) return listOf(Line(NO_LIST_SUGGESTS))
+    return listOf(Line(SUGGESTED_BY, palette.text, true)) + definitions.flatMap { d ->
         listOfNotNull(
             Line(listName(d.source) + " · " + literal(d.app ?: OTHER_DIRECTORIES)),
             Line(adviceLine(adviceLabel(d.advice))),
             d.reason?.let { Line(reasonLine(literal(it))) },
+            d.caution?.let { Line(cautionLine(literal(it)), palette.warn) },
             // The built-in list is inside Lighten, so only your list has a location worth showing.
             Line(
                 fromLine(

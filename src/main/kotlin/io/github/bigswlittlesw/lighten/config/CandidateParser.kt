@@ -100,12 +100,17 @@ class CandidateParser {
                     // Both resolve's own failures and Path.of's InvalidPathException carry a message.
                     throw invalid(Kind.UNSAFE_PATH, index, record, "path", e.message!!)
                 }
-                val reason = directory.reason?.let { bounded(it, index, record, "reason") }
-                if (reason != null && reason.isJavaBlank()) {
-                    throw invalid(Kind.SCHEMA, index, record, "reason", "Reason must not be blank")
-                }
-                CandidateDefinition(resolved, source, index, record, path, app, category, directory.advice, reason)
+                val reason = note(directory.reason, index, record, "reason", "Reason")
+                val caution = note(directory.caution, index, record, "caution", "Caution")
+                CandidateDefinition(resolved, source, index, record, path, app, category, directory.advice, reason, caution)
             }
+        }
+
+        /** A record's optional free text, such as its reason: bounded, and nonblank when given. */
+        private fun note(value: String?, index: Int, location: String, key: String, label: String): String? {
+            val text = value?.let { bounded(it, index, location, key) }
+            if (text != null && text.isJavaBlank()) throw invalid(Kind.SCHEMA, index, location, key, "$label must not be blank")
+            return text
         }
 
         private fun bounded(value: String, index: Int, location: String, key: String): String {
@@ -167,4 +172,7 @@ internal data class AppFile(val name: String, val category: String? = null, val 
 
 @Serializable
 @SerialName("directory")
-internal data class DirectoryFile(val path: String, val advice: CandidateDefinition.Advice? = null, val reason: String? = null)
+internal data class DirectoryFile(
+    val path: String, val advice: CandidateDefinition.Advice? = null, val reason: String? = null,
+    val caution: String? = null,
+)

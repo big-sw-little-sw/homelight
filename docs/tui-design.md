@@ -517,7 +517,8 @@ screen never says "candidate" or "draft".
 - Enter on a directory opens **Details**: whether it is in the configuration,
   state, full path, overlap with other suggestions (`Also suggested, inside
   it: …`), then **Suggested by** with each list's group, advice and reason, or
-  `No list suggests it.`
+  `No list suggests it.` A list's caution follows its reason on its own line,
+  `⚠ Caution: …`, in `warn`; the sign keeps it visible without color.
 - The mouse wheel over the list moves its selection a row; over Details or
   Suggestion lists it scrolls them. Clicks do nothing.
 
