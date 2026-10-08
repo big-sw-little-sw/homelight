@@ -69,7 +69,8 @@ class WorkspaceViewTest {
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
                 val screen = ui.screen(size[0], size[1])
                 assertTrue(screen.contains("Details"), screen)
-                assertTrue(screen.contains("❯ (○)"), screen)
+                assertTrue(screen.contains("❯ ○ "), screen)
+                assertFalse(screen.contains("(○)") || screen.contains("(●)"), screen)
                 assertTrue(screen.contains("Review unavailable"), screen)
                 assertTrue(screen.contains("q: Quit"), screen)
                 assertTrue(screen.contains("1 left as is"), screen)
@@ -172,7 +173,7 @@ class WorkspaceViewTest {
         assertTrue(screen.contains("[Left as is] "), screen)
         assertTrue(screen.contains("Decision: leave both as they are (your configuration)"), screen)
         assertTrue(screen.contains("Will do: nothing; source and target are left as they are."), screen)
-        assertTrue(screen.contains("(●) Leave both as they are"), screen)
+        assertTrue(screen.contains("● Leave both as they are"), screen)
         assertFalse(screen.contains("unmanaged") || screen.contains("Skipped"), screen)
     }
 

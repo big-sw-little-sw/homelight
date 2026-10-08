@@ -136,7 +136,9 @@ ones.
   `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
 - Marks come in three sets that share one rule: an empty circle means nothing
   has happened to the row yet or it is not included; filled, or `✔`, means it
-  has. Parentheses mean pick one; bare marks mean each row is its own.
+  has. Every set uses bare marks. Whether a row is one of many shows in
+  behaviour: choosing one choice clears the others, and the Help for the
+  choice keys says so.
   - Progress (Review, Applying, Results): `○` not run yet, spinner running,
     `✔` done, `✖` failed.
   - Included or not (Browse): `●` added, `○` not added, `−` can't be added,
@@ -144,8 +146,8 @@ ones.
     the group itself can be selected and acted on; a heading that is only a
     label gets none. Review, Applying and Results relocation rows keep their
     progress marks: those are status, not selection.
-  - One of several choices (Workspace Details): `(●)` chosen, `(○)` not
-    chosen.
+  - One of several choices (Workspace Details): `●` chosen, `○` not
+    chosen. The focused choice keeps the `❯` pointer and is bold.
 - Paths on screen show the home directory as `~`. Paths sections in details show
   the full absolute path.
 - Word-wrap prose; wrap paths by character only when they cannot break.
