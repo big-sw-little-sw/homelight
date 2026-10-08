@@ -27,7 +27,8 @@
       "category": "JVM",
       "directories": [
         {"path": ".sdkman/candidates", "advice": "consider", "reason": "SDKs installed by SDKMAN"},
-        {"path": ".sdkman/tmp", "advice": "consider", "reason": "SDKMAN downloaded archives"}
+        {"path": ".sdkman/tmp", "advice": "consider", "reason": "SDKMAN downloaded archives",
+         "caution": "`sdk flush` replaces the link with an empty folder. Lighten then asks which folder to keep."}
       ]
     },
     {
@@ -107,7 +108,8 @@
       "name": "Deno",
       "category": "JavaScript",
       "directories": [
-        {"path": ".cache/deno", "advice": "consider", "reason": "Deno cache"}
+        {"path": ".cache/deno", "advice": "consider", "reason": "Deno cache",
+         "caution": "`deno clean` removes the link, and Deno's next run creates a folder in its place. Lighten then asks which folder to keep."}
       ]
     },
     {
@@ -135,7 +137,8 @@
       "name": "Cypress",
       "category": "JavaScript",
       "directories": [
-        {"path": ".cache/Cypress", "advice": "consider", "reason": "Cypress app binaries"}
+        {"path": ".cache/Cypress", "advice": "consider", "reason": "Cypress app binaries",
+         "caution": "`cypress cache clear` removes the link, and the next Cypress install creates a folder in its place. Lighten then asks which folder to keep."}
       ]
     },
     {

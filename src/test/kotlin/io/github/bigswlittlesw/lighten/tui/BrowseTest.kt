@@ -301,6 +301,18 @@ class BrowseTest {
             assertTrue(yours in 0..<builtIn, details)
             assertTrue(details.indexOf("Advice: Usually not needed", yours) < builtIn, details)
             assertTrue(details.indexOf("Advice: Consider", builtIn) > builtIn, details)
+            // Each list's caution follows its reason, under that list.
+            val yourReason = details.indexOf("Reason: Team machines usually have a small repository.", yours)
+            assertTrue(yourReason in yours..<details.indexOf("⚠ Caution: Team caution.", yours), details)
+            assertTrue(details.indexOf("⚠ Caution: Team caution.") < builtIn, details)
+            assertTrue(details.indexOf("⚠ Caution: Built-in caution.") > details.indexOf("Reason: May contain", builtIn), details)
+            assertFalse(details.contains("Advice is optional"), details)
+            // The caution is in the warning colour; the sign keeps it visible without colour.
+            val screen = ui.screen(200, 40).lines()
+            val y = screen.indexOfFirst { it.contains("⚠ Caution: Team caution.") }
+            assertTrue(y >= 0, screen.joinToString("\n"))
+            val x = screen[y].indexOf("Caution")
+            assertEquals(palette.warn, ui.frame(200, 40).get(x, y).style().fg().orElse(null))
             ui.app.closeEditor()
         }
     }

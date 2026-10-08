@@ -580,11 +580,14 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - **Volta moves whole:** Volta unpacks into `.volta/tmp` and renames into `.volta/tools`. With only `tools` on another disk, every install failed with `Invalid cross-device link (os error 18)`. Moving all of `.volta` worked, its `bin` (shims and Volta itself, about 26 MB) included.
 - **Checked in containers:** each tool was installed in an Ubuntu 24.04 arm64 container, used, relocated with `lighten apply` to a separate filesystem, then used again: existing versions ran, new versions installed, global packages and reshims worked, and uninstalling worked. Puppeteer was checked with Firefox, as Chrome for Testing has no Linux arm64 build.
 - **Clean commands replace the link with a folder:** `sdk flush`, `deno clean`, `cypress cache clear` and `mise cache clear` delete the link, not what it points to, and the tool then creates a new folder in the home directory. The moved files stay on the other disk. Lighten's status then shows the source as a folder, and its plan asks which of the two folders to keep. Corepack's `cache clean`, Playwright's `uninstall` and Puppeteer's `browsers clear` keep the link. These tools stay in the list: the tools keep working either way.
+- **A `caution` per directory (user decision, rung 5):** an optional `"caution"` string beside `reason`, in either list, read by kotlinx.serialization and checked as `reason` is (bounded, nonblank when given). Browse Details shows it after that list's reason as `⚠ Caution: …` in `warn`, so with both lists each caution stays under its own list. The sign keeps it visible without color.
+- **Cautions in the built-in list:** `.sdkman/tmp` (`sdk flush`), `.cache/deno` (`deno clean`) and `.cache/Cypress` (`cypress cache clear`). None on `.sdkman/candidates`: `sdk flush` cleans only `tmp` and `var/metadata` (`sdkman-flush.sh`). None on mise: in the container, `mise cache clear` and `mise prune` left the `installs` link in place.
+- **"Advice is optional, not a safety assessment or a requirement." removed from Details (user decision):** the line added words to every Details without helping a choice, and a caution now carries the warnings that matter.
 - **mise cache not added:** `.cache/mise` held 21 MB after installing Node.js and Python, mostly a pyenv checkout mise uses to build Python, plus version lists. It is not large, and `mise cache clear` is a common command.
 - `[skipped: .cache/mise, add when users report it growing large]`
 - `[skipped: legacy .fnm/node-versions (fnm uses ~/.fnm only when it already exists), add when users with old installs ask]`
 - `[skipped: Volta's .volta/tools alone, add if Volta stages installs inside tools]`
-- `[skipped: telling users that a tool's clean command undoes a move, add when someone reports orphaned files on the target]`
+- `[skipped: a caution on the Browse row itself, add when users miss cautions that only Details shows]`
 
 ## How to add decisions
 

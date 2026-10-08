@@ -170,6 +170,28 @@ class CandidateCatalogTest {
     }
 
     /** `category` is optional on an app, applies to each of its directories, and is nonblank and trimmed. */
+    /** A caution is optional free text, read and checked as a reason is. */
+    @Test fun readsACautionLikeAReason() {
+        val snapshot = parse("""
+                {"apps": [{"name": "Deno", "directories": [
+                  {"path": ".cache/deno", "reason": "Deno cache", "caution": "`deno clean` removes the link."},
+                  {"path": "other", "caution": null}]}]}
+                """)
+        assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
+        assertEquals(listOf("`deno clean` removes the link.", null), snapshot.definitions.map(CandidateDefinition::caution))
+        assertEquals("Deno cache", snapshot.definitions.first().reason)
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 0, 0,
+                "directories[0]", "caution", "Caution must not be blank"),
+                parse("""{"directories": [{"path": "cache", "caution": "  "}]}""").diagnostics.single())
+        val long = parse("""{"directories": [{"path": "cache", "caution": ${quoted("x".repeat(CandidateParser.MAX_STRING_CHARACTERS + 1))}}]}""")
+        assertKind(CandidateDiagnostic.Kind.LIMIT, long)
+        assertEquals("caution", long.diagnostics.single().key)
+        assertFalse(parse("""{"directories": [{"path": "cache", "caution": ["x"]}]}""").accepted())
+        assertThrows<IllegalArgumentException> {
+            CandidateDefinition(HOME.resolve("cache"), SHARED, 1, "directories[0]", "cache", null, null, null, null, " ")
+        }
+    }
+
     @Test fun readsAnAppsOptionalCategory() {
         val snapshot = parse("""
                 {"apps": [
@@ -472,6 +494,10 @@ class CandidateCatalogTest {
         ), snapshot.definitions.map { d -> d.originalPath + "|" + d.category + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
+        // Each caution names the command that undoes the move and what Lighten does next.
+        val cautioned = snapshot.definitions.filter { d -> d.caution != null }
+        assertEquals(listOf(".sdkman/tmp", ".cache/deno", ".cache/Cypress"), cautioned.map { d -> d.originalPath })
+        assertTrue(cautioned.all { d -> d.caution.orEmpty().endsWith("Lighten then asks which folder to keep.") }, cautioned.toString())
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
         for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
