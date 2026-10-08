@@ -47,11 +47,12 @@ Configure → Workspace → Review → Apply → Results
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
    needs your choice: select it, press `Tab`, pick a choice and press
    `Enter`. The chosen one is marked `●` and the others `○`; picking
-   another replaces it. A relocation marked `[Blocked]` cannot be done as
-   things are, for example because a file is where its archive folder
-   should be. Its
-   Details say what is in the way: fix that, then press `r`. If Details say
-   you can, pick a choice below that doesn't need that folder instead.
+   another replaces it. A choice is for the next apply only; to always do
+   this for that relocation, press `s` to save it as its rule. A
+   relocation marked `[Blocked]` cannot be done as things are, for example
+   because a file is where its archive folder should be. Its Details say
+   what is in the way: fix that, then press `r`. If Details say you can,
+   pick a choice below that doesn't need that folder instead.
 3. **Review (`2`).** Press `a` to see every step Lighten will take, listed
    under the relocation it belongs to. Select a relocation to see its decision
    and paths, or a step to see what it does. Nothing has changed yet. Press
@@ -247,7 +248,8 @@ contents live, in storage. After a move, the source is a link to the target.
 
 **Rule or one-time choice.** A rule is saved in the configuration file and
 decides every time. A one-time choice decides one relocation for the next
-apply only. Checking again or applying forgets it.
+apply only. Checking again or applying forgets it. Press `s` to save a
+choice as the rule.
 
 **Archive or delete.** Archive moves the source's contents into an archive
 folder, so you can move them back. Delete removes them for good.

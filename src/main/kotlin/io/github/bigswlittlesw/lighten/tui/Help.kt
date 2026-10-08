@@ -11,11 +11,11 @@ import dev.tamboui.toolkit.elements.TabsElement
  * A key as help shows it: the help lines show `keys: action`, and Help's This screen tab shows `keys  description`,
  * which names what the key acts on where the short label needs its screen to make sense. A hint not [inHelpArea] is
  * listed only on the Help screen. A hint that [scrolls] is left out of the help lines while the pane has nothing to
- * scroll.
+ * scroll. A hint that [acts] is listed under Do on the Help screen even when it sits on the navigation line for room.
  */
 internal data class KeyHint(
     val keys: String, val action: String, val inHelpArea: Boolean = true, val scrolls: Boolean = false,
-    val description: String = action,
+    val description: String = action, val acts: Boolean = false,
 ) {
     val text: String get() = "$keys: $action"
 }
@@ -84,8 +84,8 @@ private fun thisScreen(screen: ScreenHelp): String {
     val steps = Step.entries.joinToString(" › ") { step ->
         if (step == screen.step) "*" + stepLabel(step) + "*" else stepLabel(step)
     }
-    val navigation = screen.navigation.filter { it.action != HELP_KEY.action }
-    val commands = screen.commands.filter { it.action != HELP_KEY.action }
+    val navigation = screen.navigation.filter { it.action != HELP_KEY.action && !it.acts }
+    val commands = (screen.navigation.filter { it.acts } + screen.commands).filter { it.action != HELP_KEY.action }
     val width = (navigation + commands).maxOfOrNull { CharWidth.of(it.keys) } ?: 0
     fun group(title: String, hints: List<KeyHint>): String = if (hints.isEmpty()) "" else
         "\n\n**" + title + "**\\\n" + hints.joinToString("\\\n") { hint ->

@@ -88,6 +88,7 @@ check again, `q` quit. `2` never starts changes.
   Quit Lighten?
   You have 2 choices that are not applied yet. Quitting forgets them.
   Press n to go back. You can keep choosing, or press a to review and apply.
+  To make a choice the rule, select its relocation and press s.
   y: Quit · n/Esc: Go back
   ```
 
@@ -287,11 +288,21 @@ The details pane answers, in this order:
    `Archive:` appears only when the rule or choice archives the source, and
    `Left behind:` only when apply deletes what an interrupted replacement left.
 
-`s: Always do this` (shown when a choice is set) opens a dialog that explains the
-rule in words and says it is saved to the configuration file, that comments in
-the file are not kept and that nothing on disk changes until apply. `y` writes
-this relocation's rule fields to the file (same save path as Configuration), then
-re-checks and says the next step.
+`s: Always do this` is shown, on the navigation line beside the choice keys, while
+the selected relocation has a choice that differs from its rule; a choice the rule
+already makes has nothing to save. It opens a dialog that says the rule in words
+(`From now on, for ~/.cache/uv,` / `when the source and the target both exist:
+keep target, delete source.`), that `y` saves it in the configuration file (named),
+that comments in the file are not kept and that nothing on disk changes until
+apply. A rule that deletes data (Keep target, delete source; Delete both, start
+empty) adds a `⚠` line in the warning color saying it deletes for good whenever
+it applies, `lighten apply --yes` included. `y` writes this relocation's rule fields to the file through Configuration's
+replace (refused if the file changed since it was read), then checks again, so the
+Decision line reads `(your configuration)` and the choice is gone, and says the
+next step. Focus returns to the list with Details at the top, as after a save in
+Configuration, so the Decision line is in view. A refused save keeps the choice and says so below the panes. In Details
+the help line shows `Esc: Back`; `Tab` and `←` go back too and are Help-only, so the
+line fits 80 columns. Help › This screen lists `s` under Do all the same.
 
 Below the panes, when review is unavailable, one line says why: `Choose what to do
 for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
