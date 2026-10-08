@@ -2,6 +2,7 @@ package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
 import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.cli.LightenCommand
 import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -11,7 +12,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
 
-/** The tool was renamed from HomeLight to Lighten (#174): no screen, Help tab or dialog may show the old name. */
+/**
+ * The tool was renamed from HomeLight to Lighten (#174) and its repository followed (#178): no screen, Help tab, dialog
+ * or `--help` text may show the old name, in any case.
+ */
 class ProductNameTest {
     @TempDir lateinit var temporary: Path
 
@@ -24,7 +28,16 @@ class ProductNameTest {
         }
         assertTrue(screens.any { it.contains("╔Replace ") }, "no screen showed the replace question")
         for (screen in screens) {
-            assertFalse(screen.contains("HomeLight") || screen.contains("HOMELIGHT"), screen)
+            assertFalse(screen.contains("homelight", ignoreCase = true), screen)
+        }
+    }
+
+    @Test
+    fun noHelpTextShowsTheOldName() {
+        val root = LightenCommand.createCommandLine()
+        for (command in listOf(root) + root.subcommands.values) {
+            val help = command.usageMessage
+            assertFalse(help.contains("homelight", ignoreCase = true), help)
         }
     }
 
