@@ -96,6 +96,32 @@ class WorkspaceViewTest {
         assertFalse(Files.isSymbolicLink(source))
     }
 
+    /** Without color, `●` and bold mark the chosen choice and `❯` marks focus, focused or not. */
+    @Test
+    fun onlyTheChosenChoiceIsBold() {
+        val ui = HeadlessTui(LightenSession(fixture(temporary)))
+        ui.press(KeyCode.RIGHT)
+        ui.press(KeyCode.DOWN)
+        ui.press(' ')
+        ui.press(KeyCode.UP)
+        fun boldness(): Map<String, Boolean> {
+            val buffer = ui.frame(120, 30)
+            return ui.screen(120, 30).lines().withIndex().mapNotNull { (y, row) ->
+                val x = row.indexOfFirst { it == '●' || it == '○' }.takeIf { it >= 0 && row.getOrNull(it + 1) == ' ' }
+                    ?: return@mapNotNull null
+                row.substring(maxOf(0, x - 2), x + 3) to (dev.tamboui.style.Modifier.BOLD in buffer.get(x + 2, y).style().effectiveModifiers())
+            }.toMap()
+        }
+        val focused = boldness()
+        assertEquals(mapOf("❯ ○ K" to false, "  ● K" to true), focused.filterKeys { it.endsWith("K") }, focused.toString())
+        assertTrue(focused.filterKeys { it.contains('○') }.values.none { it }, focused.toString())
+        ui.press(KeyCode.TAB)
+        val unfocused = boldness()
+        assertFalse(unfocused.keys.any { it.contains('❯') }, unfocused.toString())
+        assertEquals(listOf(true), unfocused.filterKeys { it.contains('●') }.values.toList(), unfocused.toString())
+        assertTrue(unfocused.filterKeys { it.contains('○') }.values.none { it }, unfocused.toString())
+    }
+
     @Test
     fun completePathsPoliciesAndDiagnosticsCanBeScrolledWithoutChangingChoice() {
         val session = LightenSession(fixture(temporary))

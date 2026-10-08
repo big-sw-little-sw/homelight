@@ -295,7 +295,8 @@ internal object WorkspaceView {
                 add(
                     Line(
                         (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "● " else "○ ") + choiceLabel(option),
-                        if (chosen) palette.ok else palette.text, i == choice,
+                        // Bold marks the chosen line, so it stands out without color; `❯` alone marks focus.
+                        if (chosen) palette.ok else palette.text, chosen,
                     ),
                 )
                 // An offered archive names its destination here; a planned one shows it once, under Paths.

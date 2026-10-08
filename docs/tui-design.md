@@ -147,7 +147,9 @@ ones.
     label gets none. Review, Applying and Results relocation rows keep their
     progress marks: those are status, not selection.
   - One of several choices (Workspace Details): `●` chosen, `○` not
-    chosen. The focused choice keeps the `❯` pointer and is bold.
+    chosen. The chosen choice is green and bold, focused or not; the focused
+    one has the `❯` pointer. Without color, `●` and bold mark the choice and
+    `❯` marks focus.
 - Paths on screen show the home directory as `~`. Paths sections in details show
   the full absolute path.
 - Word-wrap prose; wrap paths by character only when they cannot break.
