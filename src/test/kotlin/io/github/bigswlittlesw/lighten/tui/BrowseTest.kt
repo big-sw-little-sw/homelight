@@ -50,7 +50,7 @@ class BrowseTest {
             key(ui, 'e'); down(ui); clear(ui); type(ui, root.resolve("local/custom-target").toString())
             down(ui); right(ui) // Keep target, delete source.
             escape(ui); key(ui, 'b')
-            Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
+            Files.copy(Path.of("src/test/resources/suggestion-lists/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(ui, 'r'); await(workers, ui)
             // Refresh while inspecting does not leave details or erase the row; the dropped list entry is not recalled.
             val details = all(ui)
@@ -953,7 +953,7 @@ class BrowseTest {
         val root = Files.createTempDirectory(temporary, "fixture-").toRealPath()
         for (relative in listOf(".m2", ".cache/uv", ".cache/example", ".local/share/uv/tools", "team-cache", "datasets")) Files.createDirectories(root.resolve("home").resolve(relative))
         Files.writeString(root.resolve("home/team-cache/payload"), "unchanged")
-        Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), root.resolve("shared.json"))
+        Files.copy(Path.of("src/test/resources/suggestion-lists/shared.json"), root.resolve("shared.json"))
         return root
     }
 

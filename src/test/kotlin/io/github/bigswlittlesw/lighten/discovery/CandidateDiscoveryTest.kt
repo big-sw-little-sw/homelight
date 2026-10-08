@@ -42,7 +42,7 @@ class CandidateDiscoveryTest {
 
     @Test fun independentlyLoadsRealSharedFileAndRetainsProvenanceAndOverlap() {
         val shared = temporary.resolve("shared.json")
-        Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), shared)
+        Files.copy(Path.of("src/test/resources/suggestion-lists/shared.json"), shared)
         Files.createDirectories(temporary.resolve(".local/share/uv/tools"))
         CandidateDiscovery().use { discovery ->
             discovery.refresh(temporary, shared)
