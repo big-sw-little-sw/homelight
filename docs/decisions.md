@@ -683,6 +683,22 @@ SHA256SUMS                             sha256sum output for both binaries
 - `[skipped: a <asset>.sha256 file per binary for eget's check, add when eget users ask]`
 - `[skipped: aqua-registry entry, add when aqua users ask]`
 
+## 2026-10-07: Install script
+
+#168 (user decision): `install.sh`, a POSIX `sh` script at the repository root, published as a release asset so `curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh` installs the latest release.
+
+- **Minimal new code (rung 6) on the release assets (rung 2):** it picks `lighten-<version>-linux-<arch>-<libc>` from `uname -m`, downloads with curl or wget, and checks with `sha256sum` or `shasum -a 256`, whichever exists.
+- **Latest version from `SHA256SUMS`:** `releases/latest/download/SHA256SUMS` names each binary with its version, so the script needs no GitHub API call (rate-limited, JSON) and no redirect parsing. `--version 1.2.3` reads `releases/download/v1.2.3/` instead.
+- **Install:** to `~/.local/bin` by default (`--dir`). It downloads to a temporary directory and checks the hash; only then does it create the install directory, copy the binary beside the target, run `--version` on the copy (not in the temporary directory, which may be noexec) and rename it over the old one. A failed or corrupt download leaves an installed `lighten` untouched and creates no directory; if the `--version` run fails, it removes the directories it created and nothing that existed before (user decision). Rerunning updates in place. A directory the user cannot write to stops the script before the download, with the `sudo sh install.sh --dir …` command to run; it never calls sudo.
+- **musl on arm64:** the arm64 binary needs glibc. On a musl system with gcompat's glibc loader (`/lib/ld-linux-aarch64.so.1`) the script installs it, which runs on Alpine 3.24 arm64 (tested in CI). Without it, the script explains `apk add gcompat` and stops. There is no option to install anyway (user decision): the `--version` run would refuse the binary, so `--force` would only have helped with a glibc loader at another path.
+- **PATH:** when the directory is not on `PATH`, it shows the line and the startup files for the user's `$SHELL`: for bash `~/.bashrc` and the login file, `~/.bash_profile` if it exists or else `~/.profile`; for zsh `${ZDOTDIR:-~}/.zshrc`; for fish `${XDG_CONFIG_HOME:-~/.config}/fish/conf.d/lighten.fish`; otherwise `~/.profile`. It asks once, `[y/N]`, on `/dev/tty`, since stdin is the script under `curl | sh`, naming every file it will change. Yes appends the line under `# Added by the Lighten installer`; a rerun finds the line and does not add it again. Without a terminal, or with `--no-modify-path`, it only prints the line.
+- **Only the user's own files (user decision):** it changes a startup file only if it is in the user's home and is a regular file the user owns and can write, or is missing from a directory the user owns. It skips any other file, for example one an admin manages, and says why, so the user can add the line by hand. It never touches `/etc`.
+- **Testing:** `LIGHTEN_INSTALL_BASE_URL` replaces the releases URL, for tests only. `ci/install/test.sh` serves a build under its release names and runs `ci/install/scenarios.sh` in Ubuntu 24.04, Fedora, Alpine and Oracle Linux 7 containers on both architectures, as a step of `Native distros`, so the 7 required checks are unchanged.
+- `[skipped: signature checks beyond SHA256SUMS, add with signed releases (see the #167 entry)]`
+- `[skipped: an uninstall option, add when users ask; removing ~/.local/bin/lighten and the marked line is the uninstall]`
+- `[skipped: a containers test of the shasum fallback, add when a supported distro lacks sha256sum]`
+- `[skipped: a system-wide PATH entry (/etc/profile.d) for root installs, add when admins install for all users]`
+
 ## How to add decisions
 
 Use this format:

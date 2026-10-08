@@ -132,8 +132,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { arch: x86_64, runner: ubuntu-24.04 }
-          - { arch: arm64, runner: ubuntu-24.04-arm }
+          - { arch: x86_64, runner: ubuntu-24.04, asset: linux-x86_64-musl }
+          - { arch: arm64, runner: ubuntu-24.04-arm, asset: linux-aarch64-gnu }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -147,3 +147,15 @@ jobs:
       - run: |
           chmod +x dist/lighten
           ci/native/distros.sh ${{ matrix.arch }} dist results
+      # install.sh against this build under its release name (release.yml), on the same distros.
+      - name: Install script
+        if: ${{ !cancelled() }}
+        run: |
+          shellcheck --severity=warning --shell=sh install.sh ci/install/scenarios.sh
+          shellcheck --severity=warning ci/install/test.sh
+          version=$(dist/lighten --version)
+          version=${version#lighten }
+          mkdir assets
+          cp dist/lighten "assets/lighten-$version-${{ matrix.asset }}"
+          (cd assets && sha256sum lighten-* > SHA256SUMS)
+          ci/install/test.sh ${{ matrix.arch }} assets
