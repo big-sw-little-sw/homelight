@@ -872,11 +872,16 @@ class BrowseTest {
             val ui = HeadlessTui(LightenSession(root.resolve("config.json")), discoveryFactory = workers::get); key(ui, 'i'); return ui
         }
 
-        /** From the Target root field a new file opens on: both roots and the suggestion list, then back to the list. */
+        /**
+         * From the Target root field a new file opens on: both roots and the suggestion list, then back to the list.
+         * Leaving the storage locations opens Browse once on a new file; the second Esc closes it.
+         */
         fun locations(ui: HeadlessTui, root: Path, shared: Path) {
             type(ui, root.resolve("local").toString())
             ui.press(KeyCode.UP); clear(ui); type(ui, root.resolve("home").toString())
             down(ui); down(ui); type(ui, shared.toString()); escape(ui)
+            assertEquals(CONFIG_BROWSE, ui.focused())
+            escape(ui)
         }
         fun await(workers: SetupDiscoveryFixture, ui: HeadlessTui) {
             pollUntil("Discovery did not settle") {

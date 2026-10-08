@@ -20,6 +20,7 @@ import dev.tamboui.widgets.select.SelectState
 import io.github.bigswlittlesw.lighten.application.BrowseDraft
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.Suggestions
+import io.github.bigswlittlesw.lighten.config.CandidateCatalog
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
@@ -64,7 +65,7 @@ internal class ConfigurationView private constructor(
     private enum class Field(val id: String, val label: String, val text: Boolean, val placeholder: String = "") {
         SOURCE_ROOT("config-source-root", SOURCE_ROOT_LABEL, true),
         TARGET_ROOT("config-target-root", TARGET_ROOT_LABEL, true),
-        SUGGESTION_LIST("config-suggestion-list", SUGGESTION_LIST_NAME, true, OPTIONAL_PLACEHOLDER),
+        SUGGESTION_LIST("config-suggestion-list", SUGGESTION_LIST_NAME, true, SUGGESTION_LIST_PLACEHOLDER),
         SOURCE("config-source", SOURCE_LABEL, true),
         TARGET("config-target", TARGET_LABEL, true, TARGET_PLACEHOLDER),
         BOTH_EXIST("config-both-exist", BOTH_EXIST_LABEL, false),
@@ -96,6 +97,10 @@ internal class ConfigurationView private constructor(
     // Sources taken out in this Browse visit; see [BrowseDraft].
     private var kept = setOf<Path>()
     private var suggestions: Suggestions? = null
+    // A new file opens Browse once, when the user first leaves the storage locations (decision 2026-10-08).
+    private var browseOnFirstLeave = loadedBytes == null
+    // That Browse visit shows a note on how to add what it does not list.
+    private var firstBrowse = false
 
     var closed = false
         private set
@@ -109,16 +114,20 @@ internal class ConfigurationView private constructor(
         val header = Toolkit.row(
             Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(), Toolkit.text("[$CONFIGURATION_NAME]").fg(palette.focus).bold(),
         )
+        if (!browsing) {
+            pull()
+            openBrowseAfterStorageLocations()
+        }
         // Browse keeps its own selection, so the screen is one focusable while it is open.
         if (browsing) {
             val browseHeader = Toolkit.row(
                 Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(),
                 Toolkit.text("[" + place(CONFIGURATION_NAME, BROWSE_NAME) + "]").fg(palette.focus).bold(),
             )
-            return Toolkit.column(browseHeader, browser.render(browseDraft(), interactive)).fill().id(CONFIG_BROWSE)
-                .focusable(interactive)
+            val note = wrappedText(FIRST_BROWSE_NOTE, palette.text).takeIf { firstBrowse }
+            return Toolkit.column(*listOfNotNull(browseHeader, note, browser.render(browseDraft(), interactive)).toTypedArray())
+                .fill().id(CONFIG_BROWSE).focusable(interactive)
         }
-        pull()
         val row = selectedRow()
         if (row != shownRow) show(row)
         val focused = focus.focusedId()
@@ -128,8 +137,12 @@ internal class ConfigurationView private constructor(
                 Toolkit.text(name).ellipsisMiddle().fill(),
             )
         }
-        list.elements(*rows.toTypedArray()).focusable(interactive).fill()
-        val listPane = framed(Toolkit.panel(CONFIGURATION_LIST_TITLE, list), focused == CONFIG_LIST)
+        list.elements(*rows.toTypedArray()).focusable(interactive)
+        val listContent = if (draft.relocations.isNotEmpty()) list.fill() else Toolkit.column(
+            list.length(rows.size),
+            wrappedText("\n" + noRelocationsYet(builtIn.count, builtIn.examples, focused == CONFIG_LIST), palette.dim),
+        )
+        val listPane = framed(Toolkit.panel(CONFIGURATION_LIST_TITLE, listContent), focused == CONFIG_LIST)
         val content = buildList {
             add(header)
             add(wrappedText(configurationStatus(session.configPath, loadedBytes != null, unsaved()), palette.dim))
@@ -200,7 +213,7 @@ internal class ConfigurationView private constructor(
     private fun fieldHelp(field: Field): String = when (field) {
         Field.SOURCE_ROOT -> SOURCE_ROOT_HELP
         Field.TARGET_ROOT -> TARGET_ROOT_HELP
-        Field.SUGGESTION_LIST -> SUGGESTION_LIST_HELP
+        Field.SUGGESTION_LIST -> suggestionListHelp(builtIn.count, builtIn.examples)
         Field.SOURCE -> SOURCE_HELP
         Field.TARGET -> TARGET_HELP
         Field.BOTH_EXIST -> BOTH_EXIST_HELP
@@ -430,8 +443,26 @@ internal class ConfigurationView private constructor(
         focus.setFocus(CONFIG_BROWSE)
     }
 
+    /**
+     * On a new file, opens Browse once, when focus first goes from the storage locations' fields to the list (Esc, or
+     * Tab past the last field) with both roots valid and no relocations yet. Moving between those fields does not
+     * count, so Source root and a list of your own can be set first; Browse reads both. Only render sees every focus
+     * move, as TamboUI moves focus on Tab before any handler.
+     */
+    private fun openBrowseAfterStorageLocations() {
+        if (!browseOnFirstLeave || focus.focusedId() != CONFIG_LIST || draft.relocations.isNotEmpty()) return
+        if (fields(0).none { it.id == focusedLastFrame }) return
+        val roots = listOf(resolved(draft.sourceRoot, SOURCE_ROOT_LABEL), resolved(draft.targetRoot, TARGET_ROOT_LABEL))
+        if (roots.any { it !is Resolved.Found }) return
+        // A suggestion list that cannot be read keeps Browse closed and says why, so the next leave tries again.
+        openBrowse()
+        browseOnFirstLeave = !browsing
+        firstBrowse = browsing
+    }
+
     private fun leaveBrowse() {
         browsing = false
+        firstBrowse = false
         shownRow = -1
         focus.setFocus(CONFIG_LIST)
     }
@@ -648,6 +679,23 @@ internal class ConfigurationView private constructor(
         }
     }
 }
+
+/**
+ * The built-in list as Configuration describes it: how many directories it suggests, counted as Browse counts them,
+ * and the first app of each of its first [EXAMPLE_APPS] categories as examples.
+ */
+private data class BuiltInSuggestions(val count: Int, val examples: List<String>)
+
+private val builtIn: BuiltInSuggestions by lazy {
+    // The root only places the paths; the count and the apps are the same under any root.
+    val definitions = CandidateCatalog.bundled(Path.of(System.getProperty("user.home"))).definitions
+    BuiltInSuggestions(
+        definitions.map { it.sourcePath }.distinct().size,
+        definitions.filter { it.category != null }.distinctBy { it.category }.mapNotNull { it.app }.take(EXAMPLE_APPS),
+    )
+}
+
+private const val EXAMPLE_APPS = 4
 
 /** A field's path as the loader reads it, why it cannot, or that it is empty and needs nothing. */
 private sealed interface Resolved {

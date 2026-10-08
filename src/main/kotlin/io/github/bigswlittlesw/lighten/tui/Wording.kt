@@ -171,7 +171,7 @@ internal const val NEW_RELOCATION = "New relocation"
 internal const val RESOLVED = "Resolved"
 internal const val TARGET_PLACEHOLDER = "blank: under the target root"
 internal const val ARCHIVE_PLACEHOLDER = "blank: beside the source"
-internal const val OPTIONAL_PLACEHOLDER = "optional"
+internal const val SUGGESTION_LIST_PLACEHOLDER = "optional; adds to built-in list"
 internal const val SAVE_FROM_TEXT_FIELD = "Esc, then s to save."
 internal const val NO_SUGGESTION_LIST = "none; Browse uses the built-in list"
 internal const val NEEDS_SOURCE = "waits for a valid Source"
@@ -184,9 +184,17 @@ internal const val SOURCE_ROOT_HELP =
     "The folder your sources are usually in, normally your home folder. A relocation with no Target keeps its " +
         "place under this folder, inside the target root."
 internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use a full path, or one starting with ~/."
-internal const val SUGGESTION_LIST_HELP =
-    "A file of directories to suggest in Browse, for example one shared on a team drive. Built-in suggestions are " +
-        "always included."
+internal fun suggestionListHelp(builtIn: Int, examples: List<String>) =
+    "Lighten already includes $builtIn suggestions for common tools${examples(examples)}. Use this field only to add a " +
+        "list of your own, for example one shared by your team. Both lists are merged; yours wins where they overlap."
+/**
+ * Configuration's list while it has no relocations. `inList`: the list has focus, so `b` and `a` work as they are;
+ * from a field Esc goes to the list first.
+ */
+internal fun noRelocationsYet(builtIn: Int, examples: List<String>, inList: Boolean) =
+    "No directories yet.\n" + (if (inList) "Press b" else "Esc, then b") +
+        " to pick from $builtIn built-in suggestions${examples(examples)}, or a to type one yourself."
+private fun examples(names: List<String>) = if (names.isEmpty()) "" else names.joinToString(", ", " (", ", …)")
 internal const val SOURCE_HELP = "The directory to move, for example ~/.cache/uv."
 internal const val TARGET_HELP =
     "Where its contents go. Leave it blank for the same place under the target root; a source outside the source " +
@@ -525,11 +533,14 @@ internal const val PURPOSE_APPLYING =
 internal const val PURPOSE_RESULTS =
     "What apply did, step by step. Press r to check the disk again, or 1 to go back to the Workspace."
 internal const val PURPOSE_CONFIGURATION =
-    "Create or change the configuration file: where storage is and which directories to move. Saving changes " +
-        "nothing on disk."
+    "Create or change the configuration file: where storage is and which directories to move. In the list, b picks " +
+        "them from Lighten's built-in suggestions and a types any directory yourself. A list of your own, set in " +
+        "Suggestion list, is merged with the built-in one. Saving changes nothing on disk."
 internal const val PURPOSE_BROWSE =
     "Suggestions from the built-in list and your list. Space adds a directory to the configuration or takes it out; " +
-        "the file changes only when you save."
+        "the file changes only when you save. Anything missing: press Esc, then a to type it."
+/** Over Browse when it opens by itself on a new file. */
+internal const val FIRST_BROWSE_NOTE = "Pick what to move. Space adds. Anything missing? Esc, then a to type it."
 internal const val DETAILS_NAME = "Details"
 internal const val SUGGESTION_LISTS = "Suggestion lists"
 // Configuration's fields, as its pane labels them; Help names the focused one.

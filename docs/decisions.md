@@ -683,6 +683,17 @@ SHA256SUMS                             sha256sum output for both binaries
 - `[skipped: a <asset>.sha256 file per binary for eget's check, add when eget users ask]`
 - `[skipped: aqua-registry entry, add when aqua users ask]`
 
+## 2026-10-08: First run makes the built-in suggestions the obvious path
+
+#189 (user decision): most users fill their configuration from the built-in list, but on a first run it showed only as `b: Browse`, and "Suggestion list (optional)" read as if a list of your own were needed.
+
+- **First run opens Browse (rung 2):** on a new file, the first time focus goes from the storage locations' fields to the list with both roots valid and no relocations, Configuration opens Browse through its own `openBrowse`, with the note `Pick what to move. Space adds. Anything missing? Esc, then a to type it.` Esc returns to the list as it always does. Moving from Target root to Source root or Suggestion list does not count, so both can be set first and Browse reads them; opening on ↓ from Target root would have taken the user past Suggestion list before they could type one. Only render sees Tab move focus, so the check runs there, beside `pull`. Once per Configuration; an existing file never opens Browse by itself.
+- **Counts and examples from the catalog (rung 1):** the empty list and Suggestion list's Details read the built-in list once: its directories counted as Browse's Lists line counts them (44 today), and the first app of each of the first four categories (Maven, Cargo, npm, pip). The issue's "40+ common tools" became "44 suggestions for common tools", the same number Browse shows; the list has 34 apps.
+- **Typing stays visible:** the empty list (`… or a to type one yourself.`), the Browse note, Configuration's and Browse's Help purposes and the guide's step 1 all say a missing directory can be typed with `a`, and that a list of your own can be added later and is merged. From a field the empty list says `Esc, then b …`, since there `b` and `a` type.
+- **Placeholder** `optional; adds to built-in list`: the issue's `optional; built-in suggestions are always included` is 50 cells and the field is 32 at 80 columns.
+- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]`
+- `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
+
 ## How to add decisions
 
 Use this format:
