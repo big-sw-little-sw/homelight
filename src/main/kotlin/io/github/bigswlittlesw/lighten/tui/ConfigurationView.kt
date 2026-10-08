@@ -124,7 +124,7 @@ internal class ConfigurationView private constructor(
                 Toolkit.text("⌂ LIGHTEN  ").fg(palette.brand).bold(),
                 Toolkit.text("[" + place(CONFIGURATION_NAME, BROWSE_NAME) + "]").fg(palette.focus).bold(),
             )
-            val note = wrappedText(FIRST_BROWSE_NOTE, palette.text).takeIf { firstBrowse }
+            val note = wrappedText(FIRST_BROWSE_NOTE.joinToString("\n"), palette.text).takeIf { firstBrowse }
             return Toolkit.column(*listOfNotNull(browseHeader, note, browser.render(browseDraft(), interactive)).toTypedArray())
                 .fill().id(CONFIG_BROWSE).focusable(interactive)
         }

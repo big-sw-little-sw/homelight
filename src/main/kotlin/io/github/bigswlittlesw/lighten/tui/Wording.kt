@@ -539,8 +539,8 @@ internal const val PURPOSE_CONFIGURATION =
 internal const val PURPOSE_BROWSE =
     "Suggestions from the built-in list and your list. Space adds a directory to the configuration or takes it out; " +
         "the file changes only when you save. Anything missing: press Esc, then a to type it."
-/** Over Browse when it opens by itself on a new file. */
-internal const val FIRST_BROWSE_NOTE = "Pick what to move. Space adds. Anything missing? Esc, then a to type it."
+/** Over Browse when it opens by itself on a new file: picking, and typing for those who would rather. */
+internal val FIRST_BROWSE_NOTE = listOf("Pick what to move: Space adds.", "Rather type a path yourself? Press Esc, then a.")
 internal const val DETAILS_NAME = "Details"
 internal const val SUGGESTION_LISTS = "Suggestion lists"
 // Configuration's fields, as its pane labels them; Help names the focused one.

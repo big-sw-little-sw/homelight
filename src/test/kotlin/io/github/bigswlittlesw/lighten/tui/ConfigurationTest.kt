@@ -402,7 +402,9 @@ class ConfigurationTest {
             assertEquals(CONFIG_BROWSE, ui.focused())
             val browse = ui.screen(80, 24).lines()
             assertTrue(browse[0].contains("[Configuration › Browse]"), browse.joinToString("\n"))
-            assertEquals(FIRST_BROWSE_NOTE, browse[1].trim(), browse.joinToString("\n"))
+            // One row each at 80 columns, under the header and over the Lists lines.
+            assertEquals(FIRST_BROWSE_NOTE, browse.subList(1, 3).map { it.trim() }, browse.joinToString("\n"))
+            assertTrue(browse[3].startsWith("Built-in list"), browse.joinToString("\n"))
             ui.press(KeyCode.ESCAPE)
             assertEquals(CONFIG_LIST, ui.focused())
             assertTrue(ui.screen(80, 24).contains("❯ Storage locations"), ui.screen(80, 24))
@@ -412,7 +414,7 @@ class ConfigurationTest {
             assertEquals(CONFIG_LIST, ui.focused())
             ui.press('b')
             assertEquals(CONFIG_BROWSE, ui.focused())
-            assertFalse(ui.screen(80, 24).contains(FIRST_BROWSE_NOTE), ui.screen(80, 24))
+            assertFalse(FIRST_BROWSE_NOTE.any { ui.screen(80, 24).contains(it) }, ui.screen(80, 24))
             ui.app.closeEditor()
         }
     }

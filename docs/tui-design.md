@@ -480,8 +480,9 @@ list does not show it.
 - **First run.** A new file opens on Target root. The first time focus goes
   from the storage locations' fields to the list (Esc, or Tab past the last
   field) with both roots valid and no relocations yet, Browse opens by
-  itself, with a note over its Lists lines: `Pick what to move. Space adds.
-  Anything missing? Esc, then a to type it.` Moving between the storage
+  itself, with a two-line note over its Lists lines: `Pick what to move:
+  Space adds.`, then `Rather type a path yourself? Press Esc, then a.` Each
+  line fits 80 columns. Moving between the storage
   locations' fields does not open it, so Source root and a list of your own
   can be set first. Esc returns to the list. It happens once per
   Configuration; an existing file, even one with no relocations, opens on
