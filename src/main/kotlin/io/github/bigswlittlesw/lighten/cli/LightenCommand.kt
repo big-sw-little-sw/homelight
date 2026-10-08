@@ -26,7 +26,8 @@ import kotlin.system.exitProcess
 /** Root command and CLI entry point for Lighten. */
 @Command(
     name = "lighten",
-    subcommands = [StatusCommand::class, PlanCommand::class, ApplyCommand::class, InitCommand::class, GuideCommand::class],
+    subcommands = [StatusCommand::class, PlanCommand::class, ApplyCommand::class, InitCommand::class, GuideCommand::class,
+        UpdateCommand::class],
     mixinStandardHelpOptions = true,
     versionProvider = LightenVersionProvider::class,
     description = ["Relocates selected bulky home directories to machine-local storage."],

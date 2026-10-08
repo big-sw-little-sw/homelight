@@ -169,6 +169,35 @@ class CliOptionCoverageTest {
         ).map(::test)
     }
 
+    /**
+     * Tests run a development build, which `update` refuses before any network access; `update --check` reaches the
+     * network, so `SelfUpdateTest` covers it against a local server.
+     */
+    @TestFactory
+    fun update(): List<DynamicTest> {
+        val development = "This lighten is a development build (${resolveVersion()})"
+        return listOf(
+            Case("update --help", listOf("update", "--help"), Expect(0, out = "Usage: lighten update", hidden = true)),
+            Case("update -h", listOf("update", "-h"), Expect(0, out = "--check")),
+            Case("update", listOf("update"), Expect(1, err = development)),
+            Case("update --version", listOf("update", "--version", "1.2.3"), Expect(1, err = development)),
+            Case("update --version=v1.2.3", listOf("update", "--version=v1.2.3"), Expect(1, err = development)),
+            Case("update --version without a value", listOf("update", "--version"), Expect(2)),
+            Case("update --version not a release", listOf("update", "--version", "1.2"),
+                Expect(2, err = "--version must be a release version, such as 1.2.3")),
+            Case("update --check --version", listOf("update", "--check", "--version", "1.2.3"),
+                Expect(2, err = "--check and --version cannot be used together")),
+            Case("update --check=maybe", listOf("update", "--check=maybe"), Expect(2)),
+            Case("update --check twice", listOf("update", "--check", "--check"), Expect(2)),
+            Case("update --version twice", listOf("update", "--version", "1.2.3", "--version", "1.2.4"), Expect(2)),
+            Case("update -V", listOf("update", "-V"), Expect(2)),
+            Case("update --json", listOf("update", "--json"), Expect(2)),
+            Case("update extra argument", listOf("update", "now"), Expect(2)),
+            Case("config before update", listOf("-c", root.resolve("missing.json").toString(), "update"),
+                Expect(1, err = development)),
+        ).map(::test)
+    }
+
     @TestFactory
     fun configIsInitAndGuidePrintsTheGuide(): List<DynamicTest> {
         val good = writeConfig("alias")

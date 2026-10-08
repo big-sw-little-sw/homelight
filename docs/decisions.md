@@ -683,6 +683,27 @@ SHA256SUMS                             sha256sum output for both binaries
 - `[skipped: a <asset>.sha256 file per binary for eget's check, add when eget users ask]`
 - `[skipped: aqua-registry entry, add when aqua users ask]`
 
+## 2026-10-08: `lighten update` replaces the running binary with a release
+
+#169 (user decision): `lighten update` installs the latest release in place of the running binary; `--check` only reports; `--version 1.2.3` installs that release, downgrades included. It behaves as `install.sh` does, so the two stay one design.
+
+- **Latest version from `SHA256SUMS` (rung 2, the install script's design):** it reads `releases/latest/download/SHA256SUMS`, or `releases/download/v<version>/` with `--version`, and takes the line for this machine's asset. No GitHub API call. The binary comes from the same directory, as in `install.sh`; if "latest" moves between the two downloads, the checksum stops the update.
+- **Replace in one step (rung 3, JDK):** the download goes to `.lighten-update.<pid>` beside the binary, is checked with `MessageDigest` against `SHA256SUMS`, made executable, must print exactly `lighten <version>` for `--version` within 10 seconds, and only then is renamed over the binary (`ATOMIC_MOVE`, a `rename(2)` on one filesystem). Every failure deletes the download and leaves the binary as it was. Linux keeps a running executable's old file open, so replacing it while it runs is safe.
+- **Which binary:** the real path of `/proc/self/exe`, so a symlink such as `~/bin/lighten` updates its target and stays a symlink. On a JVM there is no binary to replace and `update` refuses; releases are native only.
+- **Refusals before any download:** a development build (a version that is not a release, such as `1.0-SNAPSHOT`); a platform without a release asset; a binary under mise (`/mise/installs/` in its path, or under `$MISE_DATA_DIR`), which says to run `mise upgrade`; a directory the user cannot write to, which shows the install script's `sudo sh -s -- --dir <dir>` command and the README's manual steps. It never calls sudo.
+- **eget and ubi are not detected, and need not be:** both write a plain file into a directory (`~/.local/bin` by default) and keep no record of it, so their install looks like the script's and `lighten update` replaces it correctly. mise keeps versioned directories and shims, so replacing a file there would confuse it.
+- **No accidental downgrade:** without `--version`, a latest release older than the installed version (say an installed `1.1.0-rc.1`) is not installed; the message gives the `--version` command. Versions compare by semver precedence (`ReleaseVersion`).
+- **`--check` exits 0 whether or not an update exists**, and 1 only when it could not find out. A distinct code for "update available" is the kind of mode scripts rarely need; `--check` prints `Installed:` and `Latest:` lines a script can read. It also runs on a development build, which is what lets CI exercise HTTPS in the native binaries.
+- **HTTP is `java.net.http.HttpClient` (rung 3):** no new dependency. Connect timeout 10 s, 30 s to the response headers, 60 s for all of `SHA256SUMS` and 10 minutes for the binary (about 30 MB), after which the request is cancelled. Offline, the error is one line naming the URL and `could not connect`, plus where to look. The network is used only while `update` runs.
+- **Native Image:** `HttpClient` does not go through `URL` protocol handlers, so `--enable-url-protocols=https` is not needed, and the JSSE and SHA-256 providers are registered automatically. No reachability metadata was added. The binary grew by SIZE_IMPACT.
+- **Testing:** `LIGHTEN_INSTALL_BASE_URL`, test-only and with the meaning it has for `install.sh`, replaces the releases URL. `SelfUpdateTest` serves releases whose binaries are shell scripts and covers update, `--check`, up to date, downgrade, an unpublished version, a checksum mismatch, a wrong `--version`, an unwritable directory, offline, a development build, a symlink and mise. `ci/native/compare.sh` adds the steps that need no server; `ci/native/update.sh` serves releases over HTTPS from `127.0.0.1` with a test certificate (`ci/native/tls`, trusted through `-Djavax.net.ssl.trustStore`) and runs on both architectures in `Native test`. CI builds are development builds, so there it checks `--check` and the refusal; given a release build it also updates and checks a mismatch.
+- `[skipped: automatic update notice, add when users run old versions without knowing]`
+- `[skipped: signature verification, add with signed releases]`
+- `[skipped: a distinct --check exit code for "update available", add when a script needs it]`
+- `[skipped: removing a download left by Ctrl-C (.lighten-update.<pid>), add when it is reported; the native binary runs no shutdown hooks on SIGINT]`
+- `[skipped: a native end-to-end update in CI, add after #188 by testing the release build in release.yml; CI's builds are development builds, which update refuses]`
+- `[skipped: detecting aqua or Homebrew installs, add when either is a documented install method]`
+
 ## How to add decisions
 
 Use this format:

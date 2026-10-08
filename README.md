@@ -22,7 +22,7 @@ eget big-sw-little-sw/lighten --to ~/.local/bin
 ubi --project big-sw-little-sw/lighten --in ~/.local/bin
 ```
 
-Each tool updates what it installed; `lighten update` will be for installs made with the script.
+mise updates what it installed (`mise upgrade`). `lighten update` updates an install made with the script, eget, ubi or by hand: it downloads the latest release beside the running binary, checks it against `SHA256SUMS` and replaces the binary in one step. `lighten update --check` only shows the installed and the latest version, and `lighten update --version 1.2.3` installs that release, even an older one.
 
 To download by hand, take `lighten-<version>-linux-x86_64-musl` or `lighten-<version>-linux-aarch64-gnu` and `SHA256SUMS` from a release, then:
 
@@ -49,6 +49,7 @@ lighten plan
 lighten apply
 lighten status
 lighten guide
+lighten update
 ```
 
 Running `lighten` starts the full-screen TUI. Named commands open the corresponding TUI workflow. Automation uses prompt-free JSON forms such as `plan --json`, `status --json`, and `apply --json --yes`.
