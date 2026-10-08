@@ -88,7 +88,17 @@ HomeLight does not persist an ownership registry in the initial implementation. 
 
 _The Java part is superseded by “Move to Kotlin and kotlinx.serialization” (2026-10-01). The native Linux targets stand._
 
-HomeLight stays on Java 25 and ships GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+). macOS is a development platform, not a release target. A spike showed identical CLI and TUI behavior to the JVM across Oracle Linux 7 through Fedora 44, with 2–15 ms startup. See `research/native-image-spike.md`.
+HomeLight stays on Java 25 and ships GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+). macOS is a development platform, not a release target. A spike showed identical CLI and TUI behavior to the JVM across Oracle Linux 7 through Fedora 44, with 2–15 ms startup.
+
+Spike numbers (2026-09-30, Oracle GraalVM 25.0.3; the full write-up was removed in #196):
+
+- **Startup:** native `--help` 2.2 ms and `plan --json` 2.5 ms on Linux arm64, against 128 and 206 ms on the JVM. TUI first frame 8–48 ms.
+- **Memory:** peak RSS 18–27 MB native, against 93–106 MB on the JVM. A native build needs at least 3 GB of RAM.
+- **Binary size:** about 31 MB.
+- **glibc 2.17:** arm64 builds on Oracle Linux 8 with gcc 12 (gcc 4.8 on Oracle Linux 7 lacks outline atomics) and needs `GLIBC_2.17`, the aarch64 baseline. `-march=compatibility` is set because GraalVM defaults to x86-64-v3.
+- **musl:** the x86_64 build with Oracle's musl toolchain is fully static and ran on CentOS 6 through Fedora 44 and Alpine 3.22. musl arm64 was not tried.
+- **Distro matrix:** the full CLI and TUI suite passed on Oracle Linux 7.9, Ubuntu 24.04 (including `noexec` `/tmp`), Debian 13 and Fedora 44 for x86_64, and on Oracle Linux 8.10, Ubuntu 24.04 and Fedora 44 for arm64; Oracle Linux 7.9 arm64, CentOS 6 and Alpine were smoke-tested.
+- **JLine's exec provider:** native builds use it (`TuiLauncher` sets it at runtime). The JNI provider extracts a library to `java.io.tmpdir` on every launch, warns when `/tmp` is `noexec`, and cannot load under musl. The FFM provider is unavailable in Native Image and hangs the TUI.
 
 Rejected: Kotlin (same JVM and native-image constraints, little gain over Java 25). Rust was a viable alternative: smaller binaries, simpler cross-compilation, no native-image metadata, a mature TUI library. None of those blocked Java, and a port would cost about 13k lines including tests.
 
@@ -566,7 +576,7 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 
 - **Everything that carries the name:** the header `⌂ LIGHTEN` (the `⌂` mark stays), Help, dialogs, `--help`, `--version`, the guide, the binary and CI artifacts `lighten-linux-<arch>`, the Kotlin package `io.github.bigswlittlesw.lighten`, class names, the config file `~/.lighten.json` and its key `"lighten"`, the hidden names written to disk (`.lighten-staging`, `.lighten-archive`, `.lighten-replaced-…`, temporary `.lighten-*` files), thread names and CI environment variables. A test renders every screen and Help tab and fails if the old name shows.
 - **No compatibility with the old names:** nothing is released. The README tells anyone who ran an earlier build how to rename the file, its key and leftover folders; the guide does not mention HomeLight.
-- **History stays:** `docs/research/` and the dated entries above keep the old name.
+- **History stays:** the dated entries above keep the old name.
 - **Ecosystem becomes category (user decision):** the suggestion-list level above apps is a **category**, and its JSON key `"ecosystem"` is now `"category"`, in the built-in list, the parser and the fixtures, with no compatibility. "Ecosystem" did not fit Editors or Other tools, and "app group" would clash with an app's own group of directories. Code names, Help's descriptions, the guide and `tui-design.md` follow; headings still show the names (JVM, Python, Editors, Other tools), so only Help's text changes on screen. The #165 entry above keeps the old word.
 - `[skipped: the repository URL, add when the user renames big-sw-little-sw/homelight; then ci/try-pr, the guide URL and the README links follow]`
 

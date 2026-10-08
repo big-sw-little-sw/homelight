@@ -34,3 +34,10 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Local agent and tool state ###
+.agents/
+.claude/
+.codex/
+skills-lock.json
+target/

@@ -73,12 +73,12 @@ class BrowseDraftTest {
 
     private fun shared(): Path {
         val path = temporary.resolve("shared.json")
-        if (!Files.exists(path)) Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), path)
+        if (!Files.exists(path)) Files.copy(Path.of("src/test/resources/suggestion-lists/shared.json"), path)
         return path
     }
 
     private fun worker(): CandidateDiscovery {
-        val bundled = Files.readAllBytes(Path.of("docs/research/session-b-fixtures/nested/bundled.json"))
+        val bundled = Files.readAllBytes(Path.of("src/test/resources/suggestion-lists/bundled.json"))
         return CandidateDiscovery(Workers(), System::nanoTime, Files::readAllBytes,
             { root -> CandidateParser().parse(CandidateCatalog.BUNDLED, root, bundled) }, CandidateMetadata())
     }

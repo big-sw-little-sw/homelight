@@ -25,7 +25,7 @@ class CandidateCatalogTest {
     @Test fun sameSchemaAndLexicalResolutionUnderBothRoots() {
         for (root in listOf(HOME, OTHER)) {
             for (source in listOf(CandidateCatalog.BUNDLED, SHARED)) {
-                val snapshot = parser.parse(source, root, Files.readAllBytes(FIXTURES.resolve("nested/bundled.json")))
+                val snapshot = parser.parse(source, root, Files.readAllBytes(FIXTURES.resolve("bundled.json")))
                 assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
                 assertEquals(6, snapshot.definitions.size)
                 assertEquals(root.resolve(".m2"), snapshot.definitions.first().sourcePath)
@@ -557,10 +557,8 @@ class CandidateCatalogTest {
         }
     }
 
-    private fun fixture(source: CandidateSource, name: String): CandidateCatalog.Snapshot {
-        val directory = if (name == "unsafe.json") FIXTURES else FIXTURES.resolve("nested")
-        return parser.parse(source, HOME, Files.readAllBytes(directory.resolve(name)))
-    }
+    private fun fixture(source: CandidateSource, name: String): CandidateCatalog.Snapshot =
+        parser.parse(source, HOME, Files.readAllBytes(FIXTURES.resolve(name)))
 
     /** Raw-string literals are trimmed so that reported lines and columns count from the first character. */
     private fun parse(text: String, root: Path = HOME): CandidateCatalog.Snapshot =
@@ -569,7 +567,7 @@ class CandidateCatalogTest {
     companion object {
         private val HOME = Path.of("/home/alex")
         private val OTHER = Path.of("/srv/build/alex")
-        private val FIXTURES = Path.of("docs/research/session-b-fixtures")
+        private val FIXTURES = Path.of("src/test/resources/suggestion-lists")
         private val SHARED = CandidateSource(CandidateSource.Kind.SHARED, "/net/team/lighten/candidates.json")
         private const val EMPTY = """{"directories": []}"""
 

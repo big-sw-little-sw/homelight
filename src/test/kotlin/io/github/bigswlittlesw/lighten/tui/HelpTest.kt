@@ -68,7 +68,7 @@ class HelpTest {
     fun thisScreenListsBrowseKeysInEveryView() {
         val home = Files.createDirectories(temporary.resolve("home"))
         Files.createDirectories(home.resolve(".m2"))
-        val shared = Files.copy(Path.of("docs/research/session-b-fixtures/nested/shared.json"), temporary.resolve("shared.json"))
+        val shared = Files.copy(Path.of("src/test/resources/suggestion-lists/shared.json"), temporary.resolve("shared.json"))
         val config = Files.writeString(
             temporary.resolve("config.json"),
             """{"lighten": {"source-root": "$home", "target-root": "${temporary.resolve("local")}", "suggestion-list": "$shared",

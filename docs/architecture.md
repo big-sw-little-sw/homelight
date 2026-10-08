@@ -84,6 +84,14 @@ The TUI retains the exact reviewed plan. Application preflight checks its expect
 
 Destructive actions must be marked explicitly. Symlink handling must avoid accidental traversal. Deletion and replacement must be narrowly scoped to validated intended paths.
 
+## Reconciliation and safety invariants
+
+- **Configuration is desired state.** It names relocations and the rule for each observed state, never a sequence of filesystem operations. The relocation list is an explicit allow-list: suggestions are not managed until the user selects them and they are saved.
+- **Idempotence.** Once a relocation reaches its desired state (a real target directory and a correct source symlink), planning again produces no actions and applying again is safe. `leave-unchanged` is intentional success, not convergence.
+- **Fail closed.** When the desired behavior cannot be determined confidently, Lighten blocks or asks. It never guesses, and never silently overwrites or destroys data.
+- **`--yes` never resolves a choice.** It confirms a plan whose decisions the configuration's rules already resolve. A plan with an open choice or a blocked relocation is refused, with or without `--yes`.
+- **Exclusive ownership.** A path is owned by either Lighten or an external dotfile manager, never both. Lighten owns placement inside a relocated tree; ordinary dotfiles stay with tools such as Stow. Detection works from filesystem state and configured source roots, never from a manager's internals, so it applies equally to chezmoi, yadm or a plain Git checkout. An existing link into an external source root is never silently replaced.
+
 ## Ports and adapters
 
 Use interfaces at real external boundaries, for example:
