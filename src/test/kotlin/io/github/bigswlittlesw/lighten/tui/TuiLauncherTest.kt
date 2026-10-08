@@ -5,6 +5,7 @@ import dev.tamboui.layout.Size
 import dev.tamboui.terminal.AbstractBackend
 import dev.tamboui.tui.TuiConfig
 import dev.tamboui.tui.event.KeyEvent
+import io.github.bigswlittlesw.lighten.HANG_LIMIT
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.LightenSession
@@ -95,7 +96,7 @@ class TuiLauncherTest {
         } finally {
             tasks.first().run()
         }
-        assertTrue(stopped.await(5, TimeUnit.SECONDS))
+        assertTrue(stopped.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
         // The failure itself propagates, so the CLI can name its type and message.
         assertEquals("render fixture failure", assertInstanceOf(IllegalStateException::class.java, thrown.get()).message)
         assertEquals(listOf("raw", "alternate", "hide", "hide", "show", "leave", "close"), backend.lifecycle)

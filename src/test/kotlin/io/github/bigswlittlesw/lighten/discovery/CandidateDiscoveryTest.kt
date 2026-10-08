@@ -11,16 +11,16 @@ import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceProble
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceStatus
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.lighten.HANG_LIMIT
 import io.github.bigswlittlesw.lighten.pollUntil
+import io.github.bigswlittlesw.lighten.withoutHanging
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTimeout
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -28,7 +28,6 @@ import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
-import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -137,9 +136,8 @@ class CandidateDiscoveryTest {
             bytes("{\"directories\": [{\"path\": \"late\"}]}")
         }, "cache", CandidateMetadata())
         try {
-            assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary,
-                    temporary.resolve("shared")) })
-            assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+            withoutHanging { discovery.refresh(temporary, temporary.resolve("shared")) }
+            assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
             // The run does not wait for the shared read.
             awaitResult(discovery) { r -> !r.candidates.isEmpty()
                     && r.candidates.first().observation.kind == Kind.MISSING }
@@ -147,13 +145,12 @@ class CandidateDiscoveryTest {
             clock.set(5_000_000_000L)
             assertProblem(discovery.snapshot(), SourceProblem.Kind.DEADLINE)
             for (i in 0 until 20) {
-                assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary,
-                        temporary.resolve("shared")) })
+                withoutHanging { discovery.refresh(temporary, temporary.resolve("shared")) }
                 assertProblem(discovery.snapshot(), SourceProblem.Kind.PREVIOUS_PENDING)
             }
             assertEquals(1, calls.get())
             assertTrue(workers.sharedRead.get())
-            assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
+            withoutHanging(discovery::close)
             assertTrue(discovery.snapshot().candidates.isEmpty())
             // Reopening a session with the same process workers cannot replace a stuck read.
             discovery(workers, clock, { path -> fail<Unit>("Extra read"); ByteArray(0) },
@@ -180,7 +177,7 @@ class CandidateDiscoveryTest {
                 bytes("{\"directories\": [{\"path\": \"late\"}]}")
             }, "cache", CandidateMetadata()).use { discovery ->
                 discovery.refresh(temporary, temporary.resolve("shared"))
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 clock.set(5_000_000_001L)
                 gate.release.countDown()
                 await { !workers.sharedRead.get() }
@@ -203,7 +200,7 @@ class CandidateDiscoveryTest {
                     bytes("{\"directories\": [{\"path\": \"obsolete\"}]}")
                 }, "cache", CandidateMetadata()).use { discovery ->
                     val first = discovery.refresh(temporary, temporary.resolve("shared"))
-                    assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                    assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                     if (cancel) discovery.cancel()
                     else discovery.refresh(other, other.resolve("new-location"))
                     gate.release.countDown()
@@ -281,12 +278,12 @@ class CandidateDiscoveryTest {
             // Each refresh replaces the run, so every row is pending again; none adds inspections while the
             // earlier ones are stuck.
             for (i in 0 until 20) {
-                assertTimeout(Duration.ofMillis(500), Executable { discovery.refresh(temporary, null) })
+                withoutHanging { discovery.refresh(temporary, null) }
                 val replaced = discovery.snapshot()
                 assertNull(replaced.rootFailure)
                 assertTrue(replaced.candidates.all { c -> c.observation.kind == Kind.PENDING })
             }
-            assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
+            withoutHanging(discovery::close)
             discovery(workers, clock, { p -> bytes("{\"directories\": []}") },
                     "cache0", CandidateMetadata()).use { reopened ->
                 reopened.refresh(temporary, null)
@@ -316,7 +313,7 @@ class CandidateDiscoveryTest {
                 most.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
                 full.countDown()
                 // Hold the first inspections until three run at once.
-                full.await(3, TimeUnit.SECONDS)
+                full.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS)
                 try { return super.attributes(path) } finally { inFlight.decrementAndGet() }
             }
         })
@@ -364,7 +361,7 @@ class CandidateDiscoveryTest {
         try {
             discovery(Workers(), AtomicLong(), { path -> bytes("{\"directories\": []}") }, "cache", metadata).use { discovery ->
                 discovery.refresh(firstRoot, null)
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 val generation = discovery.refresh(secondRoot, null)
                 // The new run waits for the stuck one; its row is queued, not failed.
                 val waiting = discovery.snapshot().candidates.first().observation
@@ -392,13 +389,13 @@ class CandidateDiscoveryTest {
         try {
             discovery(Workers(), clock, { p -> bytes("{\"directories\": [{\"path\": \"team\"}]}") }, "cache", metadata).use { discovery ->
                 discovery.refresh(temporary, temporary.resolve("shared"))
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 awaitResult(discovery) { r -> shared(r).status == SourceStatus.CURRENT }
                 clock.set(METADATA_NANOS)
                 val result = discovery.snapshot()
                 assertEquals(Reason.DEADLINE, checkNotNull(result.rootFailure).reason)
                 assertTrue(result.candidates.all { c -> c.observation.kind == Kind.UNKNOWN })
-                assertTimeout(Duration.ofMillis(500), Executable(discovery::close))
+                withoutHanging(discovery::close)
             }
         } finally { gate.release.countDown() }
     }
@@ -422,7 +419,7 @@ class CandidateDiscoveryTest {
         try {
             discovery(workers, clock, { p -> ByteArray(0) }, "cache", metadata).use { discovery ->
                 discovery.refresh(temporary, null)
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 clock.set(METADATA_NANOS)
                 gate.release.countDown()
                 drain(workers)
@@ -462,8 +459,8 @@ class CandidateDiscoveryTest {
                 }, "cache", metadata).use { discovery ->
                     val root = Path.of(args[0])
                     discovery.refresh(root, root.resolve("shared"))
-                    if (!gate.entered.await(3, TimeUnit.SECONDS)) throw AssertionError("Reader did not start")
-                    if (!metadataGate.entered.await(3, TimeUnit.SECONDS)) throw AssertionError("Metadata did not start")
+                    if (!gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS)) throw AssertionError("Reader did not start")
+                    if (!metadataGate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS)) throw AssertionError("Metadata did not start")
                 }
             }
         }
@@ -479,7 +476,7 @@ class CandidateDiscoveryTest {
                 bytes("{\"directories\": [{\"path\": \"team\"}, {\"path\": \"cache\"}]}")
             }, "cache", CandidateMetadata()).use { discovery ->
                 val generation = discovery.refresh(temporary, temporary.resolve("shared"))
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 val early = awaitResult(discovery) { r -> r.candidates.first().observation.kind == Kind.DIRECTORY }
                 assertEquals(SourceStatus.PENDING, shared(early).status)
                 gate.release.countDown()
@@ -529,7 +526,7 @@ class CandidateDiscoveryTest {
                 awaitResult(discovery, ::finished)
                 block.set(1)
                 val second = discovery.refresh(temporary, null)
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 clock.set(METADATA_NANOS)
                 // No snapshot until the late completion has been recorded.
                 gate.release.countDown()
@@ -558,7 +555,7 @@ class CandidateDiscoveryTest {
                 row(awaitResult(discovery, ::finished), temporary.resolve("team"))
                 block.set(1)
                 discovery.refresh(temporary, location)
-                assertTrue(gate.entered.await(3, TimeUnit.SECONDS))
+                assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
                 clock.set(5_000_000_000L)
                 val timed = discovery.snapshot()
                 assertEquals(SourceStatus.FAILED, shared(timed).status)
@@ -607,7 +604,7 @@ class CandidateDiscoveryTest {
         private fun drain(workers: Workers) {
             val drained = CountDownLatch(1)
             workers.chain { drained.countDown() }
-            assertTrue(drained.await(3, TimeUnit.SECONDS), "Discovery runs did not finish")
+            assertTrue(drained.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS), "Discovery runs did not finish")
         }
     }
 
