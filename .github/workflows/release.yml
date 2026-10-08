@@ -1,0 +1,160 @@
+name: Release
+
+# Pushing a tag v<semver> publishes a GitHub Release: both Linux binaries, SHA256SUMS and notes
+# generated from the pull requests merged since the previous release.
+# A manual run, or a pull request that changes the release build, is a dry run: the same build,
+# uploaded as a workflow artifact, never published.
+# Asset names are a public contract; see "Release assets" in docs/decisions.md.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: ['.github/workflows/release.yml', 'ci/native/build*.sh']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build, without the v. A manual run never publishes.
+        required: true
+        default: 0.0.0-dry-run
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Release gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: version
+        env:
+          # A tag push gives v<version>; a manual run gives the version alone.
+          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version || '0.0.0-dry-run' }}
+        run: |
+          version=${VERSION#v}
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+          if [[ ! $version =~ $semver || $version == *-SNAPSHOT ]]; then
+            echo "::error::'$VERSION' is not v<major>.<minor>.<patch>[-<pre-release>]"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # Release only a commit on main whose required checks all passed. The names are the required
+      # status checks of main's branch protection (ci.yml); GITHUB_TOKEN cannot read the protection.
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name != 'push' }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          problems=()
+          git merge-base --is-ancestor "$sha" origin/main || problems+=("$sha is not on main")
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?per_page=100" \
+            --jq '.check_runs[] | select(.conclusion == "success") | .name')
+          for check in 'JVM verify' \
+              'Native build (x86_64)' 'Native build (arm64)' \
+              'Native test (x86_64)' 'Native test (arm64)' \
+              'Native distros (x86_64)' 'Native distros (arm64)'; do
+            grep -qxF "$check" <<< "$passed" || problems+=("check '$check' has not passed on $sha")
+          done
+          for problem in "${problems[@]}"; do
+            if [ "$DRY_RUN" = true ]; then echo "::warning::$problem (ignored in a dry run)"
+            else echo "::error::$problem"; fi
+          done
+          [ "$DRY_RUN" = true ] || [ ${#problems[@]} -eq 0 ]
+
+  build:
+    name: Release build (${{ matrix.arch }})
+    needs: gate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04, asset: linux-x86_64-musl }
+          - { arch: arm64, runner: ubuntu-24.04-arm, asset: linux-aarch64-gnu }
+    env:
+      VERSION: ${{ needs.gate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+      # The same caches as ci.yml's native-build; a tag's run can restore main's.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/lighten-ci/dl
+          key: native-dl-${{ matrix.arch }}-${{ hashFiles('ci/native/build.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/lighten-ci/gradle/wrapper/dists
+            ~/.cache/lighten-ci/gradle/caches/modules-2
+          key: native-gradle-${{ matrix.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', '*.gradle.kts') }}
+          restore-keys: native-gradle-${{ matrix.arch }}-
+      - run: RELEASE_VERSION="$VERSION" ci/native/build.sh ${{ matrix.arch }} dist
+      # The gate's checks tested this source as a SNAPSHOT; this build differs only in the version.
+      - name: Check the version and guide link
+        run: |
+          [ "$(dist/lighten --version)" = "lighten $VERSION" ] || { dist/lighten --version; exit 1; }
+          dist/lighten --help | grep -F "/blob/v$VERSION/docs/user-guide.md"
+          mkdir assets
+          mv dist/lighten "assets/lighten-$VERSION-${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.asset }}
+          path: assets/
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    name: ${{ github.event_name == 'push' && 'Publish' || 'Dry run' }}
+    needs: [gate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.gate.outputs.version }}
+      SHA: ${{ needs.gate.outputs.sha }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: assets
+      - name: Checksums and release notes
+        run: |
+          chmod +x assets/lighten-*
+          (cd assets && sha256sum lighten-* > SHA256SUMS)
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="v$VERSION" -f target_commitish="$SHA" --jq .body > notes.md
+          {
+            echo "### Lighten $VERSION"
+            echo '```'; cat assets/SHA256SUMS; echo '```'
+            cat notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - if: github.event_name != 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-run-v${{ env.VERSION }}
+          path: |
+            assets/
+            notes.md
+          if-no-files-found: error
+          retention-days: 7
+      # A version with a pre-release part (1.0.0-rc.1) is marked pre-release, so tools that
+      # install the latest release skip it.
+      - if: github.event_name == 'push'
+        run: |
+          gh release create "v$VERSION" assets/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Lighten $VERSION" --notes-file notes.md \
+            $([[ $VERSION == *-* ]] && echo --prerelease)

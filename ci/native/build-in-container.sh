@@ -28,7 +28,7 @@ cd /work
 gradle() { ./gradlew --no-daemon --console=plain "$@"; }
 
 start=$(date +%s)
-gradle nativeCompile installDist
+gradle ${RELEASE_VERSION:+-PreleaseVersion=$RELEASE_VERSION} nativeCompile installDist
 echo "native build: $(( $(date +%s) - start ))s, NATIVE_IMAGE_OPTIONS=$NATIVE_IMAGE_OPTIONS"
 
 # Fail the build when the binary needs more of the C library than the release target allows.
