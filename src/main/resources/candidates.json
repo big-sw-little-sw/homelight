@@ -23,6 +23,14 @@
       ]
     },
     {
+      "name": "SDKMAN",
+      "category": "JVM",
+      "directories": [
+        {"path": ".sdkman/candidates", "advice": "consider", "reason": "SDKs installed by SDKMAN"},
+        {"path": ".sdkman/tmp", "advice": "consider", "reason": "SDKMAN downloaded archives"}
+      ]
+    },
+    {
       "name": "Cargo",
       "category": "Rust",
       "directories": [
@@ -82,6 +90,63 @@
       ]
     },
     {
+      "name": "Volta",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".volta/tools", "advice": "consider", "reason": "Node.js versions and tools managed by Volta"}
+      ]
+    },
+    {
+      "name": "fnm",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".local/share/fnm/node-versions", "advice": "consider", "reason": "Node.js versions managed by fnm"}
+      ]
+    },
+    {
+      "name": "Deno",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/deno", "advice": "consider", "reason": "Deno cache"}
+      ]
+    },
+    {
+      "name": "Corepack",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/node/corepack", "advice": "consider", "reason": "Package managers downloaded by Corepack"}
+      ]
+    },
+    {
+      "name": "Playwright",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/ms-playwright", "advice": "consider", "reason": "Browsers downloaded by Playwright"}
+      ]
+    },
+    {
+      "name": "Puppeteer",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/puppeteer", "advice": "consider", "reason": "Browsers downloaded by Puppeteer"}
+      ]
+    },
+    {
+      "name": "Cypress",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/Cypress", "advice": "consider", "reason": "Cypress app binaries"}
+      ]
+    },
+    {
+      "name": "Electron",
+      "category": "JavaScript",
+      "directories": [
+        {"path": ".cache/electron", "advice": "consider", "reason": "Electron downloads"},
+        {"path": ".cache/electron-builder", "advice": "consider", "reason": "electron-builder downloads"}
+      ]
+    },
+    {
       "name": "pip",
       "category": "Python",
       "directories": [
@@ -135,10 +200,39 @@
       ]
     },
     {
+      "name": "pyenv",
+      "category": "Python",
+      "directories": [
+        {"path": ".pyenv/versions", "advice": "consider", "reason": "Python versions installed by pyenv"}
+      ]
+    },
+    {
+      "name": "rbenv",
+      "category": "Ruby",
+      "directories": [
+        {"path": ".rbenv/versions", "advice": "consider", "reason": "Ruby versions installed by rbenv"}
+      ]
+    },
+    {
       "name": "Go",
       "category": "Go",
       "directories": [
         {"path": ".cache/go-build", "advice": "consider", "reason": "Go build cache"}
+      ]
+    },
+    {
+      "name": "mise",
+      "category": "Version managers",
+      "directories": [
+        {"path": ".local/share/mise/installs", "advice": "consider", "reason": "Tool versions installed by mise"},
+        {"path": ".cache/mise", "advice": "consider", "reason": "mise cache"}
+      ]
+    },
+    {
+      "name": "asdf",
+      "category": "Version managers",
+      "directories": [
+        {"path": ".asdf/installs", "advice": "consider", "reason": "Tool versions installed by asdf"}
       ]
     },
     {

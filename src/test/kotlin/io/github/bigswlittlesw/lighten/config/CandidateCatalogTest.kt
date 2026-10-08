@@ -423,12 +423,14 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(29, snapshot.definitions.size)
+        assertEquals(45, snapshot.definitions.size)
         assertEquals(listOf(
                 ".m2|JVM|Maven|Maven local repository",
                 ".gradle/caches|JVM|Gradle|Gradle caches",
                 ".gradle/wrapper|JVM|Gradle|Gradle wrapper distributions",
                 ".jbang/cache|JVM|JBang|JBang compiled scripts, downloaded content, and cached JDKs",
+                ".sdkman/candidates|JVM|SDKMAN|SDKs installed by SDKMAN",
+                ".sdkman/tmp|JVM|SDKMAN|SDKMAN downloaded archives",
                 ".cargo|Rust|Cargo|Rust toolchain and package state",
                 ".rustup|Rust|rustup|Rust toolchains",
                 ".npm|JavaScript|npm|npm cache",
@@ -440,6 +442,15 @@ class CandidateCatalogTest {
                 ".cache/node-gyp|JavaScript|node-gyp|node-gyp cache",
                 ".nvm|JavaScript|nvm|Node.js versions managed by nvm",
                 ".bun/install/cache|JavaScript|Bun|Bun package cache",
+                ".volta/tools|JavaScript|Volta|Node.js versions and tools managed by Volta",
+                ".local/share/fnm/node-versions|JavaScript|fnm|Node.js versions managed by fnm",
+                ".cache/deno|JavaScript|Deno|Deno cache",
+                ".cache/node/corepack|JavaScript|Corepack|Package managers downloaded by Corepack",
+                ".cache/ms-playwright|JavaScript|Playwright|Browsers downloaded by Playwright",
+                ".cache/puppeteer|JavaScript|Puppeteer|Browsers downloaded by Puppeteer",
+                ".cache/Cypress|JavaScript|Cypress|Cypress app binaries",
+                ".cache/electron|JavaScript|Electron|Electron downloads",
+                ".cache/electron-builder|JavaScript|Electron|electron-builder downloads",
                 ".cache/pip|Python|pip|pip cache",
                 ".cache/uv|Python|uv|uv cache",
                 ".local/share/uv|Python|uv|uv-managed Python installations",
@@ -451,14 +462,19 @@ class CandidateCatalogTest {
                 ".cache/rattler|Python|pixi|pixi package cache, shared with other rattler-based tools",
                 ".cache/pixi|Python|pixi|pixi package cache, used instead of .cache/rattler when this directory exists",
                 ".pixi/envs|Python|pixi|pixi global tool environments",
+                ".pyenv/versions|Python|pyenv|Python versions installed by pyenv",
+                ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
                 ".cache/go-build|Go|Go|Go build cache",
+                ".local/share/mise/installs|Version managers|mise|Tool versions installed by mise",
+                ".cache/mise|Version managers|mise|mise cache",
+                ".asdf/installs|Version managers|asdf|Tool versions installed by asdf",
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server"
         ), snapshot.definitions.map { d -> d.originalPath + "|" + d.category + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "Yarn", "pnpm", "uv", "pixi")) {
+        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi", "mise")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -496,7 +512,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 29 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 45 else 0, definitions.size)
             }
         }
     }
