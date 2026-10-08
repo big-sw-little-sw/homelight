@@ -8,6 +8,7 @@ import io.github.bigswlittlesw.lighten.fifoAt
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.socketAt
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeFalse
@@ -65,14 +66,15 @@ class ReconciliationExecutorTest {
         assertTrue(Files.notExists(replacedSourcePath(source.parent, target), LinkOption.NOFOLLOW_LINKS))
     }
 
-    /** One that appears after planning stops the copy without opening it, which would wait for a writer. */
+    /** Planning doesn't look for one; the copy stops without opening it, which would wait for a writer. */
     @Test
-    fun aNamedPipeThatAppearsAfterPlanningStopsTheCopy(@TempDir root: Path) {
+    fun aNamedPipeStopsTheCopyAndNothingMoves(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache/sub"))
         Files.writeString(source.resolve("entry"), "source")
+        val pipe = fifoAt(source.resolve("ipc"))
         val target = root.resolve("local/cache")
         val plan = plan(Relocation(source.parent, target))
-        val pipe = fifoAt(source.resolve("ipc"))
+        assertFalse(plan.hasBlockedActions())
 
         val result = assertTimeoutPreemptively(Duration.ofSeconds(20)) { ReconciliationExecutor().execute(plan) }
 

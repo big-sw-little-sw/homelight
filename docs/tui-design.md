@@ -289,9 +289,7 @@ The details pane answers, in this order:
 3. **Will do:** the consequence of the current rule or choice. Without a choice:
    `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
    reason, such as `Problem: /scratch/archive is a file, not a folder.` when a
-   folder a step would create or work in is something else, or `Problem:
-   /home/me/.cache/tool/ipc is a named pipe; Lighten can't move it.` (or `a device file`) for
-   the first one found in a folder to move. When one of the
+   folder a step would create or work in is something else. When one of the
    row's choices plans without that folder, the next line is `Or choose an
    option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply, only when one is needed. While archiving
@@ -462,8 +460,12 @@ space left on device.`). A failure Lighten cannot name, such as an internal
 error, shows its text as it is.
 
 A completed copy that left out sockets says so in place of its text, in the
-same colour: `Skipped 1 socket; programs recreate these.` `apply --json`
-keeps the executor's text, which names them.
+same colour. It names one (`Skipped ~/.local/share/zed/zed-stable.sock;
+programs recreate it.`) and counts several (`Skipped 3 sockets; programs
+recreate them.`). `apply --json` keeps the executor's text, which names them
+all. A copy that reaches a named pipe or device file fails with `~/x/ipc is
+a named pipe; Lighten can't move it, so it threw the copy away and moved
+nothing. Remove it, or move this folder yourself.`
 
 ## 7. Configuration
 
@@ -477,8 +479,8 @@ list does not show it.
   root filled in and focuses its Source; `d` removes the selected row; `b`
   opens Browse; Enter, → or Tab move to the fields.
 - With no relocations, the list says how to add one, in dim text under
-  `Storage locations`: `No directories yet.`, then `Press b to pick from 44
-  built-in suggestions (Maven, Cargo, npm, pip, …), or a to type one
+  `Storage locations`: `No directories yet.`, then `Press b to pick from 59
+  built-in suggestions (JetBrains, pip, Cargo, Conan, …), or a to type one
   yourself.` The count is the built-in list's directories, as Browse counts
   them, and the examples are the first app of each of its first four
   categories; both come from the list, never from the code. While a field
@@ -510,10 +512,10 @@ list does not show it.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
   **Suggestion list** (placeholder `optional; adds to built-in list`, which
   fits the 32-cell field at 80 columns) with help "Lighten already includes
-  44 suggestions for common tools (Maven, Cargo, npm, pip, …). Use this field
-  only to add a list of your own, for example one shared by your team. Both
-  lists are merged; yours wins where they overlap.", count and examples as
-  in the empty list.
+  59 suggestions for common tools (JetBrains, pip, Cargo, Conan, …). Use this
+  field only to add a list of your own, for example one shared by your team.
+  Both lists are merged; yours wins where they overlap.", count and examples
+  as in the empty list.
 - Relocation fields: **Source**, **Target** (blank derives it from the target
   root; a source outside the source root needs one), **Both exist**, **Only
   target**, **Archive root** (blank means the default beside the source).
@@ -583,8 +585,8 @@ screen never says "candidate" or "draft".
   first; `Other tools`, then `Other directories`, come last.
 
   `❯` is one cell; the selected row is bold. Groups do not
-  collapse. The selection follows an item: checking again, `u`, adding and
-  removing never move it to another row. When the selected row is hidden,
+  collapse. The selection follows an item: checking again, `u`, `f`, adding
+  and removing never move it to another row. When the selected row is hidden,
   the row at its place is selected and stays selected. Rows keep the place
   they were first listed in.
 - Marks: `○` not in the configuration, `●` in it (saved earlier or added
@@ -620,6 +622,29 @@ screen never says "candidate" or "draft".
 - A directory is hidden only when every list that names it marks it usually
   not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
   Rows already in the configuration, and ignored rows, are never hidden.
+- A **count line** under the Lists lines says how many listed directories
+  are found on this machine: the last check saw a directory or a link there.
+  A link counts, as a directory Lighten has moved is one. It reads
+  `Checking this machine…` until every row is checked, then `12 found on this
+  machine`, with the hidden count after a ` · ` on the same line, so the list
+  keeps its rows at 80x24. `f` (`f: Found only`, `f: Show all`) shows only
+  the found directories, and those in the configuration, which are never
+  hidden, as with `u`; their `●` and note set them apart. The line then adds
+  `, plus 2 in your configuration` when such rows are not found, else `, only
+  these shown`. The hidden count then counts only found ones. A heading with
+  nothing shown beneath it is not listed, and a heading's `1 of 2 added`
+  counts only its shown directories. Found rows keep their list order: nothing sorts them first.
+  `f` sits on the navigation help line, as the other line is full at 80
+  columns; Help lists it under Do. It is offered when something is found,
+  and always while on, so it can be turned off. With nothing found and `f`
+  on, the list reads `None found on this machine. Press f to show every
+  suggestion.`
+- While `f` is on, Space on a heading adds only the found directories under
+  it, and Help says so (`Add every directory under it found on this machine
+  that can be added`). The line after it names what it skipped: `Added 2.
+  Skipped 3 not found on this machine; f shows all.` Taking a group out is
+  unchanged: every directory in the configuration under it is shown.
+  Browse opens with `f` off, on a first run too.
 - `r` is **Check again**: it reads the lists again and rows read `checking…`
   until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size

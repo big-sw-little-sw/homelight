@@ -150,9 +150,10 @@ Browse, inside Configuration, suggests directories to move. The suggestions
 come from two suggestion lists:
 
 - **The built-in list.** It comes with Lighten and names directories that
-  are usually large and safe to move: package caches, toolchains, and the
-  versions that version managers install, for Maven, Gradle, SDKMAN, npm,
-  Playwright, pip, uv, pyenv, rbenv, Cargo, Go, mise, VS Code and others.
+  are usually large and safe to move: package caches, build caches,
+  toolchains and SDKs, and the versions that version managers install, for
+  Maven, Gradle, npm, pip, uv, pyenv, Cargo, Conan, vcpkg, ccache, Bazel,
+  Go, the Android SDK, mise, VS Code, Zed and others.
 - **Your list** (optional). A file you write, for example one on a shared
   drive that everyone on your team uses. Browse always shows the built-in
   list too.
@@ -163,8 +164,8 @@ with its location, its number of suggestions and the day its file last
 changed. If your list could not be used, its line says why. Press `i` for
 the full detail.
 
-Below them, the suggestions are listed under their category, such as JVM,
-Python or JavaScript, and under it the name of their app. Apps with no
+Below them, the suggestions are listed under their category, such as
+Editors, Python or C and C++, and under it the name of their app. Apps with no
 category are under "Other tools", and directories with no app under
 "Other directories", at the end. Each directory has a mark:
 
@@ -193,6 +194,12 @@ when every list that names it says so, and counts what it hid. Press `u` to
 show them. A directory already in your configuration, or one you ignore,
 is never hidden.
 
+Under the lists, a line such as `12 found on this machine` counts the
+suggested directories that exist on this machine. Press `f` to show only
+those, and `f` again to show all. Directories in your configuration are
+always shown. While `f` is on, `Space` on a category's or app's name adds
+only the found directories under it.
+
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app
 different categories, Browse uses your list's. Select a suggestion and press
@@ -213,12 +220,12 @@ A suggestion list is a JSON file. For example:
   // Suggestions for Lighten's Browse.
   "apps": [
     {
-      "name": "Bazel",
-      "category": "Build",
+      "name": "Hugging Face",
+      "category": "Machine learning",
       "directories": [
-        {"path": ".cache/bazel", "advice": "consider",
-         "reason": "Build outputs, rebuilt when needed",
-         "caution": "Run bazel shutdown before moving it"}
+        {"path": ".cache/huggingface", "advice": "consider",
+         "reason": "Downloaded models and datasets",
+         "caution": "Stop running notebooks before moving it"}
       ]
     },
     {
@@ -242,8 +249,8 @@ A suggestion list is a JSON file. For example:
   under, such as `Python`. An app with none is under "Other tools". To move
   a built-in app, such as Gradle, under another heading, name it in your
   list with the category you want and at least one of its directories.
-- `path` is relative to your home directory: `.cache/bazel`, not
-  `~/.cache/bazel` or `/home/me/.cache/bazel`. It cannot use `..`,
+- `path` is relative to your home directory: `.cache/huggingface`, not
+  `~/.cache/huggingface` or `/home/me/.cache/huggingface`. It cannot use `..`,
   variables such as `$USER`, or wildcards.
 - `advice` is optional: `consider` or `usually-unnecessary`.
 - `reason` is optional. Browse shows it with the suggestion.
@@ -366,15 +373,17 @@ links. Lighten can't copy them:
 - **Sockets** are how a running program listens for others. Lighten leaves
   them out of the copy, and the program makes a new one when it starts. A
   program that was killed often leaves its socket behind. In Results, the
-  copy step says `Skipped 1 socket; programs recreate these.` Once the
-  source is replaced with a link, the socket is gone from both places, so
-  close the program before you apply.
-- **Named pipes and device files** block the move: the Workspace marks the
-  relocation `[Blocked]` and its Details name the first one, such as
-  `Problem: /home/me/.cache/tool/ipc is a named pipe; Lighten can't move it.`
-  Remove it, or move the directory yourself, then press `r`. If one appears
-  after the plan was made, the copy stops, Lighten throws the copy away and
-  nothing moves.
+  copy step names it, such as `Skipped ~/.local/share/zed/zed-stable.sock;
+  programs recreate it.`, or counts several. Once the source is replaced
+  with a link, the socket is gone from both places, so close the program
+  before you apply.
+- **Named pipes and device files** stop the move. The plan doesn't look for
+  them, since that would mean reading every file of every folder to move
+  each time Lighten checks. When the copy reaches one, Lighten throws the
+  copy away and nothing moves. The copy step names it, such as
+  `~/.cache/tool/ipc is a named pipe; Lighten can't move it, so it threw the
+  copy away and moved nothing. Remove it, or move this folder yourself.`
+  Then press `r`.
 
 ### Scripting
 

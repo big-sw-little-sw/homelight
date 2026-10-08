@@ -122,8 +122,8 @@ class ApplyViewTest {
         val result = ApplyModel.Result.of(plan, steps, null, listOf(), false)
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
             val details = WorkspaceViewTest.rightPane(render(result, 1, size[0], size[1]), size[0]).filterNot(Char::isWhitespace)
-            assertTrue(details.contains("Skipped 1 socket; programs recreate these.".filterNot(Char::isWhitespace)), details)
-            assertFalse(details.contains("app.sock"), details)
+            assertTrue(details.contains("Skipped /home/cache/app.sock; programs recreate it.".filterNot(Char::isWhitespace)), details)
+            assertFalse(details.contains("completed"), details)
         }
     }
 

@@ -14,8 +14,6 @@ import java.nio.file.Path
  * `replacedSource` is the observation at [replacedSourcePath]; null when it was not observed, which plans as absent.
  * `notFolders` maps each folder an action may create or work in to what is in its way (see [inspectFolders]); a
  * folder with no entry plans as usable.
- * `unmovable` is the first named pipe or device file under the source (see [firstUnmovable]). It is looked for only
- * when the source is a folder and the target is absent, the one state that plans a copy; null plans as none.
  */
 data class RelocationState(
     val relocation: Relocation,
@@ -24,7 +22,6 @@ data class RelocationState(
     val archiveDestination: ArchiveDestination? = null,
     val replacedSource: PathObservation? = null,
     val notFolders: Map<Path, NotAFolder> = mapOf(),
-    val unmovable: SpecialFile? = null,
 ) {
     /** The no-follow observation of the source's archive destination, chosen by [inspectArchiveDestinations]. */
     data class ArchiveDestination(val path: Path, val observation: PathObservation)
@@ -38,14 +35,10 @@ internal fun inspectRelocations(
     relocations: List<Relocation>, inspect: (Path) -> PathObservation,
 ): List<RelocationState> =
     relocations.zip(inspectArchiveDestinations(relocations, inspect)) { relocation, archive ->
-        val source = inspect(relocation.sourcePath)
-        val target = inspect(relocation.targetPath)
-        val copying = source.state == PathState.DIRECTORY && target.state == PathState.ABSENT
         RelocationState(
-            relocation, source, target, archive,
+            relocation, inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
             inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
             inspectFolders(relocation, archive.path, inspect),
-            if (copying) firstUnmovable(relocation.sourcePath) else null,
         )
     }
 

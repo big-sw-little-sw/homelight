@@ -35,10 +35,7 @@ sealed interface ActionFailure {
     /** The staged copy of [entry], a path under the source, did not match it as [difference] says. Nothing was published. */
     data class CopyChanged(val entry: Path, val difference: CopyDifference) : ActionFailure
 
-    /**
-     * [entry], a path under the source, is a named pipe or device file, which the copy can't make: it appeared after
-     * planning, which blocks a source that has one. Nothing was published.
-     */
+    /** [entry], a path under the source, is a named pipe or device file, which the copy can't make. Nothing was published. */
     data class Unmovable(val entry: Path, val kind: SpecialFileKind) : ActionFailure
 
     /** The staged copy of the folder [entry] has other permission bits than it. Nothing was published. */

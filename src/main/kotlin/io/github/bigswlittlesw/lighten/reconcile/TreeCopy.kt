@@ -69,7 +69,7 @@ private fun entryFailure(failure: Throwable): IOException {
  * `destination` must not exist yet.
  *
  * Sockets are skipped: a socket can't be copied, and programs recreate theirs. A named pipe or device file stops the
- * copy. The planner blocks a source that has one, so here it appeared after planning.
+ * copy. Planning does not look for them: that would walk every source tree on every check (decision 2026-10-08).
  */
 internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = fileVisitor {
     onPreVisitDirectory { directory, _ ->
@@ -138,22 +138,14 @@ private fun copyChanged(entry: Path, difference: CopyDifference, message: String
     EnvironmentException(ActionFailure.CopyChanged(entry, difference), message)
 
 private fun unmovable(entry: Path, kind: SpecialFileKind) =
-    EnvironmentException(ActionFailure.Unmovable(entry, kind), "cannot copy ${specialFileWords(kind)}: $entry")
+    EnvironmentException(
+        ActionFailure.Unmovable(entry, kind), "cannot copy ${kind.name.lowercase().replace('_', ' ')}: $entry",
+    )
 
 private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))
 
 /** The kinds of file the copy can't make as it makes files, links and folders. */
 enum class SpecialFileKind { SOCKET, NAMED_PIPE, DEVICE }
-
-/** A named pipe or device file under a source, which the copy can't make, so the planner blocks the move. */
-data class SpecialFile(val path: Path, val kind: SpecialFileKind)
-
-/** [kind] with its article, for a sentence: `a named pipe`. Plan reasons and Results share these words. */
-internal fun specialFileWords(kind: SpecialFileKind): String = when (kind) {
-    SpecialFileKind.SOCKET -> "a socket"
-    SpecialFileKind.NAMED_PIPE -> "a named pipe"
-    SpecialFileKind.DEVICE -> "a device file"
-}
 
 /**
  * The [SpecialFileKind] of [path], without following a link, or null for any other kind of file.
@@ -176,28 +168,3 @@ private const val S_IFIFO = 0x1000
 private const val S_IFCHR = 0x2000
 private const val S_IFBLK = 0x6000
 
-/**
- * The first named pipe or device file under [root], or null when there is none. Walks without following links and
- * stops at the first one, in directory order. It passes over entries it can't read, which the copy then reports.
- *
- * This reads the type of every entry, so inspection calls it only where a copy is planned (decision 2026-10-08).
- */
-internal fun firstUnmovable(root: Path): SpecialFile? {
-    var found: SpecialFile? = null
-    Files.walkFileTree(root, fileVisitor {
-        onVisitFile { file, attributes ->
-            val kind = if (attributes.isOther) kindIfReadable(file) else null
-            if (kind == null || kind == SpecialFileKind.SOCKET) FileVisitResult.CONTINUE
-            else FileVisitResult.TERMINATE.also { found = SpecialFile(file, kind) }
-        }
-        onVisitFileFailed { _, _ -> FileVisitResult.CONTINUE }
-        onPostVisitDirectory { _, _ -> FileVisitResult.CONTINUE }
-    })
-    return found
-}
-
-private fun kindIfReadable(path: Path): SpecialFileKind? = try {
-    specialFileKind(path)
-} catch (_: IOException) {
-    null
-}

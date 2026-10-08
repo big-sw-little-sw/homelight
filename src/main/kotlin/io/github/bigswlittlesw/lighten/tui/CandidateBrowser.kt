@@ -29,10 +29,11 @@ internal sealed interface BrowseAction {
     data class Remove(val row: Int) : BrowseAction
 
     /**
-     * Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried, and
-     * `ignored` those skipped because they are ignored.
+     * Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried,
+     * `ignored` those skipped because they are ignored, and `notFound` those left out because only found directories
+     * are shown.
      */
-    data class AddAll(val sources: List<Path>, val unaddable: Int, val ignored: Int) : BrowseAction
+    data class AddAll(val sources: List<Path>, val unaddable: Int, val ignored: Int, val notFound: Int) : BrowseAction
 
     /** Ignore `source`, taking the relocation at `row` out of the draft when it is in it. */
     data class Ignore(val source: Path, val row: Int?) : BrowseAction
@@ -52,7 +53,7 @@ internal sealed interface BrowseAction {
  * and the suggestion lists' state one key away. The selected row and draft membership are independent states.
  *
  * The selection follows an item, not a position: Browse keeps the selected item and sets the list's index from it on
- * every frame, so checking again, `u` and a row added or removed never move it to another item. When the item is no
+ * every frame, so checking again, `u`, `f` and a row added or removed never move it to another item. When the item is no
  * longer listed, the row at its place becomes the selected item. Rows keep the order they were first listed in, so
  * a row taken out and kept listed (see [BrowseDraft]) stays where it was.
  *
@@ -95,6 +96,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     private val order = linkedSetOf<Path>()
     private var view = View.LIST
     private var reveal = false
+    // Only the directories found on this machine are shown (`f`).
+    private var foundOnly = false
     private var message = ""
 
     /** `interactive` is false while a dialog is open over Browse. */
@@ -114,7 +117,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             ).fill()
             View.LIST -> Toolkit.column(*listOfNotNull(
                 *listLines(draft).map { wrappedText(it.text, it.color) }.toTypedArray(),
-                hiddenCount(draft).takeIf { it > 0 }?.let { wrappedText(hiddenLine(it, reveal), palette.warn) },
+                countLine(draft)?.let { wrappedText(it, palette.text) },
                 framed(Toolkit.panel(BROWSE_NAME, suggestions(draft)), focused = true),
                 messageLine, help,
             ).toTypedArray()).fill()
@@ -124,7 +127,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     /** The list of suggestions, its selection set from [focus]; or a line saying there are none yet. */
     private fun suggestions(draft: BrowseDraft): Element {
         val rows = rows(draft)
-        if (rows.isEmpty()) return wrappedText(NO_SUGGESTIONS, palette.dim)
+        if (rows.isEmpty()) return wrappedText(if (foundOnly) NONE_FOUND else NO_SUGGESTIONS, palette.dim)
         shown = selectedIndex(rows)
         focus = rows[shown].item
         // Rebuilt every frame, so rows follow the draft and discovery.
@@ -182,6 +185,10 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                             is Item.Category, is Item.App, null -> null
                         },
                         KeyHint("Esc", "Back", description = BACK_TO_CONFIGURATION_LIST),
+                        // On this line for room: the other one is full at 80 columns. Offered while on even when
+                        // nothing is found, so the filter can always be turned off.
+                        KeyHint("f", if (foundOnly) "Show all" else "Found only", description = showFoundOnly(foundOnly), acts = true)
+                            .takeIf { foundOnly || foundCount(draft) > 0 },
                         HOME_END_KEYS.takeIf { item != null },
                     ),
                     listOf(
@@ -215,12 +222,18 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             key.isChar(' ') && (item is Item.Category || item is Item.App) -> {
                 message = ""
                 val members = rows(draft).firstOrNull { it.item == item }?.entries.orEmpty()
+                // While `f` is on, Space adds none of the group's directories that are not found, and says so. Every
+                // row in the configuration is shown, so taking a group out is the same either way.
+                val unshown = if (foundOnly) {
+                    rows(draft, foundOnly = false).firstOrNull { it.item == item }?.entries.orEmpty().filterNot(::shownWhenFiltered)
+                } else listOf()
                 return when (groupState(members, draft)) {
                     GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
                     GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
                         members.filter { it.row == null && draft.canAdd(it) }.map(::path),
                         unaddable = members.count { it.row == null && !it.ignored && !draft.canAdd(it) },
                         ignored = members.count { it.ignored },
+                        notFound = unshown.count { it.row == null && draft.canAdd(it) },
                     )
                     GroupState.EMPTY -> null
                 }
@@ -241,6 +254,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             view == View.DETAILS -> scroll(key)
             key.isCharIgnoreCase('i') -> { view = View.LISTS; viewport.reset(); message = "" }
             key.isCharIgnoreCase('u') && hiddenCount(draft) > 0 -> reveal = !reveal
+            key.isCharIgnoreCase('f') && (foundOnly || foundCount(draft) > 0) -> { foundOnly = !foundOnly; message = "" }
             key.isKey(KeyCode.ENTER) && item is Item.Directory -> { focus = item; view = View.DETAILS; viewport.reset() }
             key.isUp() || key.isDown() -> move(draft) { index, _ -> index + if (key.isUp()) -1 else 1 }
             key.isHome() || key.isEnd() -> move(draft) { _, last -> if (key.isEnd()) last else 0 }
@@ -257,8 +271,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
      * After [BrowseAction.AddAll]: `added` were added, and each of `overlapped` was not, naming the relocation it
      * overlaps when known. Says so only when something was skipped.
      */
-    fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int, ignored: Int) {
-        message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable, ignored).orEmpty()
+    fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int, ignored: Int, notFound: Int) {
+        message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable, ignored, notFound).orEmpty()
     }
 
     fun back(): Boolean {
@@ -310,8 +324,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     private fun groupKey(heading: Item, state: GroupState): KeyHint? {
         val category = heading is Item.Category
         return when (state) {
-            GroupState.ALL -> KeyHint("Space", "Remove all", description = if (category) REMOVE_CATEGORY else REMOVE_GROUP)
-            GroupState.SOME, GroupState.NONE -> KeyHint("Space", "Add all", description = if (category) ADD_CATEGORY else ADD_GROUP)
+            GroupState.ALL -> KeyHint(
+                "Space", "Remove all",
+                description = if (category) REMOVE_CATEGORY else REMOVE_GROUP,
+            )
+            GroupState.SOME, GroupState.NONE -> KeyHint(
+                "Space", "Add all", description = if (foundOnly) ADD_FOUND else if (category) ADD_CATEGORY else ADD_GROUP,
+            )
             GroupState.EMPTY -> null
         }
     }
@@ -319,11 +338,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     /**
      * The shown rows in screen order: each category's heading, then each of its apps' headings with the app's
      * directories. A directory's app is its first definition's, which is your list's when it names one. Categories and
-     * apps keep the order they first appear in; Other tools, then Other directories, come last.
+     * apps keep the order they first appear in; Other tools, then Other directories, come last. A heading with no
+     * shown directory beneath it is not listed.
      */
-    private fun rows(draft: BrowseDraft): List<Row> {
+    private fun rows(draft: BrowseDraft, foundOnly: Boolean = this.foundOnly): List<Row> {
         val categories = categories(draft)
-        val tops = listed(draft).values.filter { entry -> reveal || !hidden(entry, draft) }
+        val tops = listed(draft).values
+            .filter { entry -> (reveal || !hidden(entry, draft)) && (!foundOnly || shownWhenFiltered(entry)) }
             .groupBy { entry -> app(entry)?.let { Item.Category(categories[it]) } ?: Item.App(null) }
         fun directories(entries: List<BrowseDraft.Entry>) = entries.map { Row(Item.Directory(path(it)), listOf(it)) }
         // A stable sort, so the named categories keep their order.
@@ -366,6 +387,27 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
     }
 
     private fun focusedEntry(draft: BrowseDraft): BrowseDraft.Entry? = (focus as? Item.Directory)?.let { entry(draft, it.path) }
+
+    /**
+     * Under the Lists lines: how many directories are found on this machine, once each is checked, and how many are
+     * hidden. While `f` is on, it also counts the rows shown because they are in the configuration, though not found.
+     * One line, so the list keeps its rows at 24 lines.
+     */
+    private fun countLine(draft: BrowseDraft): String? = listOfNotNull(
+        draft.discovery?.let { result ->
+            // The count would climb while rows are checked, so it waits for the last one.
+            val checking = result.candidates.any { it.observation.kind == CandidateObservation.Kind.PENDING }
+            if (checking) CHECKING_THIS_MACHINE else foundLine(
+                foundCount(draft), foundOnly,
+                configured = entriesByPath(draft).values.count { it.row != null && !found(it) },
+            )
+        },
+        hiddenCount(draft).takeIf { it > 0 }?.let { hiddenLine(it, reveal) },
+    ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+
+    /** Hidden directories that `u` would show: while only found ones are shown, only those found. */
+    private fun hiddenCount(draft: BrowseDraft): Int =
+        entriesByPath(draft).values.count { hidden(it, draft) && (!foundOnly || found(it)) }
 }
 
 /** Escapes control and format characters as `\uXXXX`, so untrusted text cannot control the terminal. */
@@ -423,7 +465,23 @@ private fun hidden(entry: BrowseDraft.Entry, draft: BrowseDraft): Boolean {
     }
 }
 
-private fun hiddenCount(draft: BrowseDraft): Int = entriesByPath(draft).values.count { hidden(it, draft) }
+/**
+ * Found on this machine: the last check saw a directory or a link there. A link counts, since a directory Lighten has
+ * moved is a link; a file, a problem or not checked yet does not.
+ */
+private fun found(entry: BrowseDraft.Entry): Boolean = when (entry.discovery?.observation?.kind) {
+    CandidateObservation.Kind.DIRECTORY, CandidateObservation.Kind.LINK -> true
+    CandidateObservation.Kind.PENDING, CandidateObservation.Kind.MISSING, CandidateObservation.Kind.REGULAR_FILE,
+    CandidateObservation.Kind.OTHER, CandidateObservation.Kind.INACCESSIBLE, CandidateObservation.Kind.BLOCKED_BY_LINK,
+    CandidateObservation.Kind.BLOCKED_BY_NON_DIRECTORY, CandidateObservation.Kind.UNKNOWN, null,
+    -> false
+}
+
+/** Shown while `f` is on: found, or in the configuration, which, as with `u`, is never hidden. */
+private fun shownWhenFiltered(entry: BrowseDraft.Entry): Boolean = found(entry) || entry.row != null
+
+/** Every listed directory found, those `u` hides included. */
+private fun foundCount(draft: BrowseDraft): Int = entriesByPath(draft).values.count(::found)
 
 private fun toggleKey(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = when {
     entry.row != null -> KeyHint("Space", "Remove", description = REMOVE_SUGGESTION)

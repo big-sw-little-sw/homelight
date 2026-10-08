@@ -224,7 +224,7 @@ internal object ApplyView {
         if (step.status != ApplyModel.StepStatus.PENDING) {
             // The message names skipped sockets in the executor's words, so they get plain ones here.
             val outcome = step.failure?.let { failureWords(it, config) }
-                ?: step.skippedSockets.takeIf { it.isNotEmpty() }?.let { skippedSockets(it.size) }
+                ?: step.skippedSockets.takeIf { it.isNotEmpty() }?.let(::skippedSockets)
                 ?: step.message
             add(DetailViewport.Line(outcome, color(step), false))
         }
