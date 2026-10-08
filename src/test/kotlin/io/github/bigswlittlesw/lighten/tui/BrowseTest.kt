@@ -849,6 +849,101 @@ class BrowseTest {
         }
     }
 
+    /**
+     * The count line says how many listed directories are found on this machine, those `u` hides included; `f` shows
+     * only those and the line says so. The hidden count then counts only found ones.
+     */
+    @Test fun fShowsOnlyTheDirectoriesFoundOnThisMachine() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            val all = render(ui)
+            assertTrue(all.contains("7 found on this machine · 1 usually not needed, hidden"), all)
+            assertTrue(all.contains("f: Found only") && all.contains("absent-cache"), all)
+            key(ui, 'f')
+            val found = render(ui)
+            assertTrue(found.contains("7 found on this machine, only these shown · 1 usually not needed, hidden"), found)
+            assertTrue(found.contains("f: Show all"), found)
+            assertFalse(found.contains("absent-cache") || found.contains("not created yet"), found)
+            // A heading counts only its shown directories.
+            assertTrue(Regex("○ Other directories +0 of 2 added").containsMatchIn(found), found)
+            key(ui, 'u')
+            assertTrue(render(ui).contains("1 usually not needed, shown") && render(ui).contains(".cache/example"), render(ui))
+            key(ui, 'f')
+            assertTrue(render(ui).contains("absent-cache") && render(ui).contains("f: Found only"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** While `f` is on, a category or app with nothing found is not listed; `f` again brings it back. */
+    @Test fun headingsWithNothingFoundAreHiddenWhileFiltered() {
+        val root = fixture()
+        Files.writeString(
+            root.resolve("shared.json"),
+            """{"apps": [{"name": "Ghost", "category": "Phantoms", "directories": [{"path": "ghost-cache"}]},
+               {"name": "Team", "category": "Shared", "directories": [{"path": "team-cache"}, {"path": "absent-cache"}]}]}""",
+        )
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            assertTrue(render(ui).contains("○ Phantoms") && render(ui).contains("○ Ghost"), render(ui))
+            key(ui, 'f')
+            val found = render(ui)
+            assertFalse(found.contains("Phantoms") || found.contains("Ghost"), found)
+            assertTrue(Regex("○ Shared +0 of 1 added").containsMatchIn(found), found)
+            key(ui, 'f')
+            assertTrue(render(ui).contains("○ Phantoms") && render(ui).contains("○ Ghost"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /** `f` keeps the selected directory selected; one that `f` hides gives the selection to the row at its place. */
+    @Test fun selectionIsKeptAcrossF() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            choose(ui, "team-cache")
+            key(ui, 'f')
+            assertTrue(selected(render(ui), "○ team-cache"), render(ui))
+            key(ui, 'f')
+            assertTrue(selected(render(ui), "○ team-cache"), render(ui))
+            choose(ui, "absent-cache")
+            key(ui, 'f')
+            assertTrue(render(ui).lines().count { it.contains("❯") } == 1 && !render(ui).contains("absent-cache"), render(ui))
+            ui.app.closeEditor()
+        }
+    }
+
+    /**
+     * While `f` is on, Space on a heading adds or takes out only the found directories under it and says how many
+     * others it left as they are.
+     */
+    @Test fun spaceOnAHeadingWhileFilteredActsOnlyOnFoundDirectories() {
+        val root = fixture()
+        SetupDiscoveryFixture().use { workers ->
+            val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
+            key(ui, 'b'); await(workers, ui)
+            choose(ui, "absent-cache"); key(ui, ' ')
+            key(ui, 'f')
+            chooseGroup(ui, "Other directories")
+            assertTrue(selectedGroup(render(ui), "○ Other directories", "0 of 2 added"), render(ui))
+            key(ui, ' ')
+            val added = render(ui)
+            assertTrue(added.contains("Added 2. Skipped 3 not found on this machine; f shows all."), added)
+            assertTrue(selectedGroup(added, "● Other directories", "2 of 2 added"), added)
+            key(ui, ' ')
+            val removed = render(ui)
+            assertTrue(removed.contains("Took out 2. Kept 1 not found on this machine; f shows all."), removed)
+            assertTrue(selectedGroup(removed, "○ Other directories", "0 of 2 added"), removed)
+            key(ui, 'f')
+            assertTrue(render(ui).contains("● absent-cache") && render(ui).contains("○ datasets"), render(ui))
+            assertEquals(1, added(ui))
+            ui.app.closeEditor()
+        }
+    }
+
     private fun fixture(): Path {
         val root = Files.createTempDirectory(temporary, "fixture-").toRealPath()
         for (relative in listOf(".m2", ".cache/uv", ".cache/example", ".local/share/uv/tools", "team-cache", "datasets")) Files.createDirectories(root.resolve("home").resolve(relative))

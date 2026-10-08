@@ -488,6 +488,7 @@ internal class ConfigurationView private constructor(
                 val refusals = action.sources.map { source -> addRefusal(source) }
                 browser.addedGroup(
                     refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable, action.ignored,
+                    action.notFound,
                 )
             }
             is BrowseAction.Ignore -> ignore(action.source, action.row)

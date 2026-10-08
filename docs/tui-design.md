@@ -577,8 +577,8 @@ screen never says "candidate" or "draft".
   first; `Other tools`, then `Other directories`, come last.
 
   `❯` is one cell; the selected row is bold. Groups do not
-  collapse. The selection follows an item: checking again, `u`, adding and
-  removing never move it to another row. When the selected row is hidden,
+  collapse. The selection follows an item: checking again, `u`, `f`, adding
+  and removing never move it to another row. When the selected row is hidden,
   the row at its place is selected and stays selected. Rows keep the place
   they were first listed in.
 - Marks: `○` not in the configuration, `●` in it (saved earlier or added
@@ -614,6 +614,27 @@ screen never says "candidate" or "draft".
 - A directory is hidden only when every list that names it marks it usually
   not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
   Rows already in the configuration, and ignored rows, are never hidden.
+- A **count line** under the Lists lines says how many listed directories
+  are found on this machine: the last check saw a directory or a link there.
+  A link counts, as a directory Lighten has moved is one. It reads
+  `Checking this machine…` until every row is checked, then `12 found on this
+  machine`, with the hidden count after a ` · ` on the same line, so the list
+  keeps its rows at 80x24. `f` (`f: Found only`, `f: Show all`) shows only
+  the found directories and the line adds `, only these shown`; the hidden
+  count then counts only found ones. A heading with nothing found beneath it
+  is not listed, and a heading's `1 of 2 added` counts only its shown
+  directories. Found rows keep their list order: nothing sorts them first.
+  `f` sits on the navigation help line, as the other line is full at 80
+  columns; Help lists it under Do. It is offered when something is found,
+  and always while on, so it can be turned off. With nothing found and `f`
+  on, the list reads `None found on this machine. Press f to show every
+  suggestion.`
+- While `f` is on, Space on a heading acts only on the found directories
+  under it, and Help says so (`Add every directory under it found on this
+  machine that can be added`). The line after it names what it left alone:
+  `Added 2. Skipped 3 not found on this machine; f shows all.`, or after
+  taking a group out, `Took out 2. Kept 1 not found on this machine; f shows
+  all.`
 - `r` is **Check again**: it reads the lists again and rows read `checking…`
   until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size

@@ -730,8 +730,21 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - **Counts and examples from the catalog (rung 1):** the empty list and Suggestion list's Details read the built-in list once: its directories counted as Browse's Lists line counts them (44 today), and the first app of each of the first four categories (Maven, Cargo, npm, pip). The issue's "40+ common tools" became "44 suggestions for common tools", the same number Browse shows; the list has 34 apps.
 - **Typing stays visible:** the empty list (`… or a to type one yourself.`), the Browse note, Configuration's and Browse's Help purposes and the guide's step 1 all say a missing directory can be typed with `a`, and that a list of your own can be added later and is merged. From a field the empty list says `Esc, then b …`, since there `b` and `a` type.
 - **Placeholder** `optional; adds to built-in list`: the issue's `optional; built-in suggestions are always included` is 50 cells and the field is 32 at 80 columns.
-- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]`
+- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]` (done in #190)
 - `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
+
+## 2026-10-08: Browse counts and filters what is found on this machine
+
+#190 (user decision, split from #189): most of the 44 built-in suggestions read `not created yet` on any one machine, which buries the ones that matter.
+
+- **Found** means the last check saw a directory or a link at the path (rung 1, reuse discovery's observation). A link counts because a directory Lighten has moved is a link; leaving links out would hide the user's own relocations after Apply. A file, a problem or `checking…` does not count.
+- **Count line:** `12 found on this machine` under the Lists lines, `, only these shown` while filtered, and `Checking this machine…` until every row is checked, so the number does not climb on screen. It shares its line with `1 usually not needed, hidden` (now in the text color, not `warn`), so the list loses no row at 80x24.
+- **Key `f`** ("found"), toggled like `u`. Free in Browse: `u`, `i`, `x`, `r`, `e`, Space and Enter are taken, and `a`/`b` are Configuration's list keys, which users would expect to mean the same there. It goes on the navigation help line with `acts`, since the commands line is full at 80 columns with `x: Stop ignoring` and `u`.
+- **Headings follow the shown rows:** a category or app with nothing found is not listed, and `1 of 2 added`, the mark and Space all count only the shown directories, as they already did for `u`. Space on a heading while filtered leaves the rest alone and the message says how many: `Skipped 3 not found on this machine; f shows all.`, or `Kept 1 …` after taking a group out. Help's Space description says `found on this machine` while `f` is on.
+- **List order kept:** found directories do not sort first. `f` already brings them together; sorting would move rows under the user, against "rows keep the place they were first listed in".
+- **Hidden count while filtered** counts only found directories, so `u: Show N` matches what `u` would add.
+- `[skipped: / to filter by text, add when lists grow past two screens]`
+- `[skipped: turning f on by itself on a first run, add when users miss the found directories in the first-run Browse]`
 
 ## How to add decisions
 
