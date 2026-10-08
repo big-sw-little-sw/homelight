@@ -116,10 +116,10 @@ mismatch() {
 
 mismatch_keeps_installed() {
   check install
-  cp "$home/$bin" /tmp/before
+  before=$(sha256sum < "$home/$bin")
   tree=$BASE/bad
   check fails install
-  check cmp "$home/$bin" /tmp/before
+  check [ "$(sha256sum < "$home/$bin")" = "$before" ]
   check no_leftovers
 }
 
@@ -205,8 +205,8 @@ packages=expect
 musl_arm=no
 [ "$(uname -m)" = aarch64 ] && ls /lib/ld-musl-* > /dev/null 2>&1 && musl_arm=yes
 
-. /etc/os-release
-echo "$PRETTY_NAME, $(uname -m), downloaders: ${start_tools:-none}"
+# A subshell, since os-release sets VERSION too.
+echo "$(. /etc/os-release && echo "$PRETTY_NAME"), $(uname -m), downloaders: ${start_tools:-none}"
 [ -n "$start_tools" ] || scenario "no curl or wget: stops and says so" no_downloader
 
 if have apt-get; then
