@@ -1,0 +1,20 @@
+# Runs /install.sh on a terminal, reading the script from stdin as `curl ... | sh` does.
+#
+#   expect answer.exp <answer> [install.sh options]
+#
+# Sends <answer> to the PATH question. With "none", the script must not ask. Exits with the
+# script's status, 100 for a question that should not have been asked, 101 on a timeout.
+set timeout 120
+set answer [lindex $argv 0]
+spawn sh -c {sh -s -- "$@" < /install.sh} sh {*}[lrange $argv 1 end]
+expect {
+  -re {now\? \[y/N\] $} {
+    if {$answer eq "none"} { exit 100 }
+    send "$answer\r"
+    exp_continue
+  }
+  timeout { exit 101 }
+  eof
+}
+lassign [wait] pid id os_error status
+exit $status

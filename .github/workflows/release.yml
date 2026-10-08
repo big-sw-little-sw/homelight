@@ -1,7 +1,7 @@
 name: Release
 
-# Pushing a tag v<semver> publishes a GitHub Release: both Linux binaries, SHA256SUMS and notes
-# generated from the pull requests merged since the previous release.
+# Pushing a tag v<semver> publishes a GitHub Release: both Linux binaries, SHA256SUMS, install.sh
+# and notes generated from the pull requests merged since the previous release.
 # A manual run, or a pull request that changes the release build, is a dry run: the same build,
 # uploaded as a workflow artifact, never published.
 # Asset names are a public contract; see "Release assets" in docs/decisions.md.
@@ -127,15 +127,23 @@ jobs:
       VERSION: ${{ needs.gate.outputs.version }}
       SHA: ${{ needs.gate.outputs.sha }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          sparse-checkout: install.sh
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
           path: assets
-      - name: Checksums and release notes
+      # install.sh is served from releases/latest/download/install.sh; SHA256SUMS lists only the
+      # binaries, which is what install.sh checks.
+      - name: Checksums, install script and release notes
         run: |
           chmod +x assets/lighten-*
           (cd assets && sha256sum lighten-* > SHA256SUMS)
+          cp install.sh assets/
           gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
             -f tag_name="v$VERSION" -f target_commitish="$SHA" --jq .body > notes.md
           {
