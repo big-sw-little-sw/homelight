@@ -41,12 +41,12 @@ Configure → Workspace → Review → Apply → Results
    **Target root**, such as `/data/me`, then press `Esc`. **Browse** opens
    with Lighten's built-in suggestions: directories of common tools such as
    Maven, Gradle, npm, pip, uv and Cargo. Press `Space` on each one you
-   want to move.
-   Anything missing? Press `Esc` to go back to Configuration's list, then
-   `a`, and type the directory yourself. Paths are full, or start with `~/`.
-   Press `s` to save. Saving writes the configuration file and nothing else.
-   Later you can add a list of your own, for example one your team shares,
-   in **Suggestion list**: Browse merges it with the built-in list.
+   want to move. Anything missing? Press `Esc` to go back to Configuration's
+   list, then `a`, and type the directory yourself. Paths are full, or start
+   with `~/`. Press `s` to save. Saving writes the configuration file and
+   nothing else. Later you can add a list of your own, for example one your
+   team shares, in **Suggestion list**: Browse merges it with the built-in
+   list.
 2. **Check the plan on the Workspace (`1`).** Each directory you added is a
    *relocation*. The Workspace shows what is there now and what Lighten
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
