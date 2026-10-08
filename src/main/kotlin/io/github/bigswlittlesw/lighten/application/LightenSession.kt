@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.application
 
 import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
+import io.github.bigswlittlesw.lighten.config.LightenFile
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
@@ -47,11 +48,22 @@ class LightenSession(
      * the caller checks again ([refresh]), after which the rule decides. On a throw nothing is written.
      */
     @Synchronized
-    fun saveChoice(sourcePath: Path) {
+    fun saveChoice(sourcePath: Path) = replace("No choice to save as a rule: $sourcePath") { it.ruleFile(sourcePath) }
+
+    /** Moves the relocation for `sourcePath` to the ignored paths, as [saveChoice] saves: the caller checks again. */
+    @Synchronized
+    fun ignore(sourcePath: Path) = replace("No relocation to ignore: $sourcePath") { it.ignoredFile(sourcePath) }
+
+    /** Takes `path` out of the ignored paths, as [saveChoice] saves: the caller checks again. */
+    @Synchronized
+    fun stopIgnoring(path: Path) = replace("Not ignored: $path") { it.unignoredFile(path) }
+
+    /** Writes `edit`'s file over the one this evaluation read, only while the file still holds the bytes read. */
+    private fun replace(missing: String, edit: (ConfigurationEvaluation.Loaded) -> LightenFile?) {
         check(!isApplying() && applyModel() !is ApplyModel.Result) { "Replan before editing a running or retained result" }
         val loaded = checkNotNull(evaluation as? ConfigurationEvaluation.Loaded) { "No loaded configuration" }
-        val file = checkNotNull(loaded.ruleFile(sourcePath)) { "No choice to save as a rule: $sourcePath" }
-        // ruleFile is non-null only with the file as read.
+        val file = checkNotNull(edit(loaded)) { missing }
+        // Each edit is non-null only with the file as read.
         ConfigurationPublisher().replace(configPath, file, checkNotNull(loaded.file).bytes)
     }
 

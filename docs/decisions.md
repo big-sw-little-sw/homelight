@@ -627,6 +627,25 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 
 Rejected: `s` on the commands line (does not fit at 80 columns); offering `s` for a choice the rule already makes (a key that does nothing); reusing Configuration's changed-since-load message as is (its keys quit from the Workspace).
 
+## 2026-10-07: x ignores a source, in the Workspace and in Browse
+
+#147 makes `ignored-source-paths` mean something: Lighten plans nothing for an ignored path and never offers to add it, but always shows it, so the user can see and undo what they ignored.
+
+- **Invariant (rung 1):** a path can't be both a relocation and ignored. The loader refuses it, naming both settings in plain words (#164's style, `correct that setting`), and the publisher's check is the loader's, so every save refuses it too. Only the same path counts; ignoring a folder inside or around a relocation is allowed.
+- **Workspace save path (rung 2):** `x` reuses #116's whole path. `Loaded.ignoredFile`/`unignoredFile` edit the file as read beside `ruleFile`; `LightenSession.ignore`/`stopIgnoring` share one private `replace` with `saveChoice`; the dialog is `confirmDialog` with its optional `⚠` lines; `saveProblem`, check again and `savedNotice` follow, as after `s`. Only the changed-since-read message differs, because it names `x`.
+- **Linked relocation:** ignoring one that is linked now adds a `⚠` line: the link and the target's files stay, and how to undo the move by hand (`rm` the link, `mv` the target back), as the guide's Undo says. Nothing on disk changes either way.
+- **Forgotten choices (user decision, from the #187 walkthrough):** saving checks again, which forgets one-time choices, so while another relocation has one both dialogs add `This also forgets your other one-time choices.` The ignored relocation's own choice goes with it and is not counted.
+- **The last relocation (rung 6):** `validateConfiguration` now accepts a file with no relocations when it ignores paths, so ignoring the last relocation saves instead of failing with "Choose at least one relocation".
+- **Workspace group (rung 6):** the list's rows are a sealed `WorkspaceRow` (relocation, ignored heading, ignored source). The group sits last, below in sync, and starts closed every run. Its heading is a selectable row that says its key, `i: show 2 ignored`, like the in-sync title says `c`; the title has no room for both at 80 columns. **Key:** `i`, for ignored; on the Workspace it otherwise acts only while there is no configuration (create), when there is nothing to ignore.
+- **Help:** `x` is on the navigation line beside `s` with `acts`, so Help lists it under Do; in Details with choices the line is full at 80 columns, so `x` is Help-only there. `i` is Help-only, as `c` is. Neither is offered where it does nothing (the heading, kept results, a command-line path override).
+- **Browse mark:** `⊘`, the empty circle struck through: not included, on purpose. It differs in shape from `●`, `○`, `◐` and `−`, and the row notes `ignored by you`, so it reads without color; the mark is dim. In Browse `x` edits Configuration's draft like Space, and `s` writes it, so Browse keeps one rule: nothing is written until you save. An ignored path no list suggests is still listed (under Other directories), so Browse shows every ignore. Space on a heading skips ignored rows and says `Skipped 1 you ignored.`
+- `[skipped: listing ignored paths in Configuration's list with d to remove one, add when users want to manage ignores without Browse; Browse lists every ignored path and x there stops ignoring it]`
+- `[skipped: shared ignore lists in their own files, add when users want ignores shared across machines]`
+- `[skipped: naming which app owns a path, add with #5/#117]`
+- `[skipped: an ignored count in the Workspace summary rows, add when users miss it; the group heading counts them]`
+
+Rejected: `x` in Browse saving the file at once (Browse would then have two save rules); a heading that only lives in the list title (no room at 80 columns); `g`, `u` or `h` for the group (no mnemonic, or `u` already means "usually not needed" in Browse).
+
 ## 2026-10-07: A version tag publishes a GitHub Release
 
 #167 (user decision): pushing a tag `v<major>.<minor>.<patch>[-<pre-release>]` publishes a GitHub Release (`.github/workflows/release.yml`).

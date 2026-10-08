@@ -98,8 +98,8 @@ class ConfigurationEvaluation(
             val read = file ?: return null
             val source = normalize(sourcePath)
             val choice = draft[source] ?: return null
-            // The loader converts the file's relocations in order, and a source with a choice is configured once.
-            val i = savedConfiguration.relocations.indexOfFirst { normalize(it.sourcePath) == source }
+            // A source with a choice is configured once.
+            val i = fileIndex(source) ?: return null
             val saved = savedConfiguration.relocations[i]
             val rule = choice.applyTo(saved)
             if (rule == saved) return null
@@ -113,6 +113,35 @@ class ConfigurationEvaluation(
                 },
             )
         }
+
+        /** The sources the configuration ignores, each once, in the file's order. Lighten plans nothing for them. */
+        val ignored: List<Path> get() = savedConfiguration.ignoredSourcePaths.distinct()
+
+        /**
+         * The file as read, with the relocation for `sourcePath` moved to the ignored paths, its source as written; or
+         * null when there is no file or no such relocation.
+         */
+        internal fun ignoredFile(sourcePath: Path): LightenFile? {
+            val read = file ?: return null
+            val i = fileIndex(normalize(sourcePath)) ?: return null
+            return read.file.copy(
+                relocations = read.file.relocations.filterIndexed { j, _ -> j != i },
+                ignoredSourcePaths = read.file.ignoredSourcePaths + read.file.relocations[i].sourcePath,
+            )
+        }
+
+        /** The file as read, without `path` among the ignored paths; or null when there is no file or it isn't ignored. */
+        internal fun unignoredFile(path: Path): LightenFile? {
+            val read = file ?: return null
+            val source = normalize(path)
+            // The loader resolves the file's ignored paths in order, one each.
+            val kept = read.file.ignoredSourcePaths.filterIndexed { j, _ -> savedConfiguration.ignoredSourcePaths[j] != source }
+            return if (kept.size == read.file.ignoredSourcePaths.size) null else read.file.copy(ignoredSourcePaths = kept)
+        }
+
+        /** The index of the file's relocation for the normalized `source`: the loader converts them in order, one each. */
+        private fun fileIndex(source: Path): Int? =
+            savedConfiguration.relocations.indexOfFirst { normalize(it.sourcePath) == source }.takeIf { it >= 0 }
     }
 
     /**

@@ -88,6 +88,29 @@ of your configuration.
   edited it by hand, Lighten does not replace it. Your changes stay on
   screen: press `q`, then `y`, then `e` to start again from the file.
 
+### Leave a directory alone
+
+If another tool manages a directory, for example Stow or a sync app, tell
+Lighten to ignore it. Select its relocation on the Workspace and press `x`.
+Lighten asks first, then moves it from your relocations to the ignored
+paths in the configuration file. Nothing on disk changes. If the directory
+is already linked to storage, the link and the files in storage stay as
+they are; the dialog says how to undo the move by hand.
+
+Ignored directories are listed at the end of the Workspace, under
+`i: show 2 ignored`. Press `i` to show them, and again to hide them. Each is
+marked `[Ignored]`. To manage one again, select it and press `x`: Lighten
+stops ignoring it, and you can add it again in Configuration.
+
+Browse marks an ignored directory `⊘` with the note `ignored by you`. It is
+always shown and can't be added. Press `x` on a directory in Browse to
+ignore it, or on a `⊘` directory to stop ignoring it, then `s` in
+Configuration to save. `Space` on a category or app skips the ignored
+directories and says so.
+
+A directory can't be both a relocation and ignored. If the configuration
+file lists one in both, Lighten says which two settings to fix.
+
 `lighten config` opens Configuration directly. The configuration file is
 `~/.lighten.json`, or the file you gave with `--config`. You can also edit
 it by hand, then press `r` in Lighten to check again.
@@ -143,6 +166,8 @@ category are under "Other tools", and directories with no app under
 - `○` it is not. Press `Space` to add it.
 - `−` it cannot be added, for example because it is a link. Its note says
   why.
+- `⊘` you ignore it: Lighten leaves it alone. Press `x` to stop ignoring
+  it.
 
 `Space` on a `●` row takes it out again. A directory you take out stays in
 the list until you leave Browse, so `Space` can add it back. Adding and
@@ -159,7 +184,8 @@ takes them all out. If some could not be added, Browse says so, for example
 
 A list can mark a directory **usually not needed**. Browse hides a directory
 when every list that names it says so, and counts what it hid. Press `u` to
-show them. A directory already in your configuration is never hidden.
+show them. A directory already in your configuration, or one you ignore,
+is never hidden.
 
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app
@@ -245,6 +271,10 @@ programs look for it, in your home directory. Its **target** is where its
 contents live, in storage. After a move, the source is a link to the target.
 
 **In sync.** The source already links to the target. Nothing to do.
+
+**Ignored.** A directory you told Lighten to leave alone. Lighten plans
+nothing for it. The configuration file lists it under
+`ignored-source-paths`.
 
 **Rule or one-time choice.** A rule is saved in the configuration file and
 decides every time. A one-time choice decides one relocation for the next

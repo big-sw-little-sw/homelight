@@ -189,7 +189,7 @@ class WorkspaceDetailsTest {
         val model = session.evaluation() as ConfigurationEvaluation.Loaded
         val index = WorkspaceView.visibleItems(model, true).indexOfFirst { it.relocation.sourcePath.endsWith(name) }
         val list = WorkspaceView.list().selected(index)
-        return render(WorkspaceView.render(session, list, true, WORKSPACE_LIST, true, 0, DetailViewport()), width, height)
+        return render(WorkspaceView.render(session, list, true, false, WORKSPACE_LIST, true, 0, DetailViewport()), width, height)
     }
 
     private fun archive(name: String): Path {

@@ -274,7 +274,60 @@ internal const val CHOICE_NOT_SAVED =
     "Not saved: the configuration file changed after Lighten read it. Your choice is still here. Press r to " +
         "read the file again; that forgets the choice."
 
-internal const val NO_CONFIGURATION = "No configuration file yet. Press i to create one; nothing is written until you save."
+// Ignoring a source (tui-design §5). The setting names appear because they are what the user finds in the file.
+internal const val IGNORED_LABEL = "Ignored"
+internal const val IGNORED_BY_YOU = "Ignored by you"
+/** The ignored group's heading row: like the in-sync title, it says its key. */
+internal fun ignoredHeading(n: Int, shown: Boolean) = "i: " + (if (shown) "hide" else "show") + " $n ignored"
+internal fun ignoredGroupDetails(n: Int, shown: Boolean): List<String> {
+    val them = if (n == 1) "it" else "them"
+    return listOf(
+        if (n == 1) "1 source is ignored: you told Lighten to leave it alone."
+        else "$n sources are ignored: you told Lighten to leave them alone.",
+        "Lighten plans nothing for $them and changes nothing on disk.",
+        "Press i to " + (if (shown) "hide" else "show") + " $them. To manage one again, select it and press x.",
+    )
+}
+internal fun ignoredDetails(source: Path, retained: Boolean) = listOf(
+    "Lighten plans nothing for " + displayPath(source) + " and leaves it as it is.",
+    if (retained) RESULTS_KEPT
+    else "To undo, press x: Lighten stops ignoring it. To relocate it, then add it in Configuration (e).",
+)
+internal const val IGNORE_DESCRIPTION =
+    "Stop managing this relocation: move it to the ignored paths in the configuration file; asks first"
+internal const val STOP_IGNORING_DESCRIPTION = "Take this source out of the ignored paths in the configuration file; asks first"
+internal fun ignoreTitle(source: Path) = "Ignore ${displayPath(source)}?"
+internal fun ignoreBody(config: Path) = listOf(
+    "Lighten will stop managing it. y moves it from relocations",
+    "to ignored-source-paths in " + displayPath(config) + ".",
+) + REPLACE_CONFIGURATION_BODY + "Nothing on disk changes."
+/**
+ * Said when the relocation is linked now: ignoring leaves the link and the moved files where they are, so the user
+ * learns how to undo the move by hand, as the guide's Undo says.
+ */
+internal fun ignoreLinkedWarning(source: Path, target: Path) = listOf(
+    "⚠ It is linked now. The link and the files at the target stay as they are.",
+    "  To undo the move by hand, remove the link, then move the target back:",
+    "  rm " + displayPath(source),
+    "  mv " + displayPath(target) + " " + displayPath(source),
+)
+internal const val IGNORE_KEYS = "y: Ignore · n/Esc: Cancel"
+internal fun stopIgnoringTitle(source: Path) = "Stop ignoring ${displayPath(source)}?"
+internal fun stopIgnoringBody(config: Path) = listOf(
+    "y takes it out of ignored-source-paths in " + displayPath(config) + ".",
+) + REPLACE_CONFIGURATION_BODY + listOf(
+    "Lighten manages it only once you add it as a relocation.",
+    "Nothing on disk changes.",
+)
+/** Added to the ignore dialogs while other relocations have one-time choices, which saving forgets (user decision). */
+internal const val FORGETS_OTHER_CHOICES = "This also forgets your other one-time choices."
+internal const val STOP_IGNORING_KEYS ="y: Stop ignoring · n/Esc: Cancel"
+/** [CHOICE_NOT_SAVED] for `x`. */
+internal const val IGNORE_NOT_SAVED =
+    "Not saved: the configuration file changed after Lighten read it. Press r to read the file again, then x " +
+        "again; that forgets one-time choices."
+
+internal const val NO_CONFIGURATION ="No configuration file yet. Press i to create one; nothing is written until you save."
 internal const val NO_RELOCATIONS = "No relocations in the configuration."
 internal const val CHOOSE_TO_REVIEW = "Choose what to do for each relocation marked Choose."
 internal const val FIX_TO_REVIEW = "Fix the blocked paths; see Details."
@@ -552,6 +605,8 @@ internal const val NOT_ADDED_MARK = "○"
 /** A heading only: some of its directories are added. */
 internal const val SOME_ADDED_MARK = "◐"
 internal const val CANNOT_ADD_MARK = "−"
+/** Ignored by the user: a circle, as it is not included, struck through, as that is on purpose. */
+internal const val IGNORED_MARK = "⊘"
 internal const val USUALLY_NOT_NEEDED_NOTE = "usually not needed"
 internal const val NOT_CHECKED = "not checked"
 internal fun notAdded(reason: String) = "Not added. $reason. Prior choices are unchanged."
@@ -563,18 +618,25 @@ internal const val ADD_CATEGORY = "Add every directory shown under the category'
 internal const val REMOVE_CATEGORY = "Take every directory under the category's apps out of the configuration"
 /**
  * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
- * `overlapped` names, for each skipped row, the relocation it overlaps when known.
+ * `overlapped` names, for each skipped row, the relocation it overlaps when known. `ignored` counts the rows skipped
+ * because the user ignores them.
  */
-internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int): String? {
-    if (overlapped.isEmpty() && unaddable == 0) return null
+internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int, ignored: Int): String? {
+    if (overlapped.isEmpty() && unaddable == 0 && ignored == 0) return null
     val overlap = when {
         overlapped.isEmpty() -> null
         overlapped.size == 1 -> "Skipped 1 that overlaps " + (overlapped.single() ?: "a directory in the configuration") + "."
         else -> "Skipped ${overlapped.size} that overlap directories in the configuration."
     }
     val cannot = if (unaddable == 0) null else "Skipped $unaddable that can't be added."
-    return listOfNotNull("Added $added.", overlap, cannot).joinToString(" ")
+    val skippedIgnored = if (ignored == 0) null else "Skipped $ignored you ignored."
+    return listOfNotNull("Added $added.", overlap, cannot, skippedIgnored).joinToString(" ")
 }
+internal const val IGNORED_NOTE = "ignored by you"
+internal const val BROWSE_IGNORE = "Ignore the directory: Lighten won't manage or add it; saving writes the change"
+internal const val BROWSE_STOP_IGNORING = "Stop ignoring the directory; saving writes the change"
+internal const val IGNORED_IN_BROWSE =
+    "Lighten doesn't manage it and Browse won't add it. Press x to stop ignoring it; saving writes the change."
 internal const val REMOVE_SUGGESTION = "Take the directory out of the configuration; saving writes the change"
 internal const val EDIT_SUGGESTION = "Edit its relocation in Configuration"
 internal const val INSPECT_SUGGESTION = "See why it is suggested and by which list"
