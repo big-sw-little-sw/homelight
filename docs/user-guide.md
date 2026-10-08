@@ -61,9 +61,9 @@ Configure → Workspace → Review → Apply → Results
    again: the Workspace then shows each relocation as it is now, normally
    `[In sync]`. If a step finds something different from the plan, Lighten
    stops there and the steps after it do not run. Select the failed step: its
-   Details say what is there, what Lighten expected and what to do, then
-   press `r`. The dim `Detail:` line below is the exact error, for a bug
-   report.
+   Details say what is there, what Lighten expected and what to do. Do that,
+   then press `r` to check again. To report a bug, a screenshot of these
+   Details is enough.
 
 ### Change the configuration later
 
@@ -314,8 +314,8 @@ Three commands never ask a question and print one line of JSON:
 - `lighten apply --json --yes`: makes that plan and, if nothing is blocked
   and no choice is needed, applies it and prints how each step went. If
   something is blocked or needs a choice, it prints the plan instead and
-  changes nothing. A failed step's `message` is the exact error, the one
-  Results show on the `Detail:` line.
+  changes nothing. A failed step's `message` is Lighten's exact error, not
+  the sentence Results show.
 
 `apply --json` needs `--yes`, which confirms the plan the command makes.
 Without `--json`, `apply` opens the Review screen, with or without `--yes`.

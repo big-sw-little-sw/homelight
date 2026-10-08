@@ -92,28 +92,29 @@ internal fun verifyCopy(source: Path, copy: Path) {
         val copied = copiedPath(source, copy, entry)
         if (entry.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
             if (!copied.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
-                throw copyChanged(entry, "copied directory is missing: $copied")
+                throw copyChanged(entry, CopyDifference.MISSING_FOLDER, "copied directory is missing: $copied")
             }
             if (directoryPermissions(entry) != directoryPermissions(copied)) {
                 throw EnvironmentException(ActionFailure.PermissionsNotKept(entry), "copied directory permissions differ: $copied")
             }
         } else if (entry.isSymbolicLink()) {
             if (!copied.isSymbolicLink() || entry.readSymbolicLink() != copied.readSymbolicLink()) {
-                throw copyChanged(entry, "copied symlink differs: $copied")
+                throw copyChanged(entry, CopyDifference.LINK_DIFFERS, "copied symlink differs: $copied")
             }
         } else if (!copied.isRegularFile(LinkOption.NOFOLLOW_LINKS) || entry.fileSize() != copied.fileSize()) {
-            throw copyChanged(entry, "copied file differs: $copied")
+            throw copyChanged(entry, CopyDifference.FILE_DIFFERS, "copied file differs: $copied")
         }
     }
     for (copied in copy.walk(PathWalkOption.INCLUDE_DIRECTORIES)) {
         val entry = copiedPath(copy, source, copied)
         if (entry.notExists(LinkOption.NOFOLLOW_LINKS)) {
-            throw copyChanged(entry, "copied directory has an unexpected entry: $copied")
+            throw copyChanged(entry, CopyDifference.EXTRA_ENTRY, "copied directory has an unexpected entry: $copied")
         }
     }
 }
 
 /** The copy of [entry], a path under the source, does not match it: the source most likely changed during the copy. */
-private fun copyChanged(entry: Path, message: String) = EnvironmentException(ActionFailure.CopyChanged(entry), message)
+private fun copyChanged(entry: Path, difference: CopyDifference, message: String) =
+    EnvironmentException(ActionFailure.CopyChanged(entry, difference), message)
 
 private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))

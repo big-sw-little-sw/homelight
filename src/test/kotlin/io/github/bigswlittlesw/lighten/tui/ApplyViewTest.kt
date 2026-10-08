@@ -89,9 +89,9 @@ class ApplyViewTest {
         assertTrue(text.contains("Enter: Workspace"), text)
     }
 
-    /** A failed step's Details lead with plain words; the executor's own text follows, dim, for bug reports. */
+    /** A failed step's Details say, in plain words, what is there and what to do; the executor's own text is not shown. */
     @Test
-    fun failedStepDetailsSayWhatIsThereAndWhatToDoThenTheRawDetail() {
+    fun failedStepDetailsSayWhatIsThereAndWhatToDo() {
         val plan = plan()
         val relocation = plan.relocations.first()
         val raw = "expected absent at /local/cache but found file"
@@ -100,17 +100,49 @@ class ApplyViewTest {
                 ActionFailure.Drift(Path.of("/local/cache"), PathState.ABSENT, PathState.FILE)),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.PENDING, "not run after a previous failure"))
         val result = ApplyModel.Result.of(plan, steps, null, listOf(), true)
-        val words = "/local/cache already exists as a file. Lighten expected nothing there. " +
-            "Move or remove it, then press r to check again."
+        val words = "/local/cache already exists as a file. Lighten expected nothing there. Move or remove it."
         for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30))) {
             // Row 0 is the relocation, row 1 the failed step.
             val details = WorkspaceViewTest.rightPane(render(result, 1, size[0], size[1]), size[0]).filterNot(Char::isWhitespace)
             assertTrue(details.contains(words.filterNot(Char::isWhitespace)), details)
-            assertTrue(details.contains("Detail:$raw".filterNot(Char::isWhitespace)), details)
-            assertTrue(details.indexOf("alreadyexists") < details.indexOf("Detail:"), details)
+            assertFalse(details.contains(raw.filterNot(Char::isWhitespace)), details)
         }
-        val lines = ApplyView.details(steps.first())
-        assertEquals(palette.dim, lines.single { it.text.startsWith("Detail: ") }.color)
+    }
+
+    /**
+     * The plain sentence is all Results show for a failure, so a screenshot must still carry what the executor's text
+     * did: every path it named, as the screen shows paths, and the system's reason.
+     */
+    @Test
+    fun everyFailureKindsDetailsKeepItsPathsAndReason() {
+        val relocation = plan().relocations.first()
+        for ((failure, _) in WordingTest.failureKinds()) {
+            val step = ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.FAILED, "raw", failure)
+            val details = ApplyView.details(step, CONFIG).joinToString("\n") { it.text }
+            val paths: List<Path?> = when (failure) {
+                is ActionFailure.Drift -> listOf(failure.path)
+                is ActionFailure.LinkChanged -> listOf(failure.path, failure.expected, failure.found)
+                is ActionFailure.StagingElsewhere -> listOf(failure.stagingRoot, failure.target, CONFIG)
+                is ActionFailure.NoPosixPermissions -> listOf(failure.path)
+                is ActionFailure.Busy -> listOf(failure.target)
+                is ActionFailure.CopyChanged -> listOf(failure.entry)
+                is ActionFailure.PermissionsNotKept -> listOf(failure.entry)
+                is ActionFailure.PermissionsNotRestored -> listOf(failure.target)
+                is ActionFailure.DifferentFilesystems -> listOf(failure.from, failure.to)
+                is ActionFailure.AccessDenied -> listOf(failure.path)
+                is ActionFailure.Gone -> listOf(failure.path)
+                is ActionFailure.AlreadyExists -> listOf(failure.path)
+                is ActionFailure.Io -> listOf(failure.path, failure.other)
+            }
+            for (path in paths.filterNotNull()) assertTrue(details.contains(displayPath(path)), "$path in $details")
+            val reason = when (failure) {
+                is ActionFailure.PermissionsNotRestored -> failure.reason
+                is ActionFailure.Io -> failure.reason
+                else -> null
+            }
+            reason?.let { assertTrue(details.contains(it, ignoreCase = true), "$it in $details") }
+            assertFalse(details.contains("raw"), details)
+        }
     }
 
     @Test
@@ -230,11 +262,11 @@ class ApplyViewTest {
         val relocationPlan = RelocationPlan(relocation, RelocationOutcome.CONVERGED, listOf(), listOf())
 
         val archive = ReconciliationAction.ArchiveDirectory(relocation.sourcePath, Path.of("/archive/local/cache"))
-        val archiveLines = ApplyView.details(ApplyModel.Step(relocationPlan, archive, ApplyModel.StepStatus.PENDING, "Not started"))
+        val archiveLines = ApplyView.details(ApplyModel.Step(relocationPlan, archive, ApplyModel.StepStatus.PENDING, "Not started"), CONFIG)
         assertTrue(archiveLines.map(DetailViewport.Line::text).any { it == "Target: /local/cache" }, archiveLines.toString())
 
         val link = ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath)
-        val linkLines = ApplyView.details(ApplyModel.Step(relocationPlan, link, ApplyModel.StepStatus.PENDING, "Not started"))
+        val linkLines = ApplyView.details(ApplyModel.Step(relocationPlan, link, ApplyModel.StepStatus.PENDING, "Not started"), CONFIG)
         assertFalse(linkLines.map(DetailViewport.Line::text).any { it == "Target: /local/cache" }, linkLines.toString())
     }
 
@@ -253,19 +285,19 @@ class ApplyViewTest {
         assertEquals(3, rows.size)
 
         val review = ApplyModel.Confirmation.of(plan)
-        val lines = ApplyView.details(rows[0], review).map(DetailViewport.Line::text)
+        val lines = ApplyView.details(rows[0], review, CONFIG).map(DetailViewport.Line::text)
         assertEquals(listOf("/home/both", "Decision: keep target, archive source (your configuration)", "", "Paths",
             "Source: /home/both", "Target: /local/both", "Archive: /archive/both"), lines)
-        assertEquals("Archive source", ApplyView.details(rows[1], review).first().text)
+        assertEquals("Archive source", ApplyView.details(rows[1], review, CONFIG).first().text)
         // A one-time choice names itself, in Review and still in Results.
         val choices = mapOf(relocation.sourcePath to DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         for (reviewed in listOf(ApplyModel.Confirmation.of(plan, choices),
             ApplyModel.Result.of(plan, pendingSteps(plan), null, listOf(), false, choices))) {
             assertEquals("Decision: keep target, archive source (your choice, this run only)",
-                ApplyView.details(rows[0], reviewed)[1].text)
+                ApplyView.details(rows[0], reviewed, CONFIG)[1].text)
         }
         // With no reviewed observation there is no rule to name; the paths remain.
-        val unobserved = ApplyView.details(rows[0], ApplyModel.Confirmation.of(plan.copy(expectedStates = listOf())))
+        val unobserved = ApplyView.details(rows[0], ApplyModel.Confirmation.of(plan.copy(expectedStates = listOf())), CONFIG)
             .map(DetailViewport.Line::text)
         assertFalse(unobserved.any { it.startsWith("Decision:") }, unobserved.toString())
         assertTrue(unobserved.contains("Target: /local/both"), unobserved.toString())
@@ -290,6 +322,8 @@ class ApplyViewTest {
     }
 
     private companion object {
+        val CONFIG: Path = WordingTest.CONFIG
+
         fun list(selected: Int) = ApplyView.list { EventResult.UNHANDLED }.selected(selected)
 
         fun plan(): ReconciliationPlan {

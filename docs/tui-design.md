@@ -389,10 +389,12 @@ available through `2` until `r` or exit.
 A failed step's Details start with its problem in plain words, in the error
 colour: the path, what is there, what Lighten expected and what to do, such as
 `/scratch/archive/tool-b already exists as a file. Lighten expected nothing
-there. Move or remove it, then press r to check again.` The next line, dim, is
-the exact text for bug reports: `Detail: expected absent at
-/scratch/archive/tool-b but found file`. A failure Lighten cannot name, such as
-an internal error, shows its text alone.
+there. Move or remove it.` Paths show home as `~`. The sentence does not say to
+press r: the headline does. It is the only text for the failure, so it keeps
+everything the executor's text had for a bug report: every path, what was
+expected and found, and the system's reason (`Lighten couldn't change ~/x: no
+space left on device.`). A failure Lighten cannot name, such as an internal
+error, shows its text as it is.
 
 ## 7. Configuration
 

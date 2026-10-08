@@ -124,7 +124,7 @@ class ReviewedExecutionTest {
         val result = assertInstanceOf(ApplyModel.Result::class.java, review.snapshot())
         assertFalse(checkNotNull(result.execution).succeeded())
         assertEquals("Interrupted during visual-test delay", result.steps.first().message)
-        assertEquals(ActionFailure.Io(null, "Interrupted during visual-test delay"), result.steps.first().failure)
+        assertEquals(ActionFailure.Io(null, null, "Interrupted during visual-test delay"), result.steps.first().failure)
         assertEquals(ApplyModel.StepStatus.FAILED, result.steps.first().status)
         assertTrue(result.steps.drop(1).all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(result.stale)

@@ -226,7 +226,7 @@ class ReconciliationExecutorTest {
         val failed = relocation.actions.single { it.status == ReconciliationExecutor.ActionStatus.FAILED }
         assertEquals("published $target but could not restore its permissions: injected failure", failed.message)
         assertTrue(failed.targetPublished)
-        assertEquals(ActionFailure.PermissionsNotRestored(target), failed.failure)
+        assertEquals(ActionFailure.PermissionsNotRestored(target, "injected failure"), failed.failure)
         assertEquals("source", Files.readString(source.resolve("entry")))
         assertEquals("source", Files.readString(target.resolve("entry")))
         assertOnlyLockLeft(target)

@@ -9,6 +9,7 @@ import java.io.IOException
 import java.io.InterruptedIOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystemException
 import java.nio.file.Files
@@ -29,12 +30,18 @@ class ActionFailureTest {
             AtomicMoveNotSupportedException("$path", "$other", "Invalid cross-device link") to
                 ActionFailure.DifferentFilesystems(path, other),
             FileSystemException("$path", null, "No space left on device") to
-                ActionFailure.Io(path, "No space left on device"),
-            FileSystemException(null, null, "Read-only file system") to ActionFailure.Io(null, "Read-only file system"),
+                ActionFailure.Io(path, null, "No space left on device"),
+            FileSystemException("$path", "$other", "Too many levels of symbolic links") to
+                ActionFailure.Io(path, other, "Too many levels of symbolic links"),
+            DirectoryNotEmptyException("$path") to ActionFailure.Io(path, null, "the folder is not empty"),
+            FileSystemException(null, null, "Read-only file system") to ActionFailure.Io(null, null, "Read-only file system"),
             InterruptedIOException("Interrupted during visual-test delay") to
-                ActionFailure.Io(null, "Interrupted during visual-test delay"),
-            PartlyPublishedException(path, "published $path but could not restore its permissions", IOException()) to
-                ActionFailure.PermissionsNotRestored(path),
+                ActionFailure.Io(null, null, "Interrupted during visual-test delay"),
+            PartlyPublishedException(path, "published $path but could not restore its permissions",
+                FileSystemException("$path", null, "Operation not permitted")) to
+                ActionFailure.PermissionsNotRestored(path, "Operation not permitted"),
+            PartlyPublishedException(path, "published $path but could not restore its permissions",
+                AccessDeniedException("$path")) to ActionFailure.PermissionsNotRestored(path, "permission denied"),
         )) {
             assertEquals(expected, ioFailure(exception), exception.toString())
         }
@@ -50,13 +57,13 @@ class ActionFailureTest {
         Files.setPosixFilePermissions(copy.parent, Files.getPosixFilePermissions(source.parent))
 
         val differs = assertThrows<EnvironmentException> { verifyCopy(source.parent, copy.parent) }
-        assertEquals(ActionFailure.CopyChanged(source.resolve("file")), differs.failure)
+        assertEquals(ActionFailure.CopyChanged(source.resolve("file"), CopyDifference.FILE_DIFFERS), differs.failure)
         assertEquals("copied file differs: ${copy.resolve("file")}", differs.message)
 
         Files.writeString(copy.resolve("file"), "source")
         Files.writeString(copy.resolve("extra"), "")
         val extra = assertThrows<EnvironmentException> { verifyCopy(source.parent, copy.parent) }
-        assertEquals(ActionFailure.CopyChanged(source.resolve("extra")), extra.failure)
+        assertEquals(ActionFailure.CopyChanged(source.resolve("extra"), CopyDifference.EXTRA_ENTRY), extra.failure)
 
         Files.delete(copy.resolve("extra"))
         Files.setPosixFilePermissions(copy, PosixFilePermissions.fromString("rwx------"))

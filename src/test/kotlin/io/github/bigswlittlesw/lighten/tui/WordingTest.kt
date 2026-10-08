@@ -8,6 +8,7 @@ import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExis
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
+import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -102,65 +103,84 @@ class WordingTest {
         assertEquals("Relocations", relocationsTitle(0, shown = false))
     }
 
-    /** One sentence per failure kind: what is there, what Lighten expected, and what to do (#172). */
+    /**
+     * One sentence per failure kind: what is there, what Lighten expected, and what to do (#172). Results show nothing
+     * else for a failure, so each keeps the executor's paths and the system's reason. Home shows as `~`.
+     */
     @Test
     fun failedStepsInPlainWords() {
-        val archive = Path.of("/scratch/archive/tool-b")
-        val source = Path.of("/home/me/.cache/tool-a")
-        val target = Path.of("/scratch/local/tool-a")
-        for ((failure, words) in listOf(
-            ActionFailure.Drift(archive, PathState.ABSENT, PathState.FILE) to "/scratch/archive/tool-b already exists " +
-                "as a file. Lighten expected nothing there. Move or remove it, then press r to check again.",
-            ActionFailure.Drift(target, PathState.ABSENT, PathState.DIRECTORY) to "/scratch/local/tool-a already " +
-                "exists as a folder. Lighten expected nothing there. Move or remove it, then press r to check again.",
-            ActionFailure.Drift(source, PathState.DIRECTORY, PathState.ABSENT) to
-                "/home/me/.cache/tool-a no longer exists. Lighten expected a folder there. Press r to check again.",
-            ActionFailure.Drift(Path.of("/scratch/archive"), PathState.DIRECTORY, PathState.SYMLINK) to
-                "/scratch/archive is a link. Lighten expected a folder there. Press r to check again.",
-            ActionFailure.Drift(source, PathState.SYMLINK, PathState.OTHER) to
-                "/home/me/.cache/tool-a is a special file. Lighten expected a link there. Press r to check again.",
-            ActionFailure.Drift(source, PathState.DIRECTORY, PathState.INACCESSIBLE) to "/home/me/.cache/tool-a " +
-                "can't be read. Lighten expected a folder there. Check its permissions, then press r to check again.",
-            ActionFailure.LinkChanged(source, target, Path.of("/elsewhere")) to "/home/me/.cache/tool-a now links " +
-                "to /elsewhere. Lighten expected it to link to /scratch/local/tool-a. Press r to check again.",
-            ActionFailure.StagingElsewhere(Path.of("/scratch/local/.staging"), target) to "The staging folder " +
-                "/scratch/local/.staging is not on the same filesystem as /scratch/local/tool-a, so Lighten can't " +
-                "move the copy there in one step. Set staging-root in the configuration file to a folder on the " +
-                "target's filesystem, then press r to check again.",
-            ActionFailure.NoPosixPermissions(Path.of("/mnt/usb")) to "/mnt/usb is on a filesystem without Unix " +
-                "permissions, so Lighten can't keep the folder's permissions when it copies it. Use a location on a " +
-                "filesystem that has them, then press r to check again.",
-            ActionFailure.Busy(target, here = false) to "Another Lighten is moving a folder to /scratch/local/tool-a. " +
-                "Wait for it to finish, then press r to check again.",
-            ActionFailure.Busy(target, here = true) to
-                "Lighten is already moving another folder to /scratch/local/tool-a. Press r to check again.",
-            ActionFailure.CopyChanged(source.resolve("index.db")) to "/home/me/.cache/tool-a/index.db changed while " +
-                "Lighten was copying it, so Lighten threw the copy away and moved nothing. Close any app that uses " +
-                "it, then press r to check again.",
-            ActionFailure.PermissionsNotKept(source) to "The copy of /home/me/.cache/tool-a didn't keep its " +
-                "permissions, so Lighten threw the copy away and moved nothing. Check that the target's filesystem " +
-                "keeps Unix permissions, then press r to check again.",
-            ActionFailure.PermissionsNotRestored(target) to "Lighten copied the folder to /scratch/local/tool-a but " +
-                "couldn't set the copy's permissions back. The source is still in place. Give /scratch/local/tool-a " +
-                "the source's permissions, then press r to check again.",
-            ActionFailure.DifferentFilesystems(source, archive) to "/home/me/.cache/tool-a and " +
-                "/scratch/archive/tool-b are on different filesystems, so Lighten can't move one to the other in one " +
-                "step. Change the configuration so both are on one filesystem, then press r to check again.",
-            ActionFailure.AccessDenied(source) to "Lighten isn't allowed to change /home/me/.cache/tool-a. Check its " +
-                "owner and permissions, then press r to check again.",
-            ActionFailure.Gone(source) to
-                "/home/me/.cache/tool-a no longer exists. Lighten expected it there. Press r to check again.",
-            ActionFailure.AlreadyExists(target) to "/scratch/local/tool-a already exists. Lighten expected nothing " +
-                "there. Move or remove it, then press r to check again.",
-            ActionFailure.Io(target, "No space left on device") to "Lighten couldn't change /scratch/local/tool-a: " +
-                "no space left on device. Fix that, then press r to check again.",
-            ActionFailure.Io(target, null) to "Lighten couldn't change /scratch/local/tool-a. Press r to check again.",
-            ActionFailure.Io(null, "Interrupted") to
-                "Lighten couldn't read or change a file. See the detail below, then press r to check again.",
-        )) {
-            assertEquals(words, failureWords(failure), failure.toString())
+        for ((failure, words) in failureKinds()) {
+            assertEquals(words, failureWords(failure, CONFIG), failure.toString())
         }
-        assertEquals("Detail: expected absent at $archive but found file",
-            failureDetail("expected absent at $archive but found file"))
+    }
+
+    companion object {
+        private val HOME: Path = Path.of(System.getProperty("user.home"))
+        val CONFIG: Path = HOME.resolve(".lighten.json")
+
+        /** Every failure kind, with its sentence; [ApplyViewTest] renders them too. */
+        fun failureKinds(): List<Pair<ActionFailure, String>> {
+            val archive = Path.of("/scratch/archive/tool-b")
+            val source = HOME.resolve(".cache/tool-a")
+            val target = Path.of("/scratch/local/tool-a")
+            return listOf(
+                ActionFailure.Drift(archive, PathState.ABSENT, PathState.FILE) to "/scratch/archive/tool-b already " +
+                    "exists as a file. Lighten expected nothing there. Move or remove it.",
+                ActionFailure.Drift(target, PathState.ABSENT, PathState.DIRECTORY) to "/scratch/local/tool-a already " +
+                    "exists as a folder. Lighten expected nothing there. Move or remove it.",
+                ActionFailure.Drift(source, PathState.DIRECTORY, PathState.ABSENT) to
+                    "~/.cache/tool-a no longer exists. Lighten expected a folder there.",
+                ActionFailure.Drift(Path.of("/scratch/archive"), PathState.DIRECTORY, PathState.SYMLINK) to
+                    "/scratch/archive is a link. Lighten expected a folder there.",
+                ActionFailure.Drift(source, PathState.SYMLINK, PathState.OTHER) to
+                    "~/.cache/tool-a is a special file. Lighten expected a link there.",
+                ActionFailure.Drift(source, PathState.DIRECTORY, PathState.INACCESSIBLE) to
+                    "~/.cache/tool-a can't be read. Lighten expected a folder there. Check its permissions.",
+                ActionFailure.LinkChanged(source, target, Path.of("/elsewhere")) to
+                    "~/.cache/tool-a now links to /elsewhere. Lighten expected it to link to /scratch/local/tool-a.",
+                ActionFailure.StagingElsewhere(Path.of("/scratch/local/.staging"), target) to "The staging folder " +
+                    "/scratch/local/.staging is not on the same filesystem as /scratch/local/tool-a, so Lighten can't " +
+                    "move the copy there in one step. Set the staging-root setting in ~/.lighten.json to a folder on " +
+                    "the target's filesystem.",
+                ActionFailure.NoPosixPermissions(Path.of("/mnt/usb")) to "/mnt/usb is on a filesystem without Unix " +
+                    "permissions, so Lighten can't keep the folder's permissions when it copies it. Use a location " +
+                    "on a filesystem that has them.",
+                ActionFailure.Busy(target, here = false) to
+                    "Another Lighten is moving a folder to /scratch/local/tool-a. Wait for it to finish.",
+                ActionFailure.Busy(target, here = true) to "Lighten is already moving another folder to /scratch/local/tool-a.",
+                ActionFailure.CopyChanged(source.resolve("index.db"), CopyDifference.FILE_DIFFERS) to "~/.cache/tool-a/" +
+                    "index.db changed while Lighten was copying it (the copied file doesn't match), so Lighten threw " +
+                    "the copy away and moved nothing. Close any app that uses it.",
+                ActionFailure.CopyChanged(source.resolve("sub"), CopyDifference.MISSING_FOLDER) to "~/.cache/tool-a/sub " +
+                    "changed while Lighten was copying it (the folder is missing from the copy), so Lighten threw the " +
+                    "copy away and moved nothing. Close any app that uses it.",
+                ActionFailure.CopyChanged(source.resolve("current"), CopyDifference.LINK_DIFFERS) to "~/.cache/tool-a/" +
+                    "current changed while Lighten was copying it (the copied link points elsewhere), so Lighten threw " +
+                    "the copy away and moved nothing. Close any app that uses it.",
+                ActionFailure.CopyChanged(source.resolve("lock"), CopyDifference.EXTRA_ENTRY) to "~/.cache/tool-a/lock " +
+                    "changed while Lighten was copying it (the copy has it, but the source no longer does), so Lighten " +
+                    "threw the copy away and moved nothing. Close any app that uses it.",
+                ActionFailure.PermissionsNotKept(source) to "The copy of ~/.cache/tool-a didn't keep its permissions, " +
+                    "so Lighten threw the copy away and moved nothing. Check that the target's filesystem keeps Unix " +
+                    "permissions.",
+                ActionFailure.PermissionsNotRestored(target, "Operation not permitted") to "Lighten copied the folder " +
+                    "to /scratch/local/tool-a but couldn't set the copy's permissions back: operation not permitted. " +
+                    "The source is still in place. Give /scratch/local/tool-a the source's permissions.",
+                ActionFailure.DifferentFilesystems(source, archive) to "~/.cache/tool-a and /scratch/archive/tool-b are " +
+                    "on different filesystems, so Lighten can't move one to the other in one step. Change the " +
+                    "configuration so both are on one filesystem.",
+                ActionFailure.AccessDenied(source) to
+                    "Lighten isn't allowed to change ~/.cache/tool-a. Check its owner and permissions.",
+                ActionFailure.Gone(source) to "~/.cache/tool-a no longer exists. Lighten expected it there.",
+                ActionFailure.AlreadyExists(target) to
+                    "/scratch/local/tool-a already exists. Lighten expected nothing there. Move or remove it.",
+                ActionFailure.Io(target, null, "No space left on device") to
+                    "Lighten couldn't change /scratch/local/tool-a: no space left on device.",
+                ActionFailure.Io(source, target, "Too many levels of symbolic links") to "Lighten couldn't move or " +
+                    "copy ~/.cache/tool-a to /scratch/local/tool-a: too many levels of symbolic links.",
+                ActionFailure.Io(null, null, "Interrupted during visual-test delay") to
+                    "Lighten couldn't read or change a file: interrupted during visual-test delay.",
+            )
+        }
     }
 }

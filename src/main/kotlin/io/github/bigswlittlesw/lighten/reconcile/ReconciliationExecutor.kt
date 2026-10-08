@@ -348,7 +348,7 @@ class ReconciliationExecutor internal constructor(
 internal class EnvironmentException(val failure: ActionFailure, message: String) : Exception(message)
 
 /** Publication moved the copy to [target] and then failed; see [ReconciliationExecutor.ActionExecution.targetPublished]. */
-internal class PartlyPublishedException(val target: Path, message: String, cause: IOException) : IOException(message, cause)
+internal class PartlyPublishedException(val target: Path, message: String, val failure: IOException) : IOException(message, failure)
 
 private fun notRun(action: ReconciliationAction) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.PENDING, "not run after a previous failure")
