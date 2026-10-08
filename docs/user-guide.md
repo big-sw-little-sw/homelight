@@ -195,8 +195,9 @@ is never hidden.
 
 Under the lists, a line such as `12 found on this machine` counts the
 suggested directories that exist on this machine. Press `f` to show only
-those, and `f` again to show all. While only found directories are shown,
-`Space` on a category's or app's name adds or takes out only those.
+those, and `f` again to show all. Directories in your configuration are
+always shown. While `f` is on, `Space` on a category's or app's name adds
+only the found directories under it.
 
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app

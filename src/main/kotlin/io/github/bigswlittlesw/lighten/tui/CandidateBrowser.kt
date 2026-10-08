@@ -222,15 +222,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             key.isChar(' ') && (item is Item.Category || item is Item.App) -> {
                 message = ""
                 val members = rows(draft).firstOrNull { it.item == item }?.entries.orEmpty()
-                // While only found directories are shown, Space leaves the group's others as they are and says so.
+                // While `f` is on, Space adds none of the group's directories that are not found, and says so. Every
+                // row in the configuration is shown, so taking a group out is the same either way.
                 val unshown = if (foundOnly) {
-                    rows(draft, foundOnly = false).firstOrNull { it.item == item }?.entries.orEmpty().filterNot(::found)
+                    rows(draft, foundOnly = false).firstOrNull { it.item == item }?.entries.orEmpty().filterNot(::shownWhenFiltered)
                 } else listOf()
                 return when (groupState(members, draft)) {
-                    GroupState.ALL -> {
-                        message = groupRemoved(members.count { it.row != null }, unshown.count { it.row != null }).orEmpty()
-                        BrowseAction.RemoveAll(members.mapNotNull { it.row })
-                    }
+                    GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
                     GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
                         members.filter { it.row == null && draft.canAdd(it) }.map(::path),
                         unaddable = members.count { it.row == null && !it.ignored && !draft.canAdd(it) },
@@ -328,7 +326,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         return when (state) {
             GroupState.ALL -> KeyHint(
                 "Space", "Remove all",
-                description = if (foundOnly) REMOVE_FOUND else if (category) REMOVE_CATEGORY else REMOVE_GROUP,
+                description = if (category) REMOVE_CATEGORY else REMOVE_GROUP,
             )
             GroupState.SOME, GroupState.NONE -> KeyHint(
                 "Space", "Add all", description = if (foundOnly) ADD_FOUND else if (category) ADD_CATEGORY else ADD_GROUP,
@@ -345,7 +343,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
      */
     private fun rows(draft: BrowseDraft, foundOnly: Boolean = this.foundOnly): List<Row> {
         val categories = categories(draft)
-        val tops = listed(draft).values.filter { entry -> (reveal || !hidden(entry, draft)) && (!foundOnly || found(entry)) }
+        val tops = listed(draft).values
+            .filter { entry -> (reveal || !hidden(entry, draft)) && (!foundOnly || shownWhenFiltered(entry)) }
             .groupBy { entry -> app(entry)?.let { Item.Category(categories[it]) } ?: Item.App(null) }
         fun directories(entries: List<BrowseDraft.Entry>) = entries.map { Row(Item.Directory(path(it)), listOf(it)) }
         // A stable sort, so the named categories keep their order.
@@ -391,13 +390,17 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
 
     /**
      * Under the Lists lines: how many directories are found on this machine, once each is checked, and how many are
-     * hidden. One line, so the list keeps its rows at 24 lines.
+     * hidden. While `f` is on, it also counts the rows shown because they are in the configuration, though not found.
+     * One line, so the list keeps its rows at 24 lines.
      */
     private fun countLine(draft: BrowseDraft): String? = listOfNotNull(
         draft.discovery?.let { result ->
             // The count would climb while rows are checked, so it waits for the last one.
             val checking = result.candidates.any { it.observation.kind == CandidateObservation.Kind.PENDING }
-            if (checking) CHECKING_THIS_MACHINE else foundLine(foundCount(draft), foundOnly)
+            if (checking) CHECKING_THIS_MACHINE else foundLine(
+                foundCount(draft), foundOnly,
+                configured = entriesByPath(draft).values.count { it.row != null && !found(it) },
+            )
         },
         hiddenCount(draft).takeIf { it > 0 }?.let { hiddenLine(it, reveal) },
     ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
@@ -473,6 +476,9 @@ private fun found(entry: BrowseDraft.Entry): Boolean = when (entry.discovery?.ob
     CandidateObservation.Kind.BLOCKED_BY_NON_DIRECTORY, CandidateObservation.Kind.UNKNOWN, null,
     -> false
 }
+
+/** Shown while `f` is on: found, or in the configuration, which, as with `u`, is never hidden. */
+private fun shownWhenFiltered(entry: BrowseDraft.Entry): Boolean = found(entry) || entry.row != null
 
 /** Every listed directory found, those `u` hides included. */
 private fun foundCount(draft: BrowseDraft): Int = entriesByPath(draft).values.count(::found)

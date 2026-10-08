@@ -917,29 +917,34 @@ class BrowseTest {
     }
 
     /**
-     * While `f` is on, Space on a heading adds or takes out only the found directories under it and says how many
-     * others it left as they are.
+     * While `f` is on, a directory in the configuration stays listed even when it is not found, and the count line
+     * says why. Space on a heading adds only the found directories under it and says how many others it skipped;
+     * taking the group out takes out every directory in the configuration under it.
      */
-    @Test fun spaceOnAHeadingWhileFilteredActsOnlyOnFoundDirectories() {
+    @Test fun configuredRowsStayListedAndSpaceOnAHeadingAddsOnlyFoundOnes() {
         val root = fixture()
         SetupDiscoveryFixture().use { workers ->
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json"))
             key(ui, 'b'); await(workers, ui)
             choose(ui, "absent-cache"); key(ui, ' ')
             key(ui, 'f')
+            val filtered = render(ui)
+            assertTrue(filtered.contains("7 found on this machine, plus 1 in your configuration"), filtered)
+            assertTrue(selected(filtered, "● absent-cache") && !filtered.contains("link-cache"), filtered)
             chooseGroup(ui, "Other directories")
-            assertTrue(selectedGroup(render(ui), "○ Other directories", "0 of 2 added"), render(ui))
+            assertTrue(selectedGroup(render(ui), "◐ Other directories", "1 of 3 added"), render(ui))
             key(ui, ' ')
             val added = render(ui)
             assertTrue(added.contains("Added 2. Skipped 3 not found on this machine; f shows all."), added)
-            assertTrue(selectedGroup(added, "● Other directories", "2 of 2 added"), added)
+            assertTrue(selectedGroup(added, "● Other directories", "3 of 3 added"), added)
             key(ui, ' ')
             val removed = render(ui)
-            assertTrue(removed.contains("Took out 2. Kept 1 not found on this machine; f shows all."), removed)
+            assertEquals(0, added(ui), removed)
+            // Nothing configured is left unfound, so the line says only found rows are shown.
+            assertTrue(removed.contains("7 found on this machine, only these shown") && !removed.contains("absent-cache"), removed)
             assertTrue(selectedGroup(removed, "○ Other directories", "0 of 2 added"), removed)
             key(ui, 'f')
-            assertTrue(render(ui).contains("● absent-cache") && render(ui).contains("○ datasets"), render(ui))
-            assertEquals(1, added(ui))
+            assertTrue(render(ui).contains("○ absent-cache") && render(ui).contains("7 found on this machine"), render(ui))
             ui.app.closeEditor()
         }
     }

@@ -92,7 +92,7 @@ class HelpTest {
             ui.press('f')
             checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_FOUND, "f" to showFoundOnly(true)))
             ui.press(' ')
-            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to REMOVE_FOUND))
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to REMOVE_CATEGORY))
             ui.press(' ')
             ui.press('f')
             ui.press(KeyCode.DOWN)

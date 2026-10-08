@@ -620,21 +620,23 @@ screen never says "candidate" or "draft".
   `Checking this machine…` until every row is checked, then `12 found on this
   machine`, with the hidden count after a ` · ` on the same line, so the list
   keeps its rows at 80x24. `f` (`f: Found only`, `f: Show all`) shows only
-  the found directories and the line adds `, only these shown`; the hidden
-  count then counts only found ones. A heading with nothing found beneath it
-  is not listed, and a heading's `1 of 2 added` counts only its shown
-  directories. Found rows keep their list order: nothing sorts them first.
+  the found directories, and those in the configuration, which are never
+  hidden, as with `u`; their `●` and note set them apart. The line then adds
+  `, plus 2 in your configuration` when such rows are not found, else `, only
+  these shown`. The hidden count then counts only found ones. A heading with
+  nothing shown beneath it is not listed, and a heading's `1 of 2 added`
+  counts only its shown directories. Found rows keep their list order: nothing sorts them first.
   `f` sits on the navigation help line, as the other line is full at 80
   columns; Help lists it under Do. It is offered when something is found,
   and always while on, so it can be turned off. With nothing found and `f`
   on, the list reads `None found on this machine. Press f to show every
   suggestion.`
-- While `f` is on, Space on a heading acts only on the found directories
-  under it, and Help says so (`Add every directory under it found on this
-  machine that can be added`). The line after it names what it left alone:
-  `Added 2. Skipped 3 not found on this machine; f shows all.`, or after
-  taking a group out, `Took out 2. Kept 1 not found on this machine; f shows
-  all.`
+- While `f` is on, Space on a heading adds only the found directories under
+  it, and Help says so (`Add every directory under it found on this machine
+  that can be added`). The line after it names what it skipped: `Added 2.
+  Skipped 3 not found on this machine; f shows all.` Taking a group out is
+  unchanged: every directory in the configuration under it is shown.
+  Browse opens with `f` off, on a first run too.
 - `r` is **Check again**: it reads the lists again and rows read `checking…`
   until checked. It never changes the configuration.
 - Discovery never blocks the screen and never lists directory contents. Size

@@ -606,8 +606,15 @@ internal fun rootProblem(detail: String, path: String) = "Source root: $detail Â
 internal fun hiddenLine(n: Int, shown: Boolean) = "$n usually not needed, " + if (shown) "shown" else "hidden"
 internal fun showHidden(shown: Boolean) = (if (shown) "Hide" else "Show") + " the suggestions marked usually not needed"
 internal const val NO_SUGGESTIONS = "No suggestions yet. Esc returns to Configuration."
-/** Browse's count of directories found on this machine; `only`: just those are shown (`f`). */
-internal fun foundLine(n: Int, only: Boolean) = "$n found on this machine" + if (only) ", only these shown" else ""
+/**
+ * Browse's count of directories found on this machine. `only`: `f` shows just those, and the `configured` rows in the
+ * configuration that are not found.
+ */
+internal fun foundLine(n: Int, only: Boolean, configured: Int) = "$n found on this machine" + when {
+    !only -> ""
+    configured > 0 -> ", plus $configured in your configuration"
+    else -> ", only these shown"
+}
 internal const val CHECKING_THIS_MACHINE = "Checking this machineâ€¦"
 internal fun showFoundOnly(only: Boolean) =
     if (only) "Show every suggestion again" else "Show only the directories found on this machine"
@@ -633,9 +640,8 @@ internal const val ADD_GROUP = "Add every directory shown in the group that can 
 internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
 internal const val ADD_CATEGORY = "Add every directory shown under the category's apps that can be added"
 internal const val REMOVE_CATEGORY = "Take every directory under the category's apps out of the configuration"
-// A heading's Space, a category's or an app's, while `f` shows only found directories: it leaves the others alone.
+/** A heading's Space, a category's or an app's, while `f` is on: it adds none that are not found. */
 internal const val ADD_FOUND = "Add every directory under it found on this machine that can be added"
-internal const val REMOVE_FOUND = "Take every directory under it found on this machine out of the configuration"
 /**
  * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
  * `overlapped` names, for each skipped row, the relocation it overlaps when known. `ignored` counts the rows skipped
@@ -650,12 +656,9 @@ internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int, i
     }
     val cannot = if (unaddable == 0) null else "Skipped $unaddable that can't be added."
     val skippedIgnored = if (ignored == 0) null else "Skipped $ignored you ignored."
-    return listOfNotNull("Added $added.", overlap, cannot, skippedIgnored, notFoundNote(notFound, "Skipped")).joinToString(" ")
+    val skippedNotFound = if (notFound == 0) null else "Skipped $notFound not found on this machine; f shows all."
+    return listOfNotNull("Added $added.", overlap, cannot, skippedIgnored, skippedNotFound).joinToString(" ")
 }
-/** After Space took a group out while only found directories are shown: null when none of its others are in. */
-internal fun groupRemoved(removed: Int, notFound: Int): String? =
-    if (notFound == 0) null else "Took out $removed. " + notFoundNote(notFound, "Kept")
-private fun notFoundNote(n: Int, verb: String) = if (n == 0) null else "$verb $n not found on this machine; f shows all."
 internal const val IGNORED_NOTE = "ignored by you"
 internal const val BROWSE_IGNORE = "Ignore the directory: Lighten won't manage or add it; saving writes the change"
 internal const val BROWSE_STOP_IGNORING = "Stop ignoring the directory; saving writes the change"
