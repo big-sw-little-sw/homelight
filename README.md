@@ -34,7 +34,7 @@ Options go after `sh install.sh`, or after `sh -s --` when piping:
 --no-modify-path    do not offer to change PATH; only show the line
 ```
 
-Run the script again to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
+Run `lighten update`, or the script again, to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
 
 These tools also install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases), once the first release is published:
 
@@ -44,7 +44,7 @@ eget big-sw-little-sw/lighten --to ~/.local/bin
 ubi --project big-sw-little-sw/lighten --in ~/.local/bin
 ```
 
-mise updates what it installed (`mise upgrade`). `lighten update` updates an install made with the script, eget, ubi or by hand: it downloads the latest release beside the running binary, checks it against `SHA256SUMS` and replaces the binary in one step. `lighten update --check` only shows the installed and the latest version, and `lighten update --version 1.2.3` installs that release, even an older one.
+mise updates what it installed (`mise upgrade`). `lighten update` updates an install made with the script, eget, ubi or by hand: it runs the latest release's install script on the directory that holds the running `lighten`, so it needs `curl` or `wget` too. `lighten update --check` only shows the installed and the latest version, and `lighten update --version 1.2.3` installs that release, even an older one.
 
 To download by hand, take `lighten-<version>-linux-x86_64-musl` or `lighten-<version>-linux-aarch64-gnu` and `SHA256SUMS` from a release, then:
 

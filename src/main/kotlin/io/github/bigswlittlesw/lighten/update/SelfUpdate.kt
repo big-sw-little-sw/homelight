@@ -2,39 +2,18 @@ package io.github.bigswlittlesw.lighten.update
 
 import io.github.bigswlittlesw.lighten.application.resolveVersion
 import java.io.IOException
-import java.io.OutputStream
 import java.io.PrintWriter
-import java.net.ConnectException
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpConnectTimeoutException
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.net.http.HttpResponse.BodyHandler
-import java.net.http.HttpResponse.BodyHandlers
-import java.net.http.HttpTimeoutException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
-import java.nio.file.StandardOpenOption.CREATE
-import java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
-import java.nio.file.StandardOpenOption.WRITE
-import java.nio.file.attribute.PosixFilePermissions
-import java.security.DigestInputStream
-import java.security.MessageDigest
 import java.time.Duration
-import java.util.HexFormat
-import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
-import javax.net.ssl.SSLException
 
 /** Where releases are published. Asset names are a contract: see "Release assets" in `docs/decisions.md`. */
 internal const val RELEASES_URL = "https://github.com/big-sw-little-sw/lighten/releases"
 
 /**
- * For tests only, with the meaning it has for `install.sh`: replaces [RELEASES_URL]. The server must serve
- * `latest/download/<asset>` and `download/v<version>/<asset>` under it, as GitHub does.
+ * For tests only, with the meaning it has for `install.sh`, which receives it too: replaces [RELEASES_URL]. The
+ * server must serve `latest/download/<asset>` and `download/v<version>/<asset>` under it, as GitHub does.
  */
 internal const val BASE_URL_VARIABLE = "LIGHTEN_INSTALL_BASE_URL"
 
@@ -64,41 +43,32 @@ internal fun releasePlatform(os: String, arch: String): String? = when {
     else -> null
 }
 
-private val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(10)
-
-/** From sending a request to its response headers. */
-private val RESPONSE_TIMEOUT: Duration = Duration.ofSeconds(30)
-
-private val SUMS_DEADLINE: Duration = Duration.ofSeconds(60)
-
-/** The whole binary, about 30 MB: generous for a slow link, but it ends a stalled download. */
-private val BINARY_DEADLINE: Duration = Duration.ofMinutes(10)
-
-private val VERSION_RUN_TIMEOUT: Duration = Duration.ofSeconds(10)
+/** One download: `SHA256SUMS` or `install.sh`, both small. */
+private val DOWNLOAD_DEADLINE: Duration = Duration.ofSeconds(60)
 
 /**
- * `lighten update`: checks for a newer release, or downloads one and puts it in place of the running binary.
+ * `lighten update`: checks for a newer release, or runs the release's `install.sh` to install one.
  *
- * The network is used only here. A download goes beside the binary, is checked against `SHA256SUMS`, must run and
- * report the expected `--version`, and only then is renamed over the binary in one step; any failure before that
- * leaves the installed binary as it was. This matches `install.sh`.
+ * Lighten never writes its binary: `install.sh` alone downloads, verifies and replaces it, so those rules have one
+ * implementation. Lighten decides whether to run it, refusing cases the script would get wrong or cannot know about,
+ * and downloads with `curl` or `wget` like the script, so the binary carries no HTTP or TLS code. The network is
+ * used only here.
  *
- * Messages go to [out] and failures to [err]; each operation returns the exit code: 0, or 1 when it failed or
- * refused.
+ * Lighten's messages go to [out] and [err]; the script inherits the process's own streams. Each operation returns
+ * the exit code: 0, 1 when it failed or refused, or the script's own.
  */
 internal class SelfUpdate(
     private val installation: Installation,
     private val out: PrintWriter,
     private val err: PrintWriter,
-    env: (String) -> String? = System::getenv,
+    private val env: (String) -> String? = System::getenv,
 ) {
-    private val base = env(BASE_URL_VARIABLE)?.takeIf { it.isNotBlank() }?.trimEnd('/') ?: RELEASES_URL
-    private val miseDataDir = env("MISE_DATA_DIR")?.takeIf { it.isNotBlank() }
+    private val baseOverride = env(BASE_URL_VARIABLE)?.takeIf { it.isNotBlank() }?.trimEnd('/')
+    private val base = baseOverride ?: RELEASES_URL
 
     /** Prints the installed and the latest version. A newer release does not change the exit code. */
     fun check(): Int = reporting {
-        val platform = requirePlatform()
-        val latest = withClient { http -> latestOrRequested(http, platform, requested = null) }.version
+        val latest = latestRelease(requirePlatform(), requireDownloader())
         val installed = ReleaseVersion.parseOrNull(installation.version)
         out.println("Installed: lighten ${installation.version}")
         out.println("Latest:    lighten $latest")
@@ -108,9 +78,12 @@ internal class SelfUpdate(
             installed == latest -> "Lighten is up to date."
             else -> "The installed version is newer than the latest release."
         })
+        0
     }
 
-    /** Installs [requested], or the latest release when it is null and newer than the installed one. */
+    /**
+     * Runs `install.sh` for [requested], or for the latest release when it is null and newer than the installed one.
+     */
     fun install(requested: ReleaseVersion?): Int = reporting {
         val installed = ReleaseVersion.parseOrNull(installation.version) ?: fail(
             "This lighten is a development build (${installation.version}), so lighten update does not replace it.",
@@ -121,41 +94,50 @@ internal class SelfUpdate(
             "This Lighten runs on a Java runtime, not as the lighten binary, so lighten update has nothing to replace.",
         )
         refuseOtherInstallers(binary)
-        val dir = binary.parent
-        if (!Files.isWritable(dir)) refuseUnwritable(binary)
+        // The script installs <dir>/lighten; another name would leave this binary as it is.
+        if (binary.fileName.toString() != "lighten") fail(
+            "The running binary is ${tilde(binary)}. lighten update runs the install script, which installs a file",
+            "named lighten, so it cannot update this one. Rename it to lighten, or update it by hand: see",
+            README_INSTALL,
+        )
+        if (!Files.isWritable(binary.parent)) refuseUnwritable(binary)
+        val downloader = requireDownloader()
+        val sh = findOnPath("sh") ?: fail("lighten update runs the install script with sh, and there is no sh on PATH.")
 
-        withClient { http ->
-            val asset = latestOrRequested(http, platform, requested)
-            if (requested == null && asset.version <= installed) {
-                out.println(if (asset.version == installed) "Lighten $installed is up to date."
-                else "The installed lighten $installed is newer than the latest release, ${asset.version}. " +
-                    "To install that, run: lighten update --version ${asset.version}")
-                return@withClient
+        when {
+            requested == null -> {
+                val latest = latestRelease(platform, downloader)
+                if (latest == installed) {
+                    out.println("Lighten $installed is up to date.")
+                    return@reporting 0
+                }
+                if (latest < installed) {
+                    out.println("The installed lighten $installed is newer than the latest release, $latest. " +
+                        "To install that, run: lighten update --version $latest")
+                    return@reporting 0
+                }
             }
-            val version = asset.version
-            out.println(when {
-                version > installed -> "Updating lighten $installed to $version for ${installation.machine}."
-                version < installed -> "Installing lighten $version, older than the installed $installed, " +
-                    "for ${installation.machine}."
-                else -> "Reinstalling lighten $version for ${installation.machine}."
-            })
-            out.println("  From: ${releaseUrl(requested)}/${asset.name}")
-            out.println("  To:   ${tilde(binary)}")
-            out.flush()
-            replace(http, binary, asset, "${releaseUrl(requested)}/${asset.name}")
-            out.println(when {
-                version > installed -> "Updated lighten from $installed to $version."
-                version < installed -> "Downgraded lighten from $installed to $version."
-                else -> "Reinstalled lighten $version."
-            })
+            requested < installed -> out.println("Installing lighten $requested, older than the installed $installed.")
         }
+        runInstallScript(sh, downloader, binary.parent, requested)
     }
 
     private fun requirePlatform(): String = installation.platform ?: fail(
         "There is no Lighten release for ${installation.machine}. Releases have Linux x86_64 and arm64 binaries.",
     )
 
+    private fun requireDownloader(): Downloader =
+        (findOnPath("curl")?.let(::Curl) ?: findOnPath("wget")?.let(::Wget)) ?: fail(
+            "lighten update needs curl or wget to download releases. Install one of them and run it again.",
+        )
+
+    private fun findOnPath(name: String): Path? = env("PATH").orEmpty().split(':')
+        .filter { it.isNotEmpty() }
+        .map { Path.of(it, name) }
+        .firstOrNull { Files.isRegularFile(it) && Files.isExecutable(it) }
+
     private fun refuseOtherInstallers(binary: Path) {
+        val miseDataDir = env("MISE_DATA_DIR")?.takeIf { it.isNotBlank() }
         val underMise = "/mise/installs/" in binary.toString() ||
             miseDataDir?.let { binary.startsWith(Path.of(it).toAbsolutePath()) } == true
         if (underMise) fail(
@@ -178,60 +160,43 @@ internal class SelfUpdate(
     private fun releaseUrl(requested: ReleaseVersion?): String =
         if (requested == null) "$base/latest/download" else "$base/download/v$requested"
 
-    private fun latestOrRequested(http: HttpClient, platform: String, requested: ReleaseVersion?): ReleaseAsset {
-        val url = releaseUrl(requested)
-        val response = http.get("$url/SHA256SUMS", BodyHandlers.ofString(), SUMS_DEADLINE)
-        when {
-            response.statusCode() == 404 && requested != null -> fail(
-                "Lighten $requested is not a published release: there is no $url/SHA256SUMS.",
-                "See the releases: $RELEASES_URL",
-            )
-            response.statusCode() == 404 -> fail(
-                "Found no published release: there is no $url/SHA256SUMS.",
-                "See the releases: $RELEASES_URL",
-            )
-            response.statusCode() != 200 -> fail(
-                "Could not download $url/SHA256SUMS: the server answered ${response.statusCode()}.",
-                "Try again later, or see $RELEASES_URL",
-            )
+    /** The latest release's version for [platform], from its `SHA256SUMS`, as `install.sh` finds it. */
+    private fun latestRelease(platform: String, downloader: Downloader): ReleaseVersion {
+        val url = "${releaseUrl(null)}/SHA256SUMS"
+        val sums = withTempFile { file ->
+            download(downloader, url, file, hint = "Check your network connection, or see $RELEASES_URL")
+            Files.readString(file)
         }
-        val asset = findAsset(response.body(), platform) ?: fail("The release at $url has no $platform binary.")
-        if (requested != null && asset.version != requested) {
-            fail("The release v$requested lists ${asset.name}, not version $requested.")
-        }
-        return asset
+        return findAsset(sums, platform)?.version ?: fail("The latest release at $url lists no $platform binary.")
     }
 
-    /** Downloads [asset] beside [binary], checks it, and renames it over [binary]. */
-    private fun replace(http: HttpClient, binary: Path, asset: ReleaseAsset, url: String) {
-        // Beside the binary, so the rename stays on one filesystem and is atomic. The pid keeps two runs apart.
-        val download = binary.resolveSibling(".lighten-update.${ProcessHandle.current().pid()}")
-        try {
-            val response = http.get(url, BodyHandlers.ofFile(download, CREATE, TRUNCATE_EXISTING, WRITE),
-                BINARY_DEADLINE)
-            if (response.statusCode() != 200) {
-                fail("Could not download $url: the server answered ${response.statusCode()}. Nothing was installed.")
-            }
-            val actual = sha256(download)
-            if (actual != asset.sha256) fail(
-                "The download does not match SHA256SUMS. Nothing was installed.",
-                "  Expected: ${asset.sha256}",
-                "  Got:      $actual",
-                "The download may be corrupt. Try again, and report it if it happens again: $RELEASES_URL",
-            )
-            out.println("Checked the download against SHA256SUMS.")
-            Files.setPosixFilePermissions(download, PosixFilePermissions.fromString("rwxr-xr-x"))
-            val reported = versionOutput(download)
-            if (reported != "lighten ${asset.version}") fail(
-                "The downloaded lighten reports '$reported', not 'lighten ${asset.version}'. Nothing was installed.",
-            )
-            Files.move(download, binary, ATOMIC_MOVE)
-        } catch (e: IOException) {
-            fail("Could not install the download as ${tilde(binary)}: ${e.message ?: e.javaClass.simpleName}.",
-                "Nothing was installed.")
-        } finally {
-            Files.deleteIfExists(download)
+    /**
+     * Downloads the release's `install.sh` and runs it on [dir], the real directory of the running binary, so a
+     * symlink to it keeps pointing at the updated file. It does not offer to change `PATH`: an update leaves the
+     * shell's startup files alone.
+     */
+    private fun runInstallScript(sh: Path, downloader: Downloader, dir: Path, requested: ReleaseVersion?): Int {
+        val url = "${releaseUrl(requested)}/install.sh"
+        return withTempFile { script ->
+            download(downloader, url, script, hint = if (requested == null) {
+                "Check your network connection, or see $RELEASES_URL"
+            } else {
+                "Check that $requested is a published release: $RELEASES_URL"
+            })
+            val arguments = listOf("--dir", dir.toString()) +
+                (requested?.let { listOf("--version", it.text) } ?: listOf()) + "--no-modify-path"
+            out.flush()
+            val process = ProcessBuilder(listOf(sh.toString(), script.toString()) + arguments)
+                .inheritIO()
+                .also { builder -> scriptEnvironment(builder.environment()) }
+                .start()
+            process.waitFor()
         }
+    }
+
+    // The script reads the test-only base URL as Lighten does; without an override it must not see a stale one.
+    private fun scriptEnvironment(environment: MutableMap<String, String>) {
+        if (baseOverride == null) environment.remove(BASE_URL_VARIABLE) else environment[BASE_URL_VARIABLE] = baseOverride
     }
 
     private fun tilde(path: Path): String {
@@ -239,10 +204,8 @@ internal class SelfUpdate(
         return if (path.startsWith(home) && path != home) "~/" + home.relativize(path) else path.toString()
     }
 
-    private inline fun reporting(operation: () -> Unit): Int = try {
-        operation()
-        out.flush()
-        0
+    private inline fun reporting(operation: () -> Int): Int = try {
+        operation().also { out.flush() }
     } catch (failure: UpdateFailure) {
         out.flush()
         failure.lines.forEach(err::println)
@@ -265,77 +228,47 @@ private fun realPath(binary: Path): Path = try {
     fail("Could not find the running lighten binary: ${e.message ?: e.javaClass.simpleName}.")
 }
 
-// The update owns its client: shutdownNow ends any exchange still open, such as one abandoned at a deadline.
-private inline fun <T> withClient(operation: (HttpClient) -> T): T {
-    val http = HttpClient.newBuilder()
-        .connectTimeout(CONNECT_TIMEOUT)
-        .followRedirects(HttpClient.Redirect.NORMAL)
-        .build()
-    try {
-        return operation(http)
-    } finally {
-        http.shutdownNow()
-    }
+/** `curl` or `wget`, whichever is installed, with the options `install.sh` uses plus timeouts. */
+private sealed interface Downloader {
+    fun command(url: String, file: Path): List<String>
 }
 
-/**
- * A GET of [url] whose response must start within [RESPONSE_TIMEOUT] and finish within [deadline]. A network failure
- * is an [UpdateFailure]; an HTTP error status is left to the caller.
- */
-private fun <T> HttpClient.get(url: String, handler: BodyHandler<T>, deadline: Duration): HttpResponse<T> {
-    val request = HttpRequest.newBuilder(URI.create(url))
-        .timeout(RESPONSE_TIMEOUT)
-        .header("User-Agent", "lighten/${resolveVersion()}")
-        .GET()
-        .build()
-    val future = sendAsync(request, handler)
-    try {
-        return future.get(deadline.toMillis(), TimeUnit.MILLISECONDS)
-    } catch (_: TimeoutException) {
-        future.cancel(true)
-        networkFailure(url, "it did not finish within ${deadline.toSeconds()} seconds")
-    } catch (e: ExecutionException) {
-        val cause = e.cause as? IOException ?: throw e.cause ?: e
-        networkFailure(url, reason(cause))
-    }
+private data class Curl(val tool: Path) : Downloader {
+    override fun command(url: String, file: Path) = listOf(
+        tool.toString(), "-fsSL", "--retry", "2", "--connect-timeout", "10",
+        "--max-time", DOWNLOAD_DEADLINE.toSeconds().toString(), "-o", file.toString(), url,
+    )
 }
 
-private fun networkFailure(url: String, reason: String): Nothing = fail(
-    "Could not download $url: $reason.",
-    "Check your network connection, or see $RELEASES_URL",
-)
-
-private fun reason(failure: IOException): String = when (failure) {
-    is HttpConnectTimeoutException -> "the connection timed out"
-    is HttpTimeoutException -> "the server did not answer in time"
-    // HttpClient reports an unknown host and a refused connection alike, usually without a message.
-    is ConnectException -> "could not connect"
-    is SSLException -> "the secure connection failed (${failure.message})"
-    else -> failure.message ?: failure.javaClass.simpleName
+// -T is the connect and read timeout, in busybox wget too.
+private data class Wget(val tool: Path) : Downloader {
+    override fun command(url: String, file: Path) =
+        listOf(tool.toString(), "-q", "-T", "10", "-O", file.toString(), url)
 }
 
-private fun sha256(file: Path): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    DigestInputStream(Files.newInputStream(file), digest).use { it.transferTo(OutputStream.nullOutputStream()) }
-    return HexFormat.of().formatHex(digest.digest())
-}
-
-/** The first line `<file> --version` prints. A file that does not run, or runs too long, fails the update. */
-private fun versionOutput(file: Path): String {
-    val process = try {
-        ProcessBuilder(file.toString(), "--version").redirectErrorStream(true).start()
-    } catch (e: IOException) {
-        fail("The downloaded lighten does not run on this system. Nothing was installed.", e.message.orEmpty())
-    }
-    process.outputStream.close()
-    // `--version` prints one short line, well within a pipe's buffer, so waiting before reading cannot deadlock.
-    if (!process.waitFor(VERSION_RUN_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
+/** Downloads [url] into [file]; a failure is an [UpdateFailure] with the tool's own message and [hint]. */
+private fun download(downloader: Downloader, url: String, file: Path, hint: String) {
+    val process = ProcessBuilder(downloader.command(url, file))
+        .redirectInput(ProcessBuilder.Redirect.from(Path.of("/dev/null").toFile()))
+        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        .start()
+    // stderr is a line or two at most, well within a pipe's buffer, so waiting before reading cannot deadlock.
+    // The tools' own timeouts end a stalled download first; this is the backstop.
+    if (!process.waitFor(DOWNLOAD_DEADLINE.toSeconds() + 30, TimeUnit.SECONDS)) {
         process.destroyForcibly()
-        fail("The downloaded lighten did not finish 'lighten --version'. Nothing was installed.")
+        fail("Could not download $url: it took too long.", hint)
     }
-    val output = process.inputStream.use { it.readAllBytes().decodeToString() }.trim()
+    val message = process.errorStream.use { it.readAllBytes().decodeToString() }.trim()
     if (process.exitValue() != 0) {
-        fail("The downloaded lighten does not run on this system. Nothing was installed.", output)
+        throw UpdateFailure(listOf("Could not download $url.") + message.lines().filter(String::isNotBlank) + hint)
     }
-    return output.lineSequence().first()
+}
+
+private inline fun <T> withTempFile(operation: (Path) -> T): T {
+    val file = Files.createTempFile("lighten-update-", "")
+    try {
+        return operation(file)
+    } finally {
+        Files.deleteIfExists(file)
+    }
 }

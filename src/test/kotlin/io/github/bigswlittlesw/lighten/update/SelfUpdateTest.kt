@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeFalse
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -19,15 +20,17 @@ import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 import java.util.HexFormat
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.io.path.isExecutable
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readText
 
 /**
- * `lighten update` against a local server laid out as GitHub Releases. Each release's binary is a shell script that
- * prints its `--version`, so the whole download, check, run and rename can run on the JVM. `latest/download/`
- * redirects to the latest release, as GitHub does.
+ * `lighten update` against a local server laid out as GitHub Releases, each release with the repository's
+ * `install.sh`. Each release's binary is a shell script that prints its `--version`, so the script's download,
+ * check, run and rename work on the JVM. `latest/download/` redirects to the latest release, as GitHub does.
+ *
+ * Running `install.sh` needs Linux, as releases do; those tests are skipped elsewhere.
  */
 class SelfUpdateTest {
 
@@ -35,9 +38,13 @@ class SelfUpdateTest {
     lateinit var root: Path
 
     private lateinit var server: HttpServer
-    private val requests = AtomicInteger()
+    private val requests = CopyOnWriteArrayList<String>()
     private lateinit var bin: Path
     private lateinit var binary: Path
+
+    // The asset install.sh picks from uname -m on Linux; any one will do elsewhere, where only Lighten's checks run.
+    private val platform = releasePlatform(System.getProperty("os.name"), System.getProperty("os.arch"))
+        ?: "linux-x86_64-musl"
 
     @BeforeEach
     fun serveReleases() {
@@ -47,8 +54,8 @@ class SelfUpdateTest {
         publish("0.0.2")
         server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)
         server.createContext("/") { exchange ->
-            requests.incrementAndGet()
             val path = exchange.requestURI.path.removePrefix("/")
+            requests.add(path)
             val file = root.resolve("releases").resolve(path).normalize()
             when {
                 path.startsWith("latest/download/") -> {
@@ -74,21 +81,14 @@ class SelfUpdateTest {
     }
 
     @Test
-    fun updatesAnOlderBinaryToTheLatestRelease() {
+    fun runsTheLatestInstallScriptOnTheBinarysDirectory() {
+        assumeLinux()
         val run = install(installed = "0.0.1")
-        assertEquals(0, run.exit, run.toString())
-        assertEquals("""
-            Updating lighten 0.0.1 to 0.0.2 for Linux amd64.
-              From: ${baseUrl()}/latest/download/lighten-0.0.2-linux-x86_64-musl
-              To:   $binary
-            Checked the download against SHA256SUMS.
-            Updated lighten from 0.0.1 to 0.0.2.
-
-        """.trimIndent(), run.out)
-        assertEquals("", run.err)
+        assertEquals(Run(0, "", ""), run)
         assertEquals(scriptText("0.0.2"), binary.readText())
         assertTrue(binary.isExecutable())
         assertEquals(listOf(binary), bin.listDirectoryEntries())
+        assertTrue("download/v0.0.2/install.sh" in requests, requests.toString())
     }
 
     @Test
@@ -103,13 +103,26 @@ class SelfUpdateTest {
         val development = check(installed = "1.0-SNAPSHOT")
         assertEquals(Run(0, "Installed: lighten 1.0-SNAPSHOT\nLatest:    lighten 0.0.2\n" +
             "This is a development build, which lighten update does not replace.\n", ""), development)
+        assertFalse(requests.any { it.endsWith("install.sh") }, requests.toString())
     }
 
     @Test
-    fun anUpToDateInstallIsLeftAlone() {
+    fun checkWorksWithWget() {
+        val wget = onPath("wget")
+        assumeTrue(wget != null, "wget is not installed")
+        val tools = Files.createDirectories(root.resolve("wget-only"))
+        Files.createSymbolicLink(tools.resolve("wget"), wget!!) // checked just above
+        val run = check(installed = "0.0.1", env = mapOf("PATH" to tools.toString()))
+        assertEquals(0, run.exit, run.toString())
+        assertEquals("Latest:    lighten 0.0.2", run.out.lines()[1])
+    }
+
+    @Test
+    fun anUpToDateInstallDoesNotRunTheScript() {
         script(binary, "0.0.2")
         assertEquals(Run(0, "Lighten 0.0.2 is up to date.\n", ""), install(installed = "0.0.2"))
         assertEquals(scriptText("0.0.2"), binary.readText())
+        assertFalse(requests.any { it.endsWith("install.sh") }, requests.toString())
     }
 
     @Test
@@ -119,56 +132,58 @@ class SelfUpdateTest {
         assertEquals(Run(0, "The installed lighten 0.1.0 is newer than the latest release, 0.0.2. To install that, " +
             "run: lighten update --version 0.0.2\n", ""), run)
         assertEquals(scriptText("0.1.0"), binary.readText())
+        assertFalse(requests.any { it.endsWith("install.sh") }, requests.toString())
     }
 
     @Test
-    fun versionInstallsAnOlderReleaseAndSaysSo() {
+    fun versionRunsThatReleasesScriptAndSaysWhenItIsOlder() {
+        assumeLinux()
         script(binary, "0.0.2")
         val run = install(installed = "0.0.2", requested = "0.0.1")
-        assertEquals(0, run.exit, run.toString())
-        assertTrue(run.out.startsWith("Installing lighten 0.0.1, older than the installed 0.0.2, for Linux amd64.\n" +
-            "  From: ${baseUrl()}/download/v0.0.1/lighten-0.0.1-linux-x86_64-musl\n"), run.out)
-        assertTrue(run.out.endsWith("Downgraded lighten from 0.0.2 to 0.0.1.\n"), run.out)
+        assertEquals(Run(0, "Installing lighten 0.0.1, older than the installed 0.0.2.\n", ""), run)
         assertEquals(scriptText("0.0.1"), binary.readText())
-    }
-
-    @Test
-    fun versionReinstallsTheInstalledRelease() {
-        val run = install(installed = "0.0.1", requested = "0.0.1")
-        assertTrue(run.out.endsWith("Reinstalled lighten 0.0.1.\n"), run.toString())
+        assertTrue("download/v0.0.1/install.sh" in requests, requests.toString())
+        assertFalse(requests.any { it.startsWith("latest/") }, requests.toString())
     }
 
     @Test
     fun anUnpublishedVersionStops() {
         val run = install(installed = "0.0.1", requested = "9.9.9")
         assertEquals(1, run.exit)
-        assertEquals("Lighten 9.9.9 is not a published release: there is no ${baseUrl()}/download/v9.9.9/SHA256SUMS.",
-            run.err.lines().first())
+        val lines = run.err.lines()
+        assertEquals("Could not download ${baseUrl()}/download/v9.9.9/install.sh.", lines.first())
+        assertEquals("Check that 9.9.9 is a published release: $RELEASES_URL", lines.last { it.isNotEmpty() })
         assertEquals(scriptText("0.0.1"), binary.readText())
     }
 
     @Test
-    fun aChecksumMismatchReplacesNothing() {
-        Files.writeString(root.resolve("releases/download/v0.0.2/$X86_ASSET".replace("VERSION", "0.0.2")), "corrupt")
+    fun theScriptsChecksumFailureIsPassedOnAndReplacesNothing() {
+        assumeLinux()
+        Files.writeString(root.resolve("releases/download/v0.0.2/lighten-0.0.2-$platform"), "corrupt")
         val run = install(installed = "0.0.1")
         assertEquals(1, run.exit)
-        assertTrue(run.out.endsWith("  To:   $binary\n"), run.out)
-        assertEquals("The download does not match SHA256SUMS. Nothing was installed.", run.err.lines().first())
-        assertTrue(run.err.lines()[2].startsWith("  Got:      " + sha256("corrupt")), run.err)
         assertEquals(scriptText("0.0.1"), binary.readText())
         assertEquals(listOf(binary), bin.listDirectoryEntries())
     }
 
     @Test
-    fun aDownloadThatReportsAnotherVersionReplacesNothing() {
-        // The published 0.0.2 binary says it is 0.0.3, and SHA256SUMS matches it.
-        publish("0.0.2", reports = "0.0.3")
-        val run = install(installed = "0.0.1")
+    fun aSymlinkedBinaryIsUpdatedAtItsRealPath() {
+        assumeLinux()
+        val real = script(Files.createDirectories(root.resolve("opt/lighten")).resolve("lighten"), "0.0.1")
+        val link = Files.createSymbolicLink(bin.resolve("linked"), real)
+        assertEquals(0, install(installed = "0.0.1", binary = link).exit)
+        assertTrue(Files.isSymbolicLink(link))
+        assertEquals(scriptText("0.0.2"), link.readText())
+        assertEquals(scriptText("0.0.1"), binary.readText(), "the script installs into the real directory only")
+    }
+
+    @Test
+    fun aBinaryNotNamedLightenIsLeftAlone() {
+        val other = script(bin.resolve("lighten-0.0.1"), "0.0.1")
+        val run = install(installed = "0.0.1", binary = other)
         assertEquals(1, run.exit)
-        assertEquals("The downloaded lighten reports 'lighten 0.0.3', not 'lighten 0.0.2'. Nothing was installed.",
-            run.err.trim())
-        assertEquals(scriptText("0.0.1"), binary.readText())
-        assertEquals(listOf(binary), bin.listDirectoryEntries())
+        assertTrue(run.err.startsWith("The running binary is $other."), run.err)
+        assertTrue(requests.isEmpty(), requests.toString())
     }
 
     @Test
@@ -181,7 +196,7 @@ class SelfUpdateTest {
             assertEquals("", run.out)
             assertEquals("You cannot write to $bin, so lighten update cannot replace $binary.", run.err.lines().first())
             assertTrue("install.sh | sudo sh -s -- --dir $bin" in run.err, run.err)
-            assertEquals(0, requests.get())
+            assertTrue(requests.isEmpty(), requests.toString())
             assertEquals(scriptText("0.0.1"), binary.readText())
         } finally {
             Files.setPosixFilePermissions(bin, PosixFilePermissions.fromString("rwxr-xr-x"))
@@ -194,10 +209,30 @@ class SelfUpdateTest {
         val offline = "http://127.0.0.1:$closedPort"
         for (run in listOf(install(installed = "0.0.1", base = offline), check(installed = "0.0.1", base = offline))) {
             assertEquals(1, run.exit)
-            assertEquals("Could not download $offline/latest/download/SHA256SUMS: could not connect.\n" +
-                "Check your network connection, or see $RELEASES_URL\n", run.err)
+            val lines = run.err.lines().filter { it.isNotEmpty() }
+            assertEquals("Could not download $offline/latest/download/SHA256SUMS.", lines.first())
+            assertEquals("Check your network connection, or see $RELEASES_URL", lines.last())
         }
         assertEquals(scriptText("0.0.1"), binary.readText())
+    }
+
+    @Test
+    fun withoutCurlOrWgetItSaysSo() {
+        val empty = Files.createDirectories(root.resolve("no-tools")).toString()
+        val message = "lighten update needs curl or wget to download releases. Install one of them and run it again.\n"
+        assertEquals(Run(1, "", message), check(installed = "0.0.1", env = mapOf("PATH" to empty)))
+        assertEquals(Run(1, "", message), install(installed = "0.0.1", env = mapOf("PATH" to empty)))
+        assertTrue(requests.isEmpty(), requests.toString())
+    }
+
+    @Test
+    fun withoutShItSaysSo() {
+        val curl = onPath("curl")
+        assumeTrue(curl != null, "curl is not installed")
+        val tools = Files.createDirectories(root.resolve("curl-only"))
+        Files.createSymbolicLink(tools.resolve("curl"), curl!!) // checked just above
+        val run = install(installed = "0.0.1", env = mapOf("PATH" to tools.toString()))
+        assertEquals(Run(1, "", "lighten update runs the install script with sh, and there is no sh on PATH.\n"), run)
     }
 
     @Test
@@ -206,18 +241,7 @@ class SelfUpdateTest {
         assertEquals(1, run.exit)
         assertEquals("This lighten is a development build (1.0-SNAPSHOT), so lighten update does not replace it.",
             run.err.lines().first())
-        assertEquals(0, requests.get())
-    }
-
-    @Test
-    fun aSymlinkedBinaryIsReplacedAtItsRealPath() {
-        val real = script(Files.createDirectories(root.resolve("opt")).resolve("lighten"), "0.0.1")
-        val link = Files.createSymbolicLink(root.resolve("link"), real)
-        val run = install(installed = "0.0.1", binary = link)
-        assertEquals(0, run.exit, run.toString())
-        assertTrue("  To:   ${real.toRealPath()}\n" in run.out, run.out)
-        assertTrue(Files.isSymbolicLink(link))
-        assertEquals(scriptText("0.0.2"), real.readText())
+        assertTrue(requests.isEmpty(), requests.toString())
     }
 
     @Test
@@ -232,12 +256,12 @@ class SelfUpdateTest {
         val inCustom = install(installed = "0.0.1", binary = script(custom.resolve("lighten"), "0.0.1"),
             env = mapOf("MISE_DATA_DIR" to root.resolve("mise-data").toString()))
         assertTrue(inCustom.err.startsWith("mise installed this lighten"), inCustom.err)
-        assertEquals(0, requests.get())
+        assertTrue(requests.isEmpty(), requests.toString())
     }
 
     @Test
     fun theJvmAndOtherPlatformsHaveNothingToReplace() {
-        val jvm = SelfUpdate(Installation("0.0.1", null, PLATFORM, "Linux amd64"), PrintWriter(StringWriter()),
+        val jvm = SelfUpdate(Installation("0.0.1", null, platform, "Linux amd64"), PrintWriter(StringWriter()),
             PrintWriter(StringWriter()))
         assertEquals(1, jvm.install(null))
         val err = StringWriter()
@@ -246,8 +270,13 @@ class SelfUpdateTest {
         assertEquals(1, mac.check())
         assertEquals("There is no Lighten release for Mac OS X aarch64. Releases have Linux x86_64 and arm64 binaries.\n",
             err.toString())
-        assertEquals(0, requests.get())
+        assertTrue(requests.isEmpty(), requests.toString())
     }
+
+    private fun assumeLinux() = assumeTrue(System.getProperty("os.name") == "Linux", "install.sh runs on Linux only")
+
+    private fun onPath(name: String): Path? = System.getenv("PATH").split(':').filter { it.isNotEmpty() }
+        .map { Path.of(it, name) }.firstOrNull { Files.isExecutable(it) }
 
     private fun baseUrl() = "http://127.0.0.1:${server.address.port}"
 
@@ -256,27 +285,25 @@ class SelfUpdateTest {
         env: Map<String, String> = mapOf(),
     ): Run = run(installed, binary, base, env) { it.install(requested?.let(::ReleaseVersion)) }
 
-    private fun check(installed: String, base: String = baseUrl()): Run =
-        run(installed, binary, base, mapOf()) { it.check() }
+    private fun check(installed: String, base: String = baseUrl(), env: Map<String, String> = mapOf()): Run =
+        run(installed, binary, base, env) { it.check() }
 
     private fun run(installed: String, binary: Path, base: String, env: Map<String, String>, op: (SelfUpdate) -> Int): Run {
         val out = StringWriter()
         val err = StringWriter()
-        val variables = env + (BASE_URL_VARIABLE to base)
-        val update = SelfUpdate(Installation(installed, binary, PLATFORM, "Linux amd64"), PrintWriter(out),
+        val variables = mapOf("PATH" to System.getenv("PATH")) + env + (BASE_URL_VARIABLE to base)
+        val update = SelfUpdate(Installation(installed, binary, platform, "Linux amd64"), PrintWriter(out),
             PrintWriter(err), variables::get)
         return Run(op(update), out.toString(), err.toString())
     }
 
-    /** Publishes a release with an x86_64 binary that reports [reports], and an arm64 one that must not be taken. */
-    private fun publish(version: String, reports: String = version) {
+    /** Publishes a release: `install.sh`, this machine's binary, which reports [version], and `SHA256SUMS`. */
+    private fun publish(version: String) {
         val dir = Files.createDirectories(root.resolve("releases/download/v$version"))
-        val x86 = X86_ASSET.replace("VERSION", version)
-        val arm = "lighten-$version-linux-aarch64-gnu"
-        Files.writeString(dir.resolve(x86), scriptText(reports))
-        Files.writeString(dir.resolve(arm), "not this one")
-        Files.writeString(dir.resolve("SHA256SUMS"),
-            "${sha256(scriptText(reports))}  $x86\n${sha256("not this one")}  $arm\n")
+        val asset = "lighten-$version-$platform"
+        Files.writeString(dir.resolve(asset), scriptText(version))
+        Files.writeString(dir.resolve("SHA256SUMS"), "${sha256(scriptText(version))}  $asset\n")
+        Files.copy(Path.of("install.sh"), dir.resolve("install.sh"))
     }
 
     private fun script(path: Path, version: String): Path {
@@ -294,7 +321,5 @@ class SelfUpdateTest {
 
     private companion object {
         const val LATEST = "0.0.2"
-        const val PLATFORM = "linux-x86_64-musl"
-        const val X86_ASSET = "lighten-VERSION-linux-x86_64-musl"
     }
 }

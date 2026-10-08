@@ -390,15 +390,16 @@ release.
 
 ### Update Lighten
 
-`lighten update` updates Lighten to the latest release. It downloads the
-release next to the `lighten` you ran and checks it against the release's
-`SHA256SUMS` file. Only then does it put the new `lighten` in place, so a
-failed download leaves yours as it was.
+`lighten update` updates Lighten to the latest release. It runs that
+release's install script on the folder that holds your `lighten`. The
+script downloads the new `lighten`, checks it against the release's
+`SHA256SUMS` file and only then puts it in place, so a failed download
+leaves yours as it was. It needs `curl` or `wget`.
 
 - `lighten update --check` shows the installed and the latest version and
   changes nothing.
 - `lighten update --version 1.2.3` installs that release, even an older
-  one.
+  one. Without `--version`, it never installs an older one.
 - Lighten uses the network only while `lighten update` runs.
 - If you installed Lighten with mise, update it with mise instead, as
   `lighten update` tells you: `mise upgrade github:big-sw-little-sw/lighten`
