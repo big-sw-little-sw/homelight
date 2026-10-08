@@ -1,6 +1,137 @@
 {
   "apps": [
     {
+      "name": "JetBrains",
+      "category": "Editors",
+      "directories": [
+        {"path": ".cache/JetBrains", "advice": "consider", "reason": "JetBrains caches"}
+      ]
+    },
+    {
+      "name": "VS Code",
+      "category": "Editors",
+      "directories": [
+        {"path": ".vscode-server", "advice": "consider", "reason": "VS Code server"}
+      ]
+    },
+    {
+      "name": "Zed",
+      "category": "Editors",
+      "directories": [
+        {"path": ".local/share/zed", "advice": "consider", "reason": "Zed extensions, language servers and Node.js runtime"}
+      ]
+    },
+    {
+      "name": "pip",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/pip", "advice": "consider", "reason": "pip cache"}
+      ]
+    },
+    {
+      "name": "uv",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/uv", "advice": "consider", "reason": "uv cache"},
+        {"path": ".local/share/uv", "advice": "consider", "reason": "uv-managed Python installations"},
+        {"path": ".local/share/uv/tools", "advice": "consider", "reason": "uv tools and uvx environments"}
+      ]
+    },
+    {
+      "name": "Poetry",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/pypoetry", "advice": "consider", "reason": "Poetry cache"}
+      ]
+    },
+    {
+      "name": "PDM",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/pdm", "advice": "consider", "reason": "PDM cache"}
+      ]
+    },
+    {
+      "name": "virtualenv",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/virtualenv", "advice": "consider", "reason": "virtualenv cache"}
+      ]
+    },
+    {
+      "name": "pipx",
+      "category": "Python",
+      "directories": [
+        {"path": ".local/pipx/venvs", "advice": "consider", "reason": "pipx virtual environments"}
+      ]
+    },
+    {
+      "name": "pixi",
+      "category": "Python",
+      "directories": [
+        {"path": ".cache/rattler", "advice": "consider", "reason": "pixi package cache, shared with other rattler-based tools"},
+        {"path": ".cache/pixi", "advice": "consider", "reason": "pixi package cache, used instead of .cache/rattler when this directory exists"},
+        {"path": ".pixi/envs", "advice": "consider", "reason": "pixi global tool environments"}
+      ]
+    },
+    {
+      "name": "pyenv",
+      "category": "Python",
+      "directories": [
+        {"path": ".pyenv/versions", "advice": "consider", "reason": "Python versions installed by pyenv"}
+      ]
+    },
+    {
+      "name": "Cargo",
+      "category": "Rust",
+      "directories": [
+        {"path": ".cargo", "advice": "consider", "reason": "Rust toolchain and package state"}
+      ]
+    },
+    {
+      "name": "rustup",
+      "category": "Rust",
+      "directories": [
+        {"path": ".rustup", "advice": "consider", "reason": "Rust toolchains"}
+      ]
+    },
+    {
+      "name": "Conan",
+      "category": "C and C++",
+      "directories": [
+        {"path": ".conan2/p", "advice": "consider", "reason": "Conan package cache"}
+      ]
+    },
+    {
+      "name": "vcpkg",
+      "category": "C and C++",
+      "directories": [
+        {"path": ".cache/vcpkg/archives", "advice": "consider", "reason": "vcpkg binary cache"}
+      ]
+    },
+    {
+      "name": "xmake",
+      "category": "C and C++",
+      "directories": [
+        {"path": ".xmake/packages", "advice": "consider", "reason": "Packages installed by xmake"}
+      ]
+    },
+    {
+      "name": "Hunter",
+      "category": "C and C++",
+      "directories": [
+        {"path": ".hunter", "advice": "consider", "reason": "Hunter package cache"}
+      ]
+    },
+    {
+      "name": "PlatformIO",
+      "category": "C and C++",
+      "directories": [
+        {"path": ".platformio/packages", "advice": "consider", "reason": "PlatformIO toolchains and tools"},
+        {"path": ".platformio/platforms", "advice": "consider", "reason": "PlatformIO development platforms"}
+      ]
+    },
+    {
       "name": "Maven",
       "category": "JVM",
       "directories": [
@@ -29,20 +160,6 @@
         {"path": ".sdkman/candidates", "advice": "consider", "reason": "SDKs installed by SDKMAN"},
         {"path": ".sdkman/tmp", "advice": "consider", "reason": "SDKMAN downloaded archives",
          "caution": "`sdk flush` replaces the link with an empty folder. Lighten then asks which folder to keep."}
-      ]
-    },
-    {
-      "name": "Cargo",
-      "category": "Rust",
-      "directories": [
-        {"path": ".cargo", "advice": "consider", "reason": "Rust toolchain and package state"}
-      ]
-    },
-    {
-      "name": "rustup",
-      "category": "Rust",
-      "directories": [
-        {"path": ".rustup", "advice": "consider", "reason": "Rust toolchains"}
       ]
     },
     {
@@ -150,63 +267,10 @@
       ]
     },
     {
-      "name": "pip",
-      "category": "Python",
+      "name": "Go",
+      "category": "Go",
       "directories": [
-        {"path": ".cache/pip", "advice": "consider", "reason": "pip cache"}
-      ]
-    },
-    {
-      "name": "uv",
-      "category": "Python",
-      "directories": [
-        {"path": ".cache/uv", "advice": "consider", "reason": "uv cache"},
-        {"path": ".local/share/uv", "advice": "consider", "reason": "uv-managed Python installations"},
-        {"path": ".local/share/uv/tools", "advice": "consider", "reason": "uv tools and uvx environments"}
-      ]
-    },
-    {
-      "name": "Poetry",
-      "category": "Python",
-      "directories": [
-        {"path": ".cache/pypoetry", "advice": "consider", "reason": "Poetry cache"}
-      ]
-    },
-    {
-      "name": "PDM",
-      "category": "Python",
-      "directories": [
-        {"path": ".cache/pdm", "advice": "consider", "reason": "PDM cache"}
-      ]
-    },
-    {
-      "name": "virtualenv",
-      "category": "Python",
-      "directories": [
-        {"path": ".cache/virtualenv", "advice": "consider", "reason": "virtualenv cache"}
-      ]
-    },
-    {
-      "name": "pipx",
-      "category": "Python",
-      "directories": [
-        {"path": ".local/pipx/venvs", "advice": "consider", "reason": "pipx virtual environments"}
-      ]
-    },
-    {
-      "name": "pixi",
-      "category": "Python",
-      "directories": [
-        {"path": ".cache/rattler", "advice": "consider", "reason": "pixi package cache, shared with other rattler-based tools"},
-        {"path": ".cache/pixi", "advice": "consider", "reason": "pixi package cache, used instead of .cache/rattler when this directory exists"},
-        {"path": ".pixi/envs", "advice": "consider", "reason": "pixi global tool environments"}
-      ]
-    },
-    {
-      "name": "pyenv",
-      "category": "Python",
-      "directories": [
-        {"path": ".pyenv/versions", "advice": "consider", "reason": "Python versions installed by pyenv"}
+        {"path": ".cache/go-build", "advice": "consider", "reason": "Go build cache"}
       ]
     },
     {
@@ -217,10 +281,45 @@
       ]
     },
     {
-      "name": "Go",
-      "category": "Go",
+      "name": "Android SDK",
+      "category": "Android",
       "directories": [
-        {"path": ".cache/go-build", "advice": "consider", "reason": "Go build cache"}
+        {"path": "Android/Sdk", "advice": "consider", "reason": "Android SDK, with the NDK and emulator system images"}
+      ]
+    },
+    {
+      "name": "Android emulator",
+      "category": "Android",
+      "directories": [
+        {"path": ".android/avd", "advice": "consider", "reason": "Android emulator virtual devices"}
+      ]
+    },
+    {
+      "name": "ccache",
+      "category": "Build tools",
+      "directories": [
+        {"path": ".cache/ccache", "advice": "consider", "reason": "ccache compiler cache"}
+      ]
+    },
+    {
+      "name": "sccache",
+      "category": "Build tools",
+      "directories": [
+        {"path": ".cache/sccache", "advice": "consider", "reason": "sccache compiler cache"}
+      ]
+    },
+    {
+      "name": "Bazel",
+      "category": "Build tools",
+      "directories": [
+        {"path": ".cache/bazel", "advice": "consider", "reason": "Bazel build outputs and download caches"}
+      ]
+    },
+    {
+      "name": "Zig",
+      "category": "Build tools",
+      "directories": [
+        {"path": ".cache/zig", "advice": "consider", "reason": "Zig build cache and fetched packages"}
       ]
     },
     {
@@ -235,20 +334,6 @@
       "category": "Version managers",
       "directories": [
         {"path": ".asdf/installs", "advice": "consider", "reason": "Tool versions installed by asdf"}
-      ]
-    },
-    {
-      "name": "JetBrains",
-      "category": "Editors",
-      "directories": [
-        {"path": ".cache/JetBrains", "advice": "consider", "reason": "JetBrains caches"}
-      ]
-    },
-    {
-      "name": "VS Code",
-      "category": "Editors",
-      "directories": [
-        {"path": ".vscode-server", "advice": "consider", "reason": "VS Code server"}
       ]
     }
   ]

@@ -445,16 +445,37 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(44, snapshot.definitions.size)
+        assertEquals(57, snapshot.definitions.size)
         assertEquals(listOf(
+                ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
+                ".vscode-server|Editors|VS Code|VS Code server",
+                ".local/share/zed|Editors|Zed|Zed extensions, language servers and Node.js runtime",
+                ".cache/pip|Python|pip|pip cache",
+                ".cache/uv|Python|uv|uv cache",
+                ".local/share/uv|Python|uv|uv-managed Python installations",
+                ".local/share/uv/tools|Python|uv|uv tools and uvx environments",
+                ".cache/pypoetry|Python|Poetry|Poetry cache",
+                ".cache/pdm|Python|PDM|PDM cache",
+                ".cache/virtualenv|Python|virtualenv|virtualenv cache",
+                ".local/pipx/venvs|Python|pipx|pipx virtual environments",
+                ".cache/rattler|Python|pixi|pixi package cache, shared with other rattler-based tools",
+                ".cache/pixi|Python|pixi|pixi package cache, used instead of .cache/rattler when this directory exists",
+                ".pixi/envs|Python|pixi|pixi global tool environments",
+                ".pyenv/versions|Python|pyenv|Python versions installed by pyenv",
+                ".cargo|Rust|Cargo|Rust toolchain and package state",
+                ".rustup|Rust|rustup|Rust toolchains",
+                ".conan2/p|C and C++|Conan|Conan package cache",
+                ".cache/vcpkg/archives|C and C++|vcpkg|vcpkg binary cache",
+                ".xmake/packages|C and C++|xmake|Packages installed by xmake",
+                ".hunter|C and C++|Hunter|Hunter package cache",
+                ".platformio/packages|C and C++|PlatformIO|PlatformIO toolchains and tools",
+                ".platformio/platforms|C and C++|PlatformIO|PlatformIO development platforms",
                 ".m2|JVM|Maven|Maven local repository",
                 ".gradle/caches|JVM|Gradle|Gradle caches",
                 ".gradle/wrapper|JVM|Gradle|Gradle wrapper distributions",
                 ".jbang/cache|JVM|JBang|JBang compiled scripts, downloaded content, and cached JDKs",
                 ".sdkman/candidates|JVM|SDKMAN|SDKs installed by SDKMAN",
                 ".sdkman/tmp|JVM|SDKMAN|SDKMAN downloaded archives",
-                ".cargo|Rust|Cargo|Rust toolchain and package state",
-                ".rustup|Rust|rustup|Rust toolchains",
                 ".npm|JavaScript|npm|npm cache",
                 ".cache/yarn|JavaScript|Yarn|Yarn cache",
                 ".yarn/berry/cache|JavaScript|Yarn|Yarn Berry cache",
@@ -473,24 +494,16 @@ class CandidateCatalogTest {
                 ".cache/Cypress|JavaScript|Cypress|Cypress app binaries",
                 ".cache/electron|JavaScript|Electron|Electron downloads",
                 ".cache/electron-builder|JavaScript|Electron|electron-builder downloads",
-                ".cache/pip|Python|pip|pip cache",
-                ".cache/uv|Python|uv|uv cache",
-                ".local/share/uv|Python|uv|uv-managed Python installations",
-                ".local/share/uv/tools|Python|uv|uv tools and uvx environments",
-                ".cache/pypoetry|Python|Poetry|Poetry cache",
-                ".cache/pdm|Python|PDM|PDM cache",
-                ".cache/virtualenv|Python|virtualenv|virtualenv cache",
-                ".local/pipx/venvs|Python|pipx|pipx virtual environments",
-                ".cache/rattler|Python|pixi|pixi package cache, shared with other rattler-based tools",
-                ".cache/pixi|Python|pixi|pixi package cache, used instead of .cache/rattler when this directory exists",
-                ".pixi/envs|Python|pixi|pixi global tool environments",
-                ".pyenv/versions|Python|pyenv|Python versions installed by pyenv",
-                ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
                 ".cache/go-build|Go|Go|Go build cache",
+                ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
+                "Android/Sdk|Android|Android SDK|Android SDK, with the NDK and emulator system images",
+                ".android/avd|Android|Android emulator|Android emulator virtual devices",
+                ".cache/ccache|Build tools|ccache|ccache compiler cache",
+                ".cache/sccache|Build tools|sccache|sccache compiler cache",
+                ".cache/bazel|Build tools|Bazel|Bazel build outputs and download caches",
+                ".cache/zig|Build tools|Zig|Zig build cache and fetched packages",
                 ".local/share/mise/installs|Version managers|mise|Tool versions installed by mise",
-                ".asdf/installs|Version managers|asdf|Tool versions installed by asdf",
-                ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
-                ".vscode-server|Editors|VS Code|VS Code server"
+                ".asdf/installs|Version managers|asdf|Tool versions installed by asdf"
         ), snapshot.definitions.map { d -> d.originalPath + "|" + d.category + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
@@ -499,7 +512,7 @@ class CandidateCatalogTest {
         assertEquals(listOf(".sdkman/tmp", ".cache/deno", ".cache/Cypress"), cautioned.map { d -> d.originalPath })
         assertTrue(cautioned.all { d -> d.caution.orEmpty().endsWith("Lighten then asks which folder to keep.") }, cautioned.toString())
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi")) {
+        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi", "PlatformIO")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -537,7 +550,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 44 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 57 else 0, definitions.size)
             }
         }
     }
