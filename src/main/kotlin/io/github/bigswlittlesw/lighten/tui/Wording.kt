@@ -473,11 +473,12 @@ internal const val CHANGE_IN_CONFIGURATION = "Target and rules can be changed in
 internal const val ADDING_ASKS = "Adding uses a matching target path; its rules ask each time."
 internal const val CANNOT_ADD =
     "Only a directory, or one not created yet, can be added. To type a path instead, go back and press a."
-internal const val ADVICE_IS_OPTIONAL = "Advice is optional, not a safety assessment or a requirement."
 internal const val SUGGESTED_BY = "Suggested by"
 internal const val NO_LIST_SUGGESTS = "No list suggests it."
 internal fun adviceLine(advice: String) = "Advice: $advice"
 internal fun reasonLine(reason: String) = "Reason: $reason"
+// The sign keeps a caution visible on a terminal without color.
+internal fun cautionLine(caution: String) = "⚠ Caution: $caution"
 internal fun fromLine(location: String?, record: String, written: String) =
     "From: " + listSummary(location, record, "as written: $written")
 internal const val ADVICE_CONSIDER = "Consider"

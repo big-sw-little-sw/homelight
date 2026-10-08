@@ -5,17 +5,20 @@ import kotlinx.serialization.Serializable
 import java.nio.file.Path
 
 /**
- * One attributed occurrence, including its original spelling and literal reason.
+ * One attributed occurrence, including its original spelling and literal reason and caution.
  * The record index is one-based. Consumers must escape control characters when
- * displaying text; reasons are not terminal markup or commands.
+ * displaying text; reasons and cautions are not terminal markup or commands.
  * Structural locations use zero-based indices, e.g. `apps[1].directories[0]`.
  *
  * `category` is the app's, as this record's list gives it; only a directory with an app can have one.
+ *
+ * `caution` warns about moving this directory, for example a tool command that later replaces the link.
  */
 data class CandidateDefinition(
     val sourcePath: Path, val source: CandidateSource, val recordIndex: Int,
     val location: String, val originalPath: String,
     val app: String?, val category: String?, val advice: Advice?, val reason: String?,
+    val caution: String? = null,
 ) {
     init {
         require(
@@ -26,7 +29,8 @@ data class CandidateDefinition(
         require(
             (app == null || !app.isJavaBlank() && app == app.javaStrip())
                 && (category == null || app != null && !category.isJavaBlank() && category == category.javaStrip())
-                && (reason == null || !reason.isJavaBlank()),
+                && (reason == null || !reason.isJavaBlank())
+                && (caution == null || !caution.isJavaBlank()),
         ) { "Optional text must be nonblank; app and category must be trimmed; a category needs an app" }
     }
 

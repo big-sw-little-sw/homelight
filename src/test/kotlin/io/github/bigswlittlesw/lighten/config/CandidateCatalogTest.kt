@@ -170,6 +170,28 @@ class CandidateCatalogTest {
     }
 
     /** `category` is optional on an app, applies to each of its directories, and is nonblank and trimmed. */
+    /** A caution is optional free text, read and checked as a reason is. */
+    @Test fun readsACautionLikeAReason() {
+        val snapshot = parse("""
+                {"apps": [{"name": "Deno", "directories": [
+                  {"path": ".cache/deno", "reason": "Deno cache", "caution": "`deno clean` removes the link."},
+                  {"path": "other", "caution": null}]}]}
+                """)
+        assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
+        assertEquals(listOf("`deno clean` removes the link.", null), snapshot.definitions.map(CandidateDefinition::caution))
+        assertEquals("Deno cache", snapshot.definitions.first().reason)
+        assertEquals(CandidateDiagnostic(SHARED, CandidateDiagnostic.Kind.SCHEMA, 1, 0, 0,
+                "directories[0]", "caution", "Caution must not be blank"),
+                parse("""{"directories": [{"path": "cache", "caution": "  "}]}""").diagnostics.single())
+        val long = parse("""{"directories": [{"path": "cache", "caution": ${quoted("x".repeat(CandidateParser.MAX_STRING_CHARACTERS + 1))}}]}""")
+        assertKind(CandidateDiagnostic.Kind.LIMIT, long)
+        assertEquals("caution", long.diagnostics.single().key)
+        assertFalse(parse("""{"directories": [{"path": "cache", "caution": ["x"]}]}""").accepted())
+        assertThrows<IllegalArgumentException> {
+            CandidateDefinition(HOME.resolve("cache"), SHARED, 1, "directories[0]", "cache", null, null, null, null, " ")
+        }
+    }
+
     @Test fun readsAnAppsOptionalCategory() {
         val snapshot = parse("""
                 {"apps": [
@@ -423,12 +445,14 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(29, snapshot.definitions.size)
+        assertEquals(44, snapshot.definitions.size)
         assertEquals(listOf(
                 ".m2|JVM|Maven|Maven local repository",
                 ".gradle/caches|JVM|Gradle|Gradle caches",
                 ".gradle/wrapper|JVM|Gradle|Gradle wrapper distributions",
                 ".jbang/cache|JVM|JBang|JBang compiled scripts, downloaded content, and cached JDKs",
+                ".sdkman/candidates|JVM|SDKMAN|SDKs installed by SDKMAN",
+                ".sdkman/tmp|JVM|SDKMAN|SDKMAN downloaded archives",
                 ".cargo|Rust|Cargo|Rust toolchain and package state",
                 ".rustup|Rust|rustup|Rust toolchains",
                 ".npm|JavaScript|npm|npm cache",
@@ -440,6 +464,15 @@ class CandidateCatalogTest {
                 ".cache/node-gyp|JavaScript|node-gyp|node-gyp cache",
                 ".nvm|JavaScript|nvm|Node.js versions managed by nvm",
                 ".bun/install/cache|JavaScript|Bun|Bun package cache",
+                ".volta|JavaScript|Volta|Volta, with the Node.js versions and tools it manages",
+                ".local/share/fnm/node-versions|JavaScript|fnm|Node.js versions managed by fnm",
+                ".cache/deno|JavaScript|Deno|Deno cache",
+                ".cache/node/corepack|JavaScript|Corepack|Package managers downloaded by Corepack",
+                ".cache/ms-playwright|JavaScript|Playwright|Browsers downloaded by Playwright",
+                ".cache/puppeteer|JavaScript|Puppeteer|Browsers downloaded by Puppeteer",
+                ".cache/Cypress|JavaScript|Cypress|Cypress app binaries",
+                ".cache/electron|JavaScript|Electron|Electron downloads",
+                ".cache/electron-builder|JavaScript|Electron|electron-builder downloads",
                 ".cache/pip|Python|pip|pip cache",
                 ".cache/uv|Python|uv|uv cache",
                 ".local/share/uv|Python|uv|uv-managed Python installations",
@@ -451,14 +484,22 @@ class CandidateCatalogTest {
                 ".cache/rattler|Python|pixi|pixi package cache, shared with other rattler-based tools",
                 ".cache/pixi|Python|pixi|pixi package cache, used instead of .cache/rattler when this directory exists",
                 ".pixi/envs|Python|pixi|pixi global tool environments",
+                ".pyenv/versions|Python|pyenv|Python versions installed by pyenv",
+                ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
                 ".cache/go-build|Go|Go|Go build cache",
+                ".local/share/mise/installs|Version managers|mise|Tool versions installed by mise",
+                ".asdf/installs|Version managers|asdf|Tool versions installed by asdf",
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server"
         ), snapshot.definitions.map { d -> d.originalPath + "|" + d.category + "|" + d.app + "|" + d.reason })
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
+        // Each caution names the command that undoes the move and what Lighten does next.
+        val cautioned = snapshot.definitions.filter { d -> d.caution != null }
+        assertEquals(listOf(".sdkman/tmp", ".cache/deno", ".cache/Cypress"), cautioned.map { d -> d.originalPath })
+        assertTrue(cautioned.all { d -> d.caution.orEmpty().endsWith("Lighten then asks which folder to keep.") }, cautioned.toString())
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "Yarn", "pnpm", "uv", "pixi")) {
+        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -496,7 +537,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 29 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 44 else 0, definitions.size)
             }
         }
     }
