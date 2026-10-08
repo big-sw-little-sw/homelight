@@ -178,7 +178,7 @@ class WorkspaceDetailsTest {
         for (size in listOf(80 to 24, 120 to 30)) {
             val pane = squeezed(rightPane(screen("choose", size.first, size.second), size.first))
             assertTrue(pane.contains(squeezed("Decision: ask each time (your configuration)")), pane)
-            assertTrue(pane.indexOf("Decision:") < pane.indexOf("(○)"), pane)
+            assertTrue(pane.indexOf("Decision:") < pane.indexOf("○"), pane)
         }
     }
 

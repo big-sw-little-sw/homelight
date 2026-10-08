@@ -148,7 +148,7 @@ internal object WorkspaceView {
             val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
             (if (choices) listOf(
                 KeyHint("↑/↓", "Choose", description = "Move between the choices"),
-                KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice, for the next apply only"),
+                KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice in place of the others, for the next apply only"),
                 HOME_END_KEYS,
             )
             else listOf(SCROLL_KEY, SCROLL_ENDS_KEYS)) +
@@ -294,8 +294,9 @@ internal object WorkspaceView {
                 val chosen = item.selectedResolution() == option
                 add(
                     Line(
-                        (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "(●) " else "(○) ") + choiceLabel(option),
-                        if (chosen) palette.ok else palette.text, i == choice,
+                        (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "● " else "○ ") + choiceLabel(option),
+                        // Bold marks the chosen line, so it stands out without color; `❯` alone marks focus.
+                        if (chosen) palette.ok else palette.text, chosen,
                     ),
                 )
                 // An offered archive names its destination here; a planned one shows it once, under Paths.

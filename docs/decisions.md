@@ -589,6 +589,10 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: Volta's .volta/tools alone, add if Volta stages installs inside tools]`
 - `[skipped: a caution on the Browse row itself, add when users miss cautions that only Details shows]`
 
+## 2026-10-07: Bare marks for choices
+
+#173 (user decision): Workspace Details mark one-time choices with bare `●` chosen and `○` not chosen, as Browse marks its rows. The chosen choice is green and bold whether or not Details have focus; the focused one keeps `❯`, so without color `●` and bold mark the choice and `❯` marks focus (user decision, from the #179 walkthrough). "Parentheses mean pick one" (#165 entry) is dropped: a choice list is one of many by behaviour, since choosing one clears the others, and the Help for `Space/Enter` says so.
+
 ## 2026-10-07: Workspace keeps the file's order within each urgency group
 
 #183 (user decision, option B): Workspace rows were sorted by urgency, then A–Z by source path. They now keep the urgency groups (needs a choice, blocked or can't read; warning; changes; left as is; in sync) and, within a group, the order of `relocations` in the configuration file, the order Configuration's list already shows. The file's order is the one the user wrote and sees while editing, so a relocation is where they expect it on both screens.

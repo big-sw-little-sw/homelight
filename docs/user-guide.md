@@ -46,8 +46,10 @@ Configure → Workspace → Review → Apply → Results
    *relocation*. The Workspace shows what is there now and what Lighten
    will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
    needs your choice: select it, press `Tab`, pick a choice and press
-   `Enter`. A relocation marked `[Blocked]` cannot be done as things are, for
-   example because a file is where its archive folder should be. Its
+   `Enter`. The chosen one is marked `●` and the others `○`; picking
+   another replaces it. A relocation marked `[Blocked]` cannot be done as
+   things are, for example because a file is where its archive folder
+   should be. Its
    Details say what is in the way: fix that, then press `r`. If Details say
    you can, pick a choice below that doesn't need that folder instead.
 3. **Review (`2`).** Press `a` to see every step Lighten will take, listed
