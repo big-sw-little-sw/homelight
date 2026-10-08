@@ -2,7 +2,7 @@
 # Installs or updates Lighten from its GitHub Releases.
 #
 #   curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh
-#   sh install.sh [--version <version>] [--dir <dir>] [--no-modify-path] [--force]
+#   sh install.sh [--version <version>] [--dir <dir>] [--no-modify-path]
 #
 # Downloads the binary for this machine to a temporary directory, checks it against the release's
 # SHA256SUMS, and only then installs it as <dir>/lighten (default ~/.local/bin): it copies it
@@ -29,7 +29,6 @@ Usage: install.sh [options]
   --version <version>  Install this release, such as 1.2.3. Default: the latest release.
   --dir <dir>          Install lighten into this directory. Default: ~/.local/bin.
   --no-modify-path     Do not offer to add the directory to PATH; only show how.
-  --force              Install the arm64 binary on a musl system without gcompat.
   -h, --help           Show this help.
 
 Running it again updates lighten in place.
@@ -92,7 +91,6 @@ main() {
   version=""
   dir=""
   modify_path=yes
-  force=no
   while [ $# -gt 0 ]; do
     case $1 in
       --version) [ $# -ge 2 ] || die "--version needs a value, such as 1.2.3."; version=$2; shift ;;
@@ -100,7 +98,6 @@ main() {
       --dir) [ $# -ge 2 ] || die "--dir needs a directory."; dir=$2; shift ;;
       --dir=*) dir=${1#*=} ;;
       --no-modify-path) modify_path=no ;;
-      --force) force=yes ;;
       -h | --help) usage; exit 0 ;;
       *) usage >&2; die "Unknown option: $1" ;;
     esac
@@ -120,7 +117,7 @@ main() {
       if is_musl; then
         if [ -e /lib/ld-linux-aarch64.so.1 ]; then
           platform="$platform (musl, with gcompat)"
-        elif [ $force = no ]; then
+        else
           die "This system uses musl libc (Alpine Linux, for example)." \
             "Lighten for arm64 needs glibc. On musl it runs with the gcompat package:" \
             "" "  apk add gcompat" "" \

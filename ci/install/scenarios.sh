@@ -130,6 +130,18 @@ mismatch() {
   check no_leftovers
 }
 
+# The run check refuses the binary after the install directory was created: the script removes
+# the directory it created and keeps the one that was there.
+does_not_run() {
+  mkdir "$home/.local"
+  tree=$BASE/broken
+  check fails install
+  check said "Error: The downloaded lighten does not run on this system. Nothing was installed."
+  check [ -d "$home/.local" ]
+  check [ ! -e "$home/.local/bin" ]
+  check no_leftovers
+}
+
 mismatch_keeps_installed() {
   check install
   before=$(sha256sum < "$home/$bin")
@@ -234,17 +246,6 @@ musl_stops() {
   check [ ! -e "$home/.local" ]
 }
 
-# The run check refuses the binary after the install directory was created: the script removes
-# the directory it created and keeps the one that was there.
-musl_force_without_gcompat() {
-  mkdir "$home/.local"
-  check fails install --force
-  check said "Error: The downloaded lighten does not run on this system. Nothing was installed."
-  check [ -d "$home/.local" ]
-  check [ ! -e "$home/.local/bin" ]
-  check no_leftovers
-}
-
 musl_with_gcompat() {
   check install
   check said "for Linux aarch64 (musl, with gcompat)."
@@ -278,9 +279,8 @@ echo "downloader used: $(have curl && echo curl || echo wget)"
 
 if [ $musl_arm = yes ]; then
   scenario "musl arm64 without gcompat: stops and explains gcompat" musl_stops
-  scenario "musl arm64, --force without gcompat: installs nothing, keeps ~/.local" musl_force_without_gcompat
   apk add -q gcompat
-  scenario "musl arm64 with gcompat: installs without --force" musl_with_gcompat
+  scenario "musl arm64 with gcompat: installs" musl_with_gcompat
 else
   scenario "fresh install, no terminal: installs, prints the PATH line, edits nothing" fresh
   scenario "rerun: reinstalls in place" rerun
@@ -290,6 +290,7 @@ else
   scenario "binary download fails: stops, creates no directory" missing_binary
   scenario "checksum mismatch: stops, installs nothing, creates no directory" mismatch
   scenario "checksum mismatch over an install: keeps it" mismatch_keeps_installed
+  scenario "binary does not run: removes the directory it created, keeps ~/.local" does_not_run
   scenario "PATH question, bash, yes: ~/.bashrc and ~/.profile, once" path_yes show
   scenario "PATH question, bash with ~/.bash_profile: ~/.bashrc and ~/.bash_profile" path_bash_profile
   scenario "PATH question, yes, then rerun: does not ask or duplicate" path_yes_rerun

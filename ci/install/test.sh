@@ -6,7 +6,7 @@
 # <assets-dir> holds lighten-<version>-linux-<arch>-<libc> and SHA256SUMS, as a release does: the
 # release workflow's dry-run artifact, or a CI build renamed to the release names. A busybox httpd
 # container serves them at the paths GitHub uses, plus copies whose binaries do not match
-# SHA256SUMS or are missing. scenarios.sh runs install.sh against them through LIGHTEN_INSTALL_BASE_URL.
+# SHA256SUMS, are missing or do not run. scenarios.sh runs install.sh against them through LIGHTEN_INSTALL_BASE_URL.
 # Needs docker on a host of the given architecture (or an emulating one such as OrbStack).
 # Exit status is non-zero when any distro fails.
 set -u
@@ -35,14 +35,19 @@ cleanup() {
 trap cleanup EXIT
 
 # good/: a release as GitHub serves it. bad/: the latest release with corrupted binaries.
-# missing/: SHA256SUMS without the binaries, so their download fails.
+# missing/: SHA256SUMS without the binaries, so their download fails. broken/: binaries that
+# match their SHA256SUMS but exit with an error.
 for dir in good/latest/download "good/download/v$version" bad/latest/download; do
   mkdir -p "$srv/$dir"
   cp "$assets"/SHA256SUMS "$assets"/lighten-* "$srv/$dir/"
 done
 for binary in "$srv"/bad/latest/download/lighten-*; do printf x >> "$binary"; done
-mkdir -p "$srv/missing/latest/download"
+mkdir -p "$srv/missing/latest/download" "$srv/broken/latest/download"
 cp "$assets/SHA256SUMS" "$srv/missing/latest/download/"
+for binary in "$assets"/lighten-*; do
+  printf '#!/bin/sh\nexit 1\n' > "$srv/broken/latest/download/${binary##*/}"
+done
+(cd "$srv/broken/latest/download" && sha256sum lighten-* > SHA256SUMS)
 chmod -R a+rX "$srv"
 
 docker network create "$net" > /dev/null || exit 1

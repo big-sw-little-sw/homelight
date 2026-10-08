@@ -32,7 +32,6 @@ Options go after `sh install.sh`, or after `sh -s --` when piping:
 --version 1.2.3     install that release instead of the latest
 --dir ~/bin         install into another directory
 --no-modify-path    do not offer to change PATH; only show the line
---force             skip the gcompat check on Alpine arm64
 ```
 
 Run the script again to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
