@@ -253,6 +253,21 @@ private fun ruleCase(choice: DecisionChoice): String = when (choice) {
     DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, DecisionChoice.LEAVE_UNCHANGED,
     DecisionChoice.DISCARD_BOTH -> "when the source and the target both exist"
 }
+/**
+ * The warning for a rule that deletes data not kept elsewhere (tui-design §5), or none. Once saved, it applies
+ * without asking, `apply --yes` included.
+ */
+internal fun alwaysDoThisWarning(choice: DecisionChoice): List<String> = when (choice) {
+    DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> listOf(
+        "⚠ This rule deletes the source's contents for good whenever it applies,",
+        "  including with lighten apply --yes.",
+    )
+    DecisionChoice.DISCARD_BOTH -> listOf(
+        "⚠ This rule deletes the contents of both source and target for good",
+        "  whenever it applies, including with lighten apply --yes.",
+    )
+    DecisionChoice.ADOPT_TARGET, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, DecisionChoice.LEAVE_UNCHANGED -> listOf()
+}
 internal const val ALWAYS_DO_THIS_KEYS = "y: Save rule · n/Esc: Cancel"
 /** [CHANGED_SINCE_LOADED] for the Workspace, where q, y, e would quit rather than reopen the file. */
 internal const val CHOICE_NOT_SAVED =

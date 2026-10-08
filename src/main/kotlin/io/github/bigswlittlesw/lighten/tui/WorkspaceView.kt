@@ -144,10 +144,11 @@ internal object WorkspaceView {
         val retained = session.applyModel() is ApplyModel.Result
         val items = visibleItems(model, showInSync)
         val item = items.getOrNull(selection(list, items))
-        // Beside the choice keys, not with the commands: the commands line has no room for it at 80 columns.
+        // On the navigation line beside the choice keys, as the commands line has no room for it at 80 columns; Help
+        // lists it under Do.
         val always = KeyHint(
             "s", "Always do this",
-            description = "Save the choice as this relocation's rule in the configuration file; asks first",
+            description = "Save the choice as this relocation's rule in the configuration file; asks first", acts = true,
         ).takeIf { item != null && model.ruleFile(item.relocation.sourcePath) != null }
         val navigation = if (focused == WORKSPACE_DETAILS) {
             val choices = !retained && item != null && item.availableResolutions.isNotEmpty()

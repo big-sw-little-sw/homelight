@@ -57,6 +57,14 @@ class AlwaysDoThisTest {
         }
         assertTrue(dialog.contains(squeezed("keep target, delete source")), dialog)
         assertTrue(dialog.contains(squeezed("Comments in it are not kept.")), dialog)
+        // Deleting the source is for good, so the dialog warns, in the warning color.
+        for (line in alwaysDoThisWarning(chosenChoice)) assertTrue(dialog.contains(squeezed(line)), "$line\n$dialog")
+        val rows = ui.screen(200, 50).lines()
+        val y = rows.indexOfFirst { it.contains("⚠ This rule deletes") }
+        assertEquals(palette.warn, ui.frame(200, 50).get(rows[y].indexOf("⚠"), y).style().fg().orElse(null))
+        // At 80 columns the dialog, warning included, fits.
+        val narrow = ui.screen().lines()
+        assertTrue(narrow.any { it.contains("including with lighten apply --yes.") }, narrow.joinToString("\n"))
         assertEquals(file(), Files.readString(config))
 
         ui.press('y')
@@ -101,6 +109,33 @@ class AlwaysDoThisTest {
         assertEquals(1, draft(ui).size)
         val refused = ui.screen(200, 50)
         assertTrue(squeezed(refused).contains(squeezed(CHOICE_NOT_SAVED)), refused)
+    }
+
+    @Test
+    fun onlyARuleThatDeletesDataWarns() {
+        assertEquals(2, alwaysDoThisWarning(DecisionChoice.DISCARD_BOTH).size)
+        for (keeps in listOf(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, DecisionChoice.LEAVE_UNCHANGED, DecisionChoice.ADOPT_TARGET)) {
+            assertTrue(alwaysDoThisWarning(keeps).isEmpty(), keeps.toString())
+        }
+        val ui = chosen()
+        ui.press(KeyCode.DOWN)
+        ui.press(' ')
+        assertEquals(DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, draft(ui).values.single())
+        ui.press('s')
+        val dialog = ui.screen(200, 50)
+        assertTrue(dialog.contains(ALWAYS_DO_THIS_TITLE) && !dialog.contains("This rule deletes"), dialog)
+    }
+
+    /** Help lists `s` under Do, though the help line shows it beside the choice keys. */
+    @Test
+    fun helpListsSUnderDo() {
+        val ui = chosen()
+        ui.press('?')
+        val rows = ui.screen(100, 80).lines()
+        val move = rows.indexOfFirst { it.contains(MOVE_AROUND) }
+        val doKeys = rows.indexOfFirst { it.contains(DO_KEYS) }
+        val s = rows.indexOfFirst { it.contains("s  ") && it.contains("Save the choice as this relocation's rule") }
+        assertTrue(move in 0 until doKeys && doKeys < s, rows.joinToString("\n"))
     }
 
     /** Leave both as they are, picked while the rule already says so, saves nothing, so `s` is not offered. */

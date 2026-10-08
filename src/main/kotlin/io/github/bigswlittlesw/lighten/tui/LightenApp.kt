@@ -159,7 +159,7 @@ internal class LightenApp(
         return confirmDialog(
             ALWAYS_DO_THIS_TITLE, alwaysDoThis(source, choice, session.configPath), ALWAYS_DO_THIS_KEYS,
             onYes = { closeSaveChoiceDialog(); saveChoice(source) },
-            onNo = ::closeSaveChoiceDialog,
+            onNo = ::closeSaveChoiceDialog, warning = alwaysDoThisWarning(choice),
         )
     }
 

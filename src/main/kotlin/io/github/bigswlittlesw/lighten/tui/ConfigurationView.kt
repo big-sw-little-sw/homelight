@@ -20,7 +20,6 @@ import dev.tamboui.widgets.select.SelectState
 import io.github.bigswlittlesw.lighten.application.BrowseDraft
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.Suggestions
-import io.github.bigswlittlesw.lighten.config.ConfigurationChangedException
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
@@ -622,21 +621,6 @@ internal class ConfigurationView private constructor(
             return view
         }
     }
-}
-
-/**
- * Runs `write`, a [ConfigurationPublisher] save, and says why nothing was saved, or returns null when it was saved:
- * `changed` when the file changed since it was read.
- */
-internal fun saveProblem(changed: String, write: () -> Unit): String? = try {
-    write()
-    null
-} catch (_: ConfigurationChangedException) {
-    changed
-} catch (error: ConfigurationException) {
-    notSaved(error.message.orEmpty())
-} catch (error: IllegalArgumentException) {
-    notSaved(error.message.orEmpty())
 }
 
 /** A field's path as the loader reads it, why it cannot, or that it is empty and needs nothing. */
