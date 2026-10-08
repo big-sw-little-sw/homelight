@@ -12,9 +12,32 @@ The project is at the initial design and implementation stage. Configuration loa
 
 Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later, so not Alpine). It needs no Java.
 
-The install script is coming soon (#168).
+The install script downloads the binary for your machine from the latest release, checks it against the release's `SHA256SUMS`, and installs it as `~/.local/bin/lighten`. It never uses sudo. If that directory is not on your `PATH`, it shows the line it would add to your shell's startup file and asks first. It works once the first release is published:
 
-These tools install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases). They work once the first release is published:
+```text
+curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh
+```
+
+To read the script before running it:
+
+```text
+curl -fsSLO https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh
+less install.sh
+sh install.sh
+```
+
+Options go after `sh install.sh`, or after `sh -s --` when piping:
+
+```text
+--version 1.2.3     install that release instead of the latest
+--dir ~/bin         install into another directory
+--no-modify-path    do not offer to change PATH; only show the line
+--force             install the arm64 binary on Alpine (needs: apk add gcompat)
+```
+
+Run the script again to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
+
+These tools also install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases), once the first release is published:
 
 ```text
 mise use -g github:big-sw-little-sw/lighten
