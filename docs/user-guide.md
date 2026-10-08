@@ -194,6 +194,12 @@ when every list that names it says so, and counts what it hid. Press `u` to
 show them. A directory already in your configuration, or one you ignore,
 is never hidden.
 
+Under the lists, a line such as `12 found on this machine` counts the
+suggested directories that exist on this machine. Press `f` to show only
+those, and `f` again to show all. Directories in your configuration are
+always shown. While `f` is on, `Space` on a category's or app's name adds
+only the found directories under it.
+
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app
 different categories, Browse uses your list's. Select a suggestion and press

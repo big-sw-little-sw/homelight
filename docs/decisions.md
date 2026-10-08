@@ -730,7 +730,7 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - **Counts and examples from the catalog (rung 1):** the empty list and Suggestion list's Details read the built-in list once: its directories counted as Browse's Lists line counts them (44 today), and the first app of each of the first four categories (Maven, Cargo, npm, pip). The issue's "40+ common tools" became "44 suggestions for common tools", the same number Browse shows; the list has 34 apps.
 - **Typing stays visible:** the empty list (`… or a to type one yourself.`), the Browse note, Configuration's and Browse's Help purposes and the guide's step 1 all say a missing directory can be typed with `a`, and that a list of your own can be added later and is merged. From a field the empty list says `Esc, then b …`, since there `b` and `a` type.
 - **Placeholder** `optional; adds to built-in list`: the issue's `optional; built-in suggestions are always included` is 50 cells and the field is 32 at 80 columns.
-- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]`
+- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]` (done in #190)
 - `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
 
 ## 2026-10-08: C and C++, Android, build tools and Zed join the built-in list, in a new category order
@@ -755,6 +755,20 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - `[skipped: .cache/bazelisk (about 70 MB per Bazel version), add when users report versions piling up]`
 - `[skipped: .local/share/Google (Android Studio plugins), add when users report it large]`
 - `[skipped: keeping hard links when moving, add when users move Hunter or similar caches and ask about the space]`
+
+## 2026-10-08: Browse counts and filters what is found on this machine
+
+#190 (user decision, split from #189): most built-in suggestions read `not created yet` on any one machine, which buries the ones that matter.
+
+- **Found** means the last check saw a directory or a link at the path (rung 1, reuse discovery's observation). A link counts because a directory Lighten has moved is a link; leaving links out would hide the user's own relocations after Apply. A file, a problem or `checking…` does not count.
+- **Count line:** `12 found on this machine` under the Lists lines; while filtered, `, plus 2 in your configuration` when configured rows not found are shown, else `, only these shown`; and `Checking this machine…` until every row is checked, so the number does not climb on screen. It shares its line with `1 usually not needed, hidden` (now in the text color, not `warn`), so the list loses no row at 80x24.
+- **Key `f`** ("found"), toggled like `u`. Free in Browse: `u`, `i`, `x`, `r`, `e`, Space and Enter are taken, and `a`/`b` are Configuration's list keys, which users would expect to mean the same there. It goes on the navigation help line with `acts`, since the commands line is full at 80 columns with `x: Stop ignoring` and `u`.
+- **Configured rows always show** (user decision, #197 walkthrough): a directory in the configuration stays listed while `f` is on, found or not, as `u` never hides what you chose. Its `●` and note (`not created yet`) set it apart, and the count line says why it is there. This includes relocations no list suggests, which discovery does not check.
+- **Headings follow the shown rows:** a category or app with nothing shown is not listed, and `1 of 2 added`, the mark and Space all count only the shown directories, as they already did for `u`. Space on a heading while filtered adds only found directories and the message says how many it skipped: `Skipped 3 not found on this machine; f shows all.` Help's Space description says `found on this machine` while `f` is on. Taking a group out is unchanged, since every configured row under it is shown.
+- **List order kept:** found directories do not sort first. `f` already brings them together; sorting would move rows under the user, against "rows keep the place they were first listed in".
+- **Hidden count while filtered** counts only found directories, so `u: Show N` matches what `u` would add.
+- `[skipped: / to filter by text, add when lists grow past two screens]`
+- `[skipped: first-run Browse with f on, add when new users report scrolling past tools they don't have]` (user decision: Browse opens with `f` off, as every other time)
 
 ## How to add decisions
 

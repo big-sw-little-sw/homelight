@@ -606,6 +606,19 @@ internal fun rootProblem(detail: String, path: String) = "Source root: $detail Â
 internal fun hiddenLine(n: Int, shown: Boolean) = "$n usually not needed, " + if (shown) "shown" else "hidden"
 internal fun showHidden(shown: Boolean) = (if (shown) "Hide" else "Show") + " the suggestions marked usually not needed"
 internal const val NO_SUGGESTIONS = "No suggestions yet. Esc returns to Configuration."
+/**
+ * Browse's count of directories found on this machine. `only`: `f` shows just those, and the `configured` rows in the
+ * configuration that are not found.
+ */
+internal fun foundLine(n: Int, only: Boolean, configured: Int) = "$n found on this machine" + when {
+    !only -> ""
+    configured > 0 -> ", plus $configured in your configuration"
+    else -> ", only these shown"
+}
+internal const val CHECKING_THIS_MACHINE = "Checking this machineâ€¦"
+internal fun showFoundOnly(only: Boolean) =
+    if (only) "Show every suggestion again" else "Show only the directories found on this machine"
+internal const val NONE_FOUND = "None found on this machine. Press f to show every suggestion."
 internal const val OTHER_DIRECTORIES = "Other directories"
 internal const val OTHER_TOOLS = "Other tools"
 internal fun addedCount(added: Int, of: Int) = "$added of $of added"
@@ -627,13 +640,15 @@ internal const val ADD_GROUP = "Add every directory shown in the group that can 
 internal const val REMOVE_GROUP = "Take every directory in the group out of the configuration"
 internal const val ADD_CATEGORY = "Add every directory shown under the category's apps that can be added"
 internal const val REMOVE_CATEGORY = "Take every directory under the category's apps out of the configuration"
+/** A heading's Space, a category's or an app's, while `f` is on: it adds none that are not found. */
+internal const val ADD_FOUND = "Add every directory under it found on this machine that can be added"
 /**
  * After Space on a group: null when nothing was skipped; else how many were added and why the rest were not.
  * `overlapped` names, for each skipped row, the relocation it overlaps when known. `ignored` counts the rows skipped
- * because the user ignores them.
+ * because the user ignores them, and `notFound` those left out while only found directories are shown.
  */
-internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int, ignored: Int): String? {
-    if (overlapped.isEmpty() && unaddable == 0 && ignored == 0) return null
+internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int, ignored: Int, notFound: Int): String? {
+    if (overlapped.isEmpty() && unaddable == 0 && ignored == 0 && notFound == 0) return null
     val overlap = when {
         overlapped.isEmpty() -> null
         overlapped.size == 1 -> "Skipped 1 that overlaps " + (overlapped.single() ?: "a directory in the configuration") + "."
@@ -641,7 +656,8 @@ internal fun groupAdded(added: Int, overlapped: List<String?>, unaddable: Int, i
     }
     val cannot = if (unaddable == 0) null else "Skipped $unaddable that can't be added."
     val skippedIgnored = if (ignored == 0) null else "Skipped $ignored you ignored."
-    return listOfNotNull("Added $added.", overlap, cannot, skippedIgnored).joinToString(" ")
+    val skippedNotFound = if (notFound == 0) null else "Skipped $notFound not found on this machine; f shows all."
+    return listOfNotNull("Added $added.", overlap, cannot, skippedIgnored, skippedNotFound).joinToString(" ")
 }
 internal const val IGNORED_NOTE = "ignored by you"
 internal const val BROWSE_IGNORE = "Ignore the directory: Lighten won't manage or add it; saving writes the change"

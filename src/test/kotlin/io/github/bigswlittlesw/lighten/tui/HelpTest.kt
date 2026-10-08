@@ -86,8 +86,15 @@ class HelpTest {
             val browse = place(CONFIGURATION_NAME, BROWSE_NAME)
             checkThisScreen(
                 ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, "Home/End",
-                pinned = mapOf("Space" to ADD_CATEGORY, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS),
+                pinned = mapOf("Space" to ADD_CATEGORY, "r" to CHECK_LISTS_AGAIN, "i" to SEE_LISTS, "f" to showFoundOnly(false)),
             )
+            // While f shows only found directories, Space on a heading says it acts on those alone.
+            ui.press('f')
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_FOUND, "f" to showFoundOnly(true)))
+            ui.press(' ')
+            checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to REMOVE_CATEGORY))
+            ui.press(' ')
+            ui.press('f')
             ui.press(KeyCode.DOWN)
             checkThisScreen(ui, browse, PURPOSE_BROWSE, Step.CONFIGURE, pinned = mapOf("Space" to ADD_GROUP))
             ui.press(KeyCode.DOWN)
@@ -443,6 +450,8 @@ class HelpTest {
         setup.press('i')
         setup.type("/srv")
         setup.press(KeyCode.ESCAPE)
+        // Browse opens by itself on a new file and checks this machine; its count line changes when that ends.
+        pollUntil("Browse did not finish checking") { !setup.screen(80, 24).contains(CHECKING_THIS_MACHINE) }
         val table = setup.screen(80, 24)
         setup.press('?')
         val help = setup.screen(80, 24)
