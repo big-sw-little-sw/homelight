@@ -6,7 +6,8 @@ plugins {
 }
 
 group = "io.github.bigswlittlesw"
-version = "1.0-SNAPSHOT"
+// The release workflow passes -PreleaseVersion=<tag without v>; every other build is a SNAPSHOT.
+version = providers.gradleProperty("releaseVersion").getOrElse("1.0-SNAPSHOT")
 
 val mainClassName = "io.github.bigswlittlesw.lighten.cli.LightenCommand"
 
