@@ -150,9 +150,10 @@ Browse, inside Configuration, suggests directories to move. The suggestions
 come from two suggestion lists:
 
 - **The built-in list.** It comes with Lighten and names directories that
-  are usually large and safe to move: package caches, toolchains, and the
-  versions that version managers install, for Maven, Gradle, SDKMAN, npm,
-  Playwright, pip, uv, pyenv, rbenv, Cargo, Go, mise, VS Code and others.
+  are usually large and safe to move: package caches, build caches,
+  toolchains and SDKs, and the versions that version managers install, for
+  Maven, Gradle, npm, pip, uv, pyenv, Cargo, Conan, vcpkg, ccache, Bazel,
+  Go, the Android SDK, mise, VS Code, Zed and others.
 - **Your list** (optional). A file you write, for example one on a shared
   drive that everyone on your team uses. Browse always shows the built-in
   list too.
@@ -163,8 +164,8 @@ with its location, its number of suggestions and the day its file last
 changed. If your list could not be used, its line says why. Press `i` for
 the full detail.
 
-Below them, the suggestions are listed under their category, such as JVM,
-Python or JavaScript, and under it the name of their app. Apps with no
+Below them, the suggestions are listed under their category, such as
+Editors, Python or C and C++, and under it the name of their app. Apps with no
 category are under "Other tools", and directories with no app under
 "Other directories", at the end. Each directory has a mark:
 
@@ -219,12 +220,12 @@ A suggestion list is a JSON file. For example:
   // Suggestions for Lighten's Browse.
   "apps": [
     {
-      "name": "Bazel",
-      "category": "Build",
+      "name": "Hugging Face",
+      "category": "Machine learning",
       "directories": [
-        {"path": ".cache/bazel", "advice": "consider",
-         "reason": "Build outputs, rebuilt when needed",
-         "caution": "Run bazel shutdown before moving it"}
+        {"path": ".cache/huggingface", "advice": "consider",
+         "reason": "Downloaded models and datasets",
+         "caution": "Stop running notebooks before moving it"}
       ]
     },
     {
@@ -248,8 +249,8 @@ A suggestion list is a JSON file. For example:
   under, such as `Python`. An app with none is under "Other tools". To move
   a built-in app, such as Gradle, under another heading, name it in your
   list with the category you want and at least one of its directories.
-- `path` is relative to your home directory: `.cache/bazel`, not
-  `~/.cache/bazel` or `/home/me/.cache/bazel`. It cannot use `..`,
+- `path` is relative to your home directory: `.cache/huggingface`, not
+  `~/.cache/huggingface` or `/home/me/.cache/huggingface`. It cannot use `..`,
   variables such as `$USER`, or wildcards.
 - `advice` is optional: `consider` or `usually-unnecessary`.
 - `reason` is optional. Browse shows it with the suggestion.
