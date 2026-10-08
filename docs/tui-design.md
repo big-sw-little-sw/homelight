@@ -152,8 +152,11 @@ ones.
 - Scrollbars appear only when content overflows. No numeric line counters.
 - In-sync relocations are hidden when others exist; `c` toggles them. The list
   title says how many and which key shows them: `Relocations · c: show 2 in
-  sync`, or `c: hide 2 in sync` while shown. Urgent rows (blocked, needs a
-  choice) sort first.
+  sync`, or `c: hide 2 in sync` while shown. Workspace rows are grouped by
+  urgency: needs a choice, blocked or can't read; warning; changes; left as
+  is; in sync. Within a group they keep the configuration file's order, the
+  order Configuration's list shows. A row that changes group, for example
+  after a choice, moves and stays selected.
 
 ### Dialogs
 

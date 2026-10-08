@@ -66,7 +66,11 @@ Configure → Workspace → Review → Apply → Results
 ### Change the configuration later
 
 Press `e` on the Workspace to open Configuration, change it, and press `s`.
-Lighten checks again and shows the new plan.
+Lighten checks again and shows the new plan. The Workspace lists the
+relocations that need you first (`[Choose]`, `[Blocked]`, `[Can't read]`),
+then `[Warning]`, then those with changes such as `[Move]`, then
+`[Left as is]`, then `[In sync]`. Within each of these, they keep the order
+of your configuration.
 
 - Select **Storage locations** or a relocation in the list on the left, and
   press `Enter` to change its fields. `Esc` goes back to the list. In a

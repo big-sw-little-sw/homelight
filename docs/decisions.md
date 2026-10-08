@@ -570,6 +570,14 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - **Ecosystem becomes category (user decision):** the suggestion-list level above apps is a **category**, and its JSON key `"ecosystem"` is now `"category"`, in the built-in list, the parser and the fixtures, with no compatibility. "Ecosystem" did not fit Editors or Other tools, and "app group" would clash with an app's own group of directories. Code names, Help's descriptions, the guide and `tui-design.md` follow; headings still show the names (JVM, Python, Editors, Other tools), so only Help's text changes on screen. The #165 entry above keeps the old word.
 - `[skipped: the repository URL, add when the user renames big-sw-little-sw/homelight; then ci/try-pr, the guide URL and the README links follow]`
 
+## 2026-10-07: Workspace keeps the file's order within each urgency group
+
+#183 (user decision, option B): Workspace rows were sorted by urgency, then A–Z by source path. They now keep the urgency groups (needs a choice, blocked or can't read; warning; changes; left as is; in sync) and, within a group, the order of `relocations` in the configuration file, the order Configuration's list already shows. The file's order is the one the user wrote and sees while editing, so a relocation is where they expect it on both screens.
+
+- **Stable sort (rung 1):** `Loaded.items` sorts by `PlanBadge.priority` alone; the stable sort keeps file order inside a group. Nothing new is stored.
+- **Selection unchanged:** the Workspace already restores the selection by source, so a row that moves between groups after a choice stays selected.
+- `[skipped: a way to reorder relocations in Configuration, add when users ask to rearrange without editing the file]`
+
 ## How to add decisions
 
 Use this format:
