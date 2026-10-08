@@ -10,6 +10,8 @@ import io.github.bigswlittlesw.lighten.tui.launchTui
 import io.github.bigswlittlesw.lighten.tui.unreadableCli
 import picocli.CommandLine
 import picocli.CommandLine.Command
+import picocli.CommandLine.IHelpSectionRenderer
+import picocli.CommandLine.Model.UsageMessageSpec.SECTION_KEY_FOOTER
 import picocli.CommandLine.Model.CommandSpec
 import picocli.CommandLine.Model.OptionSpec
 import picocli.CommandLine.Option
@@ -59,9 +61,12 @@ class LightenCommand : Callable<Int> {
         fun createCommandLine(): CommandLine = CommandLine(LightenCommand())
             .setExecutionStrategy(::executeValidated)
             .setExecutionExceptionHandler(::handleExecutionException)
-            // Set here, not in @Command: the address depends on the version. It has a line of its own, so picocli's
-            // wrapping at 80 columns never splits it.
-            .also { it.commandSpec.usageMessage().footer("", "User guide: run lighten guide, or read it online:", guideUrl()) }
+            // Set here, not in @Command: the address depends on the version. Rendered as is, not as picocli's footer,
+            // which wraps at 80 columns: a long pre-release version such as 1.0.0-beta.10 makes the address longer.
+            .also {
+                it.helpSectionMap[SECTION_KEY_FOOTER] =
+                    IHelpSectionRenderer { "\nUser guide: run lighten guide, or read it online:\n${guideUrl()}\n" }
+            }
             .also { root -> root.subcommands.values.toSet().forEach { it.commandSpec.addOption(helpOption()) } }
 
         // mixinStandardHelpOptions is not inherited, and on a subcommand it would add -V too: --version belongs to

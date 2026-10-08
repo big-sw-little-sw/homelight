@@ -8,6 +8,29 @@ It is a Kotlin terminal application, run as `lighten`, for space-constrained or 
 
 The project is at the initial design and implementation stage. Configuration loading, filesystem inspection, planning, and guarded filesystem mutation are implemented. The human interface is being rebuilt as a full-screen terminal application.
 
+## Install
+
+Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later, so not Alpine). It needs no Java.
+
+The install script is coming soon (#168).
+
+These tools install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases). They work once the first release is published:
+
+```text
+mise use -g github:big-sw-little-sw/lighten
+eget big-sw-little-sw/lighten --to ~/.local/bin
+ubi --project big-sw-little-sw/lighten --in ~/.local/bin
+```
+
+Each tool updates what it installed; `lighten update` will be for installs made with the script.
+
+To download by hand, take `lighten-<version>-linux-x86_64-musl` or `lighten-<version>-linux-aarch64-gnu` and `SHA256SUMS` from a release, then:
+
+```text
+sha256sum --check --ignore-missing SHA256SUMS
+install -m 755 lighten-<version>-linux-<arch>-<libc> ~/.local/bin/lighten
+```
+
 ## Renamed from HomeLight
 
 Lighten was called HomeLight, with the command `homelight`. Its repository moved to [`big-sw-little-sw/lighten`](https://github.com/big-sw-little-sw/lighten); old URLs redirect.

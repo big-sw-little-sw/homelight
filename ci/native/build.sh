@@ -9,6 +9,7 @@
 #
 # Writes <out-dir>/lighten (default build/native-<arch>) and <out-dir>/jvm-reference.txt,
 # the CLI comparison transcript from the same build run on the JVM (see compare.sh).
+# RELEASE_VERSION, when set, is the version the binary reports (release.yml sets it from the tag).
 # Downloads and the Gradle user home (wrapper distribution, dependencies) are kept in
 # $LIGHTEN_CI_CACHE (default ~/.cache/lighten-ci).
 set -euo pipefail
@@ -50,7 +51,7 @@ fi
 
 docker run --rm --platform "$platform" \
   -v "$repo:/src:ro" -v "$cache/dl:/dl:ro" -v "$cache/gradle:/gradle" -v "$out:/out" \
-  -e ARCH="$arch" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  -e ARCH="$arch" -e RELEASE_VERSION="${RELEASE_VERSION:-}" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   -e GRAALVM="graalvm-jdk-${graalvm_version}_linux-${graalvm_arch}_bin.tar.gz" \
   -e MUSL="${musl_toolchain}.tar.gz" \
   "$image" bash /src/ci/native/build-in-container.sh
