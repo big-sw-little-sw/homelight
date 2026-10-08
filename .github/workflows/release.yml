@@ -77,6 +77,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     strategy:
+      fail-fast: false
       matrix:
         include:
           - { arch: x86_64, runner: ubuntu-24.04, asset: linux-x86_64-musl }
@@ -115,7 +116,7 @@ jobs:
           retention-days: 3
 
   publish:
-    name: ${{ github.event_name == 'push' && 'Publish' || 'Dry run' }}
+    name: Release assets
     needs: [gate, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

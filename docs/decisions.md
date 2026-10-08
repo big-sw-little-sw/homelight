@@ -613,6 +613,43 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - **Selection unchanged:** the Workspace already restores the selection by source, so a row that moves between groups after a choice stays selected.
 - `[skipped: a way to reorder relocations in Configuration, add when users ask to rearrange without editing the file]`
 
+## 2026-10-07: A version tag publishes a GitHub Release
+
+#167 (user decision): pushing a tag `v<major>.<minor>.<patch>[-<pre-release>]` publishes a GitHub Release (`.github/workflows/release.yml`).
+
+- **Only a tested commit on main:** a gate job fails the release unless the tagged commit is on `main` and the 7 required checks (`JVM verify`, `Native build`, `Native test` and `Native distros` for each architecture) all passed on it. The names are written in the workflow, since the workflow's token cannot read branch protection; a change to the required checks changes both. Tagging before main's CI finishes fails the gate; re-run the workflow once CI is green.
+- **Version from the tag:** `v1.2.3` builds with `-PreleaseVersion=1.2.3`, which `version.properties` carries into `lighten --version` and the guide link (`/blob/v1.2.3/`). Every other build stays `1.0-SNAPSHOT`. The binaries are rebuilt with `ci/native/build.sh`, so the static and glibc 2.17 checks run again; the build then checks `--version` and the guide link. The native tests are not repeated: the gate's checks tested the same source, and only the version differs. That check found picocli wrapping the address in `--help` at 80 columns once the version is longer than 6 characters (`1.0.0-rc.1`); the footer is now printed as is.
+- **Release notes:** GitHub's generated notes, the pull requests merged since the previous release (rung 4). The maintainer edits the release afterwards if needed.
+- **Dry run:** a manual run, or a pull request that changes the workflow or `ci/native/build*.sh`, builds the same assets, `SHA256SUMS` and notes and uploads them as a workflow artifact. The gate reports its problems as warnings and nothing is published. A manual run needs the workflow on `main`.
+- **A version with a pre-release part** (`1.0.0-rc.1`) is published as a pre-release, which mise, ubi and eget skip when they install the latest release.
+- `[skipped: signed releases (minisign or cosign), add when users outside the maintainer's machines install it]`
+- `[skipped: JBang catalog, add when a JVM build is wanted for macOS/Windows or architectures without native binaries]`
+- `[skipped: Homebrew tap, add when Linuxbrew users ask or macOS binaries ship]`
+- `[skipped: waiting for the checks in the release workflow, add when tagging right after a merge becomes common]`
+
+## 2026-10-07: Release assets
+
+#167: release asset names are a public contract for the install script, `lighten update` and tools that install from GitHub Releases. They do not change once published.
+
+```text
+lighten-<version>-linux-x86_64-musl    static musl binary, any Linux x86_64
+lighten-<version>-linux-aarch64-gnu    glibc 2.17+ binary, Linux arm64
+SHA256SUMS                             sha256sum output for both binaries
+```
+
+- **Bare binaries, not archives:** one file each, so the install script needs no `tar`, and each tool below installs it as is.
+- **`uname -m` names:** `x86_64` and `aarch64` are what `uname -m` prints, so a script needs no table. mise, ubi and eget accept both these and `amd64`/`arm64`. The CI artifacts keep `lighten-linux-<arch>`; they are not public.
+- **The libc suffix** says what each binary needs. The x86_64 binary runs everywhere; the aarch64 one needs glibc 2.17 or later.
+- **Checked against the tools' source** (current main, 2026-10-07), with no flags:
+  - mise `github:` backend (`src/backend/asset_matcher.rs`): scores OS, then arch, then libc (a mismatch costs a little, never excludes), so glibc and musl x86_64 hosts and glibc arm64 hosts get the right binary. It names a bare binary after the tool (`lighten`), makes it executable, and checks it against GitHub's asset digest or `SHA256SUMS`.
+  - ubi (`src/picker.rs`): filters by OS and arch, and on a musl host drops `gnu` assets. Installs `<dir>/lighten`, mode 0755. No checksum.
+  - eget (`detect.go`, `extract.go`): matches OS and arch, renames a bare binary to the repository name `lighten` and makes it executable. It checks only `<asset>.sha256`, not `SHA256SUMS`.
+- **Alpine on arm64 is not supported:** there is no musl aarch64 binary. ubi stops with "could not find a release asset"; mise and eget install the gnu binary, which does not run without `gcompat`.
+- **aqua and cargo-binstall are not listed:** aqua needs an `aqua.yaml` per install or an aqua-registry entry, and cargo-binstall needs a Rust crate.
+- `[skipped: lighten-<version>-linux-aarch64-musl, add when Alpine arm64 users ask; eget would then ask which arm64 binary to take]`
+- `[skipped: a <asset>.sha256 file per binary for eget's check, add when eget users ask]`
+- `[skipped: aqua-registry entry, add when aqua users ask]`
+
 ## How to add decisions
 
 Use this format:
