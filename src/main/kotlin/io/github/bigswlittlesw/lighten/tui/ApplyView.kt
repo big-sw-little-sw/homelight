@@ -83,7 +83,7 @@ internal object ApplyView {
         // Framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
         val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
         val detailLines = if (rows.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
-        else details(rows[selected], reviewed) +
+        else details(rows[selected], reviewed, config) +
             (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
         val destructive = plan.actions().count { it.destructive }
         val headline = when (reviewed) {
@@ -190,9 +190,9 @@ internal object ApplyView {
     }
 
     /** What Details shows for the selected row of the `reviewed` plan. */
-    fun details(row: PlanRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> = when (row) {
+    fun details(row: PlanRow, reviewed: ApplyModel.Reviewed, config: Path): List<DetailViewport.Line> = when (row) {
         is PlanRow.RelocationRow -> relocationDetails(row, reviewed)
-        is PlanRow.StepRow -> details(row.step)
+        is PlanRow.StepRow -> details(row.step, config)
     }
 
     /**
@@ -218,10 +218,12 @@ internal object ApplyView {
         )
     }
 
-    fun details(step: ApplyModel.Step): List<DetailViewport.Line> = buildList {
+    fun details(step: ApplyModel.Step, config: Path): List<DetailViewport.Line> = buildList {
         val action = step.action
         add(DetailViewport.Line(actionLabel(action), color(step), true))
-        if (step.status != ApplyModel.StepStatus.PENDING) add(DetailViewport.Line(step.message, color(step), false))
+        if (step.status != ApplyModel.StepStatus.PENDING) {
+            add(DetailViewport.Line(step.failure?.let { failureWords(it, config) } ?: step.message, color(step), false))
+        }
         if (action.destructive) add(DetailViewport.Line(DELETES_OR_REPLACES, palette.warn, true))
         add(DetailViewport.Line(affectedPath(action)))
         if (destination(action).isNotEmpty()) add(DetailViewport.Line(destination(action)))
