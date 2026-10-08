@@ -10,7 +10,7 @@ The project is at the initial design and implementation stage. Configuration loa
 
 ## Install
 
-Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later, so not Alpine). It needs no Java.
+Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later; on Alpine only with the `gcompat` package). It needs no Java.
 
 The install script downloads the binary for your machine from the latest release, checks it against the release's `SHA256SUMS`, and installs it as `~/.local/bin/lighten`. It never uses sudo. If that directory is not on your `PATH`, it shows the line it would add to your shell's startup file and asks first. It works once the first release is published:
 
