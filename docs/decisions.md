@@ -698,6 +698,29 @@ SHA256SUMS                             sha256sum output for both binaries
 - `[skipped: an uninstall option, add when users ask; removing ~/.local/bin/lighten and the marked line is the uninstall]`
 - `[skipped: a containers test of the shasum fallback, add when a supported distro lacks sha256sum]`
 - `[skipped: a system-wide PATH entry (/etc/profile.d) for root installs, add when admins install for all users]`
+## 2026-10-08: `lighten update` runs the release's install script
+
+#169 (user decision, option C in #192 review): `lighten update` checks for a newer release and runs that release's `install.sh` on the running binary's directory. `--check` only reports; `--version 1.2.3` installs that release, downgrades included.
+
+- **One implementation of the install rules (rung 2, reuse `install.sh`):** Lighten never writes its binary. Download, `SHA256SUMS` check, the `--version` run of the new binary and the rename into place live only in `install.sh`, so the two cannot drift. The first version of #192 did all of it in Kotlin over `java.net.http.HttpClient`.
+- **About 30 MB, not 45:** in-process HTTPS put the Java TLS stack, its crypto providers and the CA certificates into the native binary: x86_64 grew from 30.1 to 44.7 MB and arm64 from 30.4 to 46.0 MB. `HttpURLConnection` was no better (43.8 MB on arm64), because the cost is TLS itself. Lighten now downloads with `curl` or `wget`, as the script does, and carries no HTTP or TLS code.
+- **Needs `curl` or `wget`, and `sh`:** the price of the above. Without them Lighten says so before doing anything; the README's manual steps remain.
+- **Latest version from `SHA256SUMS`:** `releases/latest/download/SHA256SUMS` names each binary with its version, so neither Lighten nor the script calls the GitHub API. `--check` compares it with the installed version. `update` reads it first too, so it never downgrades without `--version`: when the latest release is older than the installed one (say an installed `1.1.0-rc.1`), it says so and prints the `--version` command. When it is the same, the script is not run.
+- **The script:** `releases/latest/download/install.sh`, or `releases/download/v<version>/install.sh` with `--version`, downloaded to a temporary file and run as `sh install.sh --dir <dir> [--version <version>] --no-modify-path`. Its output and exit code are passed through. `--no-modify-path` keeps an update from editing shell startup files; the script still says when `<dir>` is not on `PATH`.
+- **Which directory:** the real directory of `/proc/self/exe`, symlinks resolved. The script replaces `<dir>/lighten`, so a symlink such as `~/bin/lighten` keeps pointing at the updated file; given the link's own directory, `mv` would have replaced the link with a file. A binary whose real name is not `lighten` is refused, since the script would install a second file beside it.
+- **Lighten's own checks, before any download:** a development build (a version that is not a release, such as `1.0-SNAPSHOT`); the JVM, which has no binary to replace; a platform without a release asset; a binary under mise (`/mise/installs/` in its path, or under `$MISE_DATA_DIR`), which says to run `mise upgrade`; a directory the user cannot write to, which shows the `install.sh | sudo sh -s -- --dir <dir>` command; no `curl` or `wget`; no `sh`. The script would refuse an unwritable directory too, but only after Lighten had downloaded it, and it knows nothing about mise.
+- **eget and ubi are not detected, and need not be:** both write a plain file into a directory and keep no record of it, so the script replacing it is correct. mise keeps versioned directories and shims, so replacing a file there would confuse it.
+- **`--check` exits 0 whether or not an update exists**, and 1 only when it could not find out. It prints `Installed:` and `Latest:` lines a script can read. It also runs on a development build, which lets CI exercise the native binary's downloads.
+- **Network:** only while `update` runs. `curl --connect-timeout 10 --max-time 60`, `wget -T 10`, and a 90 s backstop per download. Offline, the message names the URL, adds the tool's own line, and says where to look.
+- **Native Image:** only `ProcessBuilder`; no reflection or reachability metadata.
+- **Testing:** `LIGHTEN_INSTALL_BASE_URL`, test-only and shared with `install.sh`, replaces the releases URL; Lighten passes it to the script. `SelfUpdateTest` serves releases with the repository's `install.sh` and shell-script binaries. On Linux it runs the script: update, downgrade with `--version`, a checksum mismatch, a symlink. On any OS: `--check` with curl and with wget, up to date, no downgrade, an unpublished version, an unwritable directory, offline, no curl or wget, no sh, a wrongly named binary, a development build, mise and the JVM. `ci/native/compare.sh` adds the steps that need no server. `ci/native/update.sh` serves releases from `127.0.0.1` and runs in `Native test` on both architectures. CI's builds are development builds, so there it checks `--check`, the refusal and the missing-tools message; given a release build it also updates, checks a mismatch and updates through a symlink.
+- `[skipped: automatic update notice, add when users run old versions without knowing]`
+- `[skipped: signature verification, add with signed releases]`
+- `[skipped: a distinct --check exit code for "update available", add when a script needs it]`
+- `[skipped: a native end-to-end update in CI, add by testing the release build in release.yml; CI's builds are development builds, which update refuses]`
+- `[skipped: detecting aqua or Homebrew installs, add when either is a documented install method]`
+
+Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the install rules).
 
 ## 2026-10-08: First run makes the built-in suggestions the obvious path
 

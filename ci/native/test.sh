@@ -4,7 +4,8 @@
 #   ci/native/test.sh <binary> <jvm-reference> <smoke|cli|full> [results-dir]
 #
 # smoke: --version and plan --json on a small fixture.
-# cli:   smoke, then the compare.sh suite diffed against the JVM transcript from build.sh.
+# cli:   smoke, then the compare.sh suite diffed against the JVM transcript from build.sh, and
+#        update.sh (lighten update and install.sh from a local server) where python3 exists.
 # full:  cli, then the TUI under expect for each TERM in $TUI_TERMS, Ctrl-C quitting cleanly,
 #        TERM=dumb refused with exit 2, Configuration finding a bundled candidate in Browse (setup.exp),
 #        and --debug-step-delay-ms slowing a TUI apply from either side of the command name (delay.exp).
@@ -52,6 +53,12 @@ if [ "$(cat "$reference")" == "$(cat "$results/native-transcript.txt")" ]; then
 else
   fail "CLI comparison differs from the JVM (see $results/native-transcript.txt)"
   command -v diff > /dev/null && diff -u "$reference" "$results/native-transcript.txt" | head -100
+fi
+# update from a local server. The CI hosts have python3 to serve it; most containers do not.
+if command -v python3 > /dev/null; then
+  bash "$here/update.sh" "$binary" "$results" || failed=1
+else
+  echo "SKIP update from a local server: no python3"
 fi
 [ "$level" = cli ] && exit $failed
 

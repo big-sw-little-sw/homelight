@@ -115,6 +115,15 @@ step delay-before --debug-step-delay-ms 5 -c "$R/config.json" status --json
 step delay-after -c "$R/config.json" status --json --debug-step-delay-ms 5
 step bad-delay-after status --json --debug-step-delay-ms -1
 step bad-delay-text --debug-step-delay-ms abc status --json
+# update without the internet: a development build is refused before any download, so these
+# need no server; update.sh in test.sh covers a local one. The test-only base URL points at a
+# closed port in case a step reaches the network after all.
+offline=http://127.0.0.1:9
+step update-help update --help
+LIGHTEN_INSTALL_BASE_URL=$offline step update-development update
+LIGHTEN_INSTALL_BASE_URL=$offline step update-development-version update --version 1.2.3
+step update-bad-version update --version 1.2
+step update-check-and-version update --check --version 1.2.3
 step status-json -c "$R/config.json" status --json
 step plan-json -c "$R/config.json" plan --json
 step plan-override -c "$R/config.json" plan --json --source-path "$R/home/other" --target-path "$R/local/other"

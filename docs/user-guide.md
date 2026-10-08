@@ -389,6 +389,32 @@ Exit codes:
   `apply --json` without `--yes` (a message on stderr).
 - `70`: a bug in Lighten (one line on stderr). Please report it.
 
+`lighten update` exits `0` when it updated Lighten or found nothing to
+update, and `1` when it could not (a message on stderr).
+`lighten update --check` exits `0` whether or not there is a newer
+release.
+
+### Update Lighten
+
+`lighten update` updates Lighten to the latest release. It runs that
+release's install script on the folder that holds your `lighten`. The
+script downloads the new `lighten`, checks it against the release's
+`SHA256SUMS` file and only then puts it in place, so a failed download
+leaves yours as it was. It needs `curl` or `wget`.
+
+- `lighten update --check` shows the installed and the latest version and
+  changes nothing.
+- `lighten update --version 1.2.3` installs that release, even an older
+  one. Without `--version`, it never installs an older one.
+- Lighten uses the network only while `lighten update` runs.
+- If you installed Lighten with mise, update it with mise instead, as
+  `lighten update` tells you: `mise upgrade github:big-sw-little-sw/lighten`
+- An install by eget or ubi updates the same way as one by the install
+  script, so `lighten update` works for those too.
+- If you cannot write to the folder that holds `lighten`, such as
+  `/usr/local/bin`, `lighten update` changes nothing and shows how to
+  update it as a user who can.
+
 ### More help
 
 - This guide online:
