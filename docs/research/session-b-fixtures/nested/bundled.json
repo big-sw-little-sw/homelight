@@ -4,7 +4,7 @@
       "name": "Maven",
       "category": "JVM",
       "directories": [
-        {"path": ".m2", "advice": "consider", "reason": "May contain substantial locally downloaded artifacts."}
+        {"path": ".m2", "advice": "consider", "reason": "May contain substantial locally downloaded artifacts.", "caution": "Built-in caution."}
       ]
     },
     {

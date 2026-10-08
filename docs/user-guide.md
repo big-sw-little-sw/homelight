@@ -114,8 +114,9 @@ Browse, inside Configuration, suggests directories to move. The suggestions
 come from two suggestion lists:
 
 - **The built-in list.** It comes with Lighten and names directories that
-  are usually large and safe to move: package caches and toolchains for
-  Maven, Gradle, npm, pip, uv, pixi, Cargo, Go, VS Code and others.
+  are usually large and safe to move: package caches, toolchains, and the
+  versions that version managers install, for Maven, Gradle, SDKMAN, npm,
+  Playwright, pip, uv, pyenv, rbenv, Cargo, Go, mise, VS Code and others.
 - **Your list** (optional). A file you write, for example one on a shared
   drive that everyone on your team uses. Browse always shows the built-in
   list too.
@@ -156,7 +157,13 @@ show them. A directory already in your configuration is never hidden.
 When both lists name the same directory, Browse shows it once, in your
 list's group and with your list's advice. When both lists give the same app
 different categories, Browse uses your list's. Select a suggestion and press
-`Enter` to see which lists suggest it and what each one says.
+`Enter` to see which lists suggest it and what each one says, including any
+caution, marked `⚠ Caution`.
+
+Some tools' clean commands, such as `sdk flush` or `deno clean`, remove the
+link to a moved directory, and the tool then creates a new folder in its
+place. Lighten then asks which folder to keep. The built-in list cautions
+about these.
 
 ### Write your own list
 
@@ -171,7 +178,8 @@ A suggestion list is a JSON file. For example:
       "category": "Build",
       "directories": [
         {"path": ".cache/bazel", "advice": "consider",
-         "reason": "Build outputs, rebuilt when needed"}
+         "reason": "Build outputs, rebuilt when needed",
+         "caution": "Run bazel shutdown before moving it"}
       ]
     },
     {
@@ -200,6 +208,9 @@ A suggestion list is a JSON file. For example:
   variables such as `$USER`, or wildcards.
 - `advice` is optional: `consider` or `usually-unnecessary`.
 - `reason` is optional. Browse shows it with the suggestion.
+- `caution` is optional: a warning about moving the directory, such as a
+  command that undoes the move. Browse shows it after the reason, marked
+  `⚠ Caution`.
 - Comments (`//` and `/* */`) and trailing commas are allowed. Any other key
   is an error.
 - The file can be up to 1 MiB and list up to 10,000 directories.

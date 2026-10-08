@@ -582,6 +582,25 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 - `[skipped: plain words for the preflight refusal's diagnostics ("Filesystem state changed since review: <path>"), add when a walkthrough finds them unclear]`
 - `[skipped: own words for errors the OS reports only as a reason (no space left, read-only filesystem), add when a user hits one; they read "Lighten couldn't change <path>: <reason>."]`
 
+## 2026-10-07: Version managers and more JavaScript tools join the built-in list
+
+#176 (user decision, 2026-10-07) adds version managers and JavaScript browser and runtime caches to the built-in list (rung 1: data only; no code changes).
+
+- **New categories:** Ruby (rbenv) and Version managers (mise, asdf). Version managers tied to one language stay under it: SDKMAN under JVM, pyenv under Python, rbenv under Ruby, Volta and fnm under JavaScript beside nvm.
+- **Directories, from each tool's docs or source:** mise `.local/share/mise/installs` (`MISE_DATA_DIR`/`MISE_INSTALLS_DIR`); asdf `.asdf/installs` (`ASDF_DATA_DIR`); SDKMAN `.sdkman/candidates` and `.sdkman/tmp` (`SDKMAN_DIR`; installs keep each downloaded zip in `tmp`); pyenv `.pyenv/versions` (`PYENV_ROOT`); rbenv `.rbenv/versions` (`RBENV_ROOT`); Volta `.volta` (`VOLTA_HOME`); fnm `.local/share/fnm/node-versions` (`FNM_DIR`); Deno `.cache/deno` (`DENO_DIR`); Corepack `.cache/node/corepack` (`COREPACK_HOME`); Playwright `.cache/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`); Puppeteer `.cache/puppeteer` (`PUPPETEER_CACHE_DIR`); Cypress `.cache/Cypress` (`CYPRESS_CACHE_FOLDER`); Electron `.cache/electron` (`electron_config_cache`) and `.cache/electron-builder` (`ELECTRON_BUILDER_CACHE`).
+- **Narrowest directory:** the versions or installs folder where the parent also holds the tool itself, its shims, plugins or settings (`.pyenv`, `.rbenv`, `.asdf`, `.local/share/mise`, `.local/share/fnm`, `.sdkman`). Shims and the tool stay in the home directory.
+- **Volta moves whole:** Volta unpacks into `.volta/tmp` and renames into `.volta/tools`. With only `tools` on another disk, every install failed with `Invalid cross-device link (os error 18)`. Moving all of `.volta` worked, its `bin` (shims and Volta itself, about 26 MB) included.
+- **Checked in containers:** each tool was installed in an Ubuntu 24.04 arm64 container, used, relocated with `lighten apply` to a separate filesystem, then used again: existing versions ran, new versions installed, global packages and reshims worked, and uninstalling worked. Puppeteer was checked with Firefox, as Chrome for Testing has no Linux arm64 build.
+- **Clean commands replace the link with a folder:** `sdk flush`, `deno clean`, `cypress cache clear` and `mise cache clear` delete the link, not what it points to, and the tool then creates a new folder in the home directory. The moved files stay on the other disk. Lighten's status then shows the source as a folder, and its plan asks which of the two folders to keep. Corepack's `cache clean`, Playwright's `uninstall` and Puppeteer's `browsers clear` keep the link. These tools stay in the list: the tools keep working either way.
+- **A `caution` per directory (user decision, rung 5):** an optional `"caution"` string beside `reason`, in either list, read by kotlinx.serialization and checked as `reason` is (bounded, nonblank when given). Browse Details shows it after that list's reason as `⚠ Caution: …` in `warn`, so with both lists each caution stays under its own list. The sign keeps it visible without color.
+- **Cautions in the built-in list:** `.sdkman/tmp` (`sdk flush`), `.cache/deno` (`deno clean`) and `.cache/Cypress` (`cypress cache clear`). None on `.sdkman/candidates`: `sdk flush` cleans only `tmp` and `var/metadata` (`sdkman-flush.sh`). None on mise: in the container, `mise cache clear` and `mise prune` left the `installs` link in place.
+- **"Advice is optional, not a safety assessment or a requirement." removed from Details (user decision):** the line added words to every Details without helping a choice, and a caution now carries the warnings that matter.
+- **mise cache not added:** `.cache/mise` held 21 MB after installing Node.js and Python, mostly a pyenv checkout mise uses to build Python, plus version lists. It is not large, and `mise cache clear` is a common command.
+- `[skipped: .cache/mise, add when users report it growing large]`
+- `[skipped: legacy .fnm/node-versions (fnm uses ~/.fnm only when it already exists), add when users with old installs ask]`
+- `[skipped: Volta's .volta/tools alone, add if Volta stages installs inside tools]`
+- `[skipped: a caution on the Browse row itself, add when users miss cautions that only Details shows]`
+
 ## How to add decisions
 
 Use this format:
