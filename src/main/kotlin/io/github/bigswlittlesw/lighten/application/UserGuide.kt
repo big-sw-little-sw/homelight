@@ -21,7 +21,7 @@ internal fun resolveVersion(): String {
 }
 
 /** The guide's address on `main`. `docs/user-guide.md` spells it; [userGuide] swaps in [guideUrl]. */
-internal const val GUIDE_ON_MAIN = "https://github.com/big-sw-little-sw/homelight/blob/main/docs/user-guide.md"
+internal const val GUIDE_ON_MAIN = "https://github.com/big-sw-little-sw/lighten/blob/main/docs/user-guide.md"
 
 /** The user guide online for this build's source: `main` for a `-SNAPSHOT`, else the release tag `v<version>`. */
 internal fun guideUrl(version: String = resolveVersion()): String =

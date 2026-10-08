@@ -177,7 +177,7 @@ class LightenCommandTest {
     fun theGuidesLinkFollowsTheVersion() {
         assertTrue(userGuide("1.0-SNAPSHOT").contains("/blob/main/docs/user-guide.md"))
         val release = userGuide("1.2.0")
-        assertTrue(release.contains("https://github.com/big-sw-little-sw/homelight/blob/v1.2.0/docs/user-guide.md"))
+        assertTrue(release.contains("https://github.com/big-sw-little-sw/lighten/blob/v1.2.0/docs/user-guide.md"))
         assertFalse(release.contains("/blob/main/"))
     }
 

@@ -337,7 +337,7 @@ Exit codes:
 ### More help
 
 - This guide online:
-  https://github.com/big-sw-little-sw/homelight/blob/main/docs/user-guide.md
+  https://github.com/big-sw-little-sw/lighten/blob/main/docs/user-guide.md
 - `lighten --help` lists the commands and options.
 - `lighten apply --help` shows the options of one command, here `apply`.
 - `lighten guide` prints this guide, for example to read with

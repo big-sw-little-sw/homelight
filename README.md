@@ -10,7 +10,9 @@ The project is at the initial design and implementation stage. Configuration loa
 
 ## Renamed from HomeLight
 
-Lighten was called HomeLight, with the command `homelight`. If you ran an earlier build:
+Lighten was called HomeLight, with the command `homelight`. Its repository moved to [`big-sw-little-sw/lighten`](https://github.com/big-sw-little-sw/lighten); old URLs redirect.
+
+If you ran an earlier build:
 
 - Rename `~/.homelight.json` to `~/.lighten.json`, and change its top-level `"homelight"` key to `"lighten"`.
 - Lighten no longer recognises folders named `.homelight-staging`, `.homelight-archive` or `.homelight-replaced-…`. Before running `lighten`, rename each to the same name starting `.lighten-` instead, or remove an empty staging folder.
