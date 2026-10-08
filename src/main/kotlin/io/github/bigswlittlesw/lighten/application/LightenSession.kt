@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.config.ConfigurationPublisher
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
@@ -38,6 +39,20 @@ class LightenSession(
         val chosen = evaluator.choose(loaded, sourcePath, choice)
         reviewedExecution = null
         evaluation = chosen
+    }
+
+    /**
+     * Saves the one-time choice for `sourcePath` as its relocation's rule, replacing the file only while it still
+     * holds the bytes this evaluation read (see [ConfigurationPublisher.replace]). The draft keeps the choice until
+     * the caller checks again ([refresh]), after which the rule decides. On a throw nothing is written.
+     */
+    @Synchronized
+    fun saveChoice(sourcePath: Path) {
+        check(!isApplying() && applyModel() !is ApplyModel.Result) { "Replan before editing a running or retained result" }
+        val loaded = checkNotNull(evaluation as? ConfigurationEvaluation.Loaded) { "No loaded configuration" }
+        val file = checkNotNull(loaded.ruleFile(sourcePath)) { "No choice to save as a rule: $sourcePath" }
+        // ruleFile is non-null only with the file as read.
+        ConfigurationPublisher().replace(configPath, file, checkNotNull(loaded.file).bytes)
     }
 
     @Synchronized

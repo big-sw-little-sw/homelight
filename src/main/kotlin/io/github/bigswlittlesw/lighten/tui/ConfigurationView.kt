@@ -395,16 +395,8 @@ internal class ConfigurationView private constructor(
     }
 
     private fun publish(write: () -> Unit) {
-        try {
-            write()
-        } catch (_: ConfigurationChangedException) {
-            message = CHANGED_SINCE_LOADED
-            return
-        } catch (error: ConfigurationException) {
-            message = notSaved(error.message.orEmpty())
-            return
-        } catch (error: IllegalArgumentException) {
-            message = notSaved(error.message.orEmpty())
+        saveProblem(CHANGED_SINCE_LOADED, write)?.let { problem ->
+            message = problem
             return
         }
         saved = true
@@ -630,6 +622,21 @@ internal class ConfigurationView private constructor(
             return view
         }
     }
+}
+
+/**
+ * Runs `write`, a [ConfigurationPublisher] save, and says why nothing was saved, or returns null when it was saved:
+ * `changed` when the file changed since it was read.
+ */
+internal fun saveProblem(changed: String, write: () -> Unit): String? = try {
+    write()
+    null
+} catch (_: ConfigurationChangedException) {
+    changed
+} catch (error: ConfigurationException) {
+    notSaved(error.message.orEmpty())
+} catch (error: IllegalArgumentException) {
+    notSaved(error.message.orEmpty())
 }
 
 /** A field's path as the loader reads it, why it cannot, or that it is empty and needs nothing. */

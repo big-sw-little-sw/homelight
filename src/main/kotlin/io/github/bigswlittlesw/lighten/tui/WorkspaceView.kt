@@ -142,25 +142,31 @@ internal object WorkspaceView {
             )
         }
         val retained = session.applyModel() is ApplyModel.Result
+        val items = visibleItems(model, showInSync)
+        val item = items.getOrNull(selection(list, items))
+        // Beside the choice keys, not with the commands: the commands line has no room for it at 80 columns.
+        val always = KeyHint(
+            "s", "Always do this",
+            description = "Save the choice as this relocation's rule in the configuration file; asks first",
+        ).takeIf { item != null && model.ruleFile(item.relocation.sourcePath) != null }
         val navigation = if (focused == WORKSPACE_DETAILS) {
-            val items = visibleItems(model, showInSync)
-            val item = items.getOrNull(selection(list, items))
             val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
-            (if (choices) listOf(
+            (if (choices) listOfNotNull(
                 KeyHint("↑/↓", "Choose", description = "Move between the choices"),
                 KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice in place of the others, for the next apply only"),
-                HOME_END_KEYS,
+                always, HOME_END_KEYS,
             )
             else listOf(SCROLL_KEY, SCROLL_ENDS_KEYS)) +
                 listOf(
-                    SCROLL_DETAILS_KEYS, KeyHint("Tab/Esc", "Back", description = "Back to the relocation list"),
-                    KeyHint("←", "Back", inHelpArea = false, description = "Back to the relocation list"),
+                    // Tab is Help-only so the line with `s` fits 80 columns while Details scroll.
+                    SCROLL_DETAILS_KEYS, KeyHint("Esc", "Back", description = "Back to the relocation list"),
+                    KeyHint("Tab/←", "Back", inHelpArea = false, description = "Back to the relocation list"),
                 )
-        } else listOf(
+        } else listOfNotNull(
             KeyHint("↑/↓", "Select", description = "Select a relocation"),
             KeyHint("Tab/→", "Details", description = "Move to Details for the selected relocation"),
             KeyHint("Enter", "Details", inHelpArea = false, description = "Move to Details for the selected relocation"),
-            PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
+            always, PAGE_KEYS, HOME_END_KEYS, SCROLL_DETAILS_KEYS,
         )
         val review = when {
             retained -> listOf(KeyHint("2", "Results", description = "Show what the last apply did"))

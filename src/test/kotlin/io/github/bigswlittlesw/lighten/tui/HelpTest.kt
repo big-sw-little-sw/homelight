@@ -35,7 +35,7 @@ class HelpTest {
             ),
         )
         ui.press(KeyCode.TAB)
-        checkThisScreen(ui, place(WORKSPACE_NAME, DETAILS_NAME), PURPOSE_WORKSPACE, Step.WORKSPACE, "↑/↓", "←")
+        checkThisScreen(ui, place(WORKSPACE_NAME, DETAILS_NAME), PURPOSE_WORKSPACE, Step.WORKSPACE, "↑/↓", "Tab/←")
         ui.press(KeyCode.ENTER)
         ui.press(KeyCode.ESCAPE)
         ui.press('a')

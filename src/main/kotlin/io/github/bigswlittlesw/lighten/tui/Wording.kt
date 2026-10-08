@@ -142,6 +142,7 @@ internal fun unappliedChoices(n: Int): List<String> = listOf(
     if (n == 1) "You have 1 choice that is not applied yet. Quitting forgets it."
     else "You have $n choices that are not applied yet. Quitting forgets them.",
     "Press n to go back. You can keep choosing, or press a to review and apply.",
+    "To make a choice the rule, select its relocation and press s.",
 )
 internal const val QUITTING = "Lighten will exit when the changes finish."
 
@@ -234,6 +235,26 @@ internal const val SAVED = "Saved."
 internal fun replaceConfigurationTitle(path: Path) = "Replace ${displayPath(path)}?"
 internal val REPLACE_CONFIGURATION_BODY = listOf("Lighten rewrites the whole file.", "Comments in it are not kept.")
 internal const val REPLACE_CONFIGURATION_KEYS = "y: Replace · n/Esc: Keep editing"
+
+// Saving a Workspace choice as the rule (tui-design §5).
+internal const val ALWAYS_DO_THIS_TITLE = "Always do this?"
+/** What `s` saves, for which relocation and where, in the case the choice is for. */
+internal fun alwaysDoThis(source: Path, choice: DecisionChoice, config: Path): List<String> = listOf(
+    "From now on, for " + displayPath(source) + ",",
+    ruleCase(choice) + ": " + choiceLabel(choice).lowercase() + ".",
+    "",
+    "y saves this rule in " + displayPath(config) + ".",
+) + REPLACE_CONFIGURATION_BODY + "Nothing on disk changes until you apply."
+private fun ruleCase(choice: DecisionChoice): String = when (choice) {
+    DecisionChoice.ADOPT_TARGET -> "when only the target exists"
+    DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, DecisionChoice.LEAVE_UNCHANGED,
+    DecisionChoice.DISCARD_BOTH -> "when the source and the target both exist"
+}
+internal const val ALWAYS_DO_THIS_KEYS = "y: Save rule · n/Esc: Cancel"
+/** [CHANGED_SINCE_LOADED] for the Workspace, where q, y, e would quit rather than reopen the file. */
+internal const val CHOICE_NOT_SAVED =
+    "Not saved: the configuration file changed after Lighten read it. Your choice is still here. Press r to " +
+        "read the file again; that forgets the choice."
 
 internal const val NO_CONFIGURATION = "No configuration file yet. Press i to create one; nothing is written until you save."
 internal const val NO_RELOCATIONS = "No relocations in the configuration."

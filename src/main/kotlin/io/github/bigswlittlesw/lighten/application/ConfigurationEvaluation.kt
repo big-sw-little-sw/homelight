@@ -3,6 +3,8 @@ package io.github.bigswlittlesw.lighten.application
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.LightenConfiguration
+import io.github.bigswlittlesw.lighten.config.LightenFile
+import io.github.bigswlittlesw.lighten.config.LoadedFile
 import io.github.bigswlittlesw.lighten.config.InvalidConfigurationException
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.fs.PathInspector
@@ -44,26 +46,28 @@ class ConfigurationEvaluation(
     /**
      * Observations and saved plan retain saved policy; `plan` contains the effective draft policy.
      * `choiceAvoidsFolder` holds the normalized sources whose [PlanRelocationItem.choiceAvoidsFolder] is true.
+     * `file` is the file as read, which [ruleFile] edits; null under a command-line override, whose paths are not
+     * the file's.
      */
     @ConsistentCopyVisibility
     data class Loaded private constructor(
         override val configPath: Path, val savedConfiguration: LightenConfiguration,
         val observations: List<RelocationState>, val savedPlan: ReconciliationPlan,
         val draft: Map<Path, DecisionChoice>, val availableChoices: Map<Path, List<DecisionChoice>>,
-        val plan: ReconciliationPlan, val choiceAvoidsFolder: Set<Path>,
+        val plan: ReconciliationPlan, val choiceAvoidsFolder: Set<Path>, internal val file: LoadedFile?,
     ) : Evaluation {
         companion object {
             /** Copies the collections, including each list of choices. */
-            fun of(
+            internal fun of(
                 configPath: Path, savedConfiguration: LightenConfiguration,
                 observations: List<RelocationState>, savedPlan: ReconciliationPlan,
                 draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
-                plan: ReconciliationPlan, choiceAvoidsFolder: Set<Path>,
+                plan: ReconciliationPlan, choiceAvoidsFolder: Set<Path>, file: LoadedFile?,
             ): Loaded = Loaded(
                 configPath, savedConfiguration, observations.toList(), savedPlan,
                 draft.toMap(),
                 availableChoices.mapValues { it.value.toList() },
-                plan, choiceAvoidsFolder.toSet(),
+                plan, choiceAvoidsFolder.toSet(), file,
             )
         }
 
@@ -81,6 +85,31 @@ class ConfigurationEvaluation(
 
         /** Evaluation records choices, possibly none, for every configured source. */
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
+
+        /**
+         * The file as read, with the one-time choice for `sourcePath` as that relocation's rule, or null when there
+         * is nothing to save: no choice, a choice the saved rule already makes, or no file. Every choice is a rule
+         * value ([DecisionChoice.applyTo]), so these are the only cases.
+         */
+        internal fun ruleFile(sourcePath: Path): LightenFile? {
+            val read = file ?: return null
+            val source = normalize(sourcePath)
+            val choice = draft[source] ?: return null
+            // The loader converts the file's relocations in order, and a source with a choice is configured once.
+            val i = savedConfiguration.relocations.indexOfFirst { normalize(it.sourcePath) == source }
+            val saved = savedConfiguration.relocations[i]
+            val rule = choice.applyTo(saved)
+            if (rule == saved) return null
+            return read.file.copy(
+                relocations = read.file.relocations.mapIndexed { j, fields ->
+                    if (j != i) fields else fields.copy(
+                        whenSourceAndTargetDirectoriesExist = rule.whenSourceAndTargetDirectoriesExist,
+                        whenOnlyTargetExists = rule.whenOnlyTargetExists,
+                        whenAdoptingTarget = rule.whenAdoptingTarget,
+                    )
+                },
+            )
+        }
     }
 
     /**
@@ -102,7 +131,8 @@ class ConfigurationEvaluation(
 
     /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
     fun loadRequired(configPath: Path, override: ConfigurationLoader.PathOverride? = null): Loaded {
-        val configuration = loader.load(configPath, override)
+        val read = loader.read(configPath)
+        val configuration = loader.resolve(configPath, read, override)
         val observations = inspectRelocations(configuration.relocations, inspect)
         val savedPlan = plan(observations)
         // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
@@ -115,6 +145,8 @@ class ConfigurationEvaluation(
         return Loaded.of(
             configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan,
             choiceAvoidsFolder(observations, savedPlan, choices),
+            // An override replaces the file's paths, so there is no file to save a rule to.
+            read.takeIf { override == null },
         )
     }
 
@@ -134,7 +166,7 @@ class ConfigurationEvaluation(
         return Loaded.of(
             current.configPath, current.savedConfiguration, current.observations,
             current.savedPlan, draft, current.availableChoices, effectivePlan,
-            choiceAvoidsFolder(current.observations, effectivePlan, current.availableChoices),
+            choiceAvoidsFolder(current.observations, effectivePlan, current.availableChoices), current.file,
         )
     }
 

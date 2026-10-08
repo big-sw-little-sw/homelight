@@ -79,6 +79,8 @@ internal class LightenApp(
     private val reviewDetails = DetailViewport()
     private var exitIntent = ExitIntent.STAY
     private var focusBeforeDialog: String? = null
+    // The source whose one-time choice the Always do this dialog asks to save, while it is open.
+    private var savingChoice: Path? = null
     private var editor: ConfigurationView? = null
     // Said on the Workspace after Configuration closes, until the next key the app handles (moving in a list keeps it).
     private var notice: DetailViewport.Line? = null
@@ -121,7 +123,7 @@ internal class LightenApp(
         settleDeferredExit()
         // The discard and replace dialogs close Configuration without a key reaching handleKey.
         dropClosedEditor()
-        val dialog = editor?.dialog() ?: quitDialog()
+        val dialog = editor?.dialog() ?: quitDialog() ?: saveChoiceDialog()
         val interactive = dialog == null
         val view = when {
             helpOpen -> renderHelp(interactive)
@@ -149,6 +151,47 @@ internal class LightenApp(
             onNo = { closeQuitDialog(ExitIntent.STAY) },
         )
         ExitIntent.STAY, ExitIntent.AFTER_EXECUTION, ExitIntent.EXIT -> null
+    }
+
+    private fun saveChoiceDialog(): Element? {
+        val source = savingChoice ?: return null
+        val choice = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.get(source) ?: return null
+        return confirmDialog(
+            ALWAYS_DO_THIS_TITLE, alwaysDoThis(source, choice, session.configPath), ALWAYS_DO_THIS_KEYS,
+            onYes = { closeSaveChoiceDialog(); saveChoice(source) },
+            onNo = ::closeSaveChoiceDialog,
+        )
+    }
+
+    /** The selected relocation's source when `s` has a one-time choice to save as its rule. */
+    private fun choiceToSave(): Path? = selectedPlanItem()?.relocation?.sourcePath?.takeIf { source ->
+        (session.evaluation() as? ConfigurationEvaluation.Loaded)?.ruleFile(source) != null
+    }
+
+    private fun askToSaveChoice() {
+        savingChoice = choiceToSave() ?: return
+        // A dialog is the only focusable while it is open, so the next frame focuses it.
+        focusBeforeDialog = focus.focusedId()
+    }
+
+    private fun closeSaveChoiceDialog() {
+        savingChoice = null
+        focus.setFocus(focusBeforeDialog)
+    }
+
+    /**
+     * As a save in Configuration does: check again, so the rule decides and the choice is gone, then say the next
+     * step. Focus returns to the list with Details at the top, where the Decision line names the rule. A file that
+     * changed since it was read is left as it is, and the choice stays.
+     */
+    private fun saveChoice(source: Path) {
+        saveProblem(CHOICE_NOT_SAVED) { session.saveChoice(source) }?.let { problem ->
+            notice = DetailViewport.Line(problem, palette.warn)
+            return
+        }
+        refresh()
+        focus.setFocus(WORKSPACE_LIST)
+        notice = DetailViewport.Line(WorkspaceView.savedNotice(session.evaluation()), palette.ok)
     }
 
     /** The screen behind Help, with the focus it had when Help opened. */
@@ -312,6 +355,7 @@ internal class LightenApp(
             key.isCharIgnoreCase('r') -> refresh()
             key.isCharIgnoreCase('a') -> switchScreen(Screen.APPLY)
             key.isCharIgnoreCase('c') -> toggleInSync()
+            key.isCharIgnoreCase('s') -> askToSaveChoice()
             key.isChar('[') || key.isChar(']') -> workspaceDetails.scroll(if (key.isChar(']')) 1 else -1)
             focus.focusedId() == WORKSPACE_LIST && (key.isRight() || key.isSelect()) -> focus.setFocus(WORKSPACE_DETAILS)
             focus.focusedId() == WORKSPACE_DETAILS -> detailsKey(key)

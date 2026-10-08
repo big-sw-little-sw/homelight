@@ -593,6 +593,20 @@ Spike, recorded in the PR: our keys keep their meaning, "Replace source with a l
 
 #173 (user decision): Workspace Details mark one-time choices with bare `●` chosen and `○` not chosen, as Browse marks its rows. The chosen choice is green and bold whether or not Details have focus; the focused one keeps `❯`, so without color `●` and bold mark the choice and `❯` marks focus (user decision, from the #179 walkthrough). "Parentheses mean pick one" (#165 entry) is dropped: a choice list is one of many by behaviour, since choosing one clears the others, and the Help for `Space/Enter` says so.
 
+## 2026-10-07: Always do this saves a choice as the rule
+
+#116 adds `s: Always do this` on the Workspace, as decided on 2026-10-04 (Workspace choices are for one apply; rules are saved on request).
+
+- **When it is offered:** while the selected relocation has a one-time choice that differs from its saved rule. Every choice is a rule value (`DecisionChoice.applyTo`), so the only choice that cannot be saved is one the rule already makes, such as Leave both as they are under a `leave-unchanged` rule; saving it would change nothing, so `s` is neither shown nor bound for it.
+- **Reuse (rung 2):** the evaluation keeps the file it read and its bytes (`ConfigurationLoader.read`, with `resolve` doing `load`'s checks on it), `applyTo` gives the rule fields, and `ConfigurationPublisher.replace` writes them, so a file changed since it was read is refused and its permissions and symlink stay. The dialog is `confirmDialog` and reuses Configuration's "Lighten rewrites the whole file. Comments in it are not kept." After `y` the Workspace checks again and says the next step, as after a save in Configuration; the rule then decides and the choice is gone. Saving and Configuration share one function that turns a failed save into its message.
+- **Changed since read:** the Workspace says `Not saved: the configuration file changed after Lighten read it. Your choice is still here. Press r to read the file again; that forgets the choice.` Configuration's message tells the user to press q, y, e, which on the Workspace would quit.
+- **Help line:** `s` sits on the navigation line beside `Space/Enter: Select`, and Help lists it under Move around with the choice keys. The commands line has no room at 80 columns once `a: Review & apply` shows (96 cells). In Details the line now shows `Esc: Back`, with `Tab` Help-only like `←`, so it fits 80 columns with `s` and `[/]: Scroll` (79 cells).
+- The quit dialog for unapplied choices adds `To make a choice the rule, select its relocation and press s.`, which supersedes `[skipped: "or s to always do this" in the quit dialog, add with #116]`.
+- `[skipped: a warning in the dialog when the saved rule deletes data, add when a walkthrough finds the Decision line's ⚠ not enough]`
+- `[skipped: wrapping long paths in dialogs, add when a path cut off at 80 columns is reported]` The replace dialog's title already has the same limit.
+
+Rejected: `s` on the commands line (does not fit at 80 columns); offering `s` for a choice the rule already makes (a key that does nothing); reusing Configuration's changed-since-load message as is (its keys quit from the Workspace).
+
 ## How to add decisions
 
 Use this format:
