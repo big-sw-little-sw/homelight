@@ -291,7 +291,31 @@ for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
 
 `e: Edit` opens Configuration on the file whenever it loads. A file HomeLight
 cannot read is fixed by hand: `e` is not offered, and `homelight init` and
-`config` refuse it with the loader's message.
+`config` refuse it with the explanation below.
+
+A file HomeLight cannot read fills the Workspace's only pane with what is wrong
+and how to fix it, and Help's purpose line repeats it:
+
+```
+HomeLight can't read ~/.homelight.json
+It isn't valid JSON: line 1, column 1 should start with "{" but starts with "h".
+
+To fix it: open the file in a text editor, correct that line, then press r to check again.
+To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.
+```
+
+The path is the file in use, `--config` included. Text that is not JSON gets
+plain words with its line and column. A missing key (`target-root is
+missing. Add it under "homelight".`) and a value of the wrong kind (`Line 2:
+relocations[0].source-path should be text, but it is a number.`) get plain
+words too, with the line but no column, as do an unknown key (`Line 2:
+relocations[0] has an unknown setting "existing". Check its spelling or
+remove it.`) and a bad rule value (`relocations[0].when-only-target-exists
+can't be "sometimes". Use one of: prompt, adopt-target.`). The loader's own
+checks (a relative path, a blank path) keep their words. A problem with no
+line says `correct that setting`. The help lines offer only `r`, `?` and `q`.
+The CLI prints the same lines on stderr, with `run the command again` for `press r` and `run homelight
+init` for `press r … i`.
 
 Empty states: no configuration (offer `i: Create configuration`), no relocations
 (press `e` to add them), all in sync, left as is by rule, blocked (state the

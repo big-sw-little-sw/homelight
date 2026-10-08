@@ -86,6 +86,26 @@ it by hand, then press `r` in HomeLight to check again.
 Run HomeLight again whenever you like, for example after you add a
 directory. It changes only what is not in sync yet.
 
+### If HomeLight can't read your configuration
+
+If the file has a mistake, the Workspace says `HomeLight can't read`, the
+file's name, and what is wrong, such as one of these:
+
+```
+target-root is missing. Add it under "homelight".
+Line 2: relocations[0].source-path should be text, but it is a number.
+homelight.target-root: Use a full path, or one starting with ~/
+```
+
+- **To fix it:** open the file in a text editor, correct the line or
+  setting it names, then press `r` to check again.
+- **To start over:** rename or delete the file, then press `r`. HomeLight
+  then offers `i` to create a new one.
+
+Configuration can't open a file HomeLight can't read, so `e` is not offered
+until the file is fixed. `homelight config` and the `--json` commands print
+the same explanation and exit with code 1.
+
 ## Suggestion lists
 
 Browse, inside Configuration, suggests directories to move. The suggestions
@@ -304,9 +324,9 @@ Exit codes:
 
 - `0`: it worked. `plan --json` exits 0 even when a choice is needed or a
   step is blocked; read `conflicts` and `blocked`.
-- `1`: the configuration file has a problem (one line on stderr, nothing on
-  stdout), or `apply` was blocked, needed a choice or had a step fail (JSON
-  on stdout).
+- `1`: the configuration file has a problem (what is wrong and how to fix
+  it on stderr, nothing on stdout), or `apply` was blocked, needed a choice
+  or had a step fail (JSON on stdout).
 - `2`: the command line is wrong, such as an unknown option or
   `apply --json` without `--yes` (a message on stderr).
 - `70`: a bug in HomeLight (one line on stderr). Please report it.

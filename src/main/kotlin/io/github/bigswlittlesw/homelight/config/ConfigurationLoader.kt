@@ -26,7 +26,16 @@ class ConfigurationLoader {
      */
     data class PathOverride(val sourcePath: Path, val targetPath: Path)
 
-    fun load(path: Path, override: PathOverride? = null): HomeLightConfiguration = configuration(read(path).file, override)
+    /** @throws InvalidConfigurationException when the file's text or values are wrong */
+    fun load(path: Path, override: PathOverride? = null): HomeLightConfiguration {
+        val file = read(path).file
+        return try {
+            configuration(file, override)
+        } catch (exception: ConfigurationException) {
+            // The value checks are shared with Configuration's draft, which has no file yet.
+            throw InvalidConfigurationException(path, exception.message.orEmpty())
+        }
+    }
 
     /**
      * The file at [path] in its own shape, with the bytes it was read from, so a later replace can tell whether the
@@ -52,8 +61,7 @@ class ConfigurationLoader {
             decodeJson(ConfigurationFile.serializer(), text)
         } catch (exception: JsonInputException) {
             // The message is complete; the cause would only repeat it.
-            val position = if (exception.line > 0) "Line ${exception.line}, column ${exception.column}: " else ""
-            throw ConfigurationException(position + exception.message)
+            throw InvalidConfigurationException(path, problem(exception), exception.line)
         }
         return LoadedFile(file.homelight, bytes)
     }
@@ -115,6 +123,29 @@ class ConfigurationLoader {
 internal fun resolvePath(value: String, name: String): Path {
     if (value.isJavaBlank()) throw ConfigurationException("$name must not be blank")
     return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
+}
+
+/**
+ * A rejected file in plain words where [JsonProblem] has them, else in kotlinx's. Text that is not JSON leads with
+ * its line and column; a value in valid JSON leads with its line when known (user decision), since the column of a
+ * value or key is less exact. Keys are named below `homelight`, as the file's reader sees them.
+ */
+private fun problem(exception: JsonInputException): String {
+    val line = if (exception.line > 0) "Line ${exception.line}: " else ""
+    val name = exception.path.removePrefix("homelight.")
+    return when (val problem = exception.problem) {
+        is JsonProblem.Syntax ->
+            "It isn't valid JSON: line ${exception.line}, column ${exception.column} ${problem.words}."
+        is JsonProblem.WrongKind ->
+            line + name.ifEmpty { "The file" } + " should be ${problem.expected}, but it is ${problem.found}."
+        is JsonProblem.MissingKey ->
+            "${problem.key} is missing. Add it " + (if (name.isEmpty()) "at the top of the file." else "under \"$name\".")
+        is JsonProblem.UnknownKey -> line + name.ifEmpty { "The file" } +
+            " has an unknown setting \"${problem.key}\". Check its spelling or remove it."
+        is JsonProblem.BadValue ->
+            line + name + " can't be \"${problem.value}\". Use one of: " + problem.allowed.joinToString(", ") + "."
+        null -> line + exception.message
+    }
 }
 
 /** The one error for a relative path, wherever a path is set. */

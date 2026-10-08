@@ -61,18 +61,22 @@ internal object WorkspaceView {
         )
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
-            val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
-            val message = when (model) {
-                is ConfigurationEvaluation.Missing -> model.message
-                is ConfigurationEvaluation.Invalid -> model.message
-                else -> NO_CONFIGURATION
-            }
-            val lines = listOf(Line("Config: " + displayPath(session.configPath)), Line(message, palette.warn, false)) +
-                (if (missing) listOf(Line(FIRST_RUN_HINT)) else listOf()) + listOfNotNull(notice)
+            val lines = if (model is ConfigurationEvaluation.Invalid) {
+                val (heading, problem, fix, startOver) = unreadable(model)
+                listOf(
+                    Line(heading, palette.warn, true), Line(problem, palette.warn, false), Line(""), Line(fix), Line(startOver),
+                )
+            } else listOf(
+                Line("Config: " + displayPath(session.configPath)),
+                Line((model as? ConfigurationEvaluation.Missing)?.message ?: NO_CONFIGURATION, palette.warn, false),
+                Line(FIRST_RUN_HINT),
+            )
             return Toolkit.column(
                 header,
                 // The only pane, so it has focus unless a dialog is open.
-                viewport.render("Configuration", lines, interactive, 0, WORKSPACE_DETAILS, interactive),
+                viewport.render(
+                    "Configuration", lines + listOfNotNull(notice), interactive, 0, WORKSPACE_DETAILS, interactive,
+                ),
                 viewport.help(screenHelp(session, list, showInSync, focused), interactive),
             )
         }
@@ -126,9 +130,12 @@ internal object WorkspaceView {
         val model = session.evaluation()
         if (model !is ConfigurationEvaluation.Loaded) {
             val missing = model is ConfigurationEvaluation.Missing || model is ConfigurationEvaluation.Unconfigured
+            // Help repeats the whole explanation, one paragraph per line.
+            val purpose = if (model is ConfigurationEvaluation.Invalid) unreadable(model).joinToString("\n\n")
+            else PURPOSE_NO_CONFIGURATION
             return ScreenHelp(
                 // Without a configuration that loads, the next step is to configure.
-                WORKSPACE_NAME, if (missing) PURPOSE_NO_CONFIGURATION else PURPOSE_INVALID, Step.CONFIGURE,
+                WORKSPACE_NAME, purpose, Step.CONFIGURE,
                 listOf(SCROLL_KEY, SCROLL_ENDS_KEYS, SCROLL_DETAILS_KEYS),
                 listOfNotNull(KeyHint("i", "Create configuration", description = "Create a configuration file; nothing is written until you save")
                     .takeIf { missing }, CHECK_AGAIN_KEY, HELP_KEY, QUIT_KEY),
@@ -179,6 +186,9 @@ internal object WorkspaceView {
             navigation, review + listOfNotNull(toggle.takeIf { inSync > 0 }, CHECK_AGAIN_KEY, edit, HELP_KEY, QUIT_KEY),
         )
     }
+
+    private fun unreadable(model: ConfigurationEvaluation.Invalid): List<String> =
+        unreadable(model.configPath, model.message, model.line > 0)
 
     private fun selection(list: ListElement<Any>, items: List<PlanRelocationItem>): Int =
         list.selected().coerceIn(0, maxOf(0, items.size - 1))

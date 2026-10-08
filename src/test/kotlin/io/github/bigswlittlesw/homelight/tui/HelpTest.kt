@@ -342,6 +342,50 @@ class HelpTest {
         assertTrue(review.startsWith("┏Plan") && review.contains("┌Details"), review)
     }
 
+    /**
+     * A file HomeLight can't read: the Workspace and Help › This screen both say why and how to fix it, and the help
+     * lines offer only the keys that work: `r`, `?` and `q`.
+     */
+    @Test
+    fun anUnreadableConfigurationSaysWhyAndHowToFixIt() {
+        val cases = mapOf(
+            "homelight" to listOf("It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"h\".", "correct that line"),
+            """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "existing": "move"}]}}""" to listOf(
+                "Line 1: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.", "correct that line",
+            ),
+            """{"homelight": {"target-root": "local"}}""" to
+                listOf("homelight.target-root: Use a full path, or one starting with ~/", "correct that setting"),
+            """{"homelight": {"relocations": []}}""" to
+                listOf("target-root is missing. Add it under \"homelight\".", "correct that setting"),
+            """{"homelight": {"target-root": 5}}""" to
+                listOf("Line 1: target-root should be text, but it is a number.", "correct that line"),
+            """{"homelight": {"target-root": "/local", "relocations": [{"source-path": "/a", "when-adopting-target": "x"}]}}""" to
+                listOf(
+                    "relocations[0].when-adopting-target can't be \"x\". Use one of: prompt, discard-source, archive-source.",
+                    "correct that setting",
+                ),
+        )
+        for ((content, expected) in cases) {
+            val (problem, correct) = expected
+            val config = Files.writeString(temporary.resolve("config.json"), content)
+            val explanation = listOf(
+                "HomeLight can't read ${displayPath(config)}", problem,
+                "To fix it: open the file in a text editor, $correct, then press r to check again.",
+                "To start over: rename or delete the file, then press r. HomeLight then offers i to create a new one.",
+            )
+            val ui = HeadlessTui(HomeLightSession(config))
+            // Wide enough that no sentence wraps inside the temporary path.
+            val workspace = paneText(ui.screen(200, 24))
+            for (line in explanation) assertTrue(workspace.contains(line), "$line\n$workspace")
+            assertEquals(listOf("r: Check again", "?: Help", "q: Quit"), helpLines(ui.screen(80, 24)), content)
+            ui.press('?')
+            assertEquals(HELP_THIS_SCREEN, ui.focused(), content)
+            val thisScreen = paneText(ui.screen(200, 60))
+            for (line in explanation) assertTrue(thisScreen.contains(line), "$line\n$thisScreen")
+            assertTrue(thisScreen.contains(explanation.last() + " $STEP: "), thisScreen)
+        }
+    }
+
     @Test
     fun aFirstRunOpensTheGuide() {
         val ui = HeadlessTui(HomeLightSession(temporary.resolve("missing.json")))

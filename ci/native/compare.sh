@@ -81,8 +81,9 @@ step() {
   "${cmd[@]}" "$@" > "$root/stdout" 2> "$root/stderr" < /dev/null
   echo "exit=$?" >> "$out"
   echo "--- stdout" >> "$out"; cat "$root/stdout" >> "$out"
-  # Configuration errors print one line. Stack frames from an unexpected failure differ between the
-  # JVM and native builds, so they are dropped and only the exception line is compared.
+  # A configuration error prints its message; a file HomeLight cannot read adds how to fix it. Stack
+  # frames from an unexpected failure differ between the JVM and native builds, so they are dropped
+  # and only the exception line is compared.
   echo "--- stderr" >> "$out"; grep -v -E $'^\t(at |\\.\\.\\. [0-9]+ more)' "$root/stderr" | head -c 2000 >> "$out"
 }
 

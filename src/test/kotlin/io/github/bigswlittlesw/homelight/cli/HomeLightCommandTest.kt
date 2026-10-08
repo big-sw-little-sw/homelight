@@ -56,30 +56,49 @@ class HomeLightCommandTest {
         }
     }
 
+    /**
+     * A file whose text or values are wrong gets the Workspace's explanation and how to fix it on stderr; a missing
+     * file stays one line. Nothing goes to stdout, and the exit code is 1.
+     */
     @Test
-    fun printsAConfigurationErrorAsOneLineWithoutJsonOutput(@TempDir root: Path) {
-        val local = root.resolve("local")
-        val source = root.resolve("home/cache")
-        val configs = mapOf(
-            "missing.json" to null,
-            "malformed.json" to "{\"homelight\": {\"target-root\": \"unclosed\n",
-            "unknown-key.json" to """{"homelight": {"target-root": "$local", "relocations": [
-                {"source-path": "$source", "target-path": "$local/cache", "existing": "move"}]}}""",
-            "bad-enum.json" to """{"homelight": {"target-root": "$local", "relocations": [
-                {"source-path": "$source", "target-path": "$local/cache", "when-only-target-exists": "sometimes"}]}}""",
-            "relative-suggestion-list.json" to """{"homelight": {"target-root": "$local", "suggestion-list": "x.json"}}""",
-            "nul-source-root.json" to """{"homelight": {"source-root": "/a\u0000b", "target-root": "$local"}}""",
+    fun explainsAConfigurationErrorWithoutJsonOutput(@TempDir root: Path) {
+        fun explained(name: String, problem: String, fix: String) = listOf(
+            "HomeLight can't read ${root.resolve(name)}", problem,
+            "To fix it: open the file in a text editor, $fix, then run the command again.",
+            "To start over: rename or delete the file, then run homelight init --config ${root.resolve(name)} to create a new one.",
         )
-        for ((name, content) in configs) {
+        val configs = mapOf(
+            "missing.json" to (null to listOf("Configuration file does not exist: ${root.resolve("missing.json")}")),
+            "malformed.json" to ("{\"homelight\": {\"target-root\": \"unclosed\n" to explained("malformed.json",
+                "It isn't valid JSON: line 1, column 40 should have a double quote (\") but the line ends there.",
+                "correct that line")),
+            "missing-key.json" to ("""{"homelight": {"relocations": []}}""" to explained("missing-key.json",
+                "target-root is missing. Add it under \"homelight\".", "correct that setting")),
+            "wrong-kind.json" to ("""{"homelight": {"target-root": "/local",
+                "relocations": [{"source-path": 5}]}}""" to explained("wrong-kind.json",
+                "Line 2: relocations[0].source-path should be text, but it is a number.", "correct that line")),
+            "unknown-key.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
+                {"source-path": "/home/cache", "target-path": "/local/cache", "existing": "move"}]}}""" to explained(
+                "unknown-key.json", "Line 2: relocations[0] has an unknown setting \"existing\". Check its spelling or remove it.",
+                "correct that line")),
+            "bad-enum.json" to ("""{"homelight": {"target-root": "/local", "relocations": [
+                {"source-path": "/home/cache", "target-path": "/local/cache", "when-only-target-exists": "sometimes"}]}}""" to
+                explained("bad-enum.json", "relocations[0].when-only-target-exists can't be \"sometimes\"." +
+                    " Use one of: prompt, adopt-target.", "correct that setting")),
+            "relative-path.json" to ("""{"homelight": {"target-root": "local"}}""" to
+                explained("relative-path.json", "homelight.target-root: Use a full path, or one starting with ~/",
+                    "correct that setting")),
+        )
+        for ((name, case) in configs) {
+            val (content, expected) = case
             val config = root.resolve(name)
             content?.let { Files.writeString(config, it) }
-            val expected = assertThrows<ConfigurationException> { ConfigurationEvaluation().loadRequired(config) }.message
             for (command in listOf(arrayOf("status", "--json"), arrayOf("plan", "--json"), arrayOf("apply", "--json", "--yes"))) {
                 val result = execute("-c", config.toString(), *command)
 
                 val context = "$name ${command.joinToString(" ")}: ${result.errorOutput}"
                 assertEquals(1, result.exitCode, context)
-                assertEquals("$expected\n", result.errorOutput.replace(System.lineSeparator(), "\n"), context)
+                assertEquals(expected, result.errorOutput.lines().dropLast(1), context)
                 assertEquals("", result.output, context)
             }
         }
@@ -213,11 +232,19 @@ class HomeLightCommandTest {
 
     /** Configuration opens a file that loads, or a new one; a file HomeLight cannot read is fixed by hand. */
     @Test
-    fun configRefusesAFileItCannotRead(@TempDir root: Path) {
-        val config = Files.writeString(root.resolve("config.json"), "{\"homelight\": [")
+    fun configRefusesAFileItCannotReadAndSaysHowToFixIt(@TempDir root: Path) {
+        val config = Files.writeString(root.resolve("config.json"), "homelight")
         val result = execute("-c", config.toString(), "config")
         assertEquals(1, result.exitCode)
-        assertTrue(result.errorOutput.contains("so Configuration cannot open it. Fix the file by hand: Line 1"), result.errorOutput)
+        assertEquals(
+            listOf(
+                "HomeLight can't read $config",
+                "It isn't valid JSON: line 1, column 1 should start with \"{\" but starts with \"h\".",
+                "To fix it: open the file in a text editor, correct that line, then run the command again.",
+                "To start over: rename or delete the file, then run homelight init --config $config to create a new one.",
+            ),
+            result.errorOutput.lines().dropLast(1),
+        )
     }
 
     @Test
