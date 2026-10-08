@@ -3,7 +3,7 @@
     {
       "name": "Build tools",
       "directories": [
-        {"path": ".m2", "advice": "usually-unnecessary", "reason": "Team machines usually have a small repository."}
+        {"path": ".m2", "advice": "usually-unnecessary", "reason": "Team machines usually have a small repository.", "caution": "Team caution."}
       ]
     },
     {
