@@ -471,7 +471,7 @@ list does not show it.
   root filled in and focuses its Source; `d` removes the selected row; `b`
   opens Browse; Enter, → or Tab move to the fields.
 - With no relocations, the list says how to add one, in dim text under
-  `Storage locations`: `No directories yet.`, then `Press b to pick from 56
+  `Storage locations`: `No directories yet.`, then `Press b to pick from 59
   built-in suggestions (JetBrains, pip, Cargo, Conan, …), or a to type one
   yourself.` The count is the built-in list's directories, as Browse counts
   them, and the examples are the first app of each of its first four
@@ -504,7 +504,7 @@ list does not show it.
 - Storage locations fields: **Source root** (default `~`), **Target root**,
   **Suggestion list** (placeholder `optional; adds to built-in list`, which
   fits the 32-cell field at 80 columns) with help "Lighten already includes
-  56 suggestions for common tools (JetBrains, pip, Cargo, Conan, …). Use this
+  59 suggestions for common tools (JetBrains, pip, Cargo, Conan, …). Use this
   field only to add a list of your own, for example one shared by your team.
   Both lists are merged; yours wins where they overlap.", count and examples
   as in the empty list.

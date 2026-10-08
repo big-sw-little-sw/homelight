@@ -18,7 +18,9 @@
       "name": "Zed",
       "category": "Editors",
       "directories": [
-        {"path": ".local/share/zed", "advice": "consider", "reason": "Zed extensions, language servers and Node.js runtime"}
+        {"path": ".local/share/zed/languages", "advice": "consider", "reason": "Language servers downloaded by Zed"},
+        {"path": ".local/share/zed/node", "advice": "consider", "reason": "Node.js runtime downloaded by Zed"},
+        {"path": ".local/share/zed/extensions", "advice": "consider", "reason": "Zed extensions"}
       ]
     },
     {
@@ -291,6 +293,13 @@
       "category": "Android",
       "directories": [
         {"path": ".android/avd", "advice": "consider", "reason": "Android emulator virtual devices"}
+      ]
+    },
+    {
+      "name": "Android Studio",
+      "category": "Android",
+      "directories": [
+        {"path": ".cache/Google", "advice": "consider", "reason": "Android Studio caches, for each installed version"}
       ]
     },
     {

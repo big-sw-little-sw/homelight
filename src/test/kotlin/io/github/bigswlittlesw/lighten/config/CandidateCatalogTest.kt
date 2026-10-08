@@ -445,11 +445,13 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(56, snapshot.definitions.size)
+        assertEquals(59, snapshot.definitions.size)
         assertEquals(listOf(
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server",
-                ".local/share/zed|Editors|Zed|Zed extensions, language servers and Node.js runtime",
+                ".local/share/zed/languages|Editors|Zed|Language servers downloaded by Zed",
+                ".local/share/zed/node|Editors|Zed|Node.js runtime downloaded by Zed",
+                ".local/share/zed/extensions|Editors|Zed|Zed extensions",
                 ".cache/pip|Python|pip|pip cache",
                 ".cache/uv|Python|uv|uv cache",
                 ".local/share/uv|Python|uv|uv-managed Python installations",
@@ -497,6 +499,7 @@ class CandidateCatalogTest {
                 ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
                 "Android/Sdk|Android|Android SDK|Android SDK, with the NDK and emulator system images",
                 ".android/avd|Android|Android emulator|Android emulator virtual devices",
+                ".cache/Google|Android|Android Studio|Android Studio caches, for each installed version",
                 ".cache/ccache|Build tools|ccache|ccache compiler cache",
                 ".cache/sccache|Build tools|sccache|sccache compiler cache",
                 ".cache/bazel|Build tools|Bazel|Bazel build outputs and download caches",
@@ -549,7 +552,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 56 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 59 else 0, definitions.size)
             }
         }
     }
