@@ -15,7 +15,7 @@
 set -euo pipefail
 
 pr=${1:?usage: ci/try-pr <pr-number>}
-repo=big-sw-little-sw/homelight
+repo=big-sw-little-sw/lighten
 
 branch=$(gh pr view "$pr" --repo "$repo" --json headRefName --jq .headRefName)
 run=$(gh run list --repo "$repo" --workflow ci.yml --branch "$branch" --status success --limit 1 \
