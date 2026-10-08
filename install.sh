@@ -69,6 +69,7 @@ has_tty() {
 
 # Shows a path under $HOME as ~/...
 tilde() {
+  # shellcheck disable=SC2088 # a literal ~ for display
   case $1 in
     "$HOME"/*) printf '~/%s\n' "${1#"$HOME"/}" ;;
     *) printf '%s\n' "$1" ;;

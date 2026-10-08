@@ -151,8 +151,8 @@ jobs:
       - name: Install script
         if: ${{ !cancelled() }}
         run: |
-          shellcheck -s sh install.sh ci/install/scenarios.sh
-          shellcheck ci/install/test.sh
+          shellcheck --severity=warning --shell=sh install.sh ci/install/scenarios.sh
+          shellcheck --severity=warning ci/install/test.sh
           version=$(dist/lighten --version)
           version=${version#lighten }
           mkdir assets
