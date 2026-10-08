@@ -4,6 +4,7 @@
 # good/ and bad/ trees described in test.sh, and VERSION, the version it serves.
 # Prints one line per scenario, with the output under a failure. Exit status is non-zero when
 # any scenario fails.
+# shellcheck disable=SC2088 # expected output shows home paths as ~/...
 set -u
 
 out=/tmp/install-output
