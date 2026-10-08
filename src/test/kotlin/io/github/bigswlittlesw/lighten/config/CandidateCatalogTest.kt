@@ -423,7 +423,7 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(45, snapshot.definitions.size)
+        assertEquals(44, snapshot.definitions.size)
         assertEquals(listOf(
                 ".m2|JVM|Maven|Maven local repository",
                 ".gradle/caches|JVM|Gradle|Gradle caches",
@@ -442,7 +442,7 @@ class CandidateCatalogTest {
                 ".cache/node-gyp|JavaScript|node-gyp|node-gyp cache",
                 ".nvm|JavaScript|nvm|Node.js versions managed by nvm",
                 ".bun/install/cache|JavaScript|Bun|Bun package cache",
-                ".volta/tools|JavaScript|Volta|Node.js versions and tools managed by Volta",
+                ".volta|JavaScript|Volta|Volta, with the Node.js versions and tools it manages",
                 ".local/share/fnm/node-versions|JavaScript|fnm|Node.js versions managed by fnm",
                 ".cache/deno|JavaScript|Deno|Deno cache",
                 ".cache/node/corepack|JavaScript|Corepack|Package managers downloaded by Corepack",
@@ -466,7 +466,6 @@ class CandidateCatalogTest {
                 ".rbenv/versions|Ruby|rbenv|Ruby versions installed by rbenv",
                 ".cache/go-build|Go|Go|Go build cache",
                 ".local/share/mise/installs|Version managers|mise|Tool versions installed by mise",
-                ".cache/mise|Version managers|mise|mise cache",
                 ".asdf/installs|Version managers|asdf|Tool versions installed by asdf",
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server"
@@ -474,7 +473,7 @@ class CandidateCatalogTest {
         assertTrue(snapshot.definitions.all { d -> d.advice == CandidateDefinition.Advice.CONSIDER && d.reason != null })
         assertTrue(snapshot.definitions.all { d -> d.app != null })
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi", "mise")) {
+        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -512,7 +511,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 45 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 44 else 0, definitions.size)
             }
         }
     }

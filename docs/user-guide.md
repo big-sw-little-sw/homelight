@@ -112,8 +112,9 @@ Browse, inside Configuration, suggests directories to move. The suggestions
 come from two suggestion lists:
 
 - **The built-in list.** It comes with Lighten and names directories that
-  are usually large and safe to move: package caches and toolchains for
-  Maven, Gradle, npm, pip, uv, pixi, Cargo, Go, VS Code and others.
+  are usually large and safe to move: package caches, toolchains, and the
+  versions that version managers install, for Maven, Gradle, SDKMAN, npm,
+  Playwright, pip, uv, pyenv, rbenv, Cargo, Go, mise, VS Code and others.
 - **Your list** (optional). A file you write, for example one on a shared
   drive that everyone on your team uses. Browse always shows the built-in
   list too.

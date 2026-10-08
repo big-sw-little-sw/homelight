@@ -93,7 +93,7 @@
       "name": "Volta",
       "category": "JavaScript",
       "directories": [
-        {"path": ".volta/tools", "advice": "consider", "reason": "Node.js versions and tools managed by Volta"}
+        {"path": ".volta", "advice": "consider", "reason": "Volta, with the Node.js versions and tools it manages"}
       ]
     },
     {
@@ -224,8 +224,7 @@
       "name": "mise",
       "category": "Version managers",
       "directories": [
-        {"path": ".local/share/mise/installs", "advice": "consider", "reason": "Tool versions installed by mise"},
-        {"path": ".cache/mise", "advice": "consider", "reason": "mise cache"}
+        {"path": ".local/share/mise/installs", "advice": "consider", "reason": "Tool versions installed by mise"}
       ]
     },
     {
