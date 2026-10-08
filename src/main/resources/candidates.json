@@ -127,8 +127,7 @@
       "name": "PlatformIO",
       "category": "C and C++",
       "directories": [
-        {"path": ".platformio/packages", "advice": "consider", "reason": "PlatformIO toolchains and tools"},
-        {"path": ".platformio/platforms", "advice": "consider", "reason": "PlatformIO development platforms"}
+        {"path": ".platformio/packages", "advice": "consider", "reason": "PlatformIO toolchains, frameworks and tools"}
       ]
     },
     {

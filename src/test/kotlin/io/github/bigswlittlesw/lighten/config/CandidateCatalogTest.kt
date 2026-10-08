@@ -445,7 +445,7 @@ class CandidateCatalogTest {
     @Test fun bundledResourcePreservesPathsAndDescriptionsWithExplicitConsiderAdvice() {
         val snapshot = CandidateCatalog.bundled(HOME)
         assertTrue(snapshot.accepted(), snapshot.diagnostics.toString())
-        assertEquals(57, snapshot.definitions.size)
+        assertEquals(56, snapshot.definitions.size)
         assertEquals(listOf(
                 ".cache/JetBrains|Editors|JetBrains|JetBrains caches",
                 ".vscode-server|Editors|VS Code|VS Code server",
@@ -468,8 +468,7 @@ class CandidateCatalogTest {
                 ".cache/vcpkg/archives|C and C++|vcpkg|vcpkg binary cache",
                 ".xmake/packages|C and C++|xmake|Packages installed by xmake",
                 ".hunter|C and C++|Hunter|Hunter package cache",
-                ".platformio/packages|C and C++|PlatformIO|PlatformIO toolchains and tools",
-                ".platformio/platforms|C and C++|PlatformIO|PlatformIO development platforms",
+                ".platformio/packages|C and C++|PlatformIO|PlatformIO toolchains, frameworks and tools",
                 ".m2|JVM|Maven|Maven local repository",
                 ".gradle/caches|JVM|Gradle|Gradle caches",
                 ".gradle/wrapper|JVM|Gradle|Gradle wrapper distributions",
@@ -512,7 +511,7 @@ class CandidateCatalogTest {
         assertEquals(listOf(".sdkman/tmp", ".cache/deno", ".cache/Cypress"), cautioned.map { d -> d.originalPath })
         assertTrue(cautioned.all { d -> d.caution.orEmpty().endsWith("Lighten then asks which folder to keep.") }, cautioned.toString())
         assertEquals(HOME.resolve(".jbang/cache"), snapshot.definitions.single { d -> d.app == "JBang" }.sourcePath)
-        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi", "PlatformIO")) {
+        for (app in listOf("Gradle", "SDKMAN", "Yarn", "pnpm", "Electron", "uv", "pixi")) {
             val indices = snapshot.definitions.indices.filter { i -> snapshot.definitions.get(i).app == app }
             assertTrue(indices.size > 1, app)
             assertEquals(indices.size, indices.last() - indices.first() + 1, app)
@@ -550,7 +549,7 @@ class CandidateCatalogTest {
                 val result = catalogClass.getMethod("bundled", Path::class.java).invoke(catalog, HOME)
                 assertEquals(variant == "valid", result.javaClass.getMethod("accepted").invoke(result))
                 val definitions = result.javaClass.getMethod("getDefinitions").invoke(result) as List<*>
-                assertEquals(if (variant == "valid") 57 else 0, definitions.size)
+                assertEquals(if (variant == "valid") 56 else 0, definitions.size)
             }
         }
     }

@@ -86,7 +86,7 @@ else
   fail "TUI TERM=dumb not refused: $line"
 fi
 fx=$results/setup
-mkdir -p "$fx/home/.m2" "$fx/local"
+mkdir -p "$fx/home/.cache/JetBrains" "$fx/local"
 line=$(TERM=xterm-256color expect "$here/setup.exp" "$results/setup.log" "$fx/home" "$fx/local" \
   "$binary" -c "$fx/new.json" init)
 if [ $? -eq 0 ] && [ ! -e "$fx/new.json" ]; then
