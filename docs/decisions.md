@@ -90,6 +90,8 @@ An action fails only for I/O or an expected environment failure (drift, staging 
 
 A Workspace choice applies to the next apply only; any check, save or apply clears it. `s: Always do this` saves it as the relocation's rule after a dialog that warns when the rule deletes data. A missing rule means "Ask each time" (`prompt`, omitted when written). Why: a one-off "delete both" must not become permanent for `apply --json --yes`. (#116)
 
+Only the rule for the case observed now decides: **Only target** when the source is missing, **Both exist** when both are directories. One module, `relocationDecision`, answers from the observed states, the saved rules and the one-time choice which rule governs, which choices are offered, which is in force (`●`) and whether it comes from the configuration or the choice; Workspace, Review, Results, the `s` dialog and `plan --json` read it, and Configuration's **Both exist** field uses its `BothExistRule`. `plan --json` names a conflict's `resolutions` as those choices (`adopt-target`, `adopt-and-discard-source`, `adopt-and-archive-source`, `leave-unchanged`, `discard-both`), empty for a source link to somewhere else, under `schema: 1` since 1.0 has not shipped. Why: five copies of this logic disagreed, so `●` vanished when a Both exist rule sat beside an Only target rule or choice. (#211)
+
 - `[skipped: keeping one-time choices across a re-check, add when users re-check often with many open choices]`
 - `[skipped: showing a missing rule apart from an explicit prompt, add when a global defaults layer exists]`
 - `[skipped: generic Policy<C>, add when a fourth rule appears or code needs to treat all rules the same way]`

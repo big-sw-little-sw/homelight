@@ -1,11 +1,13 @@
 package io.github.bigswlittlesw.lighten.tui
 
+import io.github.bigswlittlesw.lighten.application.BothExistRule
 import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.GoverningRule
 import io.github.bigswlittlesw.lighten.application.PlanBadge
+import io.github.bigswlittlesw.lighten.application.RelocationDecision
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.displayPath
@@ -40,12 +42,10 @@ internal fun badgeLabel(badge: PlanBadge): String = when (badge) {
 /** A one-time choice reads as the **Both exist** or **Only target** rule value it stands for. */
 internal fun choiceLabel(choice: DecisionChoice): String = when (choice) {
     DecisionChoice.ADOPT_TARGET -> onlyTargetLabel(WhenOnlyTargetExists.ADOPT_TARGET)
-    DecisionChoice.ADOPT_AND_DISCARD_SOURCE ->
-        bothExistLabel(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenAdoptingTarget.DISCARD_SOURCE)
-    DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE ->
-        bothExistLabel(WhenSourceAndTargetDirectoriesExist.ADOPT, WhenAdoptingTarget.ARCHIVE_SOURCE)
-    DecisionChoice.LEAVE_UNCHANGED -> bothLabel(WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED)
-    DecisionChoice.DISCARD_BOTH -> bothLabel(WhenSourceAndTargetDirectoriesExist.DISCARD)
+    DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> bothExistLabel(BothExistRule.KEEP_TARGET_DELETE_SOURCE)
+    DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE -> bothExistLabel(BothExistRule.KEEP_TARGET_ARCHIVE_SOURCE)
+    DecisionChoice.LEAVE_UNCHANGED -> bothExistLabel(BothExistRule.LEAVE_BOTH)
+    DecisionChoice.DISCARD_BOTH -> bothExistLabel(BothExistRule.DELETE_BOTH)
 }
 
 /** `archive` names where archiving would move the source, when the choice only offers it (#107). */
@@ -62,20 +62,13 @@ internal fun choiceDescription(choice: DecisionChoice, archive: Path? = null): S
 
 // A missing rule is "prompt", so it reads Ask each time too (decision "A missing rule means Ask each time").
 
-/** The **Both exist** rule as one outcome: the file keeps it in two fields. */
-internal fun bothExistLabel(both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget): String =
-    if (both != WhenSourceAndTargetDirectoriesExist.ADOPT) bothLabel(both)
-    else when (adopting) {
-        WhenAdoptingTarget.PROMPT -> "Keep target, ask about source"
-        WhenAdoptingTarget.DISCARD_SOURCE -> "Keep target, delete source"
-        WhenAdoptingTarget.ARCHIVE_SOURCE -> "Keep target, archive source"
-    }
-
-internal fun bothLabel(value: WhenSourceAndTargetDirectoriesExist): String = when (value) {
-    WhenSourceAndTargetDirectoriesExist.PROMPT -> ASK_EACH_TIME
-    WhenSourceAndTargetDirectoriesExist.ADOPT -> "Keep target"
-    WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> "Leave both as they are"
-    WhenSourceAndTargetDirectoriesExist.DISCARD -> "Delete both, start empty"
+internal fun bothExistLabel(rule: BothExistRule): String = when (rule) {
+    BothExistRule.ASK_EACH_TIME -> ASK_EACH_TIME
+    BothExistRule.KEEP_TARGET_DELETE_SOURCE -> "Keep target, delete source"
+    BothExistRule.KEEP_TARGET_ARCHIVE_SOURCE -> "Keep target, archive source"
+    BothExistRule.KEEP_TARGET_ASK_ABOUT_SOURCE -> "Keep target, ask about source"
+    BothExistRule.LEAVE_BOTH -> "Leave both as they are"
+    BothExistRule.DELETE_BOTH -> "Delete both, start empty"
 }
 
 internal fun onlyTargetLabel(value: WhenOnlyTargetExists): String = when (value) {
@@ -244,16 +237,15 @@ internal const val REPLACE_CONFIGURATION_KEYS = "y: Replace · n/Esc: Keep editi
 // Saving a Workspace choice as the rule (tui-design §5).
 internal const val ALWAYS_DO_THIS_TITLE = "Always do this?"
 /** What `s` saves, for which relocation and where, in the case the choice is for. */
-internal fun alwaysDoThis(source: Path, choice: DecisionChoice, config: Path): List<String> = listOf(
+internal fun alwaysDoThis(source: Path, rule: GoverningRule, choice: DecisionChoice, config: Path): List<String> = listOf(
     "From now on, for " + displayPath(source) + ",",
-    ruleCase(choice) + ": " + choiceLabel(choice).lowercase() + ".",
+    ruleCase(rule) + ": " + choiceLabel(choice).lowercase() + ".",
     "",
     "y saves this rule in " + displayPath(config) + ".",
 ) + REPLACE_CONFIGURATION_BODY + "Nothing on disk changes until you apply."
-private fun ruleCase(choice: DecisionChoice): String = when (choice) {
-    DecisionChoice.ADOPT_TARGET -> "when only the target exists"
-    DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE, DecisionChoice.LEAVE_UNCHANGED,
-    DecisionChoice.DISCARD_BOTH -> "when the source and the target both exist"
+private fun ruleCase(rule: GoverningRule): String = when (rule) {
+    is GoverningRule.OnlyTarget -> "when only the target exists"
+    is GoverningRule.BothExist -> "when the source and the target both exist"
 }
 /**
  * The warning for a rule that deletes data not kept elsewhere (tui-design §5), or none. Once saved, it applies
@@ -354,9 +346,15 @@ internal fun risks(warnings: Int, deleting: Int) =
     "Of these: $warnings with warnings · $deleting " + if (deleting == 1) "deletes data" else "delete data"
 
 /** The one Details line that says what decides a row and where that comes from (tui-design §5). */
-internal fun ruleDecision(rule: String) = "Decision: " + rule.lowercase() + " (your configuration)"
-internal fun choiceDecision(choice: DecisionChoice) =
-    "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
+internal fun decisionLine(decision: RelocationDecision): String {
+    val choice = decision.oneTimeChoice
+    if (choice != null) return "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
+    val rule = when (val governing = decision.rule) {
+        is GoverningRule.OnlyTarget -> onlyTargetLabel(governing.value)
+        is GoverningRule.BothExist -> bothExistLabel(governing.value)
+    }
+    return "Decision: " + rule.lowercase() + " (your configuration)"
+}
 
 // The Paths section of Workspace and Review Details.
 internal const val PATHS = "Paths"

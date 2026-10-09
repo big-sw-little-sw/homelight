@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.tui
 
+import io.github.bigswlittlesw.lighten.application.BothExistRule
 import io.github.bigswlittlesw.lighten.application.DecisionChoice
 import io.github.bigswlittlesw.lighten.application.PlanBadge
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
@@ -26,13 +27,7 @@ class WordingTest {
         "DISCARD, ARCHIVE_SOURCE, 'Delete both, start empty'",
     )
     fun bothExist(both: WhenSourceAndTargetDirectoriesExist, adopting: WhenAdoptingTarget, label: String) {
-        assertEquals(label, bothExistLabel(both, adopting))
-    }
-
-    @ParameterizedTest
-    @CsvSource("PROMPT, Ask each time", "ADOPT, Keep target", "LEAVE_UNCHANGED, Leave both as they are", "DISCARD, 'Delete both, start empty'")
-    fun bothDirectories(value: WhenSourceAndTargetDirectoriesExist, label: String) {
-        assertEquals(label, bothLabel(value))
+        assertEquals(label, bothExistLabel(BothExistRule.of(both, adopting)))
     }
 
     @ParameterizedTest

@@ -10,6 +10,8 @@ import dev.tamboui.tui.event.KeyEvent
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
+import io.github.bigswlittlesw.lighten.application.relocationDecision
 import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
@@ -61,7 +63,7 @@ class WorkspaceViewTest {
         val ui = HeadlessTui(session)
         val model = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         val source = model.items.first().relocation.sourcePath
-        val choices = model.items.first().availableResolutions
+        val choices = checkNotNull(model.items.first().decision).offered
         val archive = model.observations.first { it.relocation.sourcePath == source }.archiveDestination?.path
         assertEquals(4, choices.size)
         ui.press(KeyCode.RIGHT)
@@ -148,10 +150,9 @@ class WorkspaceViewTest {
         val session = LightenSession(fixture(temporary))
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("adopt") }
-        val rule = WorkspaceView.rule(Relocation(item.relocation.sourcePath, item.relocation.targetPath,
-            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE),
-            item.sourceObservation.state, item.targetObservation.state)
-        assertEquals("Keep target, delete source", rule)
+        val rules = Relocation(item.relocation.sourcePath, item.relocation.targetPath,
+            WhenSourceAndTargetDirectoriesExist.ADOPT, whenAdoptingTarget = WhenAdoptingTarget.DISCARD_SOURCE)
+        assertEquals(configured("Keep target, delete source"), decisionLine(item, rules))
     }
 
     @ParameterizedTest
@@ -170,7 +171,7 @@ class WorkspaceViewTest {
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items
             .first { candidate -> candidate.relocation.sourcePath.endsWith("conflict") }
         val relocation = Relocation(item.relocation.sourcePath, item.relocation.targetPath, both, whenAdoptingTarget = adopting)
-        assertEquals(expected, WorkspaceView.rule(relocation, item.sourceObservation.state, item.targetObservation.state))
+        assertEquals(configured(expected), decisionLine(item, relocation))
     }
 
     @ParameterizedTest
@@ -187,8 +188,47 @@ class WorkspaceViewTest {
             "{\"lighten\": {\"target-root\": \"${target.parent}\", \"relocations\":[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, LightenSession(config).evaluation()).items.single()
         val relocation = Relocation(source, target, whenOnlyTargetExists = onlyTarget)
-        assertEquals(expected, WorkspaceView.rule(relocation, item.sourceObservation.state, item.targetObservation.state))
+        assertEquals(configured(expected), decisionLine(item, relocation))
     }
+
+    /**
+     * With only the target there, `●` marks Keep target, link source whether a rule or a one-time choice makes it,
+     * whatever the Both exist rule says (#211).
+     */
+    @Test
+    fun onlyTheTargetMarksTheRuleOrChoiceInForceOverAnyBothExistRule() {
+        val root = temporary.toRealPath()
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        Files.createDirectories(root.resolve("home"))
+        fun session(rules: String): LightenSession = LightenSession(Files.writeString(root.resolve("config.json"),
+            "{\"lighten\": {\"target-root\": \"${target.parent}\", \"relocations\": [{\"source-path\": " +
+                "\"${root.resolve("home/cache")}\", \"target-path\": \"$target\", $rules}]}}\n"))
+
+        val saved = HeadlessTui(session(
+            "\"when-source-and-target-directories-exist\": \"adopt\", \"when-adopting-target\": \"discard-source\", " +
+                "\"when-only-target-exists\": \"adopt-target\"",
+        ))
+        saved.press(KeyCode.TAB)
+        val rule = saved.screen(200, 50)
+        assertTrue(rule.contains("❯ ● Keep target, link source"), rule)
+        assertTrue(rule.contains("Decision: keep target, link source (your configuration)"), rule)
+
+        val chosen = HeadlessTui(session("\"when-source-and-target-directories-exist\": \"leave-unchanged\""))
+        chosen.press(KeyCode.TAB)
+        assertTrue(chosen.screen(200, 50).contains("❯ ○ Keep target, link source"), chosen.screen(200, 50))
+        chosen.press(' ')
+        val choice = chosen.screen(200, 50)
+        assertTrue(choice.contains("❯ ● Keep target, link source"), choice)
+        assertTrue(choice.contains("Decision: keep target, link source (your choice, this run only)"), choice)
+        chosen.press('s')
+        assertTrue(chosen.screen(200, 50).contains("when only the target exists: keep target, link source."), chosen.screen(200, 50))
+    }
+
+    /** The Decision line for `item`'s observed case under the saved `rules`, with no one-time choice. */
+    private fun decisionLine(item: PlanRelocationItem, rules: Relocation): String =
+        decisionLine(checkNotNull(relocationDecision(item.sourceObservation.state, item.targetObservation.state, rules, null)))
+
+    private fun configured(rule: String) = "Decision: " + rule.lowercase() + " (your configuration)"
 
     @Test
     fun leftUnchangedRelocationReadsUnchangedEverywhere() {

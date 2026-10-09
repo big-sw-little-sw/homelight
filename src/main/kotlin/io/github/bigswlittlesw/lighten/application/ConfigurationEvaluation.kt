@@ -6,15 +6,12 @@ import io.github.bigswlittlesw.lighten.config.LightenConfiguration
 import io.github.bigswlittlesw.lighten.config.LightenFile
 import io.github.bigswlittlesw.lighten.config.LoadedFile
 import io.github.bigswlittlesw.lighten.config.InvalidConfigurationException
-import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
-import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
-import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import io.github.bigswlittlesw.lighten.reconcile.RelocationState
 import io.github.bigswlittlesw.lighten.reconcile.inspectRelocations
 import java.nio.file.Files
@@ -79,11 +76,14 @@ class ConfigurationEvaluation(
         val items: List<PlanRelocationItem> = observations.mapIndexed { i, state ->
             val relocationPlan = plan.relocations[i]
             val relocation = relocationPlan.relocation
+            val source = normalize(relocation.sourcePath)
+            // From the saved rules: the plan's relocation already has the one-time choice applied.
+            val decision = relocationDecision(state.source.state, state.target.state, state.relocation, draft[source])
+                .takeIf { choicesFor(source).isNotEmpty() }
             PlanRelocationItem(
                 relocation, state.source, state.target, relocationPlan,
                 state.source.sourceStateForTarget(relocation.targetPath),
-                choicesFor(relocation.sourcePath),
-                normalize(relocation.sourcePath) in choiceAvoidsFolder,
+                decision, source in choiceAvoidsFolder,
             )
         }.sortedBy { it.badge().priority }
 
@@ -170,9 +170,9 @@ class ConfigurationEvaluation(
         val savedPlan = plan(observations)
         // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
         // their diagnostics. groupBy keeps sources in first-seen order.
-        val choices = observations.zip(savedPlan.relocations)
-            .groupBy({ (state, _) -> normalize(state.relocation.sourcePath) }) { (state, plan) ->
-                availableChoices(state, plan)
+        val choices = observations
+            .groupBy({ state -> normalize(state.relocation.sourcePath) }) { state ->
+                relocationDecision(state.source.state, state.target.state, state.relocation, null)?.offered.orEmpty()
             }
             .mapValues { (_, choices) -> choices.singleOrNull() ?: listOf() }
         return Loaded.of(
@@ -232,20 +232,5 @@ class ConfigurationEvaluation(
 /** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
 fun isUnconfiguredDefault(configPath: Path): Boolean =
     normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
-
-private fun availableChoices(state: RelocationState, plan: RelocationPlan): List<DecisionChoice> {
-    if (state.source.state == PathState.DIRECTORY && state.target.state == PathState.DIRECTORY) {
-        return listOf(
-            DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE,
-            DecisionChoice.LEAVE_UNCHANGED, DecisionChoice.DISCARD_BOTH,
-        )
-    }
-    if (state.source.state == PathState.ABSENT && state.target.state == PathState.DIRECTORY
-        && (plan.conflict != null || state.relocation.whenOnlyTargetExists == WhenOnlyTargetExists.ADOPT_TARGET)
-    ) {
-        return listOf(DecisionChoice.ADOPT_TARGET)
-    }
-    return listOf()
-}
 
 private fun normalize(path: Path): Path = path.toAbsolutePath().normalize()

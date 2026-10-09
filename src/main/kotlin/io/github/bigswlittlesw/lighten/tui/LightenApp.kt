@@ -161,9 +161,11 @@ internal class LightenApp(
 
     private fun saveChoiceDialog(): Element? {
         val source = savingChoice ?: return null
-        val choice = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.draft?.get(source) ?: return null
+        val decision = (session.evaluation() as? ConfigurationEvaluation.Loaded)?.items
+            ?.firstOrNull { it.relocation.sourcePath == source }?.decision
+        val choice = decision?.oneTimeChoice ?: return null
         return confirmDialog(
-            ALWAYS_DO_THIS_TITLE, alwaysDoThis(source, choice, session.configPath), ALWAYS_DO_THIS_KEYS,
+            ALWAYS_DO_THIS_TITLE, alwaysDoThis(source, decision.rule, choice, session.configPath), ALWAYS_DO_THIS_KEYS,
             onYes = { closeSaveChoiceDialog(); save(CHOICE_NOT_SAVED) { session.saveChoice(source) } },
             onNo = ::closeSaveChoiceDialog, warning = alwaysDoThisWarning(choice),
         )
@@ -407,8 +409,9 @@ internal class LightenApp(
 
     private fun detailsKey(key: KeyEvent) {
         val item = selectedPlanItem()
-        val choices = item != null && item.availableResolutions.isNotEmpty() && session.applyModel() !is ApplyModel.Result
-        val last = if (item == null) 0 else item.availableResolutions.size - 1
+        val offered = item?.decision?.offered.orEmpty()
+        val choices = offered.isNotEmpty() && session.applyModel() !is ApplyModel.Result
+        val last = maxOf(0, offered.size - 1)
         when {
             key.isLeft() -> focus.setFocus(WORKSPACE_LIST)
             key.isUp() || key.isDown() -> {
@@ -420,7 +423,7 @@ internal class LightenApp(
                 if (choices) chooseIndex(if (key.isEnd()) last else 0, last)
                 else workspaceDetails.scroll(if (key.isEnd()) Int.MAX_VALUE else -Int.MAX_VALUE)
             }
-            key.isSelect() && choices -> resolveSelected(item.availableResolutions[detailSelectedIndex])
+            key.isSelect() && choices -> resolveSelected(offered[detailSelectedIndex])
         }
     }
 
@@ -539,7 +542,7 @@ internal class LightenApp(
         session.choose(item.relocation.sourcePath, choice)
         restoreSelection(item.relocation.sourcePath)
         // Choosing re-plans the same loaded relocations, so the list still has a selected item.
-        detailSelectedIndex = selectedPlanItem()!!.availableResolutions.indexOf(choice)
+        detailSelectedIndex = selectedPlanItem()!!.decision?.offered.orEmpty().indexOf(choice)
         workspaceDetails.followChoice()
     }
 
@@ -573,7 +576,8 @@ internal class LightenApp(
 
     private fun resetDetailSelection() {
         val item = selectedPlanItem()
-        detailSelectedIndex = item?.selectedResolution()?.let { choice -> maxOf(0, item.availableResolutions.indexOf(choice)) } ?: 0
+        // The choice in force is always one of those offered.
+        detailSelectedIndex = item?.decision?.let { decision -> decision.inForce?.let(decision.offered::indexOf) } ?: 0
         workspaceDetails.reset()
     }
 

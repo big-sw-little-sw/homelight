@@ -43,7 +43,7 @@ class PlanCommandTest {
         val expected = ConfigurationEvaluation().loadRequired(config,
             ConfigurationLoader.PathOverride(source, target))
         val rendered = StringWriter()
-        renderPlanJson(expected.plan, PrintWriter(rendered, true))
+        renderPlanJson(expected, PrintWriter(rendered, true))
         assertEquals(rendered.toString(), out.toString())
         assertEquals(source, expected.plan.relocations.first().relocation.sourcePath)
         assertEquals(root.resolve("second-source"), expected.plan.relocations.last().relocation.sourcePath)
@@ -80,6 +80,33 @@ class PlanCommandTest {
         assertTrue(output.contains("\"outcome\":\"unchanged\""))
         assertTrue(output.contains("\"relocations\":["))
         assertTrue(output.contains("\"actions\":["))
+    }
+
+    /** A conflict's resolutions are the Workspace's choices for it, by name; none resolves a link elsewhere (#211). */
+    @Test
+    fun conflictResolutionsAreTheWorkspaceChoices(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        for (name in listOf("local/only", "home/both", "local/both", "home/ask", "local/ask", "local/elsewhere", "local/link")) {
+            Files.createDirectories(root.resolve(name))
+        }
+        Files.createSymbolicLink(root.resolve("home/link"), root.resolve("local/elsewhere"))
+        val config = root.resolve("config.json")
+        val relocations = listOf("only" to "", "both" to "", "ask" to ", \"when-source-and-target-directories-exist\": \"adopt\"", "link" to "")
+            .joinToString(",\n") { (name, rule) ->
+                "{\"source-path\": \"${root.resolve("home/$name")}\", \"target-path\": \"${root.resolve("local/$name")}\"$rule}"
+            }
+        Files.writeString(config, "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": [$relocations]}}\n")
+        val command = LightenCommand.createCommandLine()
+        val out = StringWriter()
+        command.setOut(PrintWriter(out, true))
+
+        assertEquals(0, command.execute("plan", "-c", config.toString(), "--json"))
+        val both = "[\"adopt-and-discard-source\",\"adopt-and-archive-source\",\"leave-unchanged\",\"discard-both\"]"
+        assertEquals(
+            listOf("[\"adopt-target\"]", both, both, "[]"),
+            Regex("\"resolutions\":(\\[[^]]*])").findAll(out.toString()).map { it.groupValues[1] }.toList(),
+            out.toString(),
+        )
     }
 
     @Test

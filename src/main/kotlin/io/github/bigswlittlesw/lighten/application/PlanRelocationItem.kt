@@ -1,9 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
 import io.github.bigswlittlesw.lighten.config.Relocation
-import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
-import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
-import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
@@ -13,10 +10,11 @@ import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 
 /**
- * An evaluated relocation item combining configuration, observations, dry-run actions, and available decisions.
+ * An evaluated relocation item combining configuration, observations, dry-run actions, and what decides it.
  *
- * `choiceAvoidsFolder` is true when the plan is blocked only by a folder in the way and one of
- * `availableResolutions` plans without that block.
+ * `decision` is null when no rule governs the case observed now, or when the relocation takes no choice (a source
+ * configured twice). `choiceAvoidsFolder` is true when the plan is blocked only by a folder in the way and one of
+ * the offered choices plans without that block.
  */
 data class PlanRelocationItem(
     val relocation: Relocation,
@@ -24,7 +22,7 @@ data class PlanRelocationItem(
     val targetObservation: PathObservation,
     val plan: RelocationPlan,
     val sourceState: RelocationSourceState,
-    val availableResolutions: List<DecisionChoice>,
+    val decision: RelocationDecision?,
     val choiceAvoidsFolder: Boolean = false,
 ) {
     fun badge(): PlanBadge {
@@ -86,19 +84,4 @@ data class PlanRelocationItem(
     fun hasConflict(): Boolean = plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED
 
     fun isBlocked(): Boolean = badge() == PlanBadge.BLOCKED || badge() == PlanBadge.INACCESSIBLE
-
-    /** The decision the saved rules already make, or null while they ask each time. */
-    fun selectedResolution(): DecisionChoice? = when (relocation.whenSourceAndTargetDirectoriesExist) {
-        WhenSourceAndTargetDirectoriesExist.ADOPT -> when (relocation.whenAdoptingTarget) {
-            WhenAdoptingTarget.DISCARD_SOURCE -> DecisionChoice.ADOPT_AND_DISCARD_SOURCE
-            WhenAdoptingTarget.ARCHIVE_SOURCE -> DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
-            WhenAdoptingTarget.PROMPT -> null
-        }
-        WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED -> DecisionChoice.LEAVE_UNCHANGED
-        WhenSourceAndTargetDirectoriesExist.DISCARD -> DecisionChoice.DISCARD_BOTH
-        WhenSourceAndTargetDirectoriesExist.PROMPT -> when (relocation.whenOnlyTargetExists) {
-            WhenOnlyTargetExists.ADOPT_TARGET -> DecisionChoice.ADOPT_TARGET
-            WhenOnlyTargetExists.PROMPT -> null
-        }
-    }
 }

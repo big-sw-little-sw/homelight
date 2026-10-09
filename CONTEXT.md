@@ -26,7 +26,7 @@ Code: `target-root`, `source-root` in `LightenFile`.
 
 **Rule**:
 A saved setting that decides what happens for one observed state of a relocation, every time. "Ask each time" is the default.
-Code: `WhenOnlyTargetExists`, `WhenSourceAndTargetDirectoriesExist`, `WhenAdoptingTarget`; "Ask each time" is `PROMPT`.
+Code: `WhenOnlyTargetExists`, `WhenSourceAndTargetDirectoriesExist`, `WhenAdoptingTarget` ("Ask each time" is `PROMPT`); the Both exist pair as one value is `BothExistRule`, the rule for the case observed now `GoverningRule`.
 _Avoid_: policy (in user-facing text)
 
 **Ignored**:
@@ -47,7 +47,7 @@ _Avoid_: conflict (in user-facing text)
 
 **One-time choice**:
 A decision for one relocation that holds for the next apply only. Checking again or applying forgets it; saving it makes it the rule.
-Code: `DecisionChoice`, held by `LightenSession`.
+Code: `DecisionChoice`, held by `LightenSession`; with the rule it replaces, `RelocationDecision` (`relocationDecision`). `plan --json` lists them as a conflict's `resolutions`.
 _Avoid_: override, resolution
 
 **Blocked**:

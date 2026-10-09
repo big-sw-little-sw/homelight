@@ -17,6 +17,7 @@ import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.input.TextInputState
 import dev.tamboui.widgets.select.Select
 import dev.tamboui.widgets.select.SelectState
+import io.github.bigswlittlesw.lighten.application.BothExistRule
 import io.github.bigswlittlesw.lighten.application.BrowseDraft
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.Suggestions
@@ -201,8 +202,7 @@ internal class ConfigurationView private constructor(
 
     private fun value(field: Field, row: Int, interactive: Boolean): Element = when (field) {
         Field.BOTH_EXIST -> {
-            val relocation = relocation(row)
-            choice(BOTH_EXIST_CHOICES.map { (both, adopting) -> bothExistLabel(both, adopting) }, bothExistIndex(relocation), field.id, interactive)
+            choice(BothExistRule.entries.map(::bothExistLabel), bothExistRule(relocation(row)).ordinal, field.id, interactive)
         }
         Field.ONLY_TARGET ->
             choice(WhenOnlyTargetExists.entries.map(::onlyTargetLabel), relocation(row).whenOnlyTargetExists.ordinal, field.id, interactive)
@@ -362,13 +362,14 @@ internal class ConfigurationView private constructor(
         val relocation = relocation(row)
         val next = when (field) {
             Field.BOTH_EXIST -> {
-                val (both, adopting) = BOTH_EXIST_CHOICES[(bothExistIndex(relocation) + delta).mod(BOTH_EXIST_CHOICES.size)]
-                // A value that does not keep the target leaves the source's rule meaningless, so it goes back to what
-                // the file had: choosing the loaded value again is then no change.
+                val values = BothExistRule.entries
+                val rule = values[(bothExistRule(relocation).ordinal + delta).mod(values.size)]
+                // A value that does not keep the target leaves the source's field as the file had it: choosing the
+                // loaded value again is then no change.
                 val loadedAdopting = origins[row - 1]?.let { loaded.relocations[it].whenAdoptingTarget } ?: WhenAdoptingTarget.PROMPT
                 relocation.copy(
-                    whenSourceAndTargetDirectoriesExist = both,
-                    whenAdoptingTarget = if (both == WhenSourceAndTargetDirectoriesExist.ADOPT) adopting else loadedAdopting,
+                    whenSourceAndTargetDirectoriesExist = rule.both,
+                    whenAdoptingTarget = rule.adopting ?: loadedAdopting,
                 )
             }
             Field.ONLY_TARGET -> {
@@ -712,23 +713,8 @@ private fun resolved(value: String, name: String): Resolved = try {
 /** A relocation as the list names it: its source as written. */
 private fun name(relocation: RelocationFile): String = literal(relocation.sourcePath).ifBlank { NEW_RELOCATION }
 
-/**
- * The **Both exist** values in screen order. The file keeps them in two fields; a value that does not keep the
- * target sets the source's field back to the file's value (see [ConfigurationView.key]), so its second half is ignored.
- */
-private val BOTH_EXIST_CHOICES = listOf(
-    WhenSourceAndTargetDirectoriesExist.PROMPT to WhenAdoptingTarget.PROMPT,
-    WhenSourceAndTargetDirectoriesExist.ADOPT to WhenAdoptingTarget.DISCARD_SOURCE,
-    WhenSourceAndTargetDirectoriesExist.ADOPT to WhenAdoptingTarget.ARCHIVE_SOURCE,
-    WhenSourceAndTargetDirectoriesExist.ADOPT to WhenAdoptingTarget.PROMPT,
-    WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED to WhenAdoptingTarget.PROMPT,
-    WhenSourceAndTargetDirectoriesExist.DISCARD to WhenAdoptingTarget.PROMPT,
-)
-
-private fun bothExistIndex(relocation: RelocationFile): Int = BOTH_EXIST_CHOICES.indexOfFirst { (both, adopting) ->
-    both == relocation.whenSourceAndTargetDirectoriesExist &&
-        (both != WhenSourceAndTargetDirectoriesExist.ADOPT || adopting == relocation.whenAdoptingTarget)
-}
+private fun bothExistRule(relocation: RelocationFile): BothExistRule =
+    BothExistRule.of(relocation.whenSourceAndTargetDirectoriesExist, relocation.whenAdoptingTarget)
 
 /** TamboUI's `Select` for one value among `options`, focusable as `id`: ←/→ change it (see [ConfigurationView.key]). */
 private fun choice(options: List<String>, index: Int, id: String, focusable: Boolean): Element {
