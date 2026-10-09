@@ -294,11 +294,9 @@ class LightenAppTest {
 
         assertEquals(0, ui.app.selectedIndex())
 
-        // Move down
         ui.press(KeyCode.DOWN)
         assertEquals(1, ui.app.selectedIndex())
 
-        // Move down with DOWN key
         ui.press(KeyCode.DOWN)
         assertEquals(2, ui.app.selectedIndex())
 
@@ -306,15 +304,12 @@ class LightenAppTest {
         ui.press(KeyCode.DOWN)
         assertEquals(2, ui.app.selectedIndex())
 
-        // Move up
         ui.press(KeyCode.UP)
         assertEquals(1, ui.app.selectedIndex())
 
-        // Jump to end
         ui.press(KeyCode.END)
         assertEquals(2, ui.app.selectedIndex())
 
-        // Jump to start
         ui.press(KeyCode.HOME)
         assertEquals(0, ui.app.selectedIndex())
 
@@ -324,7 +319,7 @@ class LightenAppTest {
         ui.press(KeyCode.PAGE_UP)
         assertEquals(0, ui.app.selectedIndex())
 
-        // Cannot move before 0
+        // Cannot move before the first row
         ui.press(KeyCode.UP)
         assertEquals(0, ui.app.selectedIndex())
 
@@ -339,29 +334,28 @@ class LightenAppTest {
         val session = session(temporary, inSync = listOf("source2", "source3"), conflicts = listOf("source1"))
         val ui = HeadlessTui(session)
 
-        // When there is an unresolved item, showInSync defaults to false
+        // While a relocation needs a choice, in-sync rows start hidden.
         assertFalse(ui.app.showInSync)
         assertEquals(0, ui.app.selectedIndex())
         // The count is in the list's title, where the selection cannot land
         val screen = ui.screen(80, 24)
         assertTrue(screen.contains("┏Relocations · c: show 2 in sync"), screen)
 
-        // Moving down stays at 0 because only 1 active item is visible
+        // Only the row that needs a choice is listed, so moving down stays on it.
         ui.press(KeyCode.DOWN)
         assertEquals(0, ui.app.selectedIndex())
 
-        // Press 'c' to toggle showInSync to true
         ui.press('c')
         assertTrue(ui.app.showInSync)
         assertTrue(ui.screen(80, 24).contains("┏Relocations · c: hide 2 in sync"))
 
-        // Now all 3 items are navigable
+        // Now all three rows can be selected.
         ui.press(KeyCode.DOWN)
         assertEquals(1, ui.app.selectedIndex())
         ui.press(KeyCode.DOWN)
         assertEquals(2, ui.app.selectedIndex())
 
-        // Press SPACE to toggle showInSync back to false
+        // `c` hides them again, and the selection goes back to the first row.
         ui.press('c')
         assertFalse(ui.app.showInSync)
         assertEquals(0, ui.app.selectedIndex())
@@ -463,7 +457,6 @@ class LightenAppTest {
         assertTrue(ui.app.session.hasConflicts())
         assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // Press TAB to focus detail pane
         ui.press(KeyCode.TAB)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
         assertEquals(0, ui.app.detailSelectedIndex)
@@ -472,7 +465,7 @@ class LightenAppTest {
         assertEquals(Screen.WORKSPACE, ui.app.activeScreen)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // Press SPACE in detail pane to resolve highlighted decision
+        // Space picks the focused choice, so the plan is ready to review.
         ui.press(' ')
         assertFalse(ui.app.session.hasConflicts())
         assertTrue(ui.app.session.isPlanReady())
@@ -512,44 +505,39 @@ class LightenAppTest {
         assertEquals(WORKSPACE_LIST, ui.focused())
         assertEquals(0, ui.app.selectedIndex())
 
-        // Right moves focus to the DETAIL pane
+        // → moves focus to Details.
         ui.press(KeyCode.RIGHT)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
         assertEquals(0, ui.app.detailSelectedIndex)
 
-        // Down moves through the resolution options
+        // ↓ and ↑ move through the choices.
         ui.press(KeyCode.DOWN)
         assertEquals(1, ui.app.detailSelectedIndex)
 
-        // Down again
         ui.press(KeyCode.DOWN)
         assertEquals(2, ui.app.detailSelectedIndex)
 
-        // Up moves back
         ui.press(KeyCode.UP)
         assertEquals(1, ui.app.detailSelectedIndex)
 
-        // Left returns to the MASTER pane
+        // ← returns to the list.
         ui.press(KeyCode.LEFT)
         assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // In MASTER pane, move down to second relocation
         ui.press(KeyCode.DOWN)
         assertEquals(1, ui.app.selectedIndex())
 
-        // Focus DETAIL pane with RIGHT arrow
         ui.press(KeyCode.RIGHT)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // Select resolution (Enter) on second item
+        // Enter picks a choice for the second relocation and keeps focus on Details.
         ui.press(KeyCode.ENTER)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // Return to master with LEFT arrow
         ui.press(KeyCode.LEFT)
         assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // Tab moves focus to the details pane
+        // Tab moves focus to Details
         ui.press(KeyCode.TAB)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
@@ -564,7 +552,7 @@ class LightenAppTest {
         val ui = HeadlessTui(session)
         assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // Read-only details remain accessible without choices.
+        // Details take focus even when there are no choices.
         ui.press(KeyCode.TAB)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
@@ -600,21 +588,19 @@ class LightenAppTest {
         assertEquals(0, ui.app.selectedIndex())
         assertEquals(WORKSPACE_LIST, ui.focused())
 
-        // Focus the detail pane with Right
         ui.press(KeyCode.RIGHT)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
         assertEquals(0, ui.app.detailSelectedIndex) // 0 is ADOPT_AND_DISCARD_SOURCE
 
-        // Move past ADOPT_AND_ARCHIVE_SOURCE to choice 2: LEAVE_UNCHANGED (Unchanged)
+        // Choice 2 is LEAVE_UNCHANGED, Leave both as they are.
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.DOWN)
         assertEquals(2, ui.app.detailSelectedIndex)
 
-        // Select it (Space)
         ui.press(' ')
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // The item must stay selected and visible as SKIPPED
+        // The relocation stays selected and shows as Left as is.
         assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation()).let { configured ->
             val visible = WorkspaceView.visibleItems(configured, ui.app.showInSync)
             assertTrue(visible.size >= 2)
@@ -624,27 +610,25 @@ class LightenAppTest {
             assertEquals(2, ui.app.detailSelectedIndex)
         }
 
-        // Return to the master list with Left
+        // Back on the list: left as is sorts below the relocation that still needs a choice, now first.
         ui.press(KeyCode.LEFT)
         assertEquals(WORKSPACE_LIST, ui.focused())
         assertEquals(1, ui.app.selectedIndex())
 
-        // Move up to unresolved conflict item (source2 is at index 0)
         ui.press(KeyCode.UP)
         assertEquals(0, ui.app.selectedIndex())
 
-        // Move into the detail pane with Right
         ui.press(KeyCode.RIGHT)
         assertEquals(WORKSPACE_DETAILS, ui.focused())
 
-        // Select choice 3: DISCARD_BOTH (index 3)
+        // Choice 3 is DISCARD_BOTH, Delete both, start empty.
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.DOWN)
         ui.press(KeyCode.DOWN)
         assertEquals(3, ui.app.detailSelectedIndex)
         ui.press(KeyCode.ENTER)
 
-        // The second item must stay selected and have DISCARD badge
+        // That relocation stays selected and shows as Delete.
         assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, ui.app.session.evaluation()).let { configured ->
             val visible = WorkspaceView.visibleItems(configured, ui.app.showInSync)
             val currentItem = visible[ui.app.selectedIndex()]

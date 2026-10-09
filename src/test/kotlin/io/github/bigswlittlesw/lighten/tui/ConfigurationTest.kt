@@ -20,7 +20,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Configuration creates and edits the file end to end (tui-design §7), through real sessions and TamboUI's focus. */
+/** Configuration creates and edits the file end to end, through real sessions and TamboUI's focus. */
 class ConfigurationTest {
     @TempDir lateinit var temporary: Path
 

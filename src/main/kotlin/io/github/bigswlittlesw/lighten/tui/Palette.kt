@@ -4,7 +4,8 @@ import dev.tamboui.style.AnsiColor
 import dev.tamboui.style.Color
 
 /**
- * The TUI's colors by role. Views name roles only; `docs/tui-design.md` §4 says what each role is for.
+ * The TUI's colors by role. Views name roles only. `docs/tui-design.md` lists the same colors and what each role is
+ * for, so change both together.
  *
  * Lighten paints [background] itself, so these colors never depend on the terminal's own background.
  */

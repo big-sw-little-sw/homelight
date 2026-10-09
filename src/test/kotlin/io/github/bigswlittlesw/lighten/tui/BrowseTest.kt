@@ -51,7 +51,8 @@ class BrowseTest {
             escape(ui); key(ui, 'b')
             Files.copy(Path.of("src/test/resources/suggestion-lists/shared-refreshed.json"), root.resolve("shared.json"), StandardCopyOption.REPLACE_EXISTING)
             key(ui, 'r'); await(workers, ui)
-            // Refresh while inspecting does not leave details or erase the row; the dropped list entry is not recalled.
+            // Checking again while inspecting keeps Details open and the row listed. The list no longer has the entry,
+            // so no list suggests it now.
             val details = all(ui)
             assertTrue(details.contains("No list suggests it."), details)
             assertTrue(details.contains("In the configuration"), details)
@@ -162,7 +163,7 @@ class BrowseTest {
             key(ui, 'b'); await(workers, ui); choose(ui, "absent-cache")
             assertTrue(render(ui).contains("Space: Add"))
             assertTrue(render(ui).contains("○ absent-cache"))
-            // The row says why it is unusual (tui-design §8).
+            // The row's note says why it is unusual: the directory is not created yet.
             assertTrue(render(ui).contains("absent-cache                  not created yet"), render(ui))
             enter(ui)
             val details = all(ui)

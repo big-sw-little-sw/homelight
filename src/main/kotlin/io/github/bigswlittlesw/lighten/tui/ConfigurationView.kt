@@ -43,10 +43,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * The Configuration screen: one editor that creates the configuration file or changes the one that exists
- * (tui-design §7). The draft is the file's own shape, so `~` and `${USER}` stay as written and the loader stays the
- * one owner of path rules: the screen resolves its fields with the loader's functions, and saving checks the draft
- * with the loader itself.
+ * The Configuration screen: one editor that creates the configuration file or changes the one that exists. The draft
+ * has the file's own shape, so `~` and `${USER}` stay as written. The loader is the one owner of path rules: the
+ * screen resolves its fields with the loader's functions, and saving checks the draft with the loader itself.
  *
  * Focus is TamboUI's: the list and each field have their own id, Tab moves through them in order, and a focused
  * text input takes its own keys first. [key] gets the keys they leave. Everything here runs on the UI thread;
@@ -84,7 +83,8 @@ internal class ConfigurationView private constructor(
     private val list: ListElement<Any> = ListElement<Any>().id(CONFIG_LIST)
         .scrollbar(ScrollBarPolicy.AS_NEEDED).scrollbarThumbColor(palette.focus).scrollbarTrackColor(palette.dim)
         .highlightSymbol("").highlightStyle(Style.EMPTY).autoScroll()
-    // The text inputs hold the fields of one list row. The draft takes their text before anything reads it (pull).
+    // The text inputs hold the fields of one list row. [pull] copies their text into the draft before anything reads
+    // it.
     private val inputs: Map<Field, TextInputState> = Field.entries.filter { it.text }.associateWith { TextInputState() }
     private var shownRow = -1
     private var focusedLastFrame: String? = null
@@ -99,7 +99,8 @@ internal class ConfigurationView private constructor(
     // Sources taken out in this Browse visit; see [BrowseDraft].
     private var kept = setOf<Path>()
     private var suggestions: Suggestions? = null
-    // A new file opens Browse once, when the user first leaves the storage locations (decision 2026-10-08).
+    // A new file opens Browse once, when the user first leaves the storage locations. Most users fill the file from
+    // the built-in suggestions, and a help line alone made them easy to miss.
     private var browseOnFirstLeave = loadedBytes == null
     // That Browse visit shows a note on how to add what it does not list.
     private var firstBrowse = false

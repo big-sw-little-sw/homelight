@@ -22,7 +22,7 @@ import java.nio.file.Path
 import java.util.concurrent.Executor
 
 /**
- * Every path on screen shows the home directory as `~` (#201): no screen, dialog, Help page or human-readable CLI
+ * Every path on screen shows the home directory as `~`: no screen, dialog, Help page or human-readable CLI
  * message may show the home directory's absolute path, while `--json` keeps every path in full. The home directory is
  * a temporary one, so its absolute path is known; the fixtures write their paths with `~/` as a user does.
  *

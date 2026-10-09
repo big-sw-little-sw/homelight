@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** `s: Always do this` on the Workspace saves a one-time choice as the relocation's rule (tui-design §5). */
+/** `s: Always do this` on the Workspace saves a one-time choice as the relocation's rule. */
 class AlwaysDoThisTest {
     @TempDir lateinit var temporary: Path
     private lateinit var root: Path

@@ -192,8 +192,8 @@ class WorkspaceViewTest {
     }
 
     /**
-     * With only the target there, `●` marks Keep target, link source whether a rule or a one-time choice makes it,
-     * whatever the Both exist rule says (#211).
+     * With only the target there, `●` marks Keep target, link source, whether a rule or a one-time choice makes it.
+     * The Both exist rule does not change that.
      */
     @Test
     fun onlyTheTargetMarksTheRuleOrChoiceInForceOverAnyBothExistRule() {
@@ -269,10 +269,11 @@ class WorkspaceViewTest {
             for (row in screen.split("\n")) {
                 var start = row.indexOf('│', width * 45 / 100 - 1)
                 if (start < 0) continue
-                // Adjacent panel borders; preserve character-wrapped text without introducing spaces.
+                // Where two panel borders touch, start after the second, so text wrapped by character joins without
+                // added spaces.
                 if (start + 1 < row.length && row[start + 1] == '│') start++
                 val end = row.lastIndexOf('│')
-                // Java's stripTrailing: Kotlin hides it, and Kotlin's trimEnd also strips no-break spaces.
+                // Java's stripTrailing, which Kotlin hides. Kotlin's plain trimEnd would also strip no-break spaces.
                 if (end > start) text.append(row.substring(start + 1, end).replace("█", "").replace("│", "").trimEnd { Character.isWhitespace(it) })
             }
             return text.toString()
