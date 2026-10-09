@@ -69,6 +69,14 @@ EOF
 cat > "$R/relative-path.json" <<EOF
 {"lighten": {"target-root": "local", "relocations": [{"source-path": "$R/home/cache-a"}]}}
 EOF
+# A named pipe stops the copy; the copy reads its type through the unix:mode attribute.
+mkdir -p "$R/home/cache-p/sub"
+mkfifo "$R/home/cache-p/sub/ipc"
+cat > "$R/pipe.json" <<EOF
+{"lighten": {"target-root": "$R/local", "relocations": [
+  {"source-path": "$R/home/cache-p", "target-path": "$R/local/cache-p"}
+]}}
+EOF
 cat > "$R/missing-key.json" <<EOF
 {"lighten": {"relocations": [{"source-path": "$R/home/cache-a"}]}}
 EOF
@@ -127,6 +135,7 @@ step update-check-and-version update --check --version 1.2.3
 step status-json -c "$R/config.json" status --json
 step plan-json -c "$R/config.json" plan --json
 step plan-override -c "$R/config.json" plan --json --source-path "$R/home/other" --target-path "$R/local/other"
+step pipe-apply -c "$R/pipe.json" apply --json --yes
 step conflict-apply -c "$R/conflict.json" apply --json --yes
 step apply-no-yes -c "$R/config.json" apply --json
 step tui-non-tty -c "$R/config.json" status

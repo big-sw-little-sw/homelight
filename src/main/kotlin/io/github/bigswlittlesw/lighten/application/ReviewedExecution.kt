@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.lighten.application
 
-import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
@@ -87,20 +86,18 @@ class ReviewedExecution(
         }
         val result = executor.execute(plan, object : ReconciliationExecutor.ProgressListener {
             override fun started(relocation: RelocationPlan, action: ReconciliationAction) {
-                updateStep(relocation, action, ApplyModel.StepStatus.RUNNING, "Running")
+                updateStep(ApplyModel.Step(relocation, action, ApplyModel.StepStatus.RUNNING, "Running"))
                 if (action.mutatesFilesystem) {
                     pauseForVisualTesting()
                 }
             }
 
             override fun finished(relocation: RelocationPlan, action: ReconciliationExecutor.ActionExecution) {
-                updateStep(relocation, action.action, stepStatus(action.status), action.message, action.failure)
+                updateStep(executedStep(relocation, action))
             }
         })
         val steps = result.relocations.flatMap { relocation ->
-            relocation.actions.map { action ->
-                ApplyModel.Step(relocation.relocation, action.action, stepStatus(action.status), action.message, action.failure)
-            }
+            relocation.actions.map { action -> executedStep(relocation.relocation, action) }
         }
         val stale = result.relocations.any { relocation -> relocation.actions.any { it.stateDrift } }
         synchronized(this) {
@@ -123,15 +120,10 @@ class ReviewedExecution(
     }
 
     @Synchronized
-    private fun updateStep(
-        relocation: RelocationPlan, action: ReconciliationAction,
-        status: ApplyModel.StepStatus, message: String, failure: ActionFailure? = null,
-    ) {
+    private fun updateStep(updated: ApplyModel.Step) {
         val running = snapshot as? ApplyModel.Running ?: return
         val steps = running.steps.map { step ->
-            if (step.relocation === relocation && step.action === action) {
-                ApplyModel.Step(relocation, action, status, message, failure)
-            } else step
+            if (step.relocation === updated.relocation && step.action === updated.action) updated else step
         }
         snapshot = ApplyModel.Running.of(running.plan, steps, choices)
     }
@@ -155,6 +147,11 @@ internal fun pendingSteps(plan: ReconciliationPlan): List<ApplyModel.Step> =
             ApplyModel.Step(relocation, action, ApplyModel.StepStatus.PENDING, "Not started")
         }
     }
+
+private fun executedStep(relocation: RelocationPlan, execution: ReconciliationExecutor.ActionExecution) = ApplyModel.Step(
+    relocation, execution.action, stepStatus(execution.status), execution.message, execution.failure,
+    execution.skippedSockets,
+)
 
 private fun stepStatus(status: ReconciliationExecutor.ActionStatus): ApplyModel.StepStatus = when (status) {
     ReconciliationExecutor.ActionStatus.COMPLETED -> ApplyModel.StepStatus.COMPLETED

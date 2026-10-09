@@ -38,10 +38,12 @@ internal class StagingOperation private constructor(
     private val key: String, private val copy: Path, private val channel: FileChannel,
     private val stagingStep: (ReconciliationExecutor.Step, Path) -> Unit,
 ) : AutoCloseable {
-    fun stage(source: Path) {
+    /** Copies and verifies [source], and returns the sockets the copy skipped. */
+    fun stage(source: Path): List<Path> {
         Files.walkFileTree(source, copyVisitor(source, copy))
-        verifyCopy(source, copy)
+        val skippedSockets = verifyCopy(source, copy)
         stagingStep(ReconciliationExecutor.Step.COPIED, copy)
+        return skippedSockets
     }
 
     /**

@@ -11,6 +11,7 @@ import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.SpecialFileKind
 import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
@@ -414,6 +415,9 @@ internal fun failureWords(failure: ActionFailure, config: Path): String = when (
     is ActionFailure.CopyChanged ->
         "${shown(failure.entry)} changed while Lighten was copying it (${copyDifference(failure.difference)}), so " +
             "Lighten threw the copy away and moved nothing. Close any app that uses it."
+    is ActionFailure.Unmovable ->
+        "${shown(failure.entry)} is ${unmovableKind(failure.kind)}; Lighten can't move it, so it threw the copy " +
+            "away and moved nothing. Remove it, or move this folder yourself."
     is ActionFailure.PermissionsNotKept ->
         "The copy of ${shown(failure.entry)} didn't keep its permissions, so Lighten threw the copy away and moved " +
             "nothing. Check that the target's filesystem keeps Unix permissions."
@@ -436,6 +440,18 @@ internal fun failureWords(failure: ActionFailure, config: Path): String = when (
             else -> "Lighten couldn't move or copy ${shown(path)} to ${shown(other)}"
         } + ": ${lowerFirst(failure.reason)}."
     }
+}
+
+/** A completed copy that left out [sockets]: one is named, several are counted. */
+internal fun skippedSockets(sockets: List<Path>) =
+    sockets.singleOrNull()?.let { "Skipped ${shown(it)}; programs recreate it." }
+        ?: "Skipped ${sockets.size} sockets; programs recreate them."
+
+/** Only named pipes and devices stop a copy; sockets are skipped. */
+private fun unmovableKind(kind: SpecialFileKind): String = when (kind) {
+    SpecialFileKind.NAMED_PIPE -> "a named pipe"
+    SpecialFileKind.DEVICE -> "a device file"
+    SpecialFileKind.SOCKET -> "a socket"
 }
 
 private fun shown(path: Path) = displayPath(path)

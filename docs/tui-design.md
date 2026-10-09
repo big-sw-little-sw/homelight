@@ -459,6 +459,14 @@ expected and found, and the system's reason (`Lighten couldn't change ~/x: no
 space left on device.`). A failure Lighten cannot name, such as an internal
 error, shows its text as it is.
 
+A completed copy that left out sockets says so in place of its text, in the
+same colour. It names one (`Skipped ~/.local/share/zed/zed-stable.sock;
+programs recreate it.`) and counts several (`Skipped 3 sockets; programs
+recreate them.`). `apply --json` keeps the executor's text, which names them
+all. A copy that reaches a named pipe or device file fails with `~/x/ipc is
+a named pipe; Lighten can't move it, so it threw the copy away and moved
+nothing. Remove it, or move this folder yourself.`
+
 ## 7. Configuration
 
 The draft is the configuration file's own shape, validated by the same loader the

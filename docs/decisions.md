@@ -760,7 +760,7 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - **CMake left out:** it keeps no large per-user directory by default. Its package registry `~/.cmake/packages` is tiny, FetchContent works in the build tree, and CPM's `CPM_SOURCE_CACHE` is opt-in.
 - **Native TUI check:** `ci/native/setup.exp` now waits for `.cache/JetBrains`, the list's first entry, since Maven's `.m2` is no longer on Browse's first screen.
 - `[skipped: CMake, add when it gains a default per-user cache]`
-- `[skipped: Zed's whole data directory, add when Lighten moves a directory that holds a socket]`
+- `[skipped: Zed's whole data directory, add when Lighten moves a directory that holds a socket]` (done in #198)
 - `[skipped: .platformio/platforms and .platformio/.cache, add when users report them large]`
 - `[skipped: .cache/bazelisk (about 70 MB per Bazel version), add when users report versions piling up]`
 - `[skipped: .local/share/Google (Android Studio plugins), add when users report it large]`
@@ -779,6 +779,21 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 - **Hidden count while filtered** counts only found directories, so `u: Show N` matches what `u` would add.
 - `[skipped: / to filter by text, add when lists grow past two screens]`
 - `[skipped: first-run Browse with f on, add when new users report scrolling past tools they don't have]` (user decision: Browse opens with `f` off, as every other time)
+
+## 2026-10-08: The copy skips sockets and stops on named pipes and device files
+
+#198, from #191 (user decision: fix before 1.0): moving Zed's data folder failed during apply with "No such device or address" on `zed-stable.sock`, a socket Zed leaves behind when killed. The copy treated it as a file.
+
+- **One rule for the kind of file (rung 6):** `specialFileKind` reads the type bits of the `unix:mode` attribute, without following links; Java's basic attributes call sockets, pipes and devices all "other". The `unix` view exists on Linux and macOS and needs no reflection, so the native binary reads it too (`ci/native/compare.sh` applies a folder with a named pipe).
+- **Sockets are skipped (rung 2, the copy and its check):** the copy leaves them out, and `verifyCopy` agrees: it accepts a source socket with nothing at its name in the copy, and returns the sockets it saw. The replacement deletes the source as before, so none is left behind. The executor keeps them in `ActionExecution.skippedSockets`; `apply --json`'s `message` reads `completed; skipped sockets: <paths>`.
+- **Results name a skipped socket (user decision):** `Skipped ~/.local/share/zed/zed-stable.sock; programs recreate it.` in place of `completed`; several are counted, `Skipped 3 sockets; programs recreate them.`
+- **Named pipes and device files stop the copy (user decision, rung 2, #172's failures):** the copy stops before it opens one (a pipe would wait for a writer, a device can be endless), throws the copy away and publishes nothing, with `ActionFailure.Unmovable`: `~/x/ipc is a named pipe; Lighten can't move it, so it threw the copy away and moved nothing. Remove it, or move this folder yourself.` `verifyCopy` refuses one too, in case it appeared after the copy passed it.
+- **No plan-time block (user decision):** the first version of this PR walked the source at plan time, where a copy was planned, and blocked the move like #163's non-folder block. Inspection walks no source tree otherwise, and this walk (a directory read and one `lstat` per entry) ran on every check: start, `r`, after apply, `plan`, `status`, `apply`, on the TUI's thread. Measured warm with Java's `walkFileTree`, 300,000 files took 0.85 s on Linux (ext4 under OrbStack) and about 10 s on macOS (APFS, `~/Library/Caches`); a cold cache or network storage is slower. Pipes and devices in a cache are rare, and the copy's failure is safe and says what to do, so planning stays as light as before.
+- `[skipped: plan-time block for pipes and devices, add when a user hits one; it costs a walk of every pending move's tree on every check, measured above]`
+- `[skipped: saying in Review that sockets will be skipped, add when users are surprised by it in Results]`
+- `[skipped: a socket in the native comparison, add when CI containers have a tool that makes one; the pipe exercises the same mode check]`
+
+Rejected: copying a socket as an empty file (programs refuse to bind over it); skipping pipes like sockets (programs use them for data and do not always recreate them).
 
 ## How to add decisions
 
