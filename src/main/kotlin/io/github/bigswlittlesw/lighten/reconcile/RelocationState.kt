@@ -4,6 +4,7 @@ import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.realSpelling
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -14,6 +15,10 @@ import java.nio.file.Path
  * `replacedSource` is the observation at [replacedSourcePath]; null when it was not observed, which plans as absent.
  * `notFolders` maps each folder an action may create or work in to what is in its way (see [inspectFolders]); a
  * folder with no entry plans as usable.
+ * `realSpellings` maps the source and target, as written, to their [realSpelling]s, so the planner can find overlap
+ * through a link without reading the disk. A path with no entry compares as written, so a copy with other paths
+ * never carries stale spellings.
+ * `stagingElsewhere` is whether the staging root is on another filesystem than the target ([stagingElsewhere]).
  */
 data class RelocationState(
     val relocation: Relocation,
@@ -22,6 +27,8 @@ data class RelocationState(
     val archiveDestination: ArchiveDestination? = null,
     val replacedSource: PathObservation? = null,
     val notFolders: Map<Path, NotAFolder> = mapOf(),
+    val realSpellings: Map<Path, Path> = mapOf(),
+    val stagingElsewhere: Boolean = false,
 ) {
     /** The no-follow observation of the source's archive destination, chosen by [inspectArchiveDestinations]. */
     data class ArchiveDestination(val path: Path, val observation: PathObservation)
@@ -39,8 +46,27 @@ internal fun inspectRelocations(
             relocation, inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
             inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
             inspectFolders(relocation, archive.path, inspect),
+            listOf(relocation.sourcePath, relocation.targetPath).associateWith(::realSpelling), stagingElsewhere(relocation),
         )
     }
+
+/**
+ * Whether the staging root and the target's parent are on different filesystems, compared as the executor compares
+ * them before a copy: the file store of each one's nearest existing ancestor. Two store lookups, no folder walk, so
+ * every check can afford it. A path whose store can't be read counts as the same filesystem: the folder check or
+ * the copy-time check reports it.
+ */
+internal fun stagingElsewhere(relocation: Relocation): Boolean {
+    val targetParent = relocation.targetPath.toAbsolutePath().normalize().parent ?: return false
+    val stagingRoot = effectiveStagingRoot(relocation.targetPath, relocation.stagingRoot)
+    return try {
+        fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)
+    } catch (_: IOException) {
+        false
+    } catch (_: EnvironmentException) {
+        false
+    }
+}
 
 /**
  * Finds what would stop the executor from making or using each folder a plan may need: the parents of

@@ -18,14 +18,19 @@ import java.util.concurrent.Executors
 class DiscoverySettingTest {
     @TempDir lateinit var temporary: Path
 
-    @Test fun normalizesLocationWithoutInspectingItAndRejectsNonFilesystemInput() {
-        assertNull(parseSharedList("  "))
-        assertEquals(temporary.resolve("missing.json"),
-                parseSharedList(temporary.resolve("absent/../missing.json").toString()))
-        assertEquals(Path.of(System.getProperty("user.home"), "shared.json").normalize(),
-                parseSharedList("~/folder/../shared.json"))
-        for (invalid in listOf("relative.json", "../relative.json", "https://example.com/list", "\$HOME/list", "\${HOME}/list", "/tmp/\$LIST", "/tmp/list\n")) {
-            assertThrows<IllegalArgumentException>(invalid) { parseSharedList(invalid) }
+    /** The same rules as every other path (#207): `~`, `~/` and `${USER}` expand, and the result must be full. */
+    @Test fun followsThePathRulesOfEveryOtherPathWithoutInspectingIt() {
+        fun list(value: String) =
+            ConfigurationLoader().configuration(LightenFile(targetRoot = "/local", suggestionList = value)).sharedList
+        val home = Path.of(System.getProperty("user.home"))
+        assertNull(list("  "))
+        assertEquals(temporary.resolve("missing.json"), list(temporary.resolve("absent/../missing.json").toString()))
+        assertEquals(home.resolve("shared.json"), list("~/folder/../shared.json"))
+        assertEquals(home, list("~"))
+        assertEquals(Path.of("/net/${userName()}/list.json"), list("/net/\${USER}/list.json"))
+        for (invalid in listOf("relative.json", "../relative.json", "https://example.com/list", "\$HOME/list", "\${HOME}/list")) {
+            assertEquals("lighten.suggestion-list: $FULL_PATH",
+                assertThrows<ConfigurationException>(invalid) { list(invalid) }.text.toString())
         }
     }
 

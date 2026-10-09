@@ -1,12 +1,10 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
-import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.config.defaultArchiveRoot
-import io.github.bigswlittlesw.lighten.config.validateConfiguration
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
@@ -15,7 +13,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -285,45 +282,139 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun blocksInaccessibleSourcesAndOverlappingRelocations(@TempDir root: Path) {
+    fun blocksInaccessibleSources(@TempDir root: Path) {
         val relocation = Relocation(root.resolve("home/cache"), root.resolve("local/cache"))
-        val inaccessible = RelocationState(relocation,
-                PathObservation(
-                        PathState.INACCESSIBLE),
-                PathObservation(
-                        PathState.ABSENT))
-        val inaccessiblePlan = ReconciliationPlanner().plan(listOf(inaccessible))
+        val inaccessible = RelocationState(relocation, PathObservation(PathState.INACCESSIBLE), PathObservation(PathState.ABSENT))
 
-        val parent = Relocation(root.resolve("home/parent"), root.resolve("local/parent"))
-        val child = Relocation(root.resolve("home/parent/child"), root.resolve("local/child"))
-        val overlapPlan = ReconciliationPlanner().plan(states(listOf(parent, child)))
+        assertTrue(ReconciliationPlanner().plan(listOf(inaccessible)).hasBlockedActions())
+    }
 
-        assertTrue(inaccessiblePlan.hasBlockedActions())
-        assertTrue(overlapPlan.hasBlockedActions())
-        assertEquals("INVALID_RELOCATION", overlapPlan.diagnostics.first().code)
+    /** #207: only the relocations involved are blocked, each naming the other; the rest plan as usual. */
+    @Test
+    fun overlappingRelocationsBlockOnlyThemselvesEachNamingTheOther(@TempDir root: Path) {
+        val home = root.resolve("home")
+        val local = root.resolve("local")
+        val parent = Relocation(home.resolve("parent"), local.resolve("parent"))
+        val child = Relocation(home.resolve("parent/child"), local.resolve("child"))
+        val apart = Relocation(home.resolve("apart"), local.resolve("apart"))
+
+        val plan = ReconciliationPlanner().plan(states(listOf(parent, apart, child)))
+
+        assertEquals(PathText(home.resolve("parent"), " contains ", home.resolve("parent/child"), ", which is also a relocation").toString(),
+            blockReason(plan, 0))
+        assertEquals(listOf(ReconciliationAction.EnsureDirectory(local), ReconciliationAction.CreateDirectory(local.resolve("apart")),
+            ReconciliationAction.EnsureDirectory(home), ReconciliationAction.CreateSymlink(home.resolve("apart"), local.resolve("apart"))),
+            plan.relocations[1].actions)
+        assertEquals(PathText(home.resolve("parent/child"), " is inside ", home.resolve("parent"), ", which is also a relocation").toString(),
+            blockReason(plan, 2))
+        assertTrue(plan.diagnostics.isEmpty())
     }
 
     @Test
-    fun reportsTheSameRelocationProblemAsDraftValidation(@TempDir root: Path) {
+    fun namesTheOtherRelocationsTargetAndASharedTarget(@TempDir root: Path) {
         val home = root.resolve("home")
         val local = root.resolve("local")
-        val invalidSets = listOf(
-            listOf(Relocation(home.resolve("cache"), home.resolve("cache/local"))),
-            listOf(Relocation(home.resolve("a"), local.resolve("same")), Relocation(home.resolve("b"), local.resolve("same"))),
-            listOf(
-                Relocation(home.resolve("parent"), local.resolve("parent")),
-                Relocation(home.resolve("parent/child"), local.resolve("child")),
-            ),
-        )
-        for (relocations in invalidSets) {
-            val expected = assertThrows<ConfigurationException> {
-                validateConfiguration(relocations)
-            }.text
-            val diagnostic = ReconciliationPlanner().plan(states(relocations)).diagnostics.single()
-            assertEquals(expected, diagnostic.message)
-            assertEquals(relocations.first().sourcePath, diagnostic.source)
-            assertEquals("INVALID_RELOCATION", diagnostic.code)
-        }
+        val nested = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("a"), local.resolve("a")), Relocation(home.resolve("b"), local.resolve("a/b")),
+        )))
+        assertEquals(PathText(local.resolve("a"), " contains ", local.resolve("a/b"), ", the target of ", home.resolve("b")).toString(),
+            blockReason(nested, 0))
+        assertEquals(PathText(local.resolve("a/b"), " is inside ", local.resolve("a"), ", the target of ", home.resolve("a")).toString(),
+            blockReason(nested, 1))
+
+        val shared = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("a"), local.resolve("same")), Relocation(home.resolve("b"), local.resolve("same")),
+        )))
+        assertEquals(PathText(local.resolve("same"), " is also the target of ", home.resolve("b")).toString(), blockReason(shared, 0))
+        assertEquals(PathText(local.resolve("same"), " is also the target of ", home.resolve("a")).toString(), blockReason(shared, 1))
+
+        val twice = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("a"), local.resolve("a")), Relocation(home.resolve("a"), local.resolve("b")),
+        )))
+        assertEquals(PathText(home.resolve("a"), " is also the source of another relocation").toString(), blockReason(twice, 0))
+    }
+
+    @Test
+    fun aRelocationWhoseSourceAndTargetOverlapBlocksOnlyItself(@TempDir root: Path) {
+        val home = root.resolve("home")
+        val plan = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("cache"), home.resolve("cache/local")),
+            Relocation(home.resolve("inside/x"), home.resolve("inside")),
+            Relocation(home.resolve("same"), home.resolve("same")),
+            Relocation(home.resolve("fine"), root.resolve("local/fine")),
+        )))
+
+        assertEquals(PathText("the target ", home.resolve("cache/local"), " is inside the source ", home.resolve("cache")).toString(),
+            blockReason(plan, 0))
+        assertEquals(PathText("the source ", home.resolve("inside/x"), " is inside the target ", home.resolve("inside")).toString(),
+            blockReason(plan, 1))
+        assertEquals(PathText("the source ", home.resolve("same"), " and target ", home.resolve("same"), " are the same folder").toString(),
+            blockReason(plan, 2))
+        assertFalse(plan.relocations[3].actions.any { it is ReconciliationAction.Blocked })
+    }
+
+    /**
+     * `local` links to `real-local`, so each pair is one place under two spellings (#128). Such overlap blocks the
+     * relocations involved, as overlap as written does, instead of making the file unreadable (#207).
+     */
+    @Test
+    fun overlapThroughALinkBlocksTheRelocationsInvolved(@TempDir root: Path) {
+        val real = Files.createDirectory(root.resolve("real-local"))
+        val local = Files.createSymbolicLink(root.resolve("local"), real)
+        val home = root.resolve("home")
+
+        val shared = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("a"), local.resolve("x")), Relocation(home.resolve("b"), real.resolve("x")),
+            Relocation(home.resolve("c"), real.resolve("c")),
+        )))
+        assertEquals(PathText(local.resolve("x"), " is ", real.resolve("x"), " through a link", ", the target of ", home.resolve("b")).toString(),
+            blockReason(shared, 0))
+        assertEquals(PathText(real.resolve("x"), " is ", local.resolve("x"), " through a link", ", the target of ", home.resolve("a")).toString(),
+            blockReason(shared, 1))
+        assertFalse(shared.relocations[2].actions.any { it is ReconciliationAction.Blocked })
+
+        val self = ReconciliationPlanner().plan(states(listOf(Relocation(local.resolve("cache"), real.resolve("cache")))))
+        assertEquals(PathText("the source ", local.resolve("cache"), " and target ", real.resolve("cache"),
+            " are the same folder through a link").toString(), blockReason(self, 0))
+
+        val nested = ReconciliationPlanner().plan(states(listOf(
+            Relocation(home.resolve("a"), local.resolve("x")), Relocation(real.resolve("x/inner"), home.resolve("b")),
+        )))
+        assertEquals(PathText(local.resolve("x"), " contains ", real.resolve("x/inner"), " through a link",
+            ", which is also a relocation").toString(), blockReason(nested, 0))
+        assertEquals(PathText(real.resolve("x/inner"), " is inside ", local.resolve("x"), " through a link",
+            ", the target of ", home.resolve("a")).toString(), blockReason(nested, 1))
+    }
+
+    @Test
+    fun aStagingRootOnAnotherFilesystemBlocksOnlyAMove(@TempDir root: Path) {
+        val source = Files.createDirectories(root.resolve("home/cache"))
+        val target = root.resolve("local/cache")
+        val staging = root.resolve("local/.staging")
+        val move = RelocationState(Relocation(source, target, stagingRoot = staging),
+            PathObservation(PathState.DIRECTORY), PathObservation(PathState.ABSENT), stagingElsewhere = true)
+        val link = move.copy(relocation = move.relocation.copy(sourcePath = root.resolve("home/new"), targetPath = root.resolve("local/new")),
+            source = PathObservation(PathState.ABSENT))
+
+        val plan = ReconciliationPlanner().plan(listOf(move, link))
+
+        assertEquals(PathText("the staging folder ", staging, " is on another filesystem than ", target,
+            ", so Lighten can't move the copy there in one step. Remove the staging-root setting to copy beside each " +
+                "target, or set it to a folder on the target's filesystem").toString(), blockReason(plan, 0))
+        assertFalse(plan.relocations[1].actions.any { it is ReconciliationAction.Blocked })
+        assertFalse(ReconciliationPlanner().plan(listOf(move.copy(stagingElsewhere = false))).hasBlockedActions())
+    }
+
+    /**
+     * Inspection compares file stores as the executor does. `/dev` is its own filesystem on Linux and macOS, so a
+     * staging root under it is elsewhere; one beside the target is not.
+     */
+    @Test
+    fun inspectionFindsAStagingRootOnAnotherFilesystem(@TempDir root: Path) {
+        val target = root.resolve("local/cache")
+        assertTrue(stagingElsewhere(Relocation(root.resolve("home/cache"), target, stagingRoot = Path.of("/dev/lighten-staging"))))
+        assertFalse(stagingElsewhere(Relocation(root.resolve("home/cache"), target)))
+        assertFalse(stagingElsewhere(Relocation(root.resolve("home/cache"), target, stagingRoot = root.resolve("local/.staging"))))
     }
 
     companion object {
@@ -338,5 +429,9 @@ class ReconciliationPlannerTest {
 
         private fun states(relocations: List<Relocation>): List<RelocationState> =
             inspectRelocations(relocations, PathInspector()::inspect)
+
+        /** The one reason relocation [i] is blocked for, with every path in full. */
+        private fun blockReason(plan: ReconciliationPlan, i: Int): String =
+            plan.relocations[i].actions.filterIsInstance<ReconciliationAction.Blocked>().single().reason.toString()
     }
 }

@@ -32,7 +32,6 @@ import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.config.defaultArchiveRoot
 import io.github.bigswlittlesw.lighten.config.derivedTarget
-import io.github.bigswlittlesw.lighten.config.parseSharedList
 import io.github.bigswlittlesw.lighten.config.relocationProblem
 import io.github.bigswlittlesw.lighten.config.resolvePath
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
@@ -637,12 +636,7 @@ internal class ConfigurationView private constructor(
 
     private fun suggestionList(): Resolved {
         val value = draft.suggestionList?.takeUnless { it.isBlank() } ?: return Resolved.Empty(NO_SUGGESTION_LIST)
-        return try {
-            // Not blank, so there is a path.
-            Resolved.Found(checkNotNull(parseSharedList(value)))
-        } catch (error: IllegalArgumentException) {
-            Resolved.Problem(error.message.orEmpty())
-        }
+        return resolved(value, SUGGESTION_LIST_NAME)
     }
 
     /** A relocation's paths as the loader reads them: a blank Target derives from the roots, a blank Archive root defaults. */

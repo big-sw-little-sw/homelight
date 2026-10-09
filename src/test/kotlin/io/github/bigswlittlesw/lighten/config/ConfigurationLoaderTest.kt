@@ -275,14 +275,13 @@ class ConfigurationLoaderTest {
         assertEquals(defaultArchiveRoot(relocation.sourcePath), relocation.archiveRoot)
         assertEquals(listOf(home.resolve("ignored")), configuration.ignoredSourcePaths)
         assertEquals(Path.of("/shared/candidates.json"), configuration.sharedList)
-        // A blank shared list is the documented "none" of parseSharedList.
+        // A blank shared list means none.
         assertNull(load("""{"lighten": {"target-root": "/local", "suggestion-list": ""}}""").sharedList)
     }
 
     @Test fun expandsUserAndRequiresAnExplicitTargetOutsideTheDefaultSourceRoot() {
         val home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize()
-        val user = System.getenv().getOrDefault("USER", "")
-        assertEquals(Path.of("/local/$user"), load("""{"lighten": {"target-root": "/local/${'$'}{USER}"}}""").targetRoot)
+        assertEquals(Path.of("/local/${userName()}"), load("""{"lighten": {"target-root": "/local/${'$'}{USER}"}}""").targetRoot)
         assertEquals("A source outside source-root $home requires an explicit target-path: /outside/cache", failure("""
             {"lighten": {"target-root": "/local", "relocations": [{"source-path": "/outside/cache"}]}}
             """))
@@ -495,25 +494,40 @@ class ConfigurationLoaderTest {
     }
 
     /**
-     * `local` links to `real-local`, so each pair below is one place under two spellings (#128). Overlap visible as
-     * written stays with the planner, so such a file still loads. The fixture is not resolved with `toRealPath()`.
+     * `local` links to `real-local`, so each pair below is one place under two spellings (#128). Overlap, as written
+     * or through a link, is the planner's to block (#207), so such a file loads.
      */
-    @Test fun rejectsRelocationsThatOverlapThroughASymlink() {
+    @Test fun loadsRelocationsThatOverlap() {
         val real = Files.createDirectory(temporary.resolve("real-local"))
         val local = Files.createSymbolicLink(temporary.resolve("local"), real)
         val home = temporary.resolve("home")
         fun config(vararg pairs: Pair<Path, Path>) = """{"lighten": {"target-root": "$local", "relocations": [""" +
             pairs.joinToString { (source, target) -> """{"source-path": "$source", "target-path": "$target"}""" } + "]}}"
 
-        val sameTarget = failure(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to real.resolve("x"))).orEmpty()
-        val sourceIsTarget = failure(config(local.resolve("cache") to real.resolve("cache"))).orEmpty()
-        val nested = failure(config(home.resolve("a") to local.resolve("x"), real.resolve("x/inner") to home.resolve("b"))).orEmpty()
+        for (pairs in listOf(
+            listOf(home.resolve("a") to local.resolve("x"), home.resolve("b") to real.resolve("x")),
+            listOf(local.resolve("cache") to real.resolve("cache")),
+            listOf(home.resolve("a") to local.resolve("x"), real.resolve("x/inner") to home.resolve("b")),
+            listOf(home.resolve("a") to local.resolve("x"), home.resolve("b") to local.resolve("x")),
+        )) {
+            assertEquals(pairs.size, load(config(*pairs.toTypedArray())).relocations.size)
+        }
+    }
 
-        assertTrue(sameTarget.matches(Regex("duplicate target path: .*/real-local/x \\(through a symlink\\)")), sameTarget)
-        assertTrue(sourceIsTarget.matches(Regex("source and target paths overlap: .*/real-local/cache \\(through a symlink\\)")),
-            sourceIsTarget)
-        assertTrue(nested.startsWith("relocation paths overlap: ") && nested.endsWith("(through a symlink)"), nested)
-        assertEquals(2, load(config(home.resolve("a") to local.resolve("x"), home.resolve("b") to local.resolve("x"))).relocations.size)
+    /** #207: `USER`, else the OS account name; never empty text. */
+    @Test fun userNameFallsBackToTheAccountNameAndIsNeverEmpty() {
+        assertEquals("env", userName("env", "account"))
+        assertEquals("account", userName(null, "account"))
+        assertEquals("account", userName("", "account"))
+        assertNull(userName(null, null))
+        assertNull(userName("", ""))
+        assertEquals("/local/me", withUser("/local/\${USER}", "lighten.target-root", "me"))
+        assertEquals("/local", withUser("/local", "lighten.target-root", null))
+        assertEquals(
+            "lighten.target-root uses \${USER}, but Lighten can't find your user name: the USER environment variable " +
+                "is not set and the system gives none. Write the name instead.",
+            assertThrows<ConfigurationException> { withUser("/local/\${USER}", "lighten.target-root", null) }.text.toString(),
+        )
     }
 
     private fun load(json: String): LightenConfiguration = ConfigurationLoader().load(write(json))

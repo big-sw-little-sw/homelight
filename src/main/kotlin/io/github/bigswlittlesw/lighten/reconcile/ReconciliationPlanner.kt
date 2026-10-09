@@ -4,7 +4,6 @@ import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.config.intersects
-import io.github.bigswlittlesw.lighten.config.relocationProblem
 import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.PathText
@@ -13,21 +12,17 @@ import java.nio.file.Path
 
 /** Computes safe filesystem actions from observations and never mutates the filesystem. */
 class ReconciliationPlanner {
-    fun plan(states: List<RelocationState>): ReconciliationPlan {
-        val problem = relocationProblem(states.map { it.relocation })
-        if (problem != null) {
-            return ReconciliationPlan(
-                states.map { state -> blocked(state, PathText("relocation configuration is invalid")) },
-                listOf(
-                    ReconciliationDiagnostic(
-                        ReconciliationDiagnostic.Severity.ERROR, problem.source, "INVALID_RELOCATION", problem.message,
-                    ),
-                ),
-                states,
-            )
-        }
-        return ReconciliationPlan(states.map { state -> blockedByNotAFolder(state, plan(state)) }, listOf(), states)
-    }
+    /**
+     * One plan per state, in order. Relocations that overlap block only themselves, each naming the other
+     * ([overlapReason]); the rest plan as usual.
+     */
+    fun plan(states: List<RelocationState>): ReconciliationPlan = ReconciliationPlan(
+        states.mapIndexed { i, state ->
+            overlapReason(i, states)?.let { blocked(state, it) }
+                ?: blockedByStagingElsewhere(state, blockedByNotAFolder(state, plan(state)))
+        },
+        listOf(), states,
+    )
 
     private fun plan(state: RelocationState): RelocationPlan {
         val relocation = state.relocation
@@ -74,6 +69,103 @@ class ReconciliationPlanner {
             RelocationSourceState.OTHER -> blocked(state, PathText("source has an unsupported filesystem state"))
         }
     }
+}
+
+/**
+ * Why relocation [i] of [states] overlaps, or null: its source and target overlap, or one of its paths overlaps a
+ * path of another relocation, which it names. One inside the other counts, and so does the same path; a shared
+ * target is one case. Paths compare as written first, then by their real spellings, so `/home/u/x` and
+ * `/var/home/u/x` overlap when `/home` links to `/var/home`. Only the first overlap is named, in configuration order.
+ */
+private fun overlapReason(i: Int, states: List<RelocationState>): PathText? =
+    selfOverlap(states[i]) ?: states.withIndex().filter { it.index != i }
+        .firstNotNullOfOrNull { (_, other) -> pairOverlap(states[i], other) }
+
+private fun selfOverlap(state: RelocationState): PathText? {
+    val (source, target) = places(state)
+    val overlap = overlap(source, target) ?: return null
+    val link = overlap.link()
+    return when (overlap.relation) {
+        Relation.SAME -> PathText("the source ", source.path, " and target ", target.path, " are the same folder$link")
+        Relation.CONTAINS -> PathText("the target ", target.path, " is inside the source ", source.path, link)
+        Relation.INSIDE -> PathText("the source ", source.path, " is inside the target ", target.path, link)
+    }
+}
+
+/**
+ * The first overlap of [state]'s source or target with [other]'s, naming [other]'s path and what it is: a
+ * relocation (its source), or the target of the relocation whose source it names.
+ */
+private fun pairOverlap(state: RelocationState, other: RelocationState): PathText? {
+    val theirs = places(other)
+    for (mine in places(state)) {
+        for ((j, their) in theirs.withIndex()) {
+            val overlap = overlap(mine, their) ?: continue
+            val isSource = j == 0
+            val what: List<Any> =
+                if (isSource) listOf(", which is also a relocation") else listOf(", the target of ", other.relocation.sourcePath)
+            val words: List<Any> = when (overlap.relation) {
+                Relation.CONTAINS -> listOf(mine.path, " contains ", their.path, overlap.link()) + what
+                Relation.INSIDE -> listOf(mine.path, " is inside ", their.path, overlap.link()) + what
+                Relation.SAME -> when {
+                    overlap.throughLink -> listOf(mine.path, " is ", their.path, overlap.link()) + what
+                    isSource -> listOf(mine.path, " is also the source of another relocation")
+                    else -> listOf(mine.path, " is also the target of ", other.relocation.sourcePath)
+                }
+            }
+            return PathText(*words.toTypedArray())
+        }
+    }
+    return null
+}
+
+/** A relocation path as written and as its real spelling. */
+private data class Place(val path: Path, val real: Path)
+
+/** The source, then the target. */
+private fun places(state: RelocationState): List<Place> =
+    listOf(state.relocation.sourcePath, state.relocation.targetPath).map { Place(it, state.realSpellings[it] ?: it) }
+
+/** How the first path relates to the second: the same, containing it, or inside it. */
+private enum class Relation { SAME, CONTAINS, INSIDE }
+
+private data class Overlap(val relation: Relation, val throughLink: Boolean) {
+    fun link(): String = if (throughLink) " through a link" else ""
+}
+
+/** As written first; only when that finds none, by real spelling. */
+private fun overlap(left: Place, right: Place): Overlap? =
+    relation(left.path, right.path)?.let { Overlap(it, throughLink = false) }
+        ?: relation(left.real, right.real)?.let { Overlap(it, throughLink = true) }
+
+private fun relation(left: Path, right: Path): Relation? {
+    val first = left.toAbsolutePath().normalize()
+    val second = right.toAbsolutePath().normalize()
+    return when {
+        first == second -> Relation.SAME
+        second.startsWith(first) -> Relation.CONTAINS
+        first.startsWith(second) -> Relation.INSIDE
+        else -> null
+    }
+}
+
+/**
+ * Blocks [planned] when it copies a folder through a staging root on another filesystem than the target, as
+ * inspection found ([stagingElsewhere]): the copy could not be moved into place in one step. The executor checks
+ * again before it copies.
+ */
+private fun blockedByStagingElsewhere(state: RelocationState, planned: RelocationPlan): RelocationPlan {
+    if (!state.stagingElsewhere) return planned
+    val migration = planned.actions.filterIsInstance<ReconciliationAction.MigrateDirectoryForPublication>().firstOrNull()
+        ?: return planned
+    return blocked(
+        state,
+        PathText(
+            "the staging folder ", migration.effectiveStagingRoot, " is on another filesystem than ", migration.target,
+            ", so Lighten can't move the copy there in one step. Remove the staging-root setting to copy beside each " +
+                "target, or set it to a folder on the target's filesystem",
+        ),
+    )
 }
 
 /**

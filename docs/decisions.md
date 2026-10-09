@@ -806,6 +806,19 @@ Rejected: copying a socket as an empty file (programs refuse to bind over it); s
 - A test renders every screen, dialog and Help page at 80x24 and 200x60 with a temporary home and fails if its absolute path shows.
 - `[skipped: ~ in Configuration's fields, which show the file's text as written, add when a user wants the editor to rewrite full home paths]`
 
+## 2026-10-08: One path rule, narrower overlap blocks, staging checked at plan time
+
+#207 (user decisions), found while writing the guide's configuration reference.
+
+- **`suggestion-list` follows `resolvePath` (rung 1, reuse):** it accepts `~`, `~/` and `${USER}` like every other path, and a relative one gets the same `Use a full path, or one starting with ~/`. Blank still means none. `parseSharedList` and `normalizeSharedList` are deleted; Configuration's Resolved line uses the same `resolved` as the other fields.
+- **Overlap blocks only the relocations involved (rung 2, the planner):** each one gets its own `Blocked` reason naming the other path, and what it is: `~/a contains ~/a/b, which is also a relocation`, `~/a/b is inside ~/a, the target of ~/b`, `/s/x is also the target of ~/b`. A relocation whose own source and target overlap blocks only itself: `the target ~/c/t is inside the source ~/c`. Only the first overlap is named, in configuration order. The plan-wide `INVALID_RELOCATION` diagnostic and the `relocation configuration is invalid` block are gone; `plan --json` carries the reasons per relocation. Any block still keeps Review closed, so nothing is applied until it is fixed.
+- **Overlap through a link loads (rung 2):** inspection records each source's and target's `realSpelling` in `RelocationState.realSpellings`, keyed by the path as written, so a draft copy with other paths cannot reuse stale spellings. The planner, which stays pure, compares as written first, then by real spelling, and says `through a link`. The loader no longer refuses such a file; `aliasedRelocationProblem` is deleted.
+- **Saving still refuses overlap:** Configuration's save and `validateConfiguration` keep `relocationProblem`, so Lighten never writes a file with relocations that overlap as written.
+- **Staging on another filesystem is blocked at plan time (rung 2, reuse):** inspection compares `fileStoreOfExistingAncestor` of the staging root and of the target's parent, the executor's own check, now `internal`. Two store lookups per relocation, no folder walk. Only a planned move is blocked, with `the staging folder … is on another filesystem than …, so Lighten can't move the copy there in one step. Remove the staging-root setting to copy beside each target, or set it to a folder on the target's filesystem`. A store that can't be read counts as the same; the copy-time check stays.
+- **`${USER}` falls back to the account name:** `USER`, else the JVM's `user.name` when `USER` is unset or empty, which comes from the OS user database and works in a native image. With neither, a path that uses it is refused naming the setting; it never expands to empty text.
+- **Choose-around-folder hint:** `choiceAvoidsFolder` plans each relocation among the others, since no choice avoids an overlap.
+- `[skipped: naming every overlapping relocation in one reason, add when users configure three or more that overlap]`
+
 ## How to add decisions
 
 Use this format:
