@@ -36,7 +36,7 @@ Every pull request into `main` runs `.github/workflows/ci.yml`. Its 7 checks are
 
 - **JVM verify:** `./gradlew build` on Ubuntu with JDK 25.
 - **Native build (x86_64), Native build (arm64):** `ci/native/build.sh` builds the native binary in a container: a static musl binary for x86_64, and a glibc 2.17 binary for arm64. It also records the JVM's output for the CLI comparison.
-- **Native test (x86_64), Native test (arm64):** `ci/native/test.sh` compares the native binary's CLI output with the JVM's, tests `lighten update` against a local release server, and drives the full-screen application under `expect`. The job summary shows the rendered screens.
+- **Native test (x86_64), Native test (arm64):** `ci/native/test.sh` compares the native binary's CLI output with the JVM's, tests `lighten update` against a local release server, and drives the full-screen application under `expect`. Then `ci/native/e2e.sh` runs the end-to-end cases: each rule and blocked state on disk, special files, an apply stopped partway (a failed step, a killed process) followed by checking and applying again, and the Workspace rows against `plan --json`. Cases listed in its `KNOWN_FAILING` show a known contract break and do not fail the job. The job summary shows the rendered screens and the case results.
 - **Native distros (x86_64), Native distros (arm64):** `ci/native/distros.sh` runs the tests in containers of older and newer Linux distributions, then `ci/install/test.sh` tests `install.sh` on them.
 
 The native jobs run on pull requests into `main` and on pushes; on a pull request into another branch, add the `native` label to run them. The scripts under `ci/native/` and `ci/install/` also run locally with Docker.
