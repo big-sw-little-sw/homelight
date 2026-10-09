@@ -436,6 +436,11 @@ Lighten looks at the source and the target, then:
 - **Neither exists:** it creates an empty target and links the source to it
   (`[Link]`).
 - **The source already links to the target:** nothing (`[In sync]`).
+- **The source links somewhere else:** nothing (`[Blocked]`). The link may
+  belong to another program, so Lighten never replaces it. Details say
+  where it points, such as `~/.cache/tool links to /data/tool, not to
+  /scratch/local/tool. Remove the link, or set its target to where it
+  points.` Then press `r`.
 - **Only the target exists:** the **Only target** rule decides.
 - **Both exist:** the **Both exist** rule decides.
 
@@ -522,10 +527,12 @@ In `plan --json`, a relocation that needs a choice has a `conflict` whose
 These are choice names, not configuration values: one choice can set two
 rules, so `adopt-and-discard-source` is `adopt` with `discard-source`.
 
-`resolutions` is empty when no choice resolves it, such as a source that
-is a link to somewhere else: fix the link yourself, then plan again. To
-make a choice without the screens, save it as the rule (see **What each
-rule does on disk**).
+To make a choice without the screens, save it as the rule (see **What
+each rule does on disk**).
+
+Something no choice fixes, such as a source that links somewhere else, is
+not a conflict: its `actions` hold one step of `type` `blocked`, whose
+`reason` says what is wrong and how to fix it. Fix it, then plan again.
 
 Screens and messages show your home directory as `~`. JSON output shows
 every path in full.

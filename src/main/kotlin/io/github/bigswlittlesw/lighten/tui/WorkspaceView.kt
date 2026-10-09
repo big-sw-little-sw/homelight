@@ -370,12 +370,12 @@ internal object WorkspaceView {
                 ),
             )
             when (item.sourceState) {
-                RelocationSourceState.WRONG_SYMLINK -> add(Line("The source link points somewhere else.", palette.warn, false))
                 RelocationSourceState.BROKEN_SYMLINK ->
                     add(Line("The source link is broken: what it points to is missing.", palette.warn, false))
                 RelocationSourceState.CORRECT_SYMLINK -> add(Line("The source link already points to the target.", palette.ok, false))
-                RelocationSourceState.ABSENT, RelocationSourceState.FILE, RelocationSourceState.DIRECTORY,
-                RelocationSourceState.INACCESSIBLE, RelocationSourceState.OTHER -> {}
+                // A link to somewhere else is blocked; its problem line names both paths.
+                RelocationSourceState.WRONG_SYMLINK, RelocationSourceState.ABSENT, RelocationSourceState.FILE,
+                RelocationSourceState.DIRECTORY, RelocationSourceState.INACCESSIBLE, RelocationSourceState.OTHER -> {}
             }
             decision?.let { add(Line(decisionLine(it))) }
             add(Line("Will do: " + consequence(item), palette.text, true))

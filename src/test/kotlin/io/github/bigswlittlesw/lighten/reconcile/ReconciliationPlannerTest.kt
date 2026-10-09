@@ -268,17 +268,29 @@ class ReconciliationPlannerTest {
         assertEquals("no-op", plan.actions().first().type)
     }
 
+    /** #223: no rule replaces a source link to somewhere else; the reason names both paths and both fixes. */
     @Test
-    fun wrongLiveSourceLinksRequireARepairPlan(@TempDir root: Path) {
+    fun aSourceLinkToSomewhereElseIsBlockedWhateverTheRules(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
-        Files.createSymbolicLink(source, Files.createDirectories(root.resolve("other")))
+        val other = Files.createDirectories(root.resolve("other"))
+        Files.createSymbolicLink(source, other)
 
-        val plan = plan(Relocation(source, target))
+        for (relocation in listOf(
+            Relocation(source, target),
+            Relocation(source, target, WhenSourceAndTargetDirectoriesExist.DISCARD, WhenOnlyTargetExists.ADOPT_TARGET),
+        )) {
+            val plan = plan(relocation)
 
-        assertEquals(RelocationOutcome.UNRESOLVED, plan.relocations.first().outcome)
-        assertTrue(plan.hasConflicts())
+            assertEquals(RelocationOutcome.UNRESOLVED, plan.relocations.single().outcome)
+            assertFalse(plan.hasConflicts())
+            assertEquals(listOf(ReconciliationAction.Blocked::class), plan.actions().map { it::class })
+            assertEquals(
+                "$source links to $other, not to $target. Remove the link, or set its target to where it points",
+                blockReason(plan, 0),
+            )
+        }
     }
 
     @Test
