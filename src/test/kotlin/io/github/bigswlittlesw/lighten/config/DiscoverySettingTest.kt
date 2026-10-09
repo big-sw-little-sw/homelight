@@ -25,7 +25,7 @@ class DiscoverySettingTest {
         val home = Path.of(System.getProperty("user.home"))
         assertNull(list("  "))
         assertEquals(temporary.resolve("missing.json"), list(temporary.resolve("absent/../missing.json").toString()))
-        assertEquals(home.resolve("shared.json"), list("~/folder/../shared.json"))
+        assertEquals(home.resolve("shared.json"), list("~/directory/../shared.json"))
         assertEquals(home, list("~"))
         assertEquals(Path.of("/net/${userName()}/list.json"), list("/net/\${USER}/list.json"))
         for (invalid in listOf("relative.json", "../relative.json", "https://example.com/list", "\$HOME/list", "\${HOME}/list")) {

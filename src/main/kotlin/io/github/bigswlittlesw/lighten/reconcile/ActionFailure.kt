@@ -15,7 +15,7 @@ import java.nio.file.Path
  * [ReconciliationExecutor.ActionExecution.message], for `apply --json` and bug reports.
  */
 sealed interface ActionFailure {
-    /** A guard found [found] at [path] where the plan expected [expected]. A real folder is expected as `DIRECTORY`. */
+    /** A guard found [found] at [path] where the plan expected [expected]. A real directory is expected as `DIRECTORY`. */
     data class Drift(val path: Path, val expected: PathState, val found: PathState) : ActionFailure
 
     /** The link at [path] now points to [found] instead of [expected]. */
@@ -36,7 +36,7 @@ sealed interface ActionFailure {
     /** [entry], a path under the source, is a named pipe or device file, which the copy can't make. Nothing was published. */
     data class Unmovable(val entry: Path, val kind: SpecialFileKind) : ActionFailure
 
-    /** The staged copy of the folder [entry] has other permission bits than it. Nothing was published. */
+    /** The staged copy of the directory [entry] has other permission bits than it. Nothing was published. */
     data class PermissionsNotKept(val entry: Path) : ActionFailure
 
     /** The copy was published at [target], but its permissions could not be restored, for [reason]. */
@@ -61,7 +61,7 @@ sealed interface ActionFailure {
 }
 
 /** How a staged copy differed from its source. */
-enum class CopyDifference { MISSING_FOLDER, FILE_DIFFERS, LINK_DIFFERS, EXTRA_ENTRY }
+enum class CopyDifference { MISSING_DIRECTORY, FILE_DIFFERS, LINK_DIFFERS, EXTRA_ENTRY }
 
 /** An I/O failure recognized by its exception type, never by its text. */
 internal fun ioFailure(exception: IOException): ActionFailure {

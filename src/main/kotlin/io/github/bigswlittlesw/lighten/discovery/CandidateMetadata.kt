@@ -22,7 +22,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     fun anchor(root: Path): Anchor {
         val physical = access.realPath(root)
         val attributes = access.attributes(physical)
-        if (!attributes.isDirectory) throw IOException("the source root is not a folder")
+        if (!attributes.isDirectory) throw IOException("the source root is not a directory")
         return Anchor(root, physical, attributes)
     }
 

@@ -102,7 +102,7 @@ internal fun verifyCopy(source: Path, copy: Path): List<Path> = buildList {
         val copied = copiedPath(source, copy, entry)
         if (entry.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
             if (!copied.isDirectory(LinkOption.NOFOLLOW_LINKS)) {
-                throw copyChanged(entry, CopyDifference.MISSING_FOLDER, "copied directory is missing: $copied")
+                throw copyChanged(entry, CopyDifference.MISSING_DIRECTORY, "copied directory is missing: $copied")
             }
             if (directoryPermissions(entry) != directoryPermissions(copied)) {
                 throw EnvironmentException(ActionFailure.PermissionsNotKept(entry), "copied directory permissions differ: $copied")
@@ -143,7 +143,7 @@ private fun unmovable(entry: Path, kind: SpecialFileKind) =
 
 private fun copiedPath(source: Path, copy: Path, entry: Path): Path = copy.resolve(source.relativize(entry))
 
-/** The kinds of file the copy can't make as it makes files, links and folders. */
+/** The kinds of file the copy can't make as it makes files, links and directories. */
 enum class SpecialFileKind { SOCKET, NAMED_PIPE, DEVICE }
 
 /**

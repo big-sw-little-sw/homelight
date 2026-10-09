@@ -155,16 +155,16 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun blocksArchivingWhenTheArchiveLocationIsNotAFolder(@TempDir root: Path) {
+    fun blocksArchivingWhenTheArchiveLocationIsNotADirectory(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val target = Files.createDirectories(root.resolve("local/cache"))
         val archiveRoot = root.resolve("archive")
         val cases = mapOf<String, () -> Unit>(
-            "is a file, not a folder" to { Files.writeString(archiveRoot, "a file") },
-            "is a link, not a folder" to {
+            "is a file, not a directory" to { Files.writeString(archiveRoot, "a file") },
+            "is a link, not a directory" to {
                 Files.createSymbolicLink(archiveRoot, Files.writeString(root.resolve("file"), "a file"))
             },
-            "is a broken link, not a folder" to { Files.createSymbolicLink(archiveRoot, root.resolve("missing")) },
+            "is a broken link, not a directory" to { Files.createSymbolicLink(archiveRoot, root.resolve("missing")) },
         )
         for ((words, make) in cases) {
             make()
@@ -176,7 +176,7 @@ class ReconciliationPlannerTest {
     }
 
     @Test
-    fun blocksOnTheFirstPathThatIsNotAFolderAboveAMissingTarget(@TempDir root: Path) {
+    fun blocksOnTheFirstPathThatIsNotADirectoryAboveAMissingTarget(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val file = Files.writeString(root.resolve("local"), "a file")
 
@@ -184,24 +184,24 @@ class ReconciliationPlannerTest {
         val creating = plan(Relocation(root.resolve("home/new"), root.resolve("local/deeper/new")))
 
         for (plan in listOf(moving, creating)) {
-            assertEquals(PathText(file, " is a file, not a folder"),
+            assertEquals(PathText(file, " is a file, not a directory"),
                     plan.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
         }
     }
 
     @Test
-    fun blocksAdoptingWhenTheSourceFolderIsAFile(@TempDir root: Path) {
+    fun blocksAdoptingWhenTheSourceDirectoryIsAFile(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val file = Files.writeString(root.resolve("home"), "a file")
 
         val plan = plan(Relocation(file.resolve("cache"), target, whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET))
 
-        assertEquals(listOf(ReconciliationAction.Blocked(file.resolve("cache"), PathText(file, " is a file, not a folder"))),
+        assertEquals(listOf(ReconciliationAction.Blocked(file.resolve("cache"), PathText(file, " is a file, not a directory"))),
                 plan.actions())
     }
 
     @Test
-    fun aStagingRootMustBeARealFolderButOtherFoldersMayBeLinks(@TempDir root: Path) {
+    fun aStagingRootMustBeARealDirectoryButOtherDirectoriesMayBeLinks(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
         val storage = Files.createDirectories(root.resolve("storage"))
         val linked = Files.createSymbolicLink(root.resolve("local"), storage)
@@ -212,12 +212,12 @@ class ReconciliationPlannerTest {
         val linkedStaging = plan(Relocation(source, linked.resolve("cache"), stagingRoot = stagingRoot))
 
         assertFalse(throughLinks.hasBlockedActions(), throughLinks.actions().toString())
-        assertEquals(PathText("the staging folder must be a real folder, not a link: ", stagingRoot),
+        assertEquals(PathText("the staging directory must be a real directory, not a link: ", stagingRoot),
                 linkedStaging.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
     }
 
     @Test
-    fun aFolderInTheWayDoesNotBlockAPlanThatDoesNotNeedIt(@TempDir root: Path) {
+    fun aDirectoryInTheWayDoesNotBlockAPlanThatDoesNotNeedIt(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
         val source = Files.createSymbolicLink(Files.createDirectories(root.resolve("home")).resolve("cache"), target)
         Files.writeString(root.resolve("home/.lighten-archive"), "a file")
@@ -282,7 +282,7 @@ class ReconciliationPlannerTest {
 
         assertEquals("broken source link has no target directory", blockReason(plan(Relocation(source, target)), 0))
 
-        // The target can appear between the two observations. The link then looks broken while the target is a folder.
+        // The target can appear between the two observations. The link then looks broken while the target is a directory.
         val brokenLink = PathObservation(PathState.SYMLINK, target, SymlinkTargetAvailability.ABSENT)
         val repair = ReconciliationPlanner().plan(listOf(
             RelocationState(Relocation(source, target), brokenLink, PathObservation(PathState.DIRECTORY)),
@@ -396,7 +396,7 @@ class ReconciliationPlannerTest {
             blockReason(plan, 0))
         assertEquals(PathText("the source ", home.resolve("inside/x"), " is inside the target ", home.resolve("inside")).toString(),
             blockReason(plan, 1))
-        assertEquals(PathText("the source ", home.resolve("same"), " and target ", home.resolve("same"), " are the same folder").toString(),
+        assertEquals(PathText("the source ", home.resolve("same"), " and target ", home.resolve("same"), " are the same directory").toString(),
             blockReason(plan, 2))
         assertFalse(plan.relocations[3].actions.any { it is ReconciliationAction.Blocked })
     }
@@ -423,7 +423,7 @@ class ReconciliationPlannerTest {
 
         val self = ReconciliationPlanner().plan(states(listOf(Relocation(local.resolve("cache"), real.resolve("cache")))))
         assertEquals(PathText("the source ", local.resolve("cache"), " and target ", real.resolve("cache"),
-            " are the same folder through a link").toString(), blockReason(self, 0))
+            " are the same directory through a link").toString(), blockReason(self, 0))
 
         val nested = ReconciliationPlanner().plan(states(listOf(
             Relocation(home.resolve("a"), local.resolve("x")), Relocation(real.resolve("x/inner"), home.resolve("b")),
@@ -446,8 +446,8 @@ class ReconciliationPlannerTest {
 
         val plan = ReconciliationPlanner().plan(listOf(move, link))
 
-        assertEquals(PathText("the staging folder ", staging, " is on another filesystem than ", target,
-            ", so Lighten can't move the copy there in one step. Set staging-root to a folder on the target's " +
+        assertEquals(PathText("the staging directory ", staging, " is on another filesystem than ", target,
+            ", so Lighten can't move the copy there in one step. Set staging-root to a directory on the target's " +
                 "filesystem, or remove staging-root to stage beside each target").toString(), blockReason(plan, 0))
         assertFalse(plan.relocations[1].actions.any { it is ReconciliationAction.Blocked })
         assertFalse(ReconciliationPlanner().plan(listOf(move.copy(stagingElsewhere = false))).hasBlockedActions())

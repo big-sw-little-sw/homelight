@@ -6,6 +6,11 @@ Each term starts with the word that users see in the user guide's "Words to know
 
 ## Configuration
 
+**Directory**:
+A place on disk that holds files and other directories. Linux and its tools use this word.
+Code: `PathState.DIRECTORY`.
+_Avoid_: folder
+
 **Relocation**:
 One directory that Lighten manages. It has a source, a target and rules.
 Code: `Relocation`; in the file, `RelocationFile` under `relocations`.
@@ -21,7 +26,7 @@ Code: `Relocation.targetPath`, `target-path`. When it is not set, `derivedTarget
 _Avoid_: destination
 
 **Target root, source root**:
-The target root is where the storage is. The source root is the folder that usually holds the sources (default `~`). A relocation without a target keeps its path below the source root, but inside the target root.
+The target root is where the storage is. The source root is the directory that usually holds the sources (default `~`). A relocation without a target keeps its path below the source root, but inside the target root.
 Code: `target-root`, `source-root` in `LightenFile`.
 
 **Rule**:
@@ -51,7 +56,7 @@ Code: `DecisionChoice`, held by `LightenSession`. `RelocationDecision` (`relocat
 _Avoid_: override, resolution
 
 **Blocked**:
-A relocation that Lighten cannot do in the current conditions. For example, a file is where a folder must go. When the user removes the cause and checks again, the relocation is no longer blocked.
+A relocation that Lighten cannot do in the current conditions. For example, a file is where a directory must go. When the user removes the cause and checks again, the relocation is no longer blocked.
 Code: `ReconciliationAction.Blocked`; badge `PlanBadge.BLOCKED`.
 
 **Review**:
@@ -84,12 +89,12 @@ Code: `ADOPT`, `ADOPT_TARGET`. The badge is `PlanBadge.ADOPT` when the source is
 _Avoid_: adopt (in user-facing text), adopt source
 
 **Archive**:
-To move the source into an archive folder, so that the user can move it back. The default archive folder is `.lighten-archive` next to the source. The opposite is delete, which removes the source permanently.
+To move the source into an archive directory, so that the user can move it back. The default archive directory is `.lighten-archive` next to the source. The opposite is delete, which removes the source permanently.
 Code: `WhenAdoptingTarget.ARCHIVE_SOURCE`, `Relocation.archiveRoot`, `ReconciliationAction.ArchiveDirectory`; badge `PlanBadge.BACKUP`.
 _Avoid_: backup
 
 **Staging**:
-A folder that Lighten owns, on the same filesystem as the target. The default is `.lighten-staging` next to the target. Lighten copies a directory into it and checks the copy. Then it renames the copy into its final place.
+A directory that Lighten owns, on the same filesystem as the target. The default is `.lighten-staging` next to the target. Lighten copies a directory into it and checks the copy. Then it renames the copy into its final place.
 Code: `staging-root`, `Staging.kt`, `ReconciliationAction.MigrateDirectoryForPublication`.
 _Avoid_: temporary directory, transaction journal
 

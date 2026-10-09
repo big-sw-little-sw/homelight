@@ -44,7 +44,7 @@ matrix=$results/matrix.txt
 
 # --- case bookkeeping
 
-begin() { # <case> <what it covers> [folder to build it in, default results-dir]
+begin() { # <case> <what it covers> [directory to build it in, default results-dir]
   name=$1; about=$2; ok=1; notes=(); step=0; started=$(date +%s%N)
   C=${3:-$results}/$name; H=$C/home; L=$C/local
   mkdir -p "$H" "$L"
@@ -104,7 +104,7 @@ rel() { # <name> [key=value...]: a relocation from $H/<name> to $L/<name>
 # --- reading the disk
 
 # Every path under the case with its type, permissions and link target, and every file's checksum.
-# An unreadable folder is listed without its contents.
+# An unreadable directory is listed without its contents.
 snapshot() {
   (cd "$C" && find home local \( -type l -printf '%M %p -> %l\n' \) -o -printf '%M %p\n' 2> /dev/null | LC_ALL=C sort &&
     find home local -type f -exec sha256sum {} + 2> /dev/null | LC_ALL=C sort)
@@ -172,7 +172,7 @@ blocked() { # <relocation index> <text in its reason>
     j --arg r "$2" ".relocations[$1].actions | length == 1 and .[0].type == \"blocked\" and (.[0].reason | contains(\$r))"
 }
 
-# A source tree with nested folders, a relative link, private permissions and a file with spaces.
+# A source tree with nested directories, a relative link, private permissions and a file with spaces.
 fill() { # <dir>
   mkdir -p "$1/sub/deep" "$1/open"
   echo "a $1" > "$1/a.txt"
@@ -201,7 +201,7 @@ config "$(rel new)"
 run plan
 check "plan: create target, link" types '.relocations[0].actions' ensure-directory create-directory ensure-directory create-symlink
 applies
-check "target is an empty folder" [ -z "$(ls -A "$L/new")" ]
+check "target is an empty directory" [ -z "$(ls -A "$L/new")" ]
 check "source links to target" links_to "$H/new" "$L/new"
 converges
 end
@@ -305,7 +305,7 @@ begin both-discard "both exist, discard: [Delete] empties both and links"
 both
 config "$(rel app when-source-and-target-directories-exist=discard)"
 applies
-check "target is an empty folder" [ -z "$(ls -A "$L/app")" ]
+check "target is an empty directory" [ -z "$(ls -A "$L/app")" ]
 check "source links to target" links_to "$H/app" "$L/app"
 converges
 end
@@ -357,7 +357,7 @@ refused
 chmod 700 "$H/app"
 end
 
-begin folder-in-way "a file where the target's parent folder must be: [Blocked], says which"
+begin directory-in-way "a file where the target's parent directory must be: [Blocked], says which"
 fill "$H/app"
 echo f > "$L/deep"
 config "{\"source-path\": \"$H/app\", \"target-path\": \"$L/deep/app\"}"
@@ -383,7 +383,7 @@ config "$(rel app)" -- "\"ignored-source-paths\": [\"$H/ign\"]"
 run plan
 check "plan names only the relocation" j '[.relocations[].source] == ["'"$H/app"'"]'
 applies
-check "ignored source untouched, still a folder" is_dir "$H/ign"
+check "ignored source untouched, still a directory" is_dir "$H/ign"
 check "ignored contents untouched" [ "$want" = "$(tree "$H/ign")" ]
 converges
 end
@@ -407,7 +407,7 @@ rm -rf "$shm"
 
 # --- special files
 
-begin socket "a folder with a socket: moved, the socket skipped and named"
+begin socket "a directory with a socket: moved, the socket skipped and named"
 fill "$H/app"
 python3 -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$H/app/sub/app.sock"
 want=$(tree "$H/app" | grep -v 'app.sock')
@@ -420,7 +420,7 @@ check "target has everything but the socket" [ "$want" = "$(tree "$L/app")" ]
 converges
 end
 
-begin named-pipe "a folder with a named pipe: stops cleanly, nothing moves"
+begin named-pipe "a directory with a named pipe: stops cleanly, nothing moves"
 fill "$H/app"
 mkfifo "$H/app/sub/ipc"
 want=$(tree "$H/app")
@@ -430,7 +430,7 @@ check "apply exits 1" exits 1
 check "the failed step names the pipe: $(jq -c '[.relocations[0].actions[] | {status, message}]' "$out")" \
   j 'any(.relocations[0].actions[]; .status == "failed" and (.message | contains("ipc")))'
 check "source untouched" [ "$want" = "$(tree "$H/app")" ]
-check "source is still a folder" is_dir "$H/app"
+check "source is still a directory" is_dir "$H/app"
 check "no target" [ ! -e "$L/app" ]
 check "no staging copy left" clean
 run plan
@@ -440,7 +440,7 @@ end
 # --- recovery
 
 # The copy is published, then replacing the source fails: like a crash at that point (decisions.md, "A crash
-# between publishing and setting the source aside is left as is"), both folders stay whole and the next check
+# between publishing and setting the source aside is left as is"), both directories stay whole and the next check
 # says both exist. A Both exist rule finishes it.
 begin step-fails "a step forced to fail (source's parent read-only): stops, check again, apply converges"
 fill "$H/app"
@@ -456,7 +456,7 @@ check "source untouched" [ "$want" = "$(tree "$H/app")" ]
 check "the copy was published whole" [ "$want" = "$(tree "$L/app" 2> /dev/null)" ]
 check "no staging copy or set-aside source left" clean
 run status
-check "status: source is a folder" j '.relocations[0].state == "directory"'
+check "status: source is a directory" j '.relocations[0].state == "directory"'
 run plan
 conflict 0 adopt-and-discard-source adopt-and-archive-source leave-unchanged discard-both
 config "$(rel app when-source-and-target-directories-exist=adopt when-adopting-target=discard-source)"
@@ -473,9 +473,9 @@ killed() { # <glob> <delay-ms>
   check "killed partway ($line)" [ $? -eq 0 ]
   echo "  $line; files in staging: $(find "$L" -path '*/operation-*/*' -type f | wc -l)"
   check "source untouched" [ "$want" = "$(tree "$H/app")" ]
-  check "source is still a folder" is_dir "$H/app"
+  check "source is still a directory" is_dir "$H/app"
   run status
-  check "status: source is a folder" j '.relocations[0].state == "directory"'
+  check "status: source is a directory" j '.relocations[0].state == "directory"'
 }
 
 # Enough files that the copy and its check take a while to walk.
@@ -496,7 +496,7 @@ converges
 end
 
 # Decided behaviour ("A crash between publishing and setting the source aside is left as is"): two
-# whole folders, so the next check says both exist and a Both exist rule finishes it.
+# whole directories, so the next check says both exist and a Both exist rule finishes it.
 begin killed-after-copy "TUI apply killed after the copy is published: both exist, a rule converges"
 fill "$H/app"
 want=$(tree "$H/app")
@@ -533,7 +533,7 @@ check "source links to target" links_to "$H/app" "$L/app"
 converges
 end
 
-begin move-new-parents "a move to a target whose parent folders do not exist yet"
+begin move-new-parents "a move to a target whose parent directories do not exist yet"
 fill "$H/app"
 want=$(tree "$H/app")
 config "{\"source-path\": \"$H/app\", \"target-path\": \"$L/x/y/app\"}"

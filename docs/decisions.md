@@ -66,12 +66,12 @@ An archive moves a source to `<archive root>/<source name>`. If that name is alr
 
 - `[skipped: a counter or further suffix when the suffixed name is also taken, add when users hit it]`
 
-### The planner blocks a folder that is not a folder
+### The planner blocks a directory that is not a directory
 
-Inspection examines each folder that a step can create or use. The planner blocks a relocation when its steps need a path that is a file, a link or unreadable. The staging root must be a real folder. The planner also blocks a move when its staging root is on a different filesystem from its target, and the reason names the `staging-root` setting. When a choice avoids that folder, Details offers it. Why: before this rule, the apply stopped halfway and blamed a change made before `y`. (#163, #207)
+Inspection examines each directory that a step can create or use. The planner blocks a relocation when its steps need a path that is a file, a link or unreadable. The staging root must be a real directory. The planner also blocks a move when its staging root is on a different filesystem from its target, and the reason names the `staging-root` setting. When a choice avoids that directory, Details offers it. Why: before this rule, the apply stopped halfway and blamed a change made before `y`. (#163, #207)
 
 - `[skipped: a plan-time check that the staging root and target support POSIX permissions, add when a user's apply stops on it]`
-- `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported]`
+- `[skipped: preflight re-checking these directories between review and y, add when a directory breaking in that window is reported]`
 - `[skipped: a stricter check when a configured staging root is also a source, target or archive parent, add when someone configures one that way]`
 
 ### The copy skips sockets and stops on named pipes and device files
@@ -160,7 +160,7 @@ The configuration and the suggestion lists are JSON, with `//` and `/* */` comme
 
 ### Paths are full or start with `~/`, and stay as written
 
-After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `~` is the account's home directory (`user.home`), not `$HOME`. `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the folder where Lighten runs. (#114, #207)
+After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `~` is the account's home directory (`user.home`), not `$HOME`. `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the directory where Lighten runs. (#114, #207)
 
 ### One editor for creating and editing
 
@@ -238,7 +238,7 @@ Why: plain binaries need no `tar`. Names from `uname -m` need no lookup table. T
 
 ### Install script
 
-`install.sh` is a POSIX `sh` script. It selects the asset from `uname -m` and reads the latest version from `SHA256SUMS`, without the GitHub API. It checks the hash, runs `--version` as a test, and renames the binary into place. The default folder is `~/.local/bin`. It never calls sudo. It asks once before it edits a shell startup file, and it edits only files that the user owns in their home directory. Why: there is one safe way to install and update. If it fails, the existing install does not change. (#168)
+`install.sh` is a POSIX `sh` script. It selects the asset from `uname -m` and reads the latest version from `SHA256SUMS`, without the GitHub API. It checks the hash, runs `--version` as a test, and renames the binary into place. The default directory is `~/.local/bin`. It never calls sudo. It asks once before it edits a shell startup file, and it edits only files that the user owns in their home directory. Why: there is one safe way to install and update. If it fails, the existing install does not change. (#168)
 
 - `[skipped: signature checks beyond SHA256SUMS, add with signed releases]`
 - `[skipped: an uninstall option, add when users ask; removing ~/.local/bin/lighten and the marked line is the uninstall]`
@@ -247,7 +247,7 @@ Why: plain binaries need no `tar`. Names from `uname -m` need no lookup table. T
 
 ### `lighten update` runs the release's install script
 
-`update` checks `SHA256SUMS`. Then it uses `curl` or `wget` to run that release's `install.sh` with `--no-modify-path`, on the real folder of the running binary. Without `--version`, it never installs an older version. Before it downloads, it refuses development builds, the JVM, mise installs, folders it cannot write to, and a binary whose name is not `lighten`. `--check` only reports. Why: the install rules exist in one place only, and the binary has no TLS, which would add about 15 MB. (#169)
+`update` checks `SHA256SUMS`. Then it uses `curl` or `wget` to run that release's `install.sh` with `--no-modify-path`, on the real directory of the running binary. Without `--version`, it never installs an older version. Before it downloads, it refuses development builds, the JVM, mise installs, directories it cannot write to, and a binary whose name is not `lighten`. `--check` only reports. Why: the install rules exist in one place only, and the binary has no TLS, which would add about 15 MB. (#169)
 
 - `[skipped: automatic update notice, add when users run old versions without knowing]`
 - `[skipped: signature verification, add with signed releases]`
@@ -270,7 +270,7 @@ Each app can name a `category`. Browse shows categories, apps and directories in
 
 ### Each directory is checked and the narrowest safe one is listed
 
-A directory goes into the built-in list only after a test in a container. The test installs the tool, relocates the directory with `lighten apply`, uses the tool again and cleans it with the tool's own commands. The paths come from the tool's documentation or source code. The list names the cache or install folder. It does not name a parent folder that also holds the tool, its shims or its settings. The exception is a tool that needs the whole parent on one filesystem (Volta). If a tool's clean command replaces the link with a folder, the entry has a `caution`, which Browse shows in Details. Why: the tool must continue to work after the move. (#165, #176, #191)
+A directory goes into the built-in list only after a test in a container. The test installs the tool, relocates the directory with `lighten apply`, uses the tool again and cleans it with the tool's own commands. The paths come from the tool's documentation or source code. The list names the cache or install directory. It does not name a parent directory that also holds the tool, its shims or its settings. The exception is a tool that needs the whole parent on one filesystem (Volta). If a tool's clean command replaces the link with a directory, the entry has a `caution`, which Browse shows in Details. Why: the tool must continue to work after the move. (#165, #176, #191)
 
 - `[skipped: conda, mamba and micromamba directories, add when users ask for a specific install layout]`
 - `[skipped: .cache/mise, add when users report it growing large]`

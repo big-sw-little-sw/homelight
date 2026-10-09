@@ -91,7 +91,7 @@ class ConfigurationLoaderTest {
                   "ignored-source-paths": ["~/b/", "~/c"]}}
                 """),
         )
-        // A folder inside a relocation, or around one, may be ignored.
+        // A directory inside a relocation, or around one, may be ignored.
         val file = write("""
             {"lighten": {"target-root": "/local", "relocations": [{"source-path": "~/a/b"}], "ignored-source-paths": ["~/a", "~/a/b/c"]}}
             """)

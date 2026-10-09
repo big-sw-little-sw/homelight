@@ -47,9 +47,9 @@ class ReconciliationExecutorTest {
         assertTrue(Files.isSymbolicLink(source))
     }
 
-    /** Zed leaves `zed-stable.sock` in its data folder when killed. The copy skips it and says so. */
+    /** Zed leaves `zed-stable.sock` in its data directory when killed. The copy skips it and says so. */
     @Test
-    fun movesAFolderWithASocketWithoutTheSocket(@TempDir root: Path) {
+    fun movesADirectoryWithASocketWithoutTheSocket(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/zed/sub"))
         Files.writeString(source.resolve("entry"), "source")
         val socket = socketAt(source.resolve("zed-stable.sock"))

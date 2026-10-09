@@ -384,7 +384,7 @@ internal object WorkspaceView {
             add(Line("Will do: " + consequence(item), palette.text, true))
             item.plan.actions.filterIsInstance<ReconciliationAction.Blocked>()
                 .mapTo(this) { blocked -> Line(problem(blocked.reason.shown()), palette.error, false) }
-            if (item.choiceAvoidsFolder && !retained) add(Line(CHOOSE_AROUND_FOLDER))
+            if (item.choiceAvoidsDirectory && !retained) add(Line(CHOOSE_AROUND_DIRECTORY))
             if (retained) add(Line(RESULTS_KEPT, palette.warn, false))
             item.plan.diagnostics.mapTo(this) { Line(it.message.shown(), palette.warn, false) }
             if (item.deletesData()) add(Line(DELETES_DATA, palette.warn, true))

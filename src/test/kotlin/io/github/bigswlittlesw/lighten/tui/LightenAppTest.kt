@@ -653,7 +653,7 @@ class LightenAppTest {
         /** `text` without spaces, so a line Details wrapped still matches. */
         fun compact(text: String): String = text.replace(" ", "")
 
-        /** A configuration of two relocations whose sources are missing: each plans a target folder and a link. */
+        /** A configuration of two relocations whose sources are missing: each plans a target directory and a link. */
         fun twoMissingSources(temporary: Path): Path {
             val root = temporary.toRealPath()
             val relocations = listOf("one", "two").joinToString(",\n") { name ->

@@ -243,7 +243,7 @@ internal object ApplyView {
     }
 
     fun affectedPath(action: ReconciliationAction): String = when (action) {
-        is ReconciliationAction.EnsureDirectory -> "Parent folder: "
+        is ReconciliationAction.EnsureDirectory -> "Parent directory: "
         is ReconciliationAction.CreateDirectory -> "Create at: "
         is ReconciliationAction.MigrateDirectoryForPublication -> "Copy from: "
         is ReconciliationAction.ArchiveDirectory -> "Archive from: "

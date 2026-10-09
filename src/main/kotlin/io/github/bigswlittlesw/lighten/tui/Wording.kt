@@ -88,14 +88,14 @@ internal fun adoptingLabel(value: WhenAdoptingTarget): String = when (value) {
 internal const val ASK_EACH_TIME = "Ask each time"
 
 internal fun actionLabel(action: ReconciliationAction): String = when (action) {
-    is ReconciliationAction.EnsureDirectory -> "Create parent folder"
-    is ReconciliationAction.CreateDirectory -> "Create target folder"
+    is ReconciliationAction.EnsureDirectory -> "Create parent directory"
+    is ReconciliationAction.CreateDirectory -> "Create target directory"
     is ReconciliationAction.MigrateDirectoryForPublication -> "Copy to target and check"
     is ReconciliationAction.ReplaceDirectoryWithSymlink -> "Replace source with a link"
     is ReconciliationAction.CreateSymlink -> "Link source to target"
     is ReconciliationAction.ReplaceSymlink -> "Fix source link"
     is ReconciliationAction.ArchiveDirectory -> "Archive source"
-    is ReconciliationAction.DeleteDirectory -> "Delete folder"
+    is ReconciliationAction.DeleteDirectory -> "Delete directory"
     is ReconciliationAction.NoOp -> "Already in sync"
     is ReconciliationAction.LeaveUnchanged -> "Leave as is"
     is ReconciliationAction.Blocked -> "Blocked"
@@ -171,8 +171,8 @@ internal fun resolvedLine(label: String, value: String) = "$label: $value"
 
 // What the focused field means, shown under the fields.
 internal const val SOURCE_ROOT_HELP =
-    "The folder your sources are usually in, normally your home folder. A relocation with no Target keeps its " +
-        "place under this folder, inside the target root."
+    "The directory your sources are usually in, normally your home directory. A relocation with no Target keeps its " +
+        "place under this directory, inside the target root."
 internal const val TARGET_ROOT_HELP = "Where storage is, for example a larger disk. Use a full path, or one starting with ~/."
 internal fun suggestionListHelp(builtIn: Int, examples: List<String>) =
     "Lighten already includes $builtIn suggestions for common tools${examples(examples)}. Use this field only to add a " +
@@ -191,7 +191,7 @@ internal const val TARGET_HELP =
         "root needs one."
 internal const val ONLY_TARGET_HELP = "What to do when the target exists and the source does not."
 internal const val ARCHIVE_ROOT_HELP =
-    "Where Keep target, archive source moves the source. Leave it blank for a folder beside the source; it must " +
+    "Where Keep target, archive source moves the source. Leave it blank for a directory beside the source; it must " +
         "be on the same disk as the source."
 internal const val BOTH_EXIST_HELP = "What to do when the source and the target both exist."
 internal const val DISCARD_BOTH_WARNING =
@@ -343,7 +343,7 @@ internal const val LEFT_BEHIND_DELETED =
 
 /** A blocked row's problem, in the planner's words (they are shared with JSON output). */
 internal fun problem(reason: String) = "Problem: $reason."
-internal const val CHOOSE_AROUND_FOLDER = "Or choose an option below that doesn't need this folder."
+internal const val CHOOSE_AROUND_DIRECTORY = "Or choose an option below that doesn't need this directory."
 
 internal fun relocationCount(n: Int) = "$n " + if (n == 1) "relocation" else "relocations"
 internal fun toChange(n: Int) = "⚡ $n to change"
@@ -404,26 +404,26 @@ internal fun failureWords(failure: ActionFailure, config: Path): String = when (
         (failure.found?.let { "${shown(failure.path)} now links to ${shown(it)}." } ?: "${shown(failure.path)} has changed.") +
             " Lighten expected it to link to ${shown(failure.expected)}."
     is ActionFailure.StagingElsewhere ->
-        "The staging folder ${shown(failure.stagingRoot)} is not on the same filesystem as ${shown(failure.target)}, " +
+        "The staging directory ${shown(failure.stagingRoot)} is not on the same filesystem as ${shown(failure.target)}, " +
             "so Lighten can't move the copy there in one step. Set the staging-root setting in ${shown(config)} to a " +
-            "folder on the target's filesystem."
+            "directory on the target's filesystem."
     is ActionFailure.NoPosixPermissions ->
-        "${shown(failure.path)} is on a filesystem without Unix permissions, so Lighten can't keep the folder's " +
+        "${shown(failure.path)} is on a filesystem without Unix permissions, so Lighten can't keep the directory's " +
             "permissions when it copies it. Use a location on a filesystem that has them."
     is ActionFailure.Busy ->
-        if (failure.here) "Lighten is already moving another folder to ${shown(failure.target)}."
-        else "Another Lighten is moving a folder to ${shown(failure.target)}. Wait for it to finish."
+        if (failure.here) "Lighten is already moving another directory to ${shown(failure.target)}."
+        else "Another Lighten is moving a directory to ${shown(failure.target)}. Wait for it to finish."
     is ActionFailure.CopyChanged ->
         "${shown(failure.entry)} changed while Lighten was copying it (${copyDifference(failure.difference)}), so " +
             "Lighten threw the copy away and moved nothing. Close any app that uses it."
     is ActionFailure.Unmovable ->
         "${shown(failure.entry)} is ${unmovableKind(failure.kind)}; Lighten can't move it, so it threw the copy " +
-            "away and moved nothing. Remove it, or move this folder yourself."
+            "away and moved nothing. Remove it, or move this directory yourself."
     is ActionFailure.PermissionsNotKept ->
         "The copy of ${shown(failure.entry)} didn't keep its permissions, so Lighten threw the copy away and moved " +
             "nothing. Check that the target's filesystem keeps Unix permissions."
     is ActionFailure.PermissionsNotRestored ->
-        "Lighten copied the folder to ${shown(failure.target)} but couldn't set the copy's permissions back: " +
+        "Lighten copied the directory to ${shown(failure.target)} but couldn't set the copy's permissions back: " +
             "${lowerFirst(failure.reason)}. The source is still in place. Give ${shown(failure.target)} the source's " +
             "permissions."
     is ActionFailure.DifferentFilesystems ->
@@ -461,7 +461,7 @@ private fun shown(path: Path) = displayPath(path)
 private fun lowerFirst(reason: String) = reason.replaceFirstChar { it.lowercase() }
 
 private fun copyDifference(difference: CopyDifference): String = when (difference) {
-    CopyDifference.MISSING_FOLDER -> "the folder is missing from the copy"
+    CopyDifference.MISSING_DIRECTORY -> "the directory is missing from the copy"
     CopyDifference.FILE_DIFFERS -> "the copied file doesn't match"
     CopyDifference.LINK_DIFFERS -> "the copied link points elsewhere"
     CopyDifference.EXTRA_ENTRY -> "the copy has it, but the source no longer does"
@@ -491,7 +491,7 @@ private fun driftWords(drift: ActionFailure.Drift): String {
 private fun thing(state: PathState): String = when (state) {
     PathState.ABSENT -> "nothing"
     PathState.FILE -> "a file"
-    PathState.DIRECTORY -> "a folder"
+    PathState.DIRECTORY -> "a directory"
     PathState.SYMLINK -> "a link"
     PathState.OTHER -> "a special file"
     PathState.INACCESSIBLE -> "something it can't read"

@@ -13,8 +13,8 @@ import java.nio.file.Path
  * Filesystem observations used to plan one relocation without touching disk.
  * `archiveDestination` is null when it was not observed; archive-source is then blocked.
  * `replacedSource` is the observation at [replacedSourcePath]; null when it was not observed, which plans as absent.
- * `notFolders` maps each folder an action may create or work in to what is in its way (see [inspectFolders]); a
- * folder with no entry plans as usable.
+ * `notDirectories` maps each directory an action may create or work in to what is in its way (see [inspectDirectories]); a
+ * directory with no entry plans as usable.
  * `realSpellings` maps the source and target, as written, to their [realSpelling]s, so the planner can find overlap
  * through a link without reading the disk. A path with no entry compares as written, so a copy with other paths
  * never carries stale spellings.
@@ -26,15 +26,15 @@ data class RelocationState(
     val target: PathObservation,
     val archiveDestination: ArchiveDestination? = null,
     val replacedSource: PathObservation? = null,
-    val notFolders: Map<Path, NotAFolder> = mapOf(),
+    val notDirectories: Map<Path, NotADirectory> = mapOf(),
     val realSpellings: Map<Path, Path> = mapOf(),
     val stagingElsewhere: Boolean = false,
 ) {
     /** The no-follow observation of the source's archive destination, chosen by [inspectArchiveDestinations]. */
     data class ArchiveDestination(val path: Path, val observation: PathObservation)
 
-    /** What exists at [path], at or above a folder an action needs, where the action needs a folder. */
-    data class NotAFolder(val path: Path, val observation: PathObservation)
+    /** What exists at [path], at or above a directory an action needs, where the action needs a directory. */
+    data class NotADirectory(val path: Path, val observation: PathObservation)
 }
 
 /** Observes everything the planner reads for [relocations], in the order given. */
@@ -45,7 +45,7 @@ internal fun inspectRelocations(
         RelocationState(
             relocation, inspect(relocation.sourcePath), inspect(relocation.targetPath), archive,
             inspect(replacedSourcePath(relocation.sourcePath, relocation.targetPath)),
-            inspectFolders(relocation, archive.path, inspect),
+            inspectDirectories(relocation, archive.path, inspect),
             listOf(relocation.sourcePath, relocation.targetPath).associateWith(::realSpelling), stagingElsewhere(relocation),
         )
     }
@@ -53,7 +53,7 @@ internal fun inspectRelocations(
 /**
  * Whether the staging root and the target's parent are on different filesystems, compared as the executor compares
  * them before a copy: the file store of each one's nearest existing ancestor. It makes two store lookups and walks no
- * folders, so every check can afford it. A path whose store can't be read counts as the same filesystem. The folder
+ * directories, so every check can afford it. A path whose store can't be read counts as the same filesystem. The directory
  * check or the copy-time check then reports it.
  */
 internal fun stagingElsewhere(relocation: Relocation): Boolean {
@@ -69,36 +69,36 @@ internal fun stagingElsewhere(relocation: Relocation): Boolean {
 }
 
 /**
- * Finds what would stop the executor from making or using each folder a plan may need: the parents of
+ * Finds what would stop the executor from making or using each directory a plan may need: the parents of
  * the source, target and [archive] destination, which `EnsureDirectory` creates, and the staging root.
  *
  * This is the executor's rule (see `ensureDirectories`): walking down from the filesystem root, every path that
- * exists must be a folder, through links, until one is missing. The staging root itself must be a real folder, not a
+ * exists must be a directory, through links, until one is missing. The staging root itself must be a real directory, not a
  * link to one. An existing path where the walk stops is in the way.
  *
  * When the staging root is also one of the parents, the parents' rule wins, so a plan that needs only the parent is
  * never blocked by the stricter rule. A migration then still finds a linked staging root when it runs.
  */
-internal fun inspectFolders(
+internal fun inspectDirectories(
     relocation: Relocation, archive: Path, inspect: (Path) -> PathObservation,
-): Map<Path, RelocationState.NotAFolder> {
+): Map<Path, RelocationState.NotADirectory> {
     val stagingRoot = effectiveStagingRoot(relocation.targetPath, relocation.stagingRoot)
     val parents = listOfNotNull(relocation.sourcePath.parent, relocation.targetPath.parent, archive.parent)
-    val folders = mapOf(stagingRoot to notAFolder(stagingRoot, real = true, inspect)) +
-        parents.associateWith { parent -> notAFolder(parent, real = false, inspect) }
-    return folders.mapNotNull { (folder, inTheWay) -> inTheWay?.let { folder to it } }.toMap()
+    val directories = mapOf(stagingRoot to notADirectory(stagingRoot, real = true, inspect)) +
+        parents.associateWith { parent -> notADirectory(parent, real = false, inspect) }
+    return directories.mapNotNull { (directory, inTheWay) -> inTheWay?.let { directory to it } }.toMap()
 }
 
-/** The walk [inspectFolders] describes, for one folder; [real] refuses a link at the folder itself. */
-private fun notAFolder(folder: Path, real: Boolean, inspect: (Path) -> PathObservation): RelocationState.NotAFolder? {
-    val absolute = folder.toAbsolutePath().normalize()
+/** The walk [inspectDirectories] describes, for one directory; [real] refuses a link at the directory itself. */
+private fun notADirectory(directory: Path, real: Boolean, inspect: (Path) -> PathObservation): RelocationState.NotADirectory? {
+    val absolute = directory.toAbsolutePath().normalize()
     var current = absolute.root
     for (name in absolute) {
         current = current.resolve(name)
         val options = if (real && current == absolute) arrayOf(LinkOption.NOFOLLOW_LINKS) else arrayOf()
         if (Files.isDirectory(current, *options)) continue
         val observation = inspect(current)
-        return if (observation.state == PathState.ABSENT) null else RelocationState.NotAFolder(current, observation)
+        return if (observation.state == PathState.ABSENT) null else RelocationState.NotADirectory(current, observation)
     }
     return null
 }

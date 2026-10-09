@@ -19,7 +19,7 @@ class ReconciliationPlanner {
     fun plan(states: List<RelocationState>): ReconciliationPlan = ReconciliationPlan(
         states.mapIndexed { i, state ->
             overlapReason(i, states)?.let { blocked(state, it) }
-                ?: blockedByStagingElsewhere(state, blockedByNotAFolder(state, plan(state)))
+                ?: blockedByStagingElsewhere(state, blockedByNotADirectory(state, plan(state)))
         },
         listOf(), states,
     )
@@ -87,7 +87,7 @@ private fun selfOverlap(state: RelocationState): PathText? {
     val overlap = overlap(source, target) ?: return null
     val link = overlap.link()
     return when (overlap.relation) {
-        Relation.SAME -> PathText("the source ", source.path, " and target ", target.path, " are the same folder$link")
+        Relation.SAME -> PathText("the source ", source.path, " and target ", target.path, " are the same directory$link")
         Relation.CONTAINS -> PathText("the target ", target.path, " is inside the source ", source.path, link)
         Relation.INSIDE -> PathText("the source ", source.path, " is inside the target ", target.path, link)
     }
@@ -147,7 +147,7 @@ private fun relation(left: Path, right: Path): Relation? = when {
 }
 
 /**
- * Blocks [planned] when it copies a folder through a staging root on another filesystem than the target. Inspection
+ * Blocks [planned] when it copies a directory through a staging root on another filesystem than the target. Inspection
  * finds this ([stagingElsewhere]). The copy cannot then move into place in one step. The executor checks again before
  * it copies.
  */
@@ -158,38 +158,38 @@ private fun blockedByStagingElsewhere(state: RelocationState, planned: Relocatio
     return blocked(
         state,
         PathText(
-            "the staging folder ", migration.effectiveStagingRoot, " is on another filesystem than ", migration.target,
-            ", so Lighten can't move the copy there in one step. Set staging-root to a folder on the target's " +
+            "the staging directory ", migration.effectiveStagingRoot, " is on another filesystem than ", migration.target,
+            ", so Lighten can't move the copy there in one step. Set staging-root to a directory on the target's " +
                 "filesystem, or remove staging-root to stage beside each target",
         ),
     )
 }
 
 /**
- * Blocks [planned] when a folder one of its actions needs is in the way (see [inspectFolders]), so the apply does not
+ * Blocks [planned] when a directory one of its actions needs is in the way (see [inspectDirectories]), so the apply does not
  * stop at that step. The reason names the first such path, in action order.
  */
-private fun blockedByNotAFolder(state: RelocationState, planned: RelocationPlan): RelocationPlan {
-    val folder = planned.actions.asSequence().flatMap(::neededFolders).firstOrNull(state.notFolders::containsKey)
+private fun blockedByNotADirectory(state: RelocationState, planned: RelocationPlan): RelocationPlan {
+    val directory = planned.actions.asSequence().flatMap(::neededDirectories).firstOrNull(state.notDirectories::containsKey)
         ?: return planned
-    val inTheWay = state.notFolders.getValue(folder)
+    val inTheWay = state.notDirectories.getValue(directory)
     val stagingRoot = effectiveStagingRoot(state.relocation.targetPath, state.relocation.stagingRoot)
-    // Only the staging root must not be a link. Elsewhere a link to a folder is allowed, so a link in the way there
-    // points to something that is not a folder. It gets the general reason.
-    val linkedStagingRoot = folder == stagingRoot && inTheWay.path == folder && inTheWay.observation.state == PathState.SYMLINK
+    // Only the staging root must not be a link. Elsewhere a link to a directory is allowed, so a link in the way there
+    // points to something that is not a directory. It gets the general reason.
+    val linkedStagingRoot = directory == stagingRoot && inTheWay.path == directory && inTheWay.observation.state == PathState.SYMLINK
         && inTheWay.observation.symlinkTargetAvailability != SymlinkTargetAvailability.ABSENT
     return blocked(
         state,
-        if (linkedStagingRoot) PathText("the staging folder must be a real folder, not a link: ", folder)
-        else notAFolderReason(inTheWay),
+        if (linkedStagingRoot) PathText("the staging directory must be a real directory, not a link: ", directory)
+        else notADirectoryReason(inTheWay),
     )
 }
 
 /**
- * The folders the executor makes or works in for an action. Every other path an action uses is a source, target,
+ * The directories the executor makes or works in for an action. Every other path an action uses is a source, target,
  * archive destination or replaced source, whose observations the planner has already checked.
  */
-private fun neededFolders(action: ReconciliationAction): List<Path> = when (action) {
+private fun neededDirectories(action: ReconciliationAction): List<Path> = when (action) {
     is ReconciliationAction.EnsureDirectory -> listOf(action.path)
     is ReconciliationAction.MigrateDirectoryForPublication -> listOfNotNull(action.target.parent, action.effectiveStagingRoot)
     is ReconciliationAction.CreateDirectory, is ReconciliationAction.ArchiveDirectory,
@@ -198,17 +198,17 @@ private fun neededFolders(action: ReconciliationAction): List<Path> = when (acti
     is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> listOf()
 }
 
-private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
+private fun notADirectoryReason(inTheWay: RelocationState.NotADirectory): PathText {
     val observation = inTheWay.observation
     return PathText(
         inTheWay.path,
         when (observation.state) {
-            PathState.FILE -> " is a file, not a folder"
+            PathState.FILE -> " is a file, not a directory"
             PathState.SYMLINK ->
-                if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) " is a broken link, not a folder"
-                else " is a link, not a folder"
-            PathState.INACCESSIBLE -> " can't be read, so Lighten can't tell if it is a folder"
-            PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> " is not a folder"
+                if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) " is a broken link, not a directory"
+                else " is a link, not a directory"
+            PathState.INACCESSIBLE -> " can't be read, so Lighten can't tell if it is a directory"
+            PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> " is not a directory"
         },
     )
 }

@@ -61,9 +61,9 @@ Configure → Workspace → Review → Apply → Results
    - A choice is for the next apply only. To always do this for that
      relocation, press `s` to save the choice as its rule.
    - A relocation marked `[Blocked]` cannot be done as things are. For
-     example, a file is where its archive folder must go. Its Details say
+     example, a file is where its archive directory must go. Its Details say
      what is in the way. Fix that, then press `r`. If Details say that you
-     can, pick a choice below that does not need that folder.
+     can, pick a choice below that does not need that directory.
 3. **Review (`2`).** Press `a` to see every step that Lighten will take.
    Each step is under the relocation it belongs to. Select a relocation to
    see its decision and paths. Select a step to see what it does. Nothing
@@ -242,7 +242,7 @@ what each list says, including any caution, marked `⚠ Caution`.
 
 Some tools have clean commands, such as `sdk flush` or `deno clean`. These
 commands remove the link to a moved directory. The tool then creates a new
-folder in its place, and Lighten asks which folder to keep. The built-in
+directory in its place, and Lighten asks which directory to keep. The built-in
 list gives a caution about these tools.
 
 ### Write your own list
@@ -331,7 +331,7 @@ next apply only. Lighten forgets it when you check again or apply. Press `s`
 to save a choice as the rule.
 
 **Archive or delete.** Archive moves the source's contents into an archive
-folder, so you can move them back. Delete removes them permanently.
+directory, so you can move them back. Delete removes them permanently.
 
 **Check again.** Lighten looks at the disk again and makes a new plan. Do it
 after you change files or the configuration outside Lighten.
@@ -386,12 +386,12 @@ write or change it by hand. Then press `r` to check again. For example:
 All settings go under `"lighten"`:
 
 - `target-root` (required): where storage is, such as a larger disk.
-- `source-root` (default `~`): the folder that your sources are usually in.
-  A relocation without a `target-path` keeps its place under this folder,
+- `source-root` (default `~`): the directory that your sources are usually in.
+  A relocation without a `target-path` keeps its place under this directory,
   inside `target-root`. So `~/.m2` goes to `<target-root>/.m2`. A source
   outside `source-root` needs a `target-path`. Browse also looks for
-  suggestions under this folder.
-- `staging-root` (default: a `.lighten-staging` folder beside each
+  suggestions under this directory.
+- `staging-root` (default: a `.lighten-staging` directory beside each
   target): where Lighten copies a directory before it puts the copy in
   place. It must be inside `target-root`, on the same disk as the targets.
   If a relocation to move has its target on another disk, it is `[Blocked]`
@@ -415,7 +415,7 @@ Each relocation has these settings:
   `adopt`, `leave-unchanged` or `discard`.
 - `when-adopting-target`: `prompt` (the default), `discard-source` or
   `archive-source`. It decides what happens to the source after `adopt`.
-- `archive-root` (default: a `.lighten-archive` folder beside the
+- `archive-root` (default: a `.lighten-archive` directory beside the
   source): where `archive-source` moves the source. It must be on the same
   disk as the source. The source keeps its name there. If that name is
   taken, Lighten adds a short code to it, such as `uv-3f9c2b1d`.
@@ -428,7 +428,7 @@ Paths:
 
 - Every path, including `suggestion-list`, is full, such as `/data/me`. Or
   it starts with `~/`, or it is `~`. Lighten refuses a path like `data/me`.
-  The meaning of such a path depends on the folder that you run Lighten in.
+  The meaning of such a path depends on the directory that you run Lighten in.
 - `~` is the home directory of your account, not the `HOME` environment
   variable.
 - `${USER}` is your user name. It is the `USER` environment variable, or
@@ -514,9 +514,9 @@ to the source.
   deletes the source and replaces it with a link to the target
   (`[Keep target]`). The source's contents are permanently gone.
 - **Keep target, archive source** (`adopt`, `archive-source`): Lighten
-  moves the source into the archive folder. Then it links the source to the
-  target (`[Archive]`). The archive folder is `.lighten-archive` beside the
-  source, unless `archive-root` gives another folder. So `~/.cache/uv` goes
+  moves the source into the archive directory. Then it links the source to the
+  target (`[Archive]`). The archive directory is `.lighten-archive` beside the
+  source, unless `archive-root` gives another directory. So `~/.cache/uv` goes
   to `~/.cache/.lighten-archive/uv`.
 - **Leave both as they are** (`leave-unchanged`): Lighten does nothing
   (`[Left as is]`).
@@ -529,7 +529,7 @@ apply only.
 
 #### Special files
 
-A directory to move can hold files that are not ordinary files, folders or
+A directory to move can hold files that are not ordinary files, directories or
 links. Lighten cannot copy them:
 
 - **Sockets** let a running program listen for other programs. Lighten
@@ -542,10 +542,10 @@ links. Lighten cannot copy them:
   program before you apply.
 - **Named pipes and device files** stop the move. The plan does not look
   for them. To find them, Lighten would have to read every file of every
-  folder to move each time it checks. When the copy finds one, Lighten
+  directory to move each time it checks. When the copy finds one, Lighten
   deletes the copy and nothing moves. The copy step names the file, such as
   `~/.cache/tool/ipc is a named pipe; Lighten can't move it, so it threw the
-  copy away and moved nothing. Remove it, or move this folder yourself.`
+  copy away and moved nothing. Remove it, or move this directory yourself.`
   Then press `r`.
 
 ### Scripting
@@ -618,7 +618,7 @@ release.
 ### Update Lighten
 
 `lighten update` updates Lighten to the latest release. It runs the install
-script of that release on the folder that holds your `lighten`. The script
+script of that release on the directory that holds your `lighten`. The script
 downloads the new `lighten` and checks it against the `SHA256SUMS` file of
 the release. Only then does it put the new `lighten` in place. So a failed
 download leaves your `lighten` as it was. The script needs `curl` or
@@ -634,7 +634,7 @@ download leaves your `lighten` as it was. The script needs `curl` or
   `mise upgrade github:big-sw-little-sw/lighten`
 - An install by eget or ubi updates in the same way as an install by the
   install script. So `lighten update` works for those too.
-- You may not have permission to write to the folder that holds `lighten`,
+- You may not have permission to write to the directory that holds `lighten`,
   such as `/usr/local/bin`. Then `lighten update` changes nothing. It shows
   how to update `lighten` as a user who has permission.
 
