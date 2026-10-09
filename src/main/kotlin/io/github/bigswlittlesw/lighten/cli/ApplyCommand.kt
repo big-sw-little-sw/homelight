@@ -63,14 +63,14 @@ internal fun renderCompletion(execution: ReviewedExecution, output: PrintWriter)
     try {
         execution.awaitExecution()
     } catch (exception: CompletionException) {
-        // Completion failure must not hide evidence already published by the worker.
+        // A failed completion must not hide the results that the worker already published.
         val snapshot = execution.snapshot()
         if (snapshot is ApplyModel.Result && !snapshot.succeeded()) {
             renderApplyJson(snapshot, output)
         }
         throw exception
     }
-    // ReviewedExecution publishes its terminal Result snapshot before completion settles.
+    // ReviewedExecution publishes its final Result snapshot before its completion finishes, so the cast is safe.
     val result = execution.snapshot() as ApplyModel.Result
     renderApplyJson(result, output)
     return if (result.succeeded()) 0 else 1

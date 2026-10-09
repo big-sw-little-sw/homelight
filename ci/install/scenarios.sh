@@ -1,7 +1,8 @@
 #!/bin/sh
-# Runs inside a container started by test.sh; not meant to be run directly.
-# Mounts: /ci this directory (ro), /install.sh (ro). Environment: BASE, the asset server with the
-# good/ and bad/ trees described in test.sh, and VERSION, the version it serves.
+# Runs inside a container that test.sh starts. Do not run it directly.
+# test.sh mounts this directory at /ci and install.sh at /install.sh, both read-only.
+# Environment: BASE, the asset server with the good/, bad/, missing/ and broken/ trees that
+# test.sh describes, and VERSION, the version it serves.
 # Prints one line per scenario, with the output under a failure. Exit status is non-zero when
 # any scenario fails.
 # shellcheck disable=SC2088 # expected output shows home paths as ~/...

@@ -62,8 +62,9 @@ class LightenCommand : Callable<Int> {
         fun createCommandLine(): CommandLine = CommandLine(LightenCommand())
             .setExecutionStrategy(::executeValidated)
             .setExecutionExceptionHandler(::handleExecutionException)
-            // Set here, not in @Command: the address depends on the version. Rendered as is, not as picocli's footer,
-            // which wraps at 80 columns: a long pre-release version such as 1.0.0-beta.10 makes the address longer.
+            // Set here, not in @Command, because the address depends on the version. The renderer prints it as is.
+            // picocli's footer wraps at 80 columns, and a long pre-release version such as 1.0.0-beta.10 makes the
+            // address longer than that.
             .also {
                 it.helpSectionMap[SECTION_KEY_FOOTER] =
                     IHelpSectionRenderer { "\nUser guide: run lighten guide, or read it online:\n${guideUrl()}\n" }

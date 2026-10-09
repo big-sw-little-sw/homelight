@@ -95,7 +95,7 @@ class ReviewedJsonApplyTest {
         assertEquals(listOf("false"), values(result.output, "succeeded"), result.output + result.error)
         assertTrue(values(result.output, "status").containsAll(listOf("completed", "failed", "pending")))
         assertEquals(listOf("converged", "unresolved", "unresolved"), values(result.output, "outcome"))
-        // A failed action's message is the executor's own text, not the TUI's plain words (#172).
+        // A failed action's message is the executor's own text, not the TUI's plain words: scripts need a stable text.
         assertTrue(values(result.output, "message").contains("expected real directory at $staging"), result.output)
         assertFalse(result.output.contains("press r"), result.output)
         assertFalse(result.output.contains("diagnostics"))
@@ -176,7 +176,7 @@ class ReviewedJsonApplyTest {
         val completion = execution.start {
             throw RejectedExecutionException("retained worker diagnostic")
         }
-        // Inject completion failure after publication, without provoking a real VM failure.
+        // Fail the completion after the worker publishes its result, without a real failure in the JVM.
         val failure = AssertionError("exceptional completion")
         completion.obtrudeException(failure)
         val output = StringWriter()

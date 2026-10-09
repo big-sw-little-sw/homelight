@@ -9,12 +9,16 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-/** Where releases are published. Asset names are a contract: see "Release assets" in `docs/decisions.md`. */
+/**
+ * Where releases are published. Asset names never change once published, because `install.sh`, `lighten update` and
+ * tools such as mise download by name. `install.sh` and `.github/workflows/release.yml` use the same asset names.
+ */
 internal const val RELEASES_URL = "https://github.com/big-sw-little-sw/lighten/releases"
 
 /**
- * For tests only, with the meaning it has for `install.sh`, which receives it too: replaces [RELEASES_URL]. The
- * server must serve `latest/download/<asset>` and `download/v<version>/<asset>` under it, as GitHub does.
+ * Replaces [RELEASES_URL], for tests only. `install.sh` reads the same variable with the same meaning, and Lighten
+ * passes it on. The server must serve `latest/download/<asset>` and `download/v<version>/<asset>` under it, as GitHub
+ * does.
  */
 internal const val BASE_URL_VARIABLE = "LIGHTEN_INSTALL_BASE_URL"
 
@@ -44,7 +48,7 @@ internal fun releasePlatform(os: String, arch: String): String? = when {
     else -> null
 }
 
-/** One download: `SHA256SUMS` or `install.sh`, both small. */
+/** The time limit for one download. Each download is `SHA256SUMS` or `install.sh`, and both are small. */
 private val DOWNLOAD_DEADLINE: Duration = Duration.ofSeconds(60)
 
 /**

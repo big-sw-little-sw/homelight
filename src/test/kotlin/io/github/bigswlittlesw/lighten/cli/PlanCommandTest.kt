@@ -83,8 +83,8 @@ class PlanCommandTest {
     }
 
     /**
-     * A conflict's resolutions are the Workspace's choices for it, by name (#211). A source link to somewhere else is
-     * no conflict but a blocked action with its reason (#223).
+     * A conflict's resolutions are the Workspace's choices for it, by name, so scripts and people see the same names.
+     * A source link to somewhere else is not a conflict. It is a blocked action with its reason.
      */
     @Test
     fun conflictResolutionsAreTheWorkspaceChoices(@TempDir temporary: Path) {

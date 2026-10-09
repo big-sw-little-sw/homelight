@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.github.bigswlittlesw"
-// The release workflow passes -PreleaseVersion=<tag without v>; every other build is a SNAPSHOT.
+// .github/workflows/release.yml passes -PreleaseVersion=<tag without the v>. Every other build is a SNAPSHOT.
 version = providers.gradleProperty("releaseVersion").getOrElse("1.0-SNAPSHOT")
 
 val mainClassName = "io.github.bigswlittlesw.lighten.cli.LightenCommand"
@@ -74,8 +74,9 @@ application {
     mainClass = mainClassName
 }
 
-// `./gradlew nativeCompile` with a GraalVM 25 JDK as JAVA_HOME (or GRAALVM_HOME).
-// Platform flags (static linking, libc, -march) come from NATIVE_IMAGE_OPTIONS; see ci/native/.
+// Run `./gradlew nativeCompile` with a GraalVM 25 JDK as JAVA_HOME (or GRAALVM_HOME).
+// The platform flags (static linking, libc, -march) come from NATIVE_IMAGE_OPTIONS, which
+// ci/native/build-in-container.sh sets for each release platform.
 graalvmNative {
     binaries.named("main") {
         imageName = "lighten"
@@ -83,7 +84,7 @@ graalvmNative {
         buildArgs.addAll(
             "--no-fallback",
             "-H:+ReportExceptionStackTraces",
-            // JLine's JNI provider calls System.load; silences the JDK restricted-method warning.
+            // JLine's JNI provider calls System.load. This flag stops the JDK's restricted-method warning.
             "--enable-native-access=ALL-UNNAMED",
         )
     }

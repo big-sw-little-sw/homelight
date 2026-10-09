@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    # labeled: adding the `native` label starts the native jobs (see native-build).
+    # labeled: adding the `native` label to a pull request starts the native jobs.
     types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main, kotlin-migration]
@@ -28,10 +28,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew build
 
-  # Linux native binaries. Scripts and the distro matrix are in ci/native/; they also run locally.
-  # The native jobs run on pushes, on PRs into main, and on PRs labeled `native`; otherwise they
-  # are skipped (native-test and native-distros follow native-build). A skipped required check
-  # counts as passed, but PRs into main always run them.
+  # Linux native binaries. The scripts and the list of distributions are in ci/native/, and they
+  # also run locally. The native jobs run on pushes, on pull requests into main, and on pull requests
+  # labeled `native`. Otherwise they are skipped: native-test and native-distros need native-build.
+  # A skipped required check counts as passed, but pull requests into main always run them.
   native-build:
     name: Native build (${{ matrix.arch }})
     if: github.event_name == 'push' || github.base_ref == 'main' || contains(github.event.pull_request.labels.*.name, 'native')
@@ -147,7 +147,8 @@ jobs:
       - run: |
           chmod +x dist/lighten
           ci/native/distros.sh ${{ matrix.arch }} dist results
-      # install.sh against this build under its release name (release.yml), on the same distros.
+      # Test install.sh against this build, renamed to its release asset name as in release.yml,
+      # on the same distributions.
       - name: Install script
         if: ${{ !cancelled() }}
         run: |
