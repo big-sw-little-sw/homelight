@@ -26,16 +26,15 @@ internal data class RelocationProblem(val source: Path, val message: PathText)
  */
 internal fun relocationProblem(relocations: List<Relocation>): RelocationProblem? {
     for (relocation in relocations) {
-        val source = normalized(relocation.sourcePath)
+        val source = relocation.sourcePath
         if (intersects(source, relocation.targetPath)) {
-            return RelocationProblem(relocation.sourcePath, PathText("source and target paths overlap: ", source))
+            return RelocationProblem(source, PathText("source and target paths overlap: ", source))
         }
     }
     for ((index, left) in relocations.withIndex()) {
         for (right in relocations.drop(index + 1)) {
-            val target = normalized(left.targetPath)
-            if (target == normalized(right.targetPath)) {
-                return RelocationProblem(left.sourcePath, PathText("duplicate target path: ", target))
+            if (left.targetPath == right.targetPath) {
+                return RelocationProblem(left.sourcePath, PathText("duplicate target path: ", left.targetPath))
             }
             if (intersects(left.sourcePath, right.sourcePath) || intersects(left.sourcePath, right.targetPath)
                 || intersects(left.targetPath, right.sourcePath) || intersects(left.targetPath, right.targetPath)
