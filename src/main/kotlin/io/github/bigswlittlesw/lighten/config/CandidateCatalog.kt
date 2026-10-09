@@ -4,10 +4,10 @@ import java.io.IOException
 import java.nio.file.Path
 
 /**
- * Catalog contents only: no candidate filesystem access, selection, or policy.
+ * Reads and merges suggestion lists. It never looks at the suggested directories on disk and never decides which
+ * suggestions Browse shows.
  *
- * Every list it returns is an unmodifiable JDK copy, so neither a later change to a list passed in nor a
- * cast to a mutable list can alter a snapshot.
+ * Each [Snapshot] copies the lists it is given, so a later change to a list passed in cannot change it.
  */
 object CandidateCatalog {
     val BUNDLED = CandidateSource(CandidateSource.Kind.BUNDLED, "/candidates.json")
@@ -43,9 +43,9 @@ object CandidateCatalog {
     }
 
     /**
-     * Input order stabilizes the order of candidates. Within a candidate the shared list's definitions come first,
-     * so the first definition is the one whose app and advice Browse shows (decision 2026-10-04).
-     * Failed sources contribute diagnostics and no definitions.
+     * Candidates keep the order of `snapshots`. Within a candidate the user's list comes before the built-in list.
+     * So the user's list decides the app and advice that Browse shows, and Details lists it first.
+     * A list that failed gives its diagnostics and no definitions.
      */
     fun merge(snapshots: List<Snapshot>): Merged {
         require(snapshots.distinctBy { it.root }.size <= 1) { "Cannot merge snapshots from different roots" }

@@ -62,7 +62,7 @@ class ConfigurationEvaluationTest {
         assertEquals(WhenSourceAndTargetDirectoriesExist.PROMPT,
                 selected.savedConfiguration.relocations.first().whenSourceAndTargetDirectoriesExist)
 
-        // Compare with the established loader + pure planner path using saved policies.
+        // Compare with loading the file and planning directly, with the choice saved as a rule.
         val properties = when (choice) {
             DecisionChoice.ADOPT_TARGET -> mapOf("when-only-target-exists" to "adopt-target")
             DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> mapOf("when-source-and-target-directories-exist" to "adopt",
@@ -139,7 +139,7 @@ class ConfigurationEvaluationTest {
         assertTrue(session.requestApply())
         session.refresh()
         assertInstanceOf(ApplyModel.Idle::class.java, session.applyModel())
-        // A re-check clears the choice even though nothing on disk changed.
+        // Checking again forgets the choice, even though nothing on disk changed.
         val rechecked = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertTrue(rechecked.draft.isEmpty())
         assertEquals(rechecked.savedPlan, rechecked.plan)
@@ -176,7 +176,7 @@ class ConfigurationEvaluationTest {
         assertThrows<IllegalArgumentException> { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
     }
 
-    /** No choice avoids an overlap, so a row blocked by one never says a choice avoids a folder (#207). */
+    /** No choice avoids an overlap, so a row that an overlap blocks never says a choice avoids a folder. */
     @Test
     fun anOverlapIsNotAvoidedByAChoice() {
         bothDirectories("parent", "target")
@@ -280,7 +280,7 @@ class ConfigurationEvaluationTest {
         assertSame(before, session.evaluation())
         tasks.first().run()
         assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
-        // Applying clears the draft and re-inspects, so Workspace shows the applied state.
+        // Applying forgets the one-time choices and inspects the disk again, so Workspace shows the state after apply.
         val applied = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation())
         assertTrue(applied.draft.isEmpty())
         assertEquals(PlanBadge.IN_SYNC, applied.items.single().badge())

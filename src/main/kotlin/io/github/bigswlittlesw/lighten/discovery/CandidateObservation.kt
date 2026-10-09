@@ -6,8 +6,8 @@ import java.nio.file.Path
 import java.time.Instant
 
 /**
- * Read-only evidence, never an execution safety or ownership assessment.
- * Discovery never estimates sizes or enumerates directory contents.
+ * What discovery saw at one suggested path, for Browse to show. It does not say whether moving the path is safe or
+ * who owns it. Discovery never measures sizes or lists what is inside a directory.
  */
 data class CandidateObservation(
     val path: Path, val kind: Kind, val rawLinkTarget: Path?,
@@ -27,7 +27,7 @@ data class CandidateObservation(
         ALIAS_UNCERTAINTY, NOT_DIRECTORY, MISSING,
     }
 
-    /** Paths and details are unescaped data; a presentation must escape controls. */
+    /** Paths and details are not escaped: a screen must escape control characters before it shows them. */
     data class Diagnostic(val path: Path, val reason: Reason, val detail: String)
 
     internal companion object {

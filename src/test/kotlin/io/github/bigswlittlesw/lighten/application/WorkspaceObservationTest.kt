@@ -8,8 +8,8 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
-// Java text blocks end with the newline before the closing delimiter, and `trimIndent` drops it,
-// so each block appends "\n" to keep the text byte-identical.
+// `trimIndent` drops the last newline, so each block appends "\n". The file then ends with a newline, as the
+// Java text blocks these tests came from did.
 class WorkspaceObservationTest {
 
     @Test
@@ -155,7 +155,7 @@ class WorkspaceObservationTest {
         val root = tempDir.resolve("target")
         Files.createDirectories(root)
 
-        // Item A: Converged (~/.m2)
+        // Item A: in sync
         val sourceA = tempDir.resolve("source-m2")
         Files.createDirectories(sourceA)
         val targetA = root.resolve("target-m2")
@@ -163,13 +163,13 @@ class WorkspaceObservationTest {
         Files.delete(sourceA)
         Files.createSymbolicLink(sourceA, targetA)
 
-        // Item B: Conflict (~/.gradle)
+        // Item B: needs a choice
         val sourceB = tempDir.resolve("source-gradle")
         val targetB = root.resolve("target-gradle")
         Files.createDirectories(sourceB)
         Files.createDirectories(targetB)
 
-        // Item C: Blocked (~/.blocked)
+        // Item C: blocked, because the source is a file
         val sourceC = tempDir.resolve("source-blocked")
         val targetC = root.resolve("target-blocked")
         Files.writeString(sourceC, "file")
@@ -198,7 +198,7 @@ class WorkspaceObservationTest {
         val configured = model as ConfigurationEvaluation.Loaded
         assertEquals(3, configured.items.size)
 
-        // Blocked and Conflict have priority 1 (ordered by path), Converged has priority 5
+        // Blocked and Conflict have priority 1 and keep the file's order. In sync has priority 5.
         val first = configured.items.get(0)
         val second = configured.items.get(1)
         val third = configured.items.get(2)

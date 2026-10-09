@@ -7,14 +7,15 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
 /**
- * Presentation-neutral session holding active workflow state, typed draft decisions, and evaluated plans.
+ * The state of one Lighten session, for both the CLI and the TUI: the current plan, the one-time choices, and the
+ * apply in progress.
  */
 class LightenSession(
     val configPath: Path,
     private val debugStepDelayMillis: Long = 0,
     private val evaluator: ConfigurationEvaluation = ConfigurationEvaluation(),
 ) {
-    // Guarded by this instance's monitor. The apply worker touches them only through
+    // This instance's monitor guards these fields. The apply worker changes them only through
     // `refreshObservationsAfterExecution`, which takes the monitor.
     private var evaluation: ConfigurationEvaluation.Evaluation = evaluator.load(configPath)
     private var reviewedExecution: ReviewedExecution? = null
@@ -23,7 +24,7 @@ class LightenSession(
     @Synchronized
     fun evaluation(): ConfigurationEvaluation.Evaluation = evaluation
 
-    /** A re-check reloads from disk and clears the draft: Workspace choices are for one apply only. */
+    /** Checks again: reloads from disk and forgets the one-time choices, which hold for one apply only. */
     @Synchronized
     fun refresh() {
         if (isApplying()) {
@@ -88,7 +89,7 @@ class LightenSession(
     @Synchronized
     fun isApplying(): Boolean = applyModel() is ApplyModel.Running
 
-    /** Includes post-execution refresh and exceptional settlement, not just result publication. */
+    /** True when the apply and the reload after it are done, or when the apply ended with a bug and no reload ran. */
     @Synchronized
     fun executionSettled(): Boolean = execution.isDone
 
@@ -114,7 +115,9 @@ class LightenSession(
         }
     }
 
-    /** The worker never accesses terminal state. Repeated confirmation cannot schedule another execution. */
+    /**
+     * The worker never touches the terminal. Confirming again returns the same apply and does not start a second one.
+     */
     @Synchronized
     fun confirmApply(
         worker: Executor = Executor { task -> Thread.ofPlatform().name("lighten-apply").start(task) },
@@ -127,13 +130,13 @@ class LightenSession(
         return execution
     }
 
-    /** Applying clears the draft: the next plan starts from the saved policy and the new observations. */
+    /** Applying forgets the one-time choices: the next plan starts from the saved rules and what is on disk now. */
     @Synchronized
     private fun refreshObservationsAfterExecution() {
         evaluation = evaluator.load(configPath)
     }
 
-    /** Terminal shutdown waits for an active mutation sequence rather than interrupting it mid-action. */
+    /** On exit, waits for a running apply to finish. Interrupting it could stop it in the middle of a step. */
     fun awaitExecution() {
         val pending = synchronized(this) { execution }
         pending.join()

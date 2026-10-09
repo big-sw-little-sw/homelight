@@ -38,7 +38,7 @@ class ReviewedExecutionTest {
         assertEquals(1, tasks.size)
         assertFalse(completion.isDone())
 
-        // Execution owns the captured plan, with no configuration dependency after capture.
+        // The apply uses only the reviewed plan: after review it never reads the configuration file.
         Files.delete(directory.resolve("config.json"))
         val atCompletion = AtomicReference<ApplyModel>()
         val observed = completion.thenRun { atCompletion.set(review.snapshot()) }
@@ -114,7 +114,7 @@ class ReviewedExecutionTest {
         val review = ReviewedExecution(plan("cache"), 1)
         val tasks = mutableListOf<Runnable>()
         val completion = review.start(tasks::add)
-        // Exercise the existing debug-delay failure path deterministically, without a timing race.
+        // An interrupt makes the debug delay fail every time, so the test does not depend on timing.
         Thread.currentThread().interrupt()
         try {
             tasks.first().run()

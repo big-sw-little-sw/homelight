@@ -384,7 +384,7 @@ class CandidateCatalogTest {
         assertTrue(malformed.diagnostics.first().line > 0)
     }
 
-    /** Every definition is kept; within a candidate the shared list's come first, so its app and advice win. */
+    /** Every definition is kept. Within a candidate the user's list comes first, so its app and advice win. */
     @Test fun retainsAllAttributionAndLiteralReasonsWithSharedFirst() {
         val bundled = fixture(CandidateCatalog.BUNDLED, "bundled.json")
         val shared = fixture(SHARED, "shared.json")

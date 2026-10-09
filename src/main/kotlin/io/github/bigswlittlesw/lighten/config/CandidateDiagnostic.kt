@@ -1,15 +1,14 @@
 package io.github.bigswlittlesw.lighten.config
 
 /**
- * Line and column are one-based; zero means unavailable. Only [Kind.SYNTAX] diagnostics,
- * raised while decoding, can have a position, and missing keys and unknown advice values have
- * none. Key is empty when no schema key applies. Messages are data and require escaping for
- * display. Structural location identifies the enclosing record or collection using zero-based
- * indices; it is empty for source-wide failures.
+ * `line` and `column` are one-based, and zero when unknown. Only a [Kind.SYNTAX] diagnostic, made while
+ * decoding, can have a position. Missing keys and unknown advice values have none. `key` is empty when no key of
+ * the format applies. A message is data: escape it before showing it. `location` names the record or list at
+ * fault with zero-based indices. It is empty when the whole list fails.
  *
  * [Kind.SYNTAX] covers everything the JSON reader rejects: malformed JSON, unknown or missing
  * keys, values of the wrong type and unknown advice values. Its location is the dotted path
- * kotlinx reports, which can be the offending key itself.
+ * kotlinx.serialization reports, which can be the key at fault.
  */
 data class CandidateDiagnostic(
     val source: CandidateSource, val kind: Kind, val recordIndex: Int,

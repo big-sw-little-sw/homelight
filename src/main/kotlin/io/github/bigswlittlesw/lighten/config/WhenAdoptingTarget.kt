@@ -3,7 +3,7 @@ package io.github.bigswlittlesw.lighten.config
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** The disposition required for a source directory when its target is adopted. */
+/** The rule for what happens to the source directory when Lighten keeps the target. */
 @Serializable
 @SerialName("when-adopting-target")
 enum class WhenAdoptingTarget {
