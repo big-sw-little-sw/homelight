@@ -13,9 +13,9 @@ import io.github.bigswlittlesw.lighten.application.DecisionChoice
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.PlanBadge
 import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction

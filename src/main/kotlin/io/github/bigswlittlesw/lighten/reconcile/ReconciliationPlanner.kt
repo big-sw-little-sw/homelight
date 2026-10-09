@@ -4,9 +4,9 @@ import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.config.intersects
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.PathText
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import java.nio.file.Path
 

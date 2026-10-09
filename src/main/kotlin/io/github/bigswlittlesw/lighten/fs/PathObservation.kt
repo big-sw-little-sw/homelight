@@ -1,6 +1,5 @@
 package io.github.bigswlittlesw.lighten.fs
 
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import java.nio.file.Path
 
 /**

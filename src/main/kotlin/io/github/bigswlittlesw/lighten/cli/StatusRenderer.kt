@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.lighten.cli
 
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import kotlinx.serialization.Serializable
 import java.io.PrintWriter
 import java.nio.file.Path

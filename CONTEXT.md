@@ -13,7 +13,7 @@ _Avoid_: mapping, migration, entry
 
 **Source**:
 Where programs look for the directory, usually in the home directory. After a move it is a link to the target.
-Code: `Relocation.sourcePath`, `source-path`.
+Code: `Relocation.sourcePath`, `source-path`; what is there now, compared with the target, is a `RelocationSourceState` (in `fs`).
 
 **Target**:
 Where the directory's contents live, in storage.

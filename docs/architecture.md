@@ -11,8 +11,8 @@ A presentation-neutral application workflow sits on a reconciliation core. The f
 All under `io.github.bigswlittlesw.lighten`:
 
 ```text
-domain        shared domain values, such as a source's state relative to its target
-fs            filesystem inspection: what is at a path, without following links
+fs            filesystem inspection: what is at a path, without following links, and
+              a source's state relative to its target
 config        the configuration file, its validation and path resolution; relocations
               and their rules; suggestion-list parsing and the built-in list
 reconcile     inspection of each relocation, the pure planner, and the executor that
@@ -30,14 +30,13 @@ cli           picocli commands, JSON output and exit codes; the entry point
 The dependency direction:
 
 ```text
-cli         -> application, tui, update, reconcile, config, domain
-tui         -> application, discovery, reconcile, config, fs, domain
+cli         -> application, tui, update, reconcile, config, fs
+tui         -> application, discovery, reconcile, config, fs
 update      -> application
-application -> reconcile, discovery, config, fs, domain
-reconcile   -> config, fs, domain, concurrent
+application -> reconcile, discovery, config, fs
+reconcile   -> config, fs, concurrent
 discovery   -> config, concurrent
-fs          -> domain
-config, domain, concurrent -> Kotlin and JDK only
+fs, config, concurrent -> Kotlin and JDK only
 ```
 
 The reconciliation core (`reconcile` and below) never depends on `application`, `tui`, `cli` or terminal APIs. The JSON commands never start a terminal session.
