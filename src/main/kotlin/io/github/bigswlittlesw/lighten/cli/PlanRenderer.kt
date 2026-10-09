@@ -44,7 +44,8 @@ private data class DiagnosticJson(val severity: String, val source: String, val 
 
 /**
  * A conflict's `resolutions` are the one-time choices the Workspace offers for it, so scripts and people see the same
- * names; empty when no choice resolves it, such as a source link to somewhere else.
+ * names. What no choice resolves, such as a source link to somewhere else, is a `blocked` action with a `reason`
+ * instead, not a conflict.
  *
  * They are [DecisionChoice] names in kebab case, not configuration values, on purpose: one choice can set two
  * settings, so `adopt-and-discard-source` is `when-source-and-target-directories-exist: adopt` plus

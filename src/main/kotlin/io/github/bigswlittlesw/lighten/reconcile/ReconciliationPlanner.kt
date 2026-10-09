@@ -56,7 +56,7 @@ class ReconciliationPlanner {
                 PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
             RelocationSourceState.FILE -> blocked(state, PathText("source is a file; relocations require directories"))
-            RelocationSourceState.WRONG_SYMLINK -> conflict(state, source, "source points to a live, non-configured destination")
+            RelocationSourceState.WRONG_SYMLINK -> blocked(state, wrongLinkReason(state))
             RelocationSourceState.BROKEN_SYMLINK -> when (state.target.state) {
                 PathState.DIRECTORY -> outcome(state, listOf(replacementLink(state)))
                 PathState.ABSENT -> blocked(state, PathText("broken source link has no target directory"))
@@ -212,6 +212,18 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
         },
     )
 }
+
+/**
+ * A source link to somewhere else is blocked, never replaced: it may belong to another tool, and no rule or choice
+ * replaces it. The reason names both paths and both fixes.
+ *
+ * `[skipped: naming which tool owns the link, add with #5]`
+ */
+private fun wrongLinkReason(state: RelocationState): PathText = PathText(
+    // A wrong link is a symlink observation, which always has a link target.
+    state.relocation.sourcePath, " links to ", state.source.symlinkTarget!!, ", not to ", state.relocation.targetPath,
+    ". Remove the link, or set target-path to where it points",
+)
 
 private fun migrateSourceForPublication(state: RelocationState): RelocationPlan {
     val relocation = state.relocation

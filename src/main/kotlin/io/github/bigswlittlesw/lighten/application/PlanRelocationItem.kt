@@ -53,10 +53,7 @@ data class PlanRelocationItem(
         if (plan.outcome == RelocationOutcome.UNCHANGED || plan.actions.any { it is ReconciliationAction.LeaveUnchanged }) {
             return PlanBadge.SKIPPED
         }
-        if (sourceState == RelocationSourceState.WRONG_SYMLINK
-            || sourceState == RelocationSourceState.BROKEN_SYMLINK
-            || plan.diagnostics.isNotEmpty()
-        ) {
+        if (sourceState == RelocationSourceState.BROKEN_SYMLINK || plan.diagnostics.isNotEmpty()) {
             return PlanBadge.WARNING
         }
         if (plan.outcome == RelocationOutcome.CONVERGED) {
@@ -77,8 +74,9 @@ data class PlanRelocationItem(
         }
     }
 
+    /** A source link to somewhere else is blocked, not a warning: its reason says it. */
     fun hasWarnings(): Boolean =
-        sourceState == RelocationSourceState.WRONG_SYMLINK || sourceState == RelocationSourceState.BROKEN_SYMLINK
+        sourceState == RelocationSourceState.BROKEN_SYMLINK
                 || plan.diagnostics.any { it.severity == ReconciliationDiagnostic.Severity.WARNING }
 
     fun hasConflict(): Boolean = plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED

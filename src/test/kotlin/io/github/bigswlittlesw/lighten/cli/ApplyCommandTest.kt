@@ -160,6 +160,25 @@ class ApplyCommandTest {
         assertTrue(Files.notExists(target.resolve("target")))
     }
 
+    /** #223: even a rule that deletes both never touches a source link to somewhere else, or where it points. */
+    @Test
+    fun neverTouchesASourceLinkToSomewhereElse(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val other = Files.createDirectories(root.resolve("other"))
+        Files.writeString(other.resolve("entry"), "other")
+        val source = Files.createSymbolicLink(Files.createDirectories(root.resolve("home")).resolve("cache"), other)
+        val target = Files.createDirectories(root.resolve("local/cache"))
+        Files.writeString(target.resolve("entry"), "target")
+
+        val result = apply(configuration(root, source, target, "\"when-source-and-target-directories-exist\": \"discard\""))
+
+        assertEquals(1, result.exitCode, result.output)
+        assertTrue(result.output.contains("\"type\":\"blocked\""), result.output)
+        assertEquals(other, Files.readSymbolicLink(source))
+        assertEquals("other", Files.readString(other.resolve("entry")))
+        assertEquals("target", Files.readString(target.resolve("entry")))
+    }
+
     @Test
     fun jsonAndNonInteractiveApplyRequireYes(@TempDir root: Path) {
         val source = root.resolve("home/cache")

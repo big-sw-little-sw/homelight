@@ -82,7 +82,10 @@ class PlanCommandTest {
         assertTrue(output.contains("\"actions\":["))
     }
 
-    /** A conflict's resolutions are the Workspace's choices for it, by name; none resolves a link elsewhere (#211). */
+    /**
+     * A conflict's resolutions are the Workspace's choices for it, by name (#211). A source link to somewhere else is
+     * no conflict but a blocked action with its reason (#223).
+     */
     @Test
     fun conflictResolutionsAreTheWorkspaceChoices(@TempDir temporary: Path) {
         val root = temporary.toRealPath()
@@ -103,10 +106,16 @@ class PlanCommandTest {
         assertEquals(0, command.execute("plan", "-c", config.toString(), "--json"))
         val both = "[\"adopt-and-discard-source\",\"adopt-and-archive-source\",\"leave-unchanged\",\"discard-both\"]"
         assertEquals(
-            listOf("[\"adopt-target\"]", both, both, "[]"),
+            listOf("[\"adopt-target\"]", both, both),
             Regex("\"resolutions\":(\\[[^]]*])").findAll(out.toString()).map { it.groupValues[1] }.toList(),
             out.toString(),
         )
+        val link = root.resolve("home/link")
+        val blocked = "{\"type\":\"blocked\",\"path\":\"$link\",\"destructive\":false,\"reason\":\"$link links to " +
+            "${root.resolve("local/elsewhere")}, not to ${root.resolve("local/link")}. Remove the link, or set target-path " +
+            "to where it points\"}"
+        assertTrue(out.toString().contains("\"outcome\":\"unresolved\",\"diagnostics\":[],\"actions\":[$blocked]}"), out.toString())
+        assertTrue(out.toString().startsWith("{\"schema\":1,\"blocked\":true,\"conflicts\":true,"), out.toString())
     }
 
     @Test

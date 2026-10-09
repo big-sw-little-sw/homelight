@@ -58,6 +58,10 @@ class WorkspaceDetailsTest {
         Files.createSymbolicLink(home.resolve("leftover"), Files.createDirectories(local.resolve("leftover")))
         Files.createDirectories(replacedSourcePath(home.resolve("leftover"), local.resolve("leftover")))
         add("leftover")
+        Files.createSymbolicLink(home.resolve("elsewhere"), Files.createDirectories(root.resolve("other")))
+        Files.createDirectories(local.resolve("elsewhere"))
+        // A rule that links the source to an existing target still does not replace a link to somewhere else.
+        add("elsewhere", ", \"when-only-target-exists\": \"adopt-target\"")
         val config = Files.writeString(root.resolve("config.json"), body.append("]}}\n"))
         // Permissions cannot make a path unreadable when tests run as root, so inspection says so instead.
         val inspector = PathInspector()
@@ -69,7 +73,7 @@ class WorkspaceDetailsTest {
 
     @Test
     fun rowsNoRuleGovernsHaveNoDecisionLine() {
-        for (name in listOf("move", "link", "synced", "blocked", "unreadable", "leftover")) {
+        for (name in listOf("move", "link", "synced", "blocked", "unreadable", "leftover", "elsewhere")) {
             val details = details(name)
             assertFalse(details.contains("Decision") || details.contains("Your rule") || details.contains("Your choice"), details)
             assertFalse(details.contains("Archive:"), details)
@@ -146,6 +150,26 @@ class WorkspaceDetailsTest {
         assertTrue(filed.contains("Will do: nothing until you fix the problem below, then check again."), filed)
         assertTrue(squeezed(filed).contains(squeezed("Problem: ${root.resolve("archive-file")} is a file, not a folder.")), filed)
         assertTrue(squeezed(filed).contains(squeezed(CHOOSE_AROUND_FOLDER)), filed)
+    }
+
+    /** #223: blocked, naming both paths and the fix, with its current destination under Paths and no choices. */
+    @Test
+    fun aSourceLinkToSomewhereElseIsBlockedWithHowToFixIt() {
+        for (size in listOf(80 to 24, 120 to 30, 200 to 80)) {
+            val screen = screen("elsewhere", size.first, size.second)
+            assertTrue(screen.lines().any { it.contains("❯") && it.contains("[Blocked]") }, screen)
+        }
+        val details = details("elsewhere")
+        val source = root.resolve("home/elsewhere")
+        val other = root.resolve("other")
+        assertTrue(details.contains("Will do: nothing until you fix the problem below, then check again."), details)
+        assertTrue(squeezed(details).contains(squeezed(
+            "Problem: $source links to $other, not to ${root.resolve("local/elsewhere")}. Remove the link, or set " +
+                "target-path to where it points.",
+        )), details)
+        assertTrue(squeezed(details).contains(squeezed("Current link destination: $other")), details)
+        assertFalse(details.contains("○") || details.contains("●"), details)
+        assertFalse(details.contains("points somewhere else"), details)
     }
 
     @Test
