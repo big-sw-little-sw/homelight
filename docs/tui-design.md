@@ -1,31 +1,34 @@
 # Lighten TUI Design
 
-The current rules for the full-screen TUI. Why each rule exists is in the TUI
-section of [decisions.md](decisions.md#tui); this file holds only what the TUI
-must do now. Update it in the same PR as any change to the contract.
+This file gives the current rules for the full-screen TUI. It says only what the
+TUI must do now. The reasons for each rule are in the TUI section of
+[decisions.md](decisions.md#tui). When you change one of these rules, update
+this file in the same pull request.
 
 ## 1. Principles
 
-- **TamboUI first.** Use a TamboUI widget or feature when one does the job, and
-  delete our own equivalent. Write our own code only where TamboUI cannot express a
-  rule, and say why in a comment.
-- **Plain language.** Help, labels and messages use everyday words, not internal
-  names, configuration keys or enum values. The configuration's "policy" is a
-  **rule** on screen.
-- **Say the next step.** After a save, a re-check or a finished apply, say what to
-  do next when there is something to do, for example `Saved. 1 relocation will
-  change: press a to review and apply.`
-- **Dialogs for short questions, screens for work.** A dialog asks one question or
-  confirms one action over the current screen and always returns to exactly where
-  the user was. A screen holds multi-step work with its own navigation and one
-  plainly labelled way back that keeps the user's place.
-- **Safety stays explicit.** Only `y` confirms filesystem changes or a file
-  replacement. Enter never does. Saving never applies. Applying never saves.
+- **TamboUI first.** When a TamboUI widget or feature does the job, use it and
+  delete our own version. Write our own code only where TamboUI cannot do what a
+  rule needs. Then give the reason in a comment.
+- **Plain language.** Help, labels and messages use everyday words. They do not
+  use internal names, configuration keys or enum values. The configuration's
+  "policy" is a **rule** on screen.
+- **Say the next step.** After a save, a check again or a finished apply, tell
+  the user what to do next, when there is something to do. For example: `Saved.
+  1 relocation will change: press a to review and apply.`
+- **Dialogs for short questions, screens for work.** A dialog shows over the
+  current screen. It asks one question or confirms one action, and it always
+  returns the user to exactly where they were. A screen holds work with several
+  steps. It has its own navigation and one clearly labelled way back, which
+  keeps the user's place.
+- **Safety stays explicit.** Only `y` confirms changes on disk or the
+  replacement of a file. Enter never does. Saving never applies. Applying never
+  saves.
 
 ## 2. Screens and navigation
 
-One persistent TamboUI application. JSON commands share reconciliation behavior,
-not screens.
+Lighten is one TamboUI application that stays open. The JSON commands share the
+planning and applying behaviour with the TUI, but not its screens.
 
 | Screen | Purpose | Way back |
 | --- | --- | --- |
@@ -35,51 +38,55 @@ not screens.
 | Browse | Suggested directories to add, inside Configuration | Esc returns to Configuration |
 | Help | Two tabs: This screen (place, purpose, step and keys) and Guide (the user guide) | Esc, `q`, `?` or F1 returns where you were |
 
-Header: `⌂ LIGHTEN` followed by the numbered destinations, for example
-`[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while results
-are retained and `[Review unavailable]` when the plan cannot be reviewed. During a
-run the header shows only `[Applying]`. Configuration and Browse show as
-`[Configuration]` and `[Configuration › Browse]`.
+The header shows `⌂ LIGHTEN` and then the numbered screens, for example
+`[1: Workspace]  [2: Review]`. The second slot reads `[2: Results]` while
+Lighten keeps the results. It reads `[Review unavailable]` when the plan cannot
+be reviewed. During an apply, the header shows only `[Applying]`. Configuration
+shows as `[Configuration]`, and Browse as `[Configuration › Browse]`.
 
-Entry points:
+Ways in:
 
 - `lighten`, `status`, `plan` and `apply` open Workspace. `apply` never starts
   changes without review.
-- `lighten init` and `lighten config` open Configuration: an existing file is
-  loaded for editing, a missing one starts a new file. The header says
-  `existing file` or `new file`.
-- From Workspace, `e` opens Configuration; with no configuration, `i` does.
+- `lighten init` and `lighten config` open Configuration. If the file exists,
+  Configuration loads it for editing. If it does not exist, Configuration starts
+  a new file. The header says `existing file` or `new file`.
+- From Workspace, `e` opens Configuration. When there is no configuration, `i`
+  opens it.
 
 ## 3. Keys and focus
 
-- Key set: TamboUI's `standard` bindings (arrows, Home/End, PageUp/PageDown). No
-  vim letters, so every printable key types into a focused text field.
-- Focus is TamboUI's `FocusManager` with a fixed id per focusable element. Tab and
-  Shift-Tab move through every control on the screen in order (list, then each
-  field, then back). Inside a form, ↑/↓ also move between fields.
-- Esc goes back one level: from a field to its list, from a list to close the
-  screen, from a dialog to cancel it. At Workspace's list it does nothing. Esc
-  never exits.
-- `q` quits from any list. Inside a text field it types `q`. In
-  Configuration, `q` and Esc from its list close it: at once when the draft
-  equals the file as opened, otherwise after asking before discarding. With
-  one-time choices not applied yet, or during an apply, `q` asks first (see
-  Quit).
-- One app key handler, keyed by the focused id, handles what TamboUI elements
-  leave unhandled and always reports the key as handled.
-- The mouse is captured, for its wheel only. Wheel up and down scroll the pane
-  under the pointer (over a list, they move its selection) and never change
-  focus or a tab; sideways scrolling, clicks, drags and taps do nothing. With
-  capture on, selecting text takes the terminal's bypass modifier: Shift-drag
-  in WezTerm and Ghostty, Option-drag in iTerm2. The guide says so. TamboUI
-  turns capture off when Lighten exits, on every exit path.
+- Keys: TamboUI's `standard` bindings (arrows, Home/End, PageUp/PageDown). There
+  are no vim letters, so every printable key types into a focused text field.
+- Focus uses TamboUI's `FocusManager`, with a fixed id for each element that can
+  take focus. Tab and Shift-Tab move through every control on the screen in
+  order: the list, then each field, then back. Inside a form, ↑/↓ also move
+  between fields.
+- Esc goes back one level. From a field it goes to the field's list. From a
+  list it closes the screen. From a dialog it cancels the dialog. At
+  Workspace's list it does nothing. Esc never exits.
+- `q` quits from any list. Inside a text field it types `q`. In Configuration,
+  `q` and Esc from the list close Configuration. If the draft is the same as the
+  file when it was opened, it closes at once. If not, Lighten asks before it
+  discards the draft. When there are one-time choices that are not applied yet,
+  or during an apply, `q` asks first (see Quit).
+- One app key handler handles the keys that TamboUI elements do not handle. It
+  uses the focused id to decide what to do, and it always reports the key as
+  handled.
+- Lighten captures the mouse, but uses only its wheel. Wheel up and down scroll
+  the pane under the pointer. Over a list, they move its selection. They never
+  change focus or a tab. Sideways scrolling, clicks, drags and taps do nothing.
+  Because the mouse is captured, the user must hold the terminal's bypass
+  modifier to select text: Shift-drag in WezTerm and Ghostty, Option-drag in
+  iTerm2. The guide says this. TamboUI turns capture off when Lighten exits, on
+  every exit path.
 
 Global keys on Workspace and Review: `1` Workspace, `2` Review or Results, `r`
 check again, `q` quit. `2` never starts changes.
 
 ### Quit
 
-`q` (or Ctrl-C) exits at once unless something would be lost:
+`q` (or Ctrl-C) exits at once, unless something would be lost:
 
 - **One-time choices not applied yet** (Workspace or Review): a dialog asks
   first. The count reads `1 choice` or `2 choices`:
@@ -92,21 +99,23 @@ check again, `q` quit. `2` never starts changes.
   y: Quit · n/Esc: Go back
   ```
 
-  A plan with no one-time choices does not ask: the next run plans it again.
-- **During an apply:** see §6.
+  A plan with no one-time choices does not ask, because the next run makes the
+  same plan again.
+- **During an apply:** see section 6, Review, applying and results.
 
-Once Lighten is set to exit when the apply finishes, the help stops showing
-`q: Quit`, because `q` then does nothing.
+After the user sets Lighten to exit when the apply finishes, `q` does nothing.
+So the help stops showing `q: Quit`.
 
 ## 4. Visual language
 
 ### Color
 
-Lighten paints its own dark background on the whole screen and uses the
-**Harbor** palette as exact RGB colors. Unless `COLORTERM` is `truecolor` or
-`24bit`, each role falls back to the basic ANSI color of the same hue (ANSI
-names: white is light gray, bright black is dark gray). Views name roles only;
-one palette file maps roles to colors. Headings inside panes are bold body text.
+Lighten paints its own dark background on the whole screen. It uses the
+**Harbor** palette as exact RGB colors. If `COLORTERM` is not `truecolor` or
+`24bit`, each role uses the basic ANSI color of the same hue instead. (In ANSI
+names, white is light gray and bright black is dark gray.) Views name only
+roles. One palette file maps roles to colors. Headings inside panes are bold
+body text.
 
 | Role | Color | Basic | Used for |
 | --- | --- | --- | --- |
@@ -121,249 +130,275 @@ one palette file maps roles to colors. Headings inside panes are bold body text.
 | dialog | `#b39cf0` | magenta | Dialog border and title |
 | dim | `#6f7a88` | bright black | Help lines, inactive borders, pending steps, secondary notes |
 
-Color may carry meaning on its own when the same information is also on screen
-another way (text, a glyph or a count). Aim for pleasing colors, not only safe
-ones.
+Color alone may carry meaning when the screen also shows the same information
+in another way: text, a glyph or a count. Choose colors that look good, not
+only colors that are safe.
 
 ### Layout and glyphs
 
-- Master-detail panes: about 45% list, the rest details. The focused pane has a
-  thick border (`┏━┓`) in the focus color; others have a plain border (`┌─┐`)
-  and are dim. The border shape shows focus without color. Lists, Browse and
-  Review's plan sit in a TamboUI panel, because their elements offer no
-  thick border.
-- `❯` marks the selected row or focused field. A text field shows its cursor.
-- Glyphs: `✔` done/in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
-  `✖` failed/blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
-- Marks come in three sets that share one rule: an empty circle means nothing
-  has happened to the row yet or it is not included; filled, or `✔`, means it
-  has. Every set uses bare marks. Whether a row is one of many shows in
-  behaviour: choosing one choice clears the others, and the Help for the
-  choice keys says so.
+- Master-detail panes: the list takes about 45% of the width, and the details
+  take the rest. The focused pane has a thick border (`┏━┓`) in the focus
+  color. Other panes have a plain border (`┌─┐`) and are dim. The border shape
+  shows focus without color. Lists, Browse and Review's plan are inside a
+  TamboUI panel, because their elements have no thick border.
+- `❯` marks the selected row or the focused field. A text field shows its
+  cursor.
+- Glyphs: `✔` done or in sync, `⠋…⠏` running (TamboUI `Spinner`), `○` pending,
+  `✖` failed or blocked, `⚠` needs attention, `─` left as is, `⚡` will change.
+- There are three sets of marks, and they share one rule. An empty circle means
+  that nothing has happened to the row yet, or that the row is not included. A
+  filled circle, or `✔`, means that it has. Every set uses marks with nothing
+  around them. The marks do not show whether only one row of a group can be
+  chosen. The behaviour shows it: choosing one choice clears the others, and
+  the Help for the choice keys says so.
   - Progress (Review, Applying, Results): `○` not run yet, spinner running,
     `✔` done, `✖` failed.
-  - Included or not (Browse): `●` added, `○` not added, `⊘` ignored by
-    you, `−` can't be added, and on a category or app heading `◐` some
-    added. `⊘` is the empty circle struck through: not included, on purpose.
-    Its shape differs from every other mark, and its note says `ignored by
-    you`, so it reads without color. A group row gets a mark only when
-    the group itself can be selected and acted on; a heading that is only a
-    label gets none. Review, Applying and Results relocation rows keep their
-    progress marks: those are status, not selection.
-  - One of several choices (Workspace Details): `●` chosen, `○` not
-    chosen. The chosen choice is green and bold, focused or not; the focused
-    one has the `❯` pointer. Without color, `●` and bold mark the choice and
-    `❯` marks focus.
-- Every path on screen, Paths sections included, shows the home directory as
-  `~`; so do the CLI's messages to people. Only the home directory becomes `~`:
-  a path under a `source-root` elsewhere shows in full. JSON keeps every path
-  in full. Configuration's fields show the file's text as written.
-- Word-wrap prose; wrap paths by character only when they cannot break.
-- Scrollbars appear only when content overflows. No numeric line counters.
-- In-sync relocations are hidden when others exist; `c` toggles them. The list
-  title says how many and which key shows them: `Relocations · c: show 2 in
-  sync`, or `c: hide 2 in sync` while shown. Workspace rows are grouped by
-  urgency: needs a choice, blocked or can't read; warning; changes; left as
-  is; in sync. Within a group they keep the configuration file's order, the
-  order Configuration's list shows. A row that changes group, for example
+  - Included or not (Browse): `●` added, `○` not added, `⊘` ignored by you,
+    `−` can't be added. On a category or app heading, `◐` means some are added.
+    `⊘` is the empty circle with a line through it: not included, on purpose.
+    Its shape is different from every other mark, and its note says `ignored
+    by you`, so it is clear without color. A group row gets a mark only when
+    the user can select the group itself and act on it. A heading that is only
+    a label gets no mark. Relocation rows in Review, Applying and Results keep
+    their progress marks, because those marks show status, not selection.
+  - One of several choices (Workspace Details): `●` chosen, `○` not chosen.
+    The chosen choice is green and bold, focused or not. The focused choice has
+    the `❯` pointer. Without color, `●` and bold mark the choice, and `❯` marks
+    focus.
+- Every path on screen shows the home directory as `~`. This includes Paths
+  sections, and the CLI's messages to people. Only the home directory becomes
+  `~`: a path under a `source-root` in another place shows in full. JSON keeps
+  every path in full. Configuration's fields show the file's text as written.
+- Wrap prose at words. Wrap a path at any character only when it has no other
+  place to break.
+- Scrollbars show only when the content does not fit. There are no line
+  counters.
+- When there are other relocations, Lighten hides the relocations that are in
+  sync. `c` shows or hides them. The list title says how many are hidden and
+  which key shows them: `Relocations · c: show 2 in sync`, or `c: hide 2 in
+  sync` while they show. Workspace rows are in groups, by how urgent they are:
+  needs a choice, blocked or can't read; warning; changes; left as is; in sync.
+  In each group, the rows keep the order of the configuration file. This is the
+  order that Configuration's list shows. A row that changes group, for example
   after a choice, moves and stays selected.
-- Ignored sources come last, below in sync, as a group that starts closed
-  each run. Its heading is a row, `i: show 2 ignored` (`i: hide 2 ignored`
-  while open), in dim text; `i` opens and closes it from anywhere on the
-  Workspace, and Help lists `i`. While open, each ignored source follows as
-  `[Ignored] ~/path`, in the file's order. The heading can be selected: its
-  Details say what ignoring means and how to open the group, and `x` does
-  nothing there.
+- Ignored sources come last, below in sync. They are a group that is closed at
+  the start of each run. Its heading is a row in dim text: `i: show 2 ignored`,
+  or `i: hide 2 ignored` while the group is open. `i` opens and closes the group
+  from anywhere on the Workspace, and Help lists `i`. While the group is open,
+  each ignored source follows as `[Ignored] ~/path`, in the file's order. The
+  user can select the heading. Its Details say what ignoring means and how to
+  open the group. `x` does nothing on the heading.
 
 ### Dialogs
 
-TamboUI `dialog()`: double border in the dialog color, centered both ways, sized
-to its content with one cell of padding, never covering the header or help lines.
-While a dialog is open, everything behind it renders non-focusable and loses its
-focus highlight, so only the dialog looks active. Dialog keys: `y` confirms,
-`n`/Esc cancel, and every other key is ignored.
+Dialogs use TamboUI `dialog()`. A dialog has a double border in the dialog
+color. It is centered both ways and sized to its content, with one cell of
+padding. It never covers the header or the help lines. While a dialog is open,
+everything behind it cannot take focus and loses its focus highlight, so only
+the dialog looks active. Dialog keys: `y` confirms, `n`/Esc cancel. Lighten
+ignores every other key.
 
 ### Choices and fields
 
 - Every choice among fixed values is a TamboUI `Select`: `‹ Keep target, archive
-  source ›`, ←/→ to change. Labels sit beside their fields, in a fixed column.
-- Text fields are TamboUI text inputs: ←/→, Home/End, Backspace, Delete, Ctrl-U
-  clears. `[` and `]` type normally.
+  source ›`. ←/→ change it. Labels are beside their fields, in a fixed column.
+- Text fields are TamboUI text inputs: ←/→, Home/End, Backspace, Delete, and
+  Ctrl-U to clear. `[` and `]` type as usual.
 
 ### Help area
 
-Two lines at the bottom, specific to the focused element: navigation first, then
-commands. Each binding appears once. Never advertise a key that does nothing now.
-Every screen offers `?: Help` before `q`. In a text field `?` types a question
-mark, so there the help lines offer `F1: Help` instead; F1 opens Help on every
-screen.
+The help area is two lines at the bottom. They are specific to the focused
+element: navigation first, then commands. Each binding shows once. Never show a
+key that does nothing now. Every screen shows `?: Help` before `q`. In a text
+field, `?` types a question mark, so there the help lines show `F1: Help`
+instead. F1 opens Help on every screen.
 
-Each screen builds its help in one function (`ScreenHelp`): its place (such as
-`Configuration › Target root`), one purpose line for its current state, its step,
-and its keys. The help lines and the Help screen both read it, so they cannot
-disagree. Keys left out of the help lines for room (PageUp/PageDown, Home/End,
-`[`/`]`, `←` back, `c` in the list title, `i` on the ignored group's heading)
-are marked Help-only there.
+Each screen makes its help in one function (`ScreenHelp`). The help has the
+screen's place (such as `Configuration › Target root`), one purpose line for its
+current state, its step, and its keys. The help lines and the Help screen both
+read this help, so they cannot disagree. Some keys are left out of the help
+lines because there is no room: PageUp/PageDown, Home/End, `[`/`]`, `←` for
+back, `c` in the list title, and `i` on the ignored group's heading. These keys
+are marked Help-only.
 
 ### Help screen
 
-`?` (or F1) opens a full-screen **Help** screen from any screen. Header
-`⌂ LIGHTEN  [Help]`, then a TamboUI tab bar with two tabs:
+`?` (or F1) opens a full-screen **Help** screen from any screen. Its header is
+`⌂ LIGHTEN  [Help]`. Below it is a TamboUI tab bar with two tabs:
 
-1. **This screen**: a pane titled with the place, the purpose line, then
-   `Step: Configure › Workspace › Review › Apply › Results` with the current
-   step bold in the focus color (Configuration and Browse are Configure;
-   Applying is Apply). Then the heading `Keys on <place>`, the line "They work
-   after you go back (Esc or q). In Help they do nothing.", and the keys in two
-   groups, "Move around" and "Do", each title directly above its keys, as
-   `key  description`. Help's own keys are only on its help lines.
+1. **This screen**: a pane with the place as its title. It shows the purpose
+   line, then `Step: Configure › Workspace › Review › Apply › Results`, with
+   the current step bold in the focus color. (Configuration and Browse are
+   Configure. Applying is Apply.) Then it shows the heading `Keys on <place>`,
+   the line "They work after you go back (Esc or q). In Help they do nothing.",
+   and the keys in two groups, "Move around" and "Do". Each group title is
+   directly above its keys. Each key shows as `key  description`. Help's own
+   keys are only on its help lines.
 
-   A key's `description` defaults to its help-line `action`. Where the short
-   label needs its screen to make sense, the description names what the key
-   acts on and whether it asks first, for example `↑/↓  Select a relocation`
-   or `q  Quit Lighten; asks first if choices are not applied or changes are
-   running`. One `KeyHint` holds both, so the two places share one source.
-2. **Guide**: `docs/user-guide.md` as packaged in the build, rendered with
-   TamboUI's Markdown element in the palette's colors. The guide is the only
-   copy of its text; nothing in the code repeats it.
+   By default, a key's `description` is the same as its help-line `action`.
+   Some short labels make sense only on their screen. For those, the
+   description says what the key acts on and whether it asks first, for example
+   `↑/↓  Select a relocation` or `q  Quit Lighten; asks first if choices are
+   not applied or changes are running`. One `KeyHint` holds both texts, so the
+   two places use one source.
+2. **Guide**: `docs/user-guide.md` as packaged in the build. TamboUI's Markdown
+   element shows it in the palette's colors. The guide is the only copy of its
+   text. Nothing in the code repeats it.
 
-Help opens on This screen, except from the empty Workspace before there is a
-configuration file: then it opens on Guide, and that Workspace says `New to
-Lighten? Press ? to read the guide.` (with no relocations it says `Press ? for
-help.`). From Configuration it opens on This screen, text field or not.
+Help opens on This screen, with one exception: the empty Workspace before there
+is a configuration file. From there, Help opens on Guide, and that Workspace
+says `New to Lighten? Press ? to read the guide.` (A Workspace with a file but
+no relocations says `Press ? for help.`) From Configuration, Help opens on This
+screen, also from a text field.
 
-Keys: Tab and ←/→ switch tabs (not `1`/`2`); ↑/↓, PageUp/PageDown, Home/End and
-`[`/`]` scroll the open tab, and each tab keeps its scroll position. Esc, `q`,
-`?` and F1 all go back exactly where the user was, with focus and selection
-kept. As in less, man and other help screens, `q` never quits from Help and
-never opens a screen's discard question. Ctrl+C quits through the usual path, as
-everywhere: the quit question with unapplied choices, the discard question over
-a Configuration draft, the exit-when-finished dialog during an apply. Every
-other key does nothing. An apply keeps running behind Help.
+Keys: Tab and ←/→ change tabs (not `1`/`2`). ↑/↓, PageUp/PageDown, Home/End and
+`[`/`]` scroll the open tab. Each tab keeps its scroll position. Esc, `q`, `?`
+and F1 all go back to exactly where the user was, with focus and selection
+kept. In Help, `q` never quits and never opens a screen's discard question.
+This is the same as in less, man and other help screens. Ctrl+C quits in the
+usual way, as on every screen. So it shows the quit question when there are
+choices that are not applied, the discard question over a Configuration draft,
+and the exit-when-finished dialog during an apply. Every other key does
+nothing. An apply continues behind Help.
 
 Help lines: `↑/↓: Scroll · PageUp/PageDown: Page · Home/End: Top/bottom` and
-`Tab/←/→: Other tab · Esc/q: Back to <screen>`, where `<screen>` is the screen
-in the This screen pane's title, for example `Back to Configuration`. `?` and
-F1 also go back but are not listed: they are how the reader opened Help. When
-the open tab has nothing to scroll, the first line is empty: every scroll key is
-left out, as on any screen.
+`Tab/←/→: Other tab · Esc/q: Back to <screen>`. `<screen>` is the screen in the
+title of the This screen pane, for example `Back to Configuration`. `?` and F1
+also go back, but the help lines do not show them, because the reader used one
+of them to open Help. When the open tab has nothing to scroll, the first line
+is empty. All scroll keys are then left out, as on any screen.
 
-The tab bar shows the open tab bold in the focus color and the other dim
-(`TabsElement` highlight style). Bold marks the open tab and the current step
-without color too: Lighten keeps bold in the basic palette, and neither it nor
-TamboUI drops styles for `NO_COLOR`, so no extra marker is needed.
+The tab bar shows the open tab bold in the focus color, and the other tab dim
+(the `TabsElement` highlight style). Bold marks the open tab and the current
+step without color too. Lighten keeps bold in the basic palette. Neither
+Lighten nor TamboUI removes styles for `NO_COLOR`. So no other marker is
+necessary.
 
+TamboUI moves focus on Tab before any handler gets the key. So the open tab
+follows focus: the open tab's pane has the focus id of that tab, and the tab
+bar has the focus id of the other tab.
 
-TamboUI moves focus on Tab before any handler sees it, so the open tab follows
-focus: the open tab's pane has that tab's focus id and the tab bar has the
-other's.
+The mouse wheel scrolls the open tab and never changes the tab (see section 3,
+Keys and focus).
 
-The mouse wheel scrolls the open tab and never switches it (see §3 Keys and
-focus).
-
-`lighten guide` prints the same guide as Markdown; `lighten --help` ends
-with its online address.
+`lighten guide` prints the same guide as Markdown. `lighten --help` ends with
+the guide's online address.
 
 ## 5. Workspace
 
 Summary rows count relocations:
 `4 relocations · ⚡ 2 to change · ⚠ 0 need a choice · ✖ 0 blocked` and
-`✔ 2 in sync · ─ 0 left as is`. A risk row appears only when non-zero:
+`✔ 2 in sync · ─ 0 left as is`. A risk row shows only when a count is not zero:
 `Of these: 1 with warnings · 1 deletes data`.
 
-A relocation **deletes data** when apply removes content that is not kept
-anywhere else: deleting the source while keeping the target, deleting both, or
-deleting the original source an interrupted replacement left behind. A Move does
-not: it replaces the source with a link only after the copy at the target is
-checked, and its **Will do** line says so.
+A relocation **deletes data** when apply removes content that is not kept in
+another place. This happens when apply deletes the source and keeps the target,
+deletes both, or deletes the original source that an interrupted replacement
+left behind. A Move does not delete data. It replaces the source with a link
+only after it checks the copy at the target, and its **Will do** line says so.
 
-The details pane answers, in this order:
+The details pane gives this information, in this order:
 
-1. **Now:** what is there, for example `Now: both ~/.cache/uv and its target are
-   directories.` Keep link, unreadable and missing cases explicit.
-2. **Decision:** one line, only when a rule governs the case observed now (both
-   exist, or only the target exists) or a choice is set. It says what will
-   happen and where that comes from: `Decision: ask each time (your
-   configuration)` or `Decision: keep target, delete source (your choice, this
-   run only)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have
-   no Decision line. A choice is for the next apply only and is cleared by any
-   re-check, save or apply.
-3. **Will do:** the consequence of the current rule or choice. Without a choice:
-   `Will do: nothing until you choose.` A blocked row adds `Problem: …` with the
-   reason, such as `Problem: /scratch/archive is a file, not a folder.` when a
-   folder a step would create or work in is something else. Overlapping
-   relocations block only themselves, each naming the other: `Problem:
-   ~/a contains ~/a/b, which is also a relocation.` A move whose staging
-   folder is on another filesystem than its target is blocked before Review,
-   naming both paths and the `staging-root` setting. When one of the
-   row's choices plans without that folder, the next line is `Or choose an
-   option below that doesn't need this folder.` A row that deletes data adds `⚠ This deletes data for good.`
-4. **Choices:** the choices that apply, only when one is needed. While archiving
-   is only offered, its choice names the destination: `Move the source to
-   ~/.cache/.lighten-archive/… and replace it with a link to the target.`
-5. **Paths:** source, target and current link destination, each once.
-   `Archive:` appears only when the rule or choice archives the source, and
-   `Left behind:` only when apply deletes what an interrupted replacement left.
+1. **Now:** what is on disk, for example `Now: both ~/.cache/uv and its target
+   are directories.` Keep the link, unreadable and missing cases explicit.
+2. **Decision:** one line. It shows only when a rule governs the case on disk
+   now (both exist, or only the target exists), or when a choice is set. It
+   says what will happen and where that comes from: `Decision: ask each time
+   (your configuration)` or `Decision: keep target, delete source (your choice,
+   this run only)`. Some rows have no rule that governs them: Move, Link, In
+   sync, blocked and can't read. These rows have no Decision line. A choice is
+   for the next apply only. Any check again, save or apply clears it.
+3. **Will do:** the result of the current rule or choice. Without a choice:
+   `Will do: nothing until you choose.` A blocked row adds `Problem: …` with
+   the reason. For example, a step must create or use a folder, but something
+   else is at that path: `Problem: /scratch/archive is a file, not a folder.`
+   Relocations that overlap block only themselves, and each one names the
+   other: `Problem: ~/a contains ~/a/b, which is also a relocation.` A move is
+   blocked before Review when its staging folder is on a different filesystem
+   from its target. The problem names both paths and the `staging-root`
+   setting. When one of the row's choices makes a plan without that folder,
+   the next line is `Or choose an option below that doesn't need this
+   folder.` A row that deletes data adds `⚠ This deletes data for good.`
+4. **Choices:** the choices that apply. They show only when a choice is
+   necessary. While archiving is only offered and not chosen, its choice names
+   the destination: `Move the source to ~/.cache/.lighten-archive/… and replace
+   it with a link to the target.`
+5. **Paths:** the source, the target and the current link destination, each
+   once. `Archive:` shows only when the rule or choice archives the source.
+   `Left behind:` shows only when apply deletes what an interrupted replacement
+   left.
 
-`s: Always do this` is shown, on the navigation line beside the choice keys, while
-the selected relocation has a choice that differs from its rule; a choice the rule
-already makes has nothing to save. It opens a dialog that says the rule in words
-(`From now on, for ~/.cache/uv,` / `when the source and the target both exist:
-keep target, delete source.`), that `y` saves it in the configuration file (named),
-that comments in the file are not kept and that nothing on disk changes until
-apply. A rule that deletes data (Keep target, delete source; Delete both, start
-empty) adds a `⚠` line in the warning color saying it deletes for good whenever
-it applies, `lighten apply --yes` included. `y` writes this relocation's rule fields to the file through Configuration's
-replace (refused if the file changed since it was read), then checks again, so the
-Decision line reads `(your configuration)` and the choice is gone, and says the
-next step. Focus returns to the list with Details at the top, as after a save in
-Configuration, so the Decision line is in view. A refused save keeps the choice and says so below the panes. In Details
-the help line shows `Esc: Back`; `Tab` and `←` go back too and are Help-only, so the
-line fits 80 columns. Help › This screen lists `s` under Do all the same.
+`s: Always do this` shows on the navigation line, beside the choice keys. It
+shows while the selected relocation has a choice that is different from its
+rule. A choice that the rule already makes has nothing to save. `s` opens a
+dialog. The dialog says the rule in words (`From now on, for ~/.cache/uv,` /
+`when the source and the target both exist: keep target, delete source.`). It
+says that `y` saves the rule in the configuration file, and it names the file.
+It says that comments in the file are not kept, and that nothing on disk
+changes until apply. Some rules delete data: Keep target, delete source; and
+Delete both, start empty. For these, the dialog adds a `⚠` line in the warning
+color. The line says that the rule deletes data for good every time it
+applies, `lighten apply --yes` included.
 
-**Ignoring a source.** An ignored source is one the user told Lighten to leave
-alone, for example because another tool such as Stow manages it. Lighten plans
-nothing for it and never offers to add it, but always shows it: in the
-Workspace's ignored group and in Browse. A path can't be both a relocation and
-ignored; the loader refuses such a file (`relocations[1].source-path and
-ignored-source-paths[0] are both ~/b. A path can't be both a relocation and
-ignored: remove it from one of the two lists.`), and so does every save.
+`y` writes the rule fields of this relocation to the file. It uses the same
+replace as Configuration, which refuses if the file changed after Lighten read
+it. Then it checks again, so the Decision line reads `(your configuration)` and
+the choice is gone. Then it says the next step. Focus goes back to the list,
+with Details scrolled to the top, as after a save in Configuration. This keeps
+the Decision line in view. If the save is refused, the choice stays, and a line
+below the panes says so. In Details, the help line shows `Esc: Back`. `Tab` and
+`←` also go back, but they are Help-only, so that the line fits in 80 columns.
+Help › This screen still lists `s` under Do.
 
-- `x: Ignore` on a relocation opens a dialog, `Ignore ~/.cache/uv?`: Lighten
-  will stop managing it, `y` moves it from relocations to
-  ignored-source-paths in the configuration file (named), the whole file is
-  rewritten and comments are not kept, and nothing on disk changes. When the
-  relocation is linked now (`The source link already points to the
-  target.`), a `⚠` line in the warning color says the link and the files at
-  the target stay as they are, and how to undo the move by hand: `rm` the
+**Ignoring a source.** An ignored source is one that the user told Lighten to
+leave alone, for example because another tool such as Stow manages it. Lighten
+plans nothing for it and never offers to add it. But Lighten always shows it:
+in the Workspace's ignored group and in Browse. A path cannot be both a
+relocation and ignored. The loader refuses a file that has such a path
+(`relocations[1].source-path and ignored-source-paths[0] are both ~/b. A path
+can't be both a relocation and ignored: remove it from one of the two
+lists.`). Every save refuses it too.
+
+- `x: Ignore` on a relocation opens a dialog, `Ignore ~/.cache/uv?`. The dialog
+  says that Lighten will stop managing the directory. It says that `y` moves it
+  from relocations to ignored-source-paths in the configuration file, and it
+  names the file. It says that Lighten writes the whole file again, that
+  comments are not kept, and that nothing on disk changes. When the relocation
+  is linked now (`The source link already points to the target.`), a `⚠` line
+  in the warning color adds more. It says that the link and the files at the
+  target stay as they are. It also says how to undo the move by hand: `rm` the
   link, then `mv` the target back.
-- `x: Stop ignoring` on an ignored row asks `Stop ignoring ~/x?` the same
-  way, adding that Lighten manages it only once it is added as a relocation.
-- Saving checks again, which forgets one-time choices. While another
-  relocation has one, both dialogs add `This also forgets your other one-time
-  choices.` The ignored relocation's own choice goes with it, so it alone
-  does not add the line.
-- `y` saves through the same path as `s` (refused if the file changed since
-  it was read: `Not saved: the configuration file changed after Lighten read
-  it. Press r to read the file again, then x again; that forgets one-time
-  choices.`), checks again and says the next step. `n`/Esc cancel.
-- `x` sits on the navigation line beside `s`; Help lists it under Do. In
-  Details with choices the line has no room, so there it is Help-only; it
-  works from both panes. It is not offered while results are kept.
-- An ignored row's Details: `Ignored by you`, that Lighten plans nothing for
-  it and leaves it as it is, how to undo (`x`), and its path.
-- Ignoring the last relocation is allowed: a file that only ignores paths
+- `x: Stop ignoring` on an ignored row asks `Stop ignoring ~/x?` in the same
+  way. It adds that Lighten manages the directory only after the user adds it
+  as a relocation.
+- Saving checks again, and this forgets one-time choices. While a different
+  relocation has a one-time choice, both dialogs add `This also forgets your
+  other one-time choices.` The ignored relocation's own choice is removed with
+  it, so that choice alone does not add the line.
+- `y` saves in the same way as `s`. It refuses if the file changed after
+  Lighten read it: `Not saved: the configuration file changed after Lighten
+  read it. Press r to read the file again, then x again; that forgets one-time
+  choices.` Then it checks again and says the next step. `n`/Esc cancel.
+- `x` is on the navigation line beside `s`, and Help lists it under Do. In
+  Details with choices, the line has no room, so there `x` is Help-only. It
+  works from both panes. Lighten does not offer `x` while it keeps results.
+- An ignored row's Details say `Ignored by you`. They say that Lighten plans
+  nothing for it and leaves it as it is. They say how to undo this (`x`), and
+  they show its path.
+- The user can ignore the last relocation. A file that only ignores paths
   saves and loads, and the Workspace then has no relocations.
 
-Below the panes, when review is unavailable, one line says why: `Choose what to do
-for each relocation marked Choose.` or `Fix the blocked paths; see Details.`
+When review is not available, one line below the panes says why: `Choose what
+to do for each relocation marked Choose.` or `Fix the blocked paths; see
+Details.`
 
-`e: Edit` opens Configuration on the file whenever it loads. A file Lighten
-cannot read is fixed by hand: `e` is not offered, and `lighten init` and
-`config` refuse it with the explanation below.
+`e: Edit` opens Configuration on the file every time the file loads. When
+Lighten cannot read the file, the user must fix it by hand. Lighten does not
+offer `e` then, and `lighten init` and `config` refuse the file with the
+explanation below.
 
-A file Lighten cannot read fills the Workspace's only pane with what is wrong
-and how to fix it, and Help's purpose line repeats it:
+When Lighten cannot read the file, the Workspace's only pane says what is wrong
+and how to fix it. Help's purpose line says the same:
 
 ```
 Lighten can't read ~/.lighten.json
@@ -373,31 +408,36 @@ To fix it: open the file in a text editor, correct that line, then press r to ch
 To start over: rename or delete the file, then press r. Lighten then offers i to create a new one.
 ```
 
-The path is the file in use, `--config` included. Text that is not JSON gets
-plain words with its line and column. A missing key (`target-root is
-missing. Add it under "lighten".`) and a value of the wrong kind (`Line 2:
-relocations[0].source-path should be text, but it is a number.`) get plain
-words too, with the line but no column, as do an unknown key (`Line 2:
-relocations[0] has an unknown setting "existing". Check its spelling or
-remove it.`) and a bad rule value (`relocations[0].when-only-target-exists
-can't be "sometimes". Use one of: prompt, adopt-target.`). The loader's own
-checks (a relative path, a blank path) keep their words. A problem with no
-line says `correct that setting`. The help lines offer only `r`, `?` and `q`.
-The CLI prints the same lines on stderr, with `run the command again` for `press r` and `run lighten
-init` for `press r … i`.
+The path is the file in use, also when it comes from `--config`. For text that
+is not JSON, Lighten uses plain words and gives the line and column. These
+problems also get plain words, with the line but no column:
 
-Empty states: no configuration (offer `i: Create configuration`), no relocations
-(press `e` to add them), all in sync, left as is by rule, blocked (state the
-repair).
+- a missing key (`target-root is missing. Add it under "lighten".`)
+- a value of the wrong kind (`Line 2: relocations[0].source-path should be
+  text, but it is a number.`)
+- an unknown key (`Line 2: relocations[0] has an unknown setting "existing".
+  Check its spelling or remove it.`)
+- a bad rule value (`relocations[0].when-only-target-exists can't be
+  "sometimes". Use one of: prompt, adopt-target.`)
+
+The loader's own checks (a relative path, a blank path) keep their own words.
+When a problem has no line, the text says `correct that setting`. The help
+lines show only `r`, `?` and `q`. The CLI prints the same lines on stderr. It
+says `run the command again` in place of `press r`, and `run lighten init` in
+place of `press r … i`.
+
+Empty states: no configuration (offer `i: Create configuration`), no
+relocations (press `e` to add them), all in sync, left as is by a rule, and
+blocked (say how to repair it).
 
 ## 6. Review, applying and results
 
-**Review** lists the exact plan in a TamboUI list: each relocation is a
-heading, its action rows under it, as Browse lays out apps (§8).
-Summary: `5 planned changes · 2 delete or replace data`. `y` confirms a plan
-with changes; `n`/Esc/`1` cancel and keep the Workspace state. A plan with no
-changes says `No changes to apply`, has no confirmation, and Enter/`1`/Esc
-return.
+**Review** shows the exact plan in a TamboUI list. Each relocation is a
+heading, and its action rows are under it. This is the same layout as the apps
+in Browse (see section 8, Browse). Summary: `5 planned changes · 2 delete or
+replace data`. When the plan has changes, `y` confirms it. `n`/Esc/`1` cancel
+and keep the Workspace state. A plan with no changes says `No changes to
+apply.` It has no confirmation, and Enter/`1`/`n`/Esc go back.
 
 ```
 ┏Plan━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -407,176 +447,205 @@ return.
 ┃ ─ ~/.npm (in sync)               ┃
 ```
 
-- `❯` has its own one-cell column, in the focus color; the selected row is
-  bold. A heading is the relocation's progress mark and its path in bold. Its
-  action rows follow, their marks two cells further in, so headings stand
-  apart without `▼`, guides or colour. An in-sync relocation is one dim
-  heading, `─` and its path. At 80 columns the longest label, `Replace source
-  with a link ⚠`, fits beside the scrollbar.
-- Every row is selectable. Details (titled `Details`) show a relocation row's
-  path, its Decision line in the Workspace's words (§5), and its paths (Source,
-  Target, and Archive when a step archives); an action row shows the action and
-  its paths. The Decision line is the one-time choice the plan was reviewed
-  with, `Decision: keep target, delete source (your choice, this run only)`, or
-  else the saved rule for the reviewed case, `Decision: keep target, archive
-  source (your configuration)`. Starting the review captures the choices with
-  the reviewed plan, so Results still name a choice after the apply forgets it.
+- `❯` has its own column, one cell wide, in the focus color. The selected row
+  is bold. A heading is the relocation's progress mark and its path, in bold.
+  Its action rows follow, with their marks two cells further in. So headings
+  are easy to see without `▼`, guide lines or colour. A relocation that is in
+  sync is one dim heading: `─` and its path. At 80 columns, the longest label,
+  `Replace source with a link ⚠`, fits beside the scrollbar.
+- The user can select every row. The Details pane has the title `Details`. For
+  a relocation row, it shows the path, the Decision line in the Workspace's
+  words (see section 5, Workspace), and the paths: Source, Target, and Archive
+  when a step archives. For an action row, it shows the action and its paths.
+  The Decision line is the one-time choice that the plan was reviewed with:
+  `Decision: keep target, delete source (your choice, this run only)`. If there
+  is no choice, it is the saved rule for the reviewed case: `Decision: keep
+  target, archive source (your configuration)`. When the review starts, Lighten
+  keeps the choices with the reviewed plan. So Results still name a choice
+  after the apply forgets it.
 - The list takes ↑/↓, PageUp/PageDown and Home/End. Every other key goes to the
-  app first: → opens Details, ← does nothing in the list, and Enter keeps its
-  screen meaning. Relocations do not collapse. The wheel moves the selection
-  one row and clicks do nothing, as on the other lists (§3).
+  app first. → opens Details, ← does nothing in the list, and Enter keeps its
+  meaning for the screen. Relocations do not collapse. The wheel moves the
+  selection one row, and clicks do nothing, as on the other lists (see section
+  3, Keys and focus).
 
 **Applying** updates the same list in place:
 
-- Each relocation heading carries its own progress mark: spinner while any of
-  its actions runs, `✔` when all are done, `✖` if any failed, `○` otherwise.
-  The marks show status, not selection (§4). Action rows use the same glyphs.
-- The selection stays where the user put it. It never follows running steps.
-- Header line `Applying. Leave Lighten running until it finishes.`, then a
-  TamboUI line gauge (thick style) and one count line: `3 of 8 changes done ·
-  2 running · 0 failed`. In-sync relocations appear as one row,
-  `─ ~/.npm (in sync)`.
-- Progress is per action. Never imply byte progress or rollback.
-- `q` opens the quit dialog: **Keep running** (default) or **Exit when it
-  finishes**. Changes always run to completion, including on failure. Results
-  are not kept after exit. After **Exit when it finishes**, two lines below the
-  help say so and `q: Quit` is no longer shown.
+- Each relocation heading has its own progress mark. It shows a spinner while
+  any of its actions runs, `✔` when all are done, `✖` if any failed, and `○`
+  in all other cases. The marks show status, not selection (see section 4,
+  Visual language). Action rows use the same glyphs.
+- The selection stays where the user put it. It never follows the running
+  steps.
+- The header line is `Applying. Leave Lighten running until it finishes.` A
+  TamboUI line gauge (thick style) and one count line follow: `3 of 8 changes
+  done · 2 running · 0 failed`. Each relocation that is in sync shows as one
+  row, `─ ~/.npm (in sync)`.
+- Progress counts actions. Never suggest progress in bytes, or a rollback.
+- `q` opens the quit dialog: **Keep running** (the default) or **Exit when it
+  finishes**. Changes always run to the end, also when a step fails. Results
+  are not kept after Lighten exits. After **Exit when it finishes**, two lines
+  below the help say so, and `q: Quit` no longer shows.
 
-**Results** keep the list with final marks, the gauge and the count line, which
-then ends with what did not run: `3 of 8 changes done · 1 failed · 4 not run`.
-On finish the selection moves once to the first failure, or else the last
-completed action. Messages distinguish a plan
-refused before any change (`Nothing changed: the disk no longer matches the
-reviewed plan. Check again.`), a step whose guard found something other than the
-plan (`Stopped: a step found something different from the plan. The steps after
-it did not run. See the failed step's details, then press r to check again.`;
-it does not guess when the disk changed), any other stop, counting the changes made
-(`Stopped after 2 changes. Check the failed and not-run steps, then check
-again.`, or with none `Stopped. Nothing was changed. Check the failed step,
-then check again.`) and success
-(`Done. Checked again; results are kept until you check again.`). Results stay
-available through `2` until `r` or exit.
+**Results** keep the list with the final marks, the gauge and the count line.
+The count line then ends with what did not run: `3 of 8 changes done · 1 failed
+· 4 not run`. When the apply finishes, the selection moves once: to the first
+failure, or if there is none, to the last completed action. The messages are
+different for these cases:
+
+- Lighten refused the plan before any change: `Nothing changed: the disk no
+  longer matches the reviewed plan. Check again.`
+- A step's check found something different from the plan: `Stopped: a step
+  found something different from the plan. The steps after it did not run.
+  See the failed step's details, then press r to check again.` This message
+  does not guess when the disk changed.
+- Any other stop. The message counts the changes made: `Stopped after 2
+  changes. Check the failed and not-run steps, then check again.` With no
+  changes, it is `Stopped. Nothing was changed. Check the failed step, then
+  check again.`
+- Success: `Done. Checked again; results are kept until you check again.`
+
+Results stay available through `2` until `r` or exit.
 
 A failed step's Details start with its problem in plain words, in the error
-colour: the path, what is there, what Lighten expected and what to do, such as
-`/scratch/archive/tool-b already exists as a file. Lighten expected nothing
-there. Move or remove it.` Paths show home as `~`. The sentence does not say to
-press r: the headline does. It is the only text for the failure, so it keeps
-everything the executor's text had for a bug report: every path, what was
-expected and found, and the system's reason (`Lighten couldn't change ~/x: no
-space left on device.`). A failure Lighten cannot name, such as an internal
-error, shows its text as it is.
+colour. The problem gives the path, what is there, what Lighten expected and
+what to do. For example: `/scratch/archive/tool-b already exists as a file.
+Lighten expected nothing there. Move or remove it.` Paths show home as `~`. The
+sentence does not tell the user to press r, because the headline does. It is
+the only text for the failure. So it keeps everything that the executor's text
+had for a bug report: every path, what was expected and found, and the system's
+reason (`Lighten couldn't change ~/x: no space left on device.`). When Lighten
+cannot name a failure, for example an internal error, it shows the failure's
+text without change.
 
-A completed copy that left out sockets says so in place of its text, in the
-same colour. It names one (`Skipped ~/.local/share/zed/zed-stable.sock;
-programs recreate it.`) and counts several (`Skipped 3 sockets; programs
-recreate them.`). `apply --json` keeps the executor's text, which names them
-all. A copy that reaches a named pipe or device file fails with `~/x/ipc is
-a named pipe; Lighten can't move it, so it threw the copy away and moved
-nothing. Remove it, or move this folder yourself.`
+When a completed copy left out sockets, its Details say so in place of its
+text, in the same colour. The text names one socket (`Skipped
+~/.local/share/zed/zed-stable.sock; programs recreate it.`) and counts more
+than one (`Skipped 3 sockets; programs recreate them.`). `apply --json` keeps
+the executor's text, which names all of them. When a copy finds a named pipe
+or a device file, it fails with `~/x/ipc is a named pipe; Lighten can't move
+it, so it threw the copy away and moved nothing. Remove it, or move this folder
+yourself.`
 
 ## 7. Configuration
 
-The draft is the configuration file's own shape, validated by the same loader the
-app uses. `~` and `${USER}` stay as written, and settings the screen does not
-show are kept. `ignored-source-paths` changes only through Browse's `x`; the
-list does not show it.
+The draft has the same shape as the configuration file. The same loader that
+the app uses checks it. `~` and `${USER}` stay as written. Lighten keeps the
+settings that the screen does not show. `ignored-source-paths` changes only
+through Browse's `x`, and the list does not show it.
 
-- Left list (`Storage and relocations`): `Storage locations`, then each
-  relocation by source as written (`~/.m2`). `a` adds a row with the source
-  root filled in and focuses its Source; `d` removes the selected row; `b`
-  opens Browse; Enter, → or Tab move to the fields.
-- With no relocations, the list says how to add one, in dim text under
-  `Storage locations`: `No directories yet.`, then `Press b to pick from 59
-  built-in suggestions (JetBrains, pip, Cargo, Conan, …), or a to type one
-  yourself.` The count is the built-in list's directories, as Browse counts
-  them, and the examples are the first app of each of its first four
-  categories; both come from the list, never from the code. While a field
-  has focus, where `b` and `a` type, it reads `Esc, then b to pick …`.
-- **First run.** A new file opens on Target root. The first time focus goes
-  from the storage locations' fields to the list (Esc, or Tab past the last
-  field) with both roots valid and no relocations yet, Browse opens by
-  itself, with a two-line note over its Lists lines: `Pick what to move:
-  Space adds.`, then `Rather type a path yourself? Press Esc, then a.` Each
-  line fits 80 columns. Moving between the storage
-  locations' fields does not open it, so Source root and a list of your own
-  can be set first. Esc returns to the list. It happens once per
-  Configuration; an existing file, even one with no relocations, opens on
-  its list and never opens Browse by itself.
-- Right, top: the selected item's fields, one row each, the label in an
-  18-cell column beside the value (at 80x24 a field is 32 cells wide). Text
-  fields are TamboUI text inputs; Both exist and Only target are TamboUI
-  `Select`s (`‹ Ask each time ›`, ←/→ change). ↑/↓ move between fields, Esc
-  goes back to the list. A value longer than its field scrolls sideways while
-  typing, to keep the cursor in view, and shows its start again once the field
-  loses focus.
-- Right, bottom: **Details**, the focused field's help (in a text field also
-  `Esc, then s to save.`), then a **Resolved** section with each path as the
-  loader reads it (home as `~`, updated as you type), or why it cannot. It always
-  shows a field's whole value, and scrolls with the wheel, so long paths never
-  push a field away.
-- Every path must be full or start with `~/`; anything else reads `Use a full
-  path, or one starting with ~/`.
-- Storage locations fields: **Source root** (default `~`), **Target root**,
-  **Suggestion list** (placeholder `optional; adds to built-in list`, which
-  fits the 32-cell field at 80 columns) with help "Lighten already includes
-  59 suggestions for common tools (JetBrains, pip, Cargo, Conan, …). Use this
-  field only to add a list of your own, for example one shared by your team.
-  Both lists are merged; yours wins where they overlap.", count and examples
-  as in the empty list.
-- Relocation fields: **Source**, **Target** (blank derives it from the target
-  root; a source outside the source root needs one), **Both exist**, **Only
-  target**, **Archive root** (blank means the default beside the source).
+- The left list (`Storage and relocations`) shows `Storage locations`, then
+  each relocation by its source as written (`~/.m2`). `a` adds a row with the
+  source root filled in, and puts focus on its Source. `d` removes the selected
+  row. `b` opens Browse. Enter, → or Tab move to the fields.
+- When there are no relocations, the list says how to add one. In dim text
+  under `Storage locations`, it shows `No directories yet.`, then `Press b to
+  pick from 59 built-in suggestions (JetBrains, pip, Cargo, Conan, …), or a to
+  type one yourself.` The count is the number of directories in the built-in
+  list, counted as Browse counts them. The examples are the first app of each
+  of the list's first four categories. Both come from the list, never from the
+  code. While a field has focus, `b` and `a` type into it, so the text reads
+  `Esc, then b to pick …`.
+- **First run.** A new file opens on Target root. Browse opens by itself the
+  first time that focus goes from the storage locations' fields to the list
+  (with Esc, or with Tab past the last field), if both roots are valid and
+  there are no relocations yet. Browse then shows a two-line note above its
+  Lists lines: `Pick what to move: Space adds.`, then `Rather type a path
+  yourself? Press Esc, then a.` Each line fits in 80 columns. Moving between
+  the storage locations' fields does not open Browse, so the user can set
+  Source root and a list of their own first. Esc goes back to the list. Browse
+  opens by itself only once for each time Configuration opens. An existing
+  file, even one with no relocations, opens on its list and never opens Browse
+  by itself.
+- Right, top: the fields of the selected item, one row each. The label is in a
+  column 18 cells wide, beside the value. At 80x24 a field is 32 cells wide.
+  Text fields are TamboUI text inputs. Both exist and Only target are TamboUI
+  `Select`s (`‹ Ask each time ›`, ←/→ change them). ↑/↓ move between fields,
+  and Esc goes back to the list. When a value is longer than its field, it
+  scrolls sideways during typing, to keep the cursor in view. It shows its
+  start again when the field loses focus.
+- Right, bottom: **Details**. It shows the help for the focused field (in a
+  text field, also `Esc, then s to save.`). Then a **Resolved** section shows
+  each path as the loader reads it, or why the loader cannot read it. It shows
+  home as `~` and updates as the user types. Details always shows the whole
+  value of a field, and it scrolls with the wheel. So a long path never pushes
+  a field out of view.
+- Every path must be a full path or start with `~/`. Any other value reads
+  `Use a full path, or one starting with ~/`.
+- Storage locations fields:
+  - **Source root** (default `~`)
+  - **Target root**
+  - **Suggestion list**. Its placeholder is `optional; adds to built-in list`,
+    which fits the 32-cell field at 80 columns. Its help is "Lighten already
+    includes 59 suggestions for common tools (JetBrains, pip, Cargo, Conan, …).
+    Use this field only to add a list of your own, for example one shared by
+    your team. Both lists are merged; yours wins where they overlap." The count
+    and examples come from the list, as in the empty list.
+- Relocation fields:
+  - **Source**
+  - **Target**. When it is blank, Lighten derives it from the target root. A
+    source outside the source root needs a target.
+  - **Both exist**
+  - **Only target**
+  - **Archive root**. When it is blank, Lighten uses the default beside the
+    source.
 - **Both exist** values: Ask each time · Keep target, delete source · Keep
   target, archive source · Keep target, ask about source · Leave both as they
   are · Delete both, start empty. **Only target** values: Ask each time · Keep
-  target, link source. A rule left at "Ask each time" is not written to the file.
-  Delete both, start empty shows a warning in Details.
-- Under the header: file path, `existing file`/`new file`, and `N unsaved
-  changes`: each storage location that differs from the file as opened, each
-  relocation added, removed or edited, and each path ignored or no longer
-  ignored. Changing a field back is no change.
-- `s` saves from the list or a Select (in a text field it types). The draft is
-  checked first: the first field the loader would reject is selected and named
-  (`Not saved. Storage locations › Target root: …`), and overlapping
-  relocations are refused as a whole. A new file is created directly.
-  Replacing an existing file asks first: `Replace ~/.lighten.json?`, noting
-  that comments are not kept. Save refuses if the file changed since it was
-  loaded, keeps the draft and says so: `Not saved: the configuration file
-  changed after Configuration opened it. Your changes are still here. To start
-  again from the file, press q, then y, then e.` The write is atomic.
-- After saving: return to Workspace, check again, and say the next step below
-  the panes, for example `Saved. 1 relocation will change: press a to review
-  and apply.` It stays until the next key the Workspace handles.
-- Help lines never carry a field's note, so both stay one row each at 80
-  columns on every focus. In a text field they offer `F1: Help`.
+  target, link source. Lighten does not write a rule that is "Ask each time" to
+  the file. Delete both, start empty shows a warning in Details.
+- Under the header: the file path, `existing file` or `new file`, and `N unsaved
+  changes`. Each of these is one change: a storage location that is different
+  from the file as opened; a relocation that is added, removed or edited; a
+  path that is ignored or no longer ignored. When the user changes a field back
+  to its first value, that is no change.
+- `s` saves from the list or a Select. (In a text field it types.) Lighten
+  checks the draft first. If the loader would refuse a field, Lighten selects
+  the first such field and names it (`Not saved. Storage locations › Target
+  root: …`). Lighten refuses relocations that overlap as a whole. Lighten
+  creates a new file directly. Before it replaces an existing file, it asks:
+  `Replace ~/.lighten.json?`, and it says that comments are not kept. If the
+  file changed after it was loaded, the save refuses. The draft stays, and a
+  message says so: `Not saved: the configuration file changed after
+  Configuration opened it. Your changes are still here. To start again from the
+  file, press q, then y, then e.` The write is atomic.
+- After a save: go back to Workspace, check again, and say the next step below
+  the panes. For example: `Saved. 1 relocation will change: press a to review
+  and apply.` The message stays until the next key that the Workspace handles.
+- Help lines never show the note of a field. So the help lines and the note
+  each stay one row at 80 columns, for every focus. In a text field, the help
+  lines show `F1: Help`.
 
 ## 8. Browse
 
 The feature is the **suggestion list**: the built-in list and your list. The
 screen never says "candidate" or "draft".
 
-- Two **Lists** lines at the top, always: `Built-in list · 9 suggestions` and
-  `Your list · ~/team/suggestions.json · 4 suggestions · file updated 28 Sep`
-  (the file's modification time, read with the list). Without a list of your
-  own the second line says so. A list that was not used says why on its line
-  (`not used: file not found`); `i` opens **Suggestion lists** with the full
-  detail.
-- When Browse opens by itself on a first run (§7), its note sits above the
-  Lists lines until Browse closes. Its Help purpose always ends `Anything
-  missing: press Esc, then a to type it.`
-- The suggestions are a TamboUI list in a panel titled **Browse**, in three
-  levels. Each category (`JVM`, `Python`, …) is a heading; apps no list
-  gives a category are under `Other tools`. Each app is a heading under its
-  category, two cells in, and its directories follow, one per row, two
-  cells further in. Directories no list gives an app are under
-  `Other directories`, a heading at the categories' level. A heading has a
-  mark (`●` all added, `◐` some, `○` none, `−` none can be), its name in
-  bold, and in dim text at the notes column how many of the directories
-  beneath it that can be added are added (`1 of 2 added`), or `can't add`.
-  The indents let headings stand apart without colour. A path shows at most
-  28 cells, and the notes column starts after it, for headings and rows
-  alike; at 80 columns that leaves 40 cells for a note beside the scrollbar:
+- There are always two **Lists** lines at the top: `Built-in list · 9
+  suggestions` and `Your list · ~/team/suggestions.json · 4 suggestions · file
+  updated 28 Sep`. The date is the file's modification time, read together with
+  the list. When there is no list of your own, the second line says so. When
+  Lighten did not use a list, its line says why (`not used: file not found`).
+  `i` opens **Suggestion lists**, which has the full detail.
+- When Browse opens by itself on a first run (see section 7, Configuration),
+  its note is above the Lists lines until Browse closes. Its Help purpose
+  always ends with `Anything missing: press Esc, then a to type it.`
+- The suggestions are a TamboUI list in a panel with the title **Browse**. The
+  list has three levels:
+  - Each category (`JVM`, `Python`, …) is a heading. Apps that no list gives a
+    category are under `Other tools`.
+  - Each app is a heading under its category, two cells in.
+  - The app's directories follow, one on each row, two cells further in.
+    Directories that no list gives an app are under `Other directories`. This
+    is a heading at the same level as the categories.
+
+  A heading has a mark (`●` all added, `◐` some, `○` none, `−` none can be
+  added) and its name in bold. In dim text, at the notes column, it shows how
+  many of the directories under it that can be added are added (`1 of 2
+  added`), or `can't add`. The indents make headings easy to see without
+  colour. A path uses at most 28 cells, and the notes column starts after it,
+  for headings and rows. At 80 columns this leaves 40 cells for a note, beside
+  the scrollbar:
 
   ```
   ┃ ◐ Python                            1 of 3 added                ┃
@@ -589,81 +658,90 @@ screen never says "candidate" or "draft".
   ┃     − link-cache                    already a link              ┃
   ```
 
-  Categories and apps keep the order they first appear in, built-in list
-  first; `Other tools`, then `Other directories`, come last.
+  Categories and apps keep the order in which they first appear, with the
+  built-in list first. `Other tools` and then `Other directories` come last.
 
-  `❯` is one cell; the selected row is bold. Groups do not
-  collapse. The selection follows an item: checking again, `u`, `f`, adding
-  and removing never move it to another row. When the selected row is hidden,
-  the row at its place is selected and stays selected. Rows keep the place
-  they were first listed in.
-- Marks: `○` not in the configuration, `●` in it (saved earlier or added
-  now), `−` cannot be added. Space toggles; removing a row only edits the
-  configuration on screen, and `s` in Configuration writes it. A row taken out
-  stays listed as `○` until Browse closes, even when no list suggests it.
-  `e` on a `●` row edits it in Configuration.
-- `x` on a directory ignores it (`x: Ignore`): a `●` row moves from the
-  relocations to the ignored paths, as on the Workspace, and any other row
-  joins them. On a `⊘` row `x` stops ignoring it (`x: Stop ignoring`), and it
-  shows as `○` until Browse closes. Like Space, `x` changes only the
-  configuration on screen; `s` writes it. An ignored row is `⊘`, notes
-  `ignored by you`, is never hidden, can't be added (Space does nothing and is
-  not offered), and is listed even when no list suggests it (under Other
-  directories). Its Details start `Ignored by you` and say to press `x` to
-  stop ignoring it.
-- Space on a `○` or `◐` heading, a category's or an app's, adds every shown directory under it that can be added,
-  each as it would be one by one, so one that overlaps is skipped; on `●` it
-  takes them all out, and on `−` it does nothing. Each directory is one unsaved change. When
-  rows were skipped, a line says so: `Added 3. Skipped 1 that overlaps
-  ~/.cache.`, `Skipped 1 that can't be added.`, `Skipped 1 you ignored.`
-  Ignored rows are not counted in a heading's `1 of 2 added`. Enter on a
+  `❯` is one cell wide, and the selected row is bold. Groups do not collapse.
+  The selection stays on its item: check again, `u`, `f`, adding and removing
+  never move it to a different row. When the selected row is hidden, Lighten
+  selects the row now at its place, and that row stays selected. Rows keep the
+  place where they were first listed.
+- Marks: `○` not in the configuration, `●` in it (saved before or added now),
+  `−` cannot be added. Space adds or removes. Removing a row changes only the
+  configuration on screen. `s` in Configuration writes it. A row that the user
+  removed stays listed as `○` until Browse closes, even when no list suggests
+  it. `e` on a `●` row edits it in Configuration.
+- `x` on a directory ignores it (`x: Ignore`). A `●` row moves from the
+  relocations to the ignored paths, as on the Workspace. Any other row is added
+  to the ignored paths. On a `⊘` row, `x` stops ignoring it (`x: Stop
+  ignoring`), and it shows as `○` until Browse closes. Like Space, `x` changes
+  only the configuration on screen, and `s` writes it. An ignored row:
+  - is `⊘`, with the note `ignored by you`
+  - is never hidden
+  - can't be added: Space does nothing, and Lighten does not offer it
+  - is listed even when no list suggests it (under Other directories)
+
+  Its Details start with `Ignored by you` and say to press `x` to stop ignoring
+  it.
+- Space on a `○` or `◐` heading (a category or an app) adds every shown
+  directory under it that can be added. It adds each one as it would one by
+  one, so it skips a directory that overlaps. Space on a `●` heading removes
+  them all. Space on a `−` heading does nothing. Each directory is one unsaved
+  change. When Lighten skipped rows, a line says so: `Added 3. Skipped 1 that
+  overlaps ~/.cache.`, `Skipped 1 that can't be added.`, `Skipped 1 you
+  ignored.` A heading's `1 of 2 added` does not count ignored rows. Enter on a
   heading does nothing.
-- Row notes, plain: `checking…`, `not created yet`, `already a link`, `not a
-  directory`, `can't read: <reason>`, `usually not needed`. A note that only
-  says the directory is not there yet (`not created yet`, `checking…`) is
-  dim; `already a link` and `usually not needed` are in the text color, and
-  problems (`can't read: …`, `not a directory`) in the warning color.
-- When both lists name a directory, your list wins: its app group and advice
-  show on the row. When both lists name an app with different categories,
-  your list's category wins; an app your list names without one keeps the
-  built-in list's. Details shows every list's advice, yours first.
-- A directory is hidden only when every list that names it marks it usually
-  not needed, and is counted (`1 usually not needed, hidden`); `u` shows them.
-  Rows already in the configuration, and ignored rows, are never hidden.
-- A **count line** under the Lists lines says how many listed directories
-  are found on this machine: the last check saw a directory or a link there.
-  A link counts, as a directory Lighten has moved is one. It reads
-  `Checking this machine…` until every row is checked, then `12 found on this
-  machine`, with the hidden count after a ` · ` on the same line, so the list
-  keeps its rows at 80x24. `f` (`f: Found only`, `f: Show all`) shows only
-  the found directories, and those in the configuration, which are never
-  hidden, as with `u`; their `●` and note set them apart. The line then adds
-  `, plus 2 in your configuration` when such rows are not found, else `, only
-  these shown`. The hidden count then counts only found ones. A heading with
-  nothing shown beneath it is not listed, and a heading's `1 of 2 added`
-  counts only its shown directories. Found rows keep their list order: nothing sorts them first.
-  `f` sits on the navigation help line, as the other line is full at 80
-  columns; Help lists it under Do. It is offered when something is found,
-  and always while on, so it can be turned off. With nothing found and `f`
-  on, the list reads `None found on this machine. Press f to show every
-  suggestion.`
+- Row notes, in plain words: `checking…`, `not created yet`, `already a link`,
+  `not a directory`, `can't read: <reason>`, `usually not needed`. A note that
+  only says that the directory is not there yet (`not created yet`,
+  `checking…`) is dim. `already a link` and `usually not needed` are in the text
+  color. Problems (`can't read: …`, `not a directory`) are in the warning color.
+- When both lists name a directory, your list wins: the row shows its app group
+  and advice. When both lists name an app with different categories, your
+  list's category wins. When your list names an app without a category, the app
+  keeps the built-in list's category. Details shows the advice of every list,
+  yours first.
+- A directory is hidden only when every list that names it marks it as usually
+  not needed. The hidden rows are counted (`1 usually not needed, hidden`), and
+  `u` shows them. Rows that are already in the configuration, and ignored rows,
+  are never hidden.
+- A **count line** under the Lists lines says how many listed directories are
+  found on this machine. A directory is found when the last check saw a
+  directory or a link at its path. A link counts, because a directory that
+  Lighten moved is a link. The line reads `Checking this machine…` until every
+  row is checked. Then it reads `12 found on this machine`, with the hidden
+  count after ` · ` on the same line. This keeps the list's rows at 80x24.
+- `f` (`f: Found only`, `f: Show all`) shows only the directories that are
+  found, and the directories in the configuration. As with `u`, those are never
+  hidden, and their `●` and note make them different. The count line then adds
+  `, plus 2 in your configuration` when some of those rows are not found. If
+  not, it adds `, only these shown`. The hidden count then counts only found
+  directories. A heading with nothing shown under it is not listed. A heading's
+  `1 of 2 added` counts only the directories shown under it. Found rows keep
+  their list order: Lighten does not sort them first. `f` is on the navigation
+  help line, because the other line is full at 80 columns. Help lists `f` under
+  Do. Lighten offers `f` when something is found, and always while `f` is on,
+  so the user can turn it off. When nothing is found and `f` is on, the list
+  reads `None found on this machine. Press f to show every suggestion.`
 - While `f` is on, Space on a heading adds only the found directories under
-  it, and Help says so (`Add every directory under it found on this machine
-  that can be added`). The line after it names what it skipped: `Added 2.
-  Skipped 3 not found on this machine; f shows all.` Taking a group out is
-  unchanged: every directory in the configuration under it is shown.
-  Browse opens with `f` off, on a first run too.
-- `r` is **Check again**: it reads the lists again and rows read `checking…`
-  until checked. It never changes the configuration.
-- Discovery never blocks the screen and never lists directory contents. Size
-  reads `not estimated` and ownership `not evaluated` until those features exist.
-- Enter on a directory opens **Details**: whether it is in the configuration,
-  state, full path, overlap with other suggestions (`Also suggested, inside
-  it: …`), then **Suggested by** with each list's group, advice and reason, or
-  `No list suggests it.` A list's caution follows its reason on its own line,
-  `⚠ Caution: …`, in `warn`; the sign keeps it visible without color.
-- The mouse wheel over the list moves its selection a row; over Details or
-  Suggestion lists it scrolls them. Clicks do nothing.
+  it. Help says so (`Add every directory under it found on this machine that
+  can be added`). The next line names what Space skipped: `Added 2. Skipped 3
+  not found on this machine; f shows all.` Removing a group does not change:
+  Browse shows every directory under it that is in the configuration. Browse
+  opens with `f` off, also on a first run.
+- `r` is **Check again**. It reads the lists again, and rows read `checking…`
+  until they are checked. It never changes the configuration.
+- Discovery never stops the screen from responding, and it never lists the
+  contents of a directory. Size reads `not estimated`, and ownership reads `not
+  evaluated`, until those features exist.
+- Enter on a directory opens **Details**. It shows whether the directory is in
+  the configuration, its state, its full path, and how it overlaps other
+  suggestions (`Also suggested, inside it: …`). Then **Suggested by** shows
+  each list's group, advice and reason, or `No list suggests it.` A list's
+  caution follows its reason on its own line, `⚠ Caution: …`, in `warn`. The
+  sign keeps the caution clear without color.
+- The mouse wheel over the list moves its selection one row. Over Details or
+  Suggestion lists, it scrolls them. Clicks do nothing.
 
 ## 9. Wording
 
@@ -674,11 +752,12 @@ screen never says "candidate" or "draft".
 | Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]`, and `[Ignored]` for an ignored source |
 | Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
 
-All screen text lives in one TUI wording file.
+All screen text is in one TUI wording file.
 
 ## 10. Verification
 
-Every UI change ships rendered captures at 80x24 and 120x30 and checks resizing
-both ways. Tests drive a real session over temporary configuration files and
-assert rendered screens and key handling. Passing tests are not UX acceptance;
-user-visible changes need the user's walkthrough.
+Every UI change includes rendered captures at 80x24 and 120x30. It also checks
+that resizing works in both directions. Tests drive a real session over
+temporary configuration files. They check rendered screens and key handling.
+Passing tests do not mean that the UX is accepted. Changes that the user can see
+need a walkthrough by the user.

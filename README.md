@@ -1,20 +1,28 @@
 # Lighten
 
-Lighten moves bulky directories out of your home directory to machine-local storage and leaves a symlink in each one's place.
+Lighten moves large directories out of your home directory to storage on the local machine. It puts a symlink in the place of each directory that it moves.
 
-It is a terminal application, run as `lighten`, for space-constrained or shared home directories, including Linux systems using NFS-mounted home directories. Each move is planned for review before anything changes on disk.
+Lighten is a terminal application. You start it with the `lighten` command. It is for home directories that have little space or are shared, for example Linux home directories on NFS. Lighten shows each move in a plan for you to review before it changes anything on disk.
 
 ## Install
 
-Lighten is one executable for Linux x86_64 (any distribution) and Linux arm64 (glibc 2.17 or later; on Alpine, install the `gcompat` package first). It needs no Java.
+Lighten is one executable file. It runs on Linux x86_64 (any distribution) and on Linux arm64 with glibc 2.17 or later. On Alpine arm64, install the `gcompat` package first. Lighten does not need Java.
 
-The install script downloads the binary for your machine from the latest release, checks it against the release's `SHA256SUMS`, and installs it as `~/.local/bin/lighten`. It never uses sudo. If that directory is not on your `PATH`, it shows the line that adds it and the startup files in your home it would add it to (for bash, `~/.bashrc` and `~/.bash_profile` or `~/.profile`), and asks first. It skips a file you do not own or cannot write, and says so. It works once the first release is published:
+The install script does these steps:
+
+- It downloads the binary for your machine from the latest release.
+- It checks the binary against the release's `SHA256SUMS` file.
+- It installs the binary as `~/.local/bin/lighten`.
+
+The script never uses sudo. If `~/.local/bin` is not on your `PATH`, the script shows the line that adds it. It also shows the startup files in your home directory that it would add the line to. For bash, these are `~/.bashrc` and `~/.bash_profile` or `~/.profile`. The script asks you before it changes them. If you do not own a file or cannot write to it, the script does not change it and tells you.
+
+The script works after the first release is published:
 
 ```text
 curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh
 ```
 
-To read the script before running it:
+To read the script before you run it:
 
 ```text
 curl -fsSLO https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh
@@ -22,7 +30,7 @@ less install.sh
 sh install.sh
 ```
 
-Options go after `sh install.sh`, or after `sh -s --` when piping:
+Put options after `sh install.sh`. When you pipe the script into `sh`, put them after `sh -s --`:
 
 ```text
 --version 1.2.3     install that release instead of the latest
@@ -30,9 +38,9 @@ Options go after `sh install.sh`, or after `sh -s --` when piping:
 --no-modify-path    do not offer to change PATH; only show the line
 ```
 
-Run `lighten update`, or the script again, to update Lighten in place. Without `curl`, download it with `wget -qO- <url> | sh`; the script uses whichever of the two it finds.
+To update Lighten, run `lighten update` or run the script again. If you do not have `curl`, use `wget -qO- <url> | sh`. The script uses `curl` or `wget`, whichever it finds.
 
-These tools also install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases), once the first release is published:
+These tools also install Lighten from its [GitHub Releases](https://github.com/big-sw-little-sw/lighten/releases), after the first release is published:
 
 ```text
 mise use -g github:big-sw-little-sw/lighten
@@ -40,9 +48,12 @@ eget big-sw-little-sw/lighten --to ~/.local/bin
 ubi --project big-sw-little-sw/lighten --in ~/.local/bin
 ```
 
-mise updates what it installed (`mise upgrade`). `lighten update` updates an install made with the script, eget, ubi or by hand: it runs the latest release's install script on the directory that holds the running `lighten`, so it needs `curl` or `wget` too. `lighten update --check` only shows the installed and the latest version, and `lighten update --version 1.2.3` installs that release, even an older one.
+If you installed Lighten with mise, update it with `mise upgrade`. `lighten update` updates an install that you made with the script, eget, ubi or by hand. It runs the install script of the latest release on the directory that holds the running `lighten`. Thus it also needs `curl` or `wget`.
 
-To download by hand, take `lighten-<version>-linux-x86_64-musl` or `lighten-<version>-linux-aarch64-gnu` and `SHA256SUMS` from a release, then:
+- `lighten update --check` shows the installed version and the latest version. It changes nothing.
+- `lighten update --version 1.2.3` installs that release, also when it is older than the installed one.
+
+To install by hand, download `SHA256SUMS` and one binary from a release. The binaries are `lighten-<version>-linux-x86_64-musl` and `lighten-<version>-linux-aarch64-gnu`. Then run:
 
 ```text
 sha256sum --check --ignore-missing SHA256SUMS
@@ -51,9 +62,13 @@ install -m 755 lighten-<version>-linux-<arch>-<libc> ~/.local/bin/lighten
 
 ## First run
 
-Run `lighten`. With no configuration file yet, press `i` to create one: type where storage is in **Target root**, pick the directories to move from the built-in suggestions, and press `s` to save. Saving writes `~/.lighten.json` and nothing else.
+Run `lighten`. If you do not have a configuration file, press `i` to make one:
 
-The Workspace then shows what Lighten would do for each directory. Press `a` to review every step, and `y` to apply. Nothing on disk changes before `y`.
+1. In **Target root**, type where your storage is.
+2. From the built-in suggestions, select the directories to move.
+3. Press `s` to save. Saving writes `~/.lighten.json` and nothing else.
+
+The Workspace then shows what Lighten would do for each directory. Press `a` to review all the steps, then press `y` to apply them. Lighten changes nothing on disk before you press `y`.
 
 ```text
 lighten                       the full-screen application
@@ -65,10 +80,10 @@ lighten guide                 print the user guide
 lighten update                update Lighten
 ```
 
-`--config <file>` uses another configuration file than `~/.lighten.json`.
+To use a configuration file other than `~/.lighten.json`, add `--config <file>`.
 
 ## Documentation
 
-The [user guide](docs/user-guide.md) covers how to use Lighten, the words it uses, every configuration setting, what each rule does on disk, how to undo a change and the JSON commands. Inside Lighten, press `?` and open the Guide tab, or run `lighten guide`.
+The [user guide](docs/user-guide.md) tells you how to use Lighten. It gives the words that Lighten uses and all the configuration settings. It tells you what each rule does on disk, how to undo a change and how to use the JSON commands. To read it in Lighten, press `?` and open the Guide tab. You can also run `lighten guide`.
 
-To build or change Lighten, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+To build or change Lighten, read [`CONTRIBUTING.md`](CONTRIBUTING.md).

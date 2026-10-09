@@ -1,10 +1,15 @@
 # Contributing to Lighten
 
-Lighten is Kotlin on the JVM, built with Gradle (Kotlin DSL) and released as GraalVM native binaries for Linux. Read [`AGENTS.md`](AGENTS.md) for the coding conventions, [`docs/architecture.md`](docs/architecture.md) for the structure, [`CONTEXT.md`](CONTEXT.md) for the domain words and [`docs/decisions.md`](docs/decisions.md) for the current rules and why.
+Lighten is written in Kotlin for the JVM and is built with Gradle (Kotlin DSL). Its releases are GraalVM native binaries for Linux. Before you change it, read these files:
+
+- [`AGENTS.md`](AGENTS.md): the coding conventions.
+- [`docs/architecture.md`](docs/architecture.md): the structure.
+- [`CONTEXT.md`](CONTEXT.md): the words of the domain.
+- [`docs/decisions.md`](docs/decisions.md): the current rules and the reasons for them.
 
 ## Build and test
 
-You need JDK 25 installed; Gradle's toolchain finds it but does not download it. Use the Gradle wrapper:
+Install JDK 25. The Gradle toolchain finds it, but it does not download it. Use the Gradle wrapper:
 
 ```text
 ./gradlew build                      compile, run all tests, build the distribution
@@ -12,11 +17,17 @@ You need JDK 25 installed; Gradle's toolchain finds it but does not download it.
 ./gradlew test --tests '*HelpTest'   run one test class
 ```
 
-`docs/user-guide.md` is packaged into the application and has tests of its own: lines of at most 78 columns, no ticket or pull request references, and no line that starts with punctuation once rendered. Any change to what users see updates the guide in the same pull request.
+The application includes `docs/user-guide.md`, and the guide has its own tests:
+
+- No line is longer than 78 columns.
+- The guide has no references to tickets or pull requests.
+- No rendered line starts with punctuation.
+
+When you change what users see, update the guide in the same pull request.
 
 ## Run it
 
-`./gradlew run` does not give the application the terminal, so the full-screen application needs the `./lighten` launcher. It runs `installDist` and starts the installed build with your arguments:
+`./gradlew run` does not give the terminal to the application. Thus, to run the full-screen application, use the `./lighten` launcher. It runs `installDist` and starts the installed build with your arguments:
 
 ```text
 ./lighten
@@ -24,34 +35,55 @@ You need JDK 25 installed; Gradle's toolchain finds it but does not download it.
 ./lighten plan --config /path/to/.lighten.json --json
 ```
 
-Point `--config` at a scratch file unless you mean to change your own `~/.lighten.json`.
+Give `--config` a test file, unless you want to change your own `~/.lighten.json`.
 
-For a disposable walkthrough, run `bash scripts/setup-smoke-fixture.sh`. It creates a temporary home, storage and configuration with one relocation in each state (a move, a conflict to resolve, rules that adopt, discard or leave unchanged, one already in sync), and prints the commands and steps to try. Run it again for a fresh fixture.
+To try Lighten on test data, run `bash scripts/setup-smoke-fixture.sh`. It makes a temporary home, storage and configuration. These have one relocation in each state:
 
-To watch apply progress, add the hidden option `--debug-step-delay-ms 3000`, before or after the command name. Each action then stays in its running state for three seconds while the terminal stays responsive. It accepts 0 to 60000 and does not affect the `--json` commands.
+- a move;
+- a choice to make;
+- rules that keep the target, discard or leave both as they are;
+- one relocation that is already in sync.
+
+The script then prints the commands and steps to try. To get new test data, run it again.
+
+To watch the progress of an apply, add the hidden option `--debug-step-delay-ms 3000` before or after the command name. Each action then shows as running for three seconds, and the terminal continues to respond. The option accepts values from 0 to 60000. It has no effect on the `--json` commands.
 
 ## Pull requests and CI
 
-Every pull request into `main` runs `.github/workflows/ci.yml`. Its 7 checks are required for merging:
+Each pull request into `main` runs `.github/workflows/ci.yml`. You cannot merge until its 7 checks pass:
 
-- **JVM verify:** `./gradlew build` on Ubuntu with JDK 25.
-- **Native build (x86_64), Native build (arm64):** `ci/native/build.sh` builds the native binary in a container: a static musl binary for x86_64, and a glibc 2.17 binary for arm64. It also records the JVM's output for the CLI comparison.
-- **Native test (x86_64), Native test (arm64):** `ci/native/test.sh` compares the native binary's CLI output with the JVM's, tests `lighten update` against a local release server, and drives the full-screen application under `expect`. Then `ci/native/e2e.sh` runs the end-to-end cases: each rule and blocked state on disk, special files, an apply stopped partway (a failed step, a killed process) followed by checking and applying again, and the Workspace rows against `plan --json`. Cases listed in its `KNOWN_FAILING` show a known contract break and do not fail the job. The job summary shows the rendered screens and the case results.
-- **Native distros (x86_64), Native distros (arm64):** `ci/native/distros.sh` runs the tests in containers of older and newer Linux distributions, then `ci/install/test.sh` tests `install.sh` on them.
+- **JVM verify:** runs `./gradlew build` on Ubuntu with JDK 25.
+- **Native build (x86_64), Native build (arm64):** `ci/native/build.sh` builds the native binary in a container. For x86_64 it builds a static musl binary, and for arm64 a glibc 2.17 binary. It also records the output of the JVM build for the CLI comparison.
+- **Native test (x86_64), Native test (arm64):** `ci/native/test.sh` compares the CLI output of the native binary with the output of the JVM build. It tests `lighten update` against a local release server. It also runs the full-screen application under `expect`. Then `ci/native/e2e.sh` runs the end-to-end cases:
+  - each rule and each blocked state, on disk;
+  - special files;
+  - an apply that stops partway, because a step fails or the process is killed, and then a new check and apply;
+  - the Workspace rows, compared with `plan --json`.
 
-The native jobs run on pull requests into `main` and on pushes; on a pull request into another branch, add the `native` label to run them. The scripts under `ci/native/` and `ci/install/` also run locally with Docker.
+  A case in the `KNOWN_FAILING` list of the script shows a known break of the contract, and it does not fail the job. The job summary shows the screens and the results of the cases.
+- **Native distros (x86_64), Native distros (arm64):** `ci/native/distros.sh` runs the tests in containers of older and newer Linux distributions. Then `ci/install/test.sh` tests `install.sh` on them.
 
-To try a pull request's arm64 binary in a throwaway container, run `ci/try-pr <pr-number>`. It needs an authenticated `gh` and Docker on an arm64 host, such as OrbStack on an Apple silicon Mac. It downloads the binary from the pull request's latest successful CI run, sets up sample directories and a configuration, and opens the application; quitting it leaves you in a shell in the same container.
+The native jobs run on pushes and on pull requests into `main`. To run them on a pull request into a different branch, add the `native` label. You can also run the scripts in `ci/native/` and `ci/install/` on your computer with Docker.
+
+To try the arm64 binary of a pull request in a temporary container, run `ci/try-pr <pr-number>`. You need an authenticated `gh` and Docker on an arm64 host, for example OrbStack on a Mac with Apple silicon. The script downloads the binary from the latest successful CI run of the pull request. It makes sample directories and a configuration, and then starts the application. When you quit the application, you are in a shell in the same container.
 
 ## Releasing
 
-Push a tag `v<major>.<minor>.<patch>`, optionally with a pre-release part such as `v1.0.0-rc.1`, on a commit of `main` whose 7 checks have passed:
+Push a tag `v<major>.<minor>.<patch>` on a commit of `main` that passed its 7 checks. The tag can have a pre-release part, for example `v1.0.0-rc.1`.
 
 ```text
 git tag v1.2.3 origin/main
 git push origin v1.2.3
 ```
 
-`.github/workflows/release.yml` checks the commit, rebuilds both binaries with the tag's version and publishes a GitHub Release with the binaries, `SHA256SUMS`, `install.sh` and notes generated from the merged pull requests. A version with a pre-release part is published as a pre-release, which install tools skip. Tagging before `main`'s CI finishes fails the release; re-run the workflow once CI passes. Asset names are a public contract: see [Release assets](docs/decisions.md#release-assets) in `docs/decisions.md`.
+Then `.github/workflows/release.yml` does these steps:
 
-A manual run of the workflow is a dry run: it builds the same assets and uploads them as a workflow artifact, and publishes nothing.
+1. It checks the commit.
+2. It builds the two binaries again with the version of the tag.
+3. It publishes a GitHub Release. The release contains the binaries, `SHA256SUMS`, `install.sh` and notes made from the merged pull requests.
+
+A version with a pre-release part is published as a pre-release, and install tools do not install it. If you push the tag before the CI of `main` is complete, the release fails. Run the workflow again after CI passes.
+
+The names of the release assets are a public contract. For the rules, read [Release assets](docs/decisions.md#release-assets) in `docs/decisions.md`.
+
+When you start the workflow by hand, it is a dry run. It builds the same assets and uploads them as a workflow artifact, but it publishes nothing.
