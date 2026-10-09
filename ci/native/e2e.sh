@@ -36,9 +36,7 @@ done
 [ "$(id -u)" -ne 0 ] || { echo "e2e must run as a user other than root" >&2; exit 2; }
 
 # case -> the issue it shows. Keep each message enough to file or find the issue.
-declare -A KNOWN_FAILING=(
-  [broken-link-elsewhere]="a dangling source link to somewhere else is replaced by a link to the target (replace-symlink); the guide says a link elsewhere is [Blocked] and never replaced"
-)
+declare -A KNOWN_FAILING=()
 
 failed=()
 matrix=$results/matrix.txt
@@ -327,12 +325,13 @@ mkdir -p "$L/app"; ln -s "$C/unmounted/app" "$H/app"
 config "$(rel app)"
 run plan
 blocked 0 "$C/unmounted/app"
+check "the reason says what it links to does not exist now" j '.relocations[0].actions[0].reason | contains("does not exist now")'
 refused
 check "the link still points where it did" [ "$(readlink "$H/app")" = "$C/unmounted/app" ]
 end
 
-begin broken-link "a dangling source link, no target: [Blocked]"
-ln -s "$C/unmounted/app" "$H/app"
+begin broken-link "a dangling source link to the target, no target: [Blocked]"
+ln -s "$L/app" "$H/app"
 config "$(rel app)"
 run plan
 blocked 0 "no target directory"
