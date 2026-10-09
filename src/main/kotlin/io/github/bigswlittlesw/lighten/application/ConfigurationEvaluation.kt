@@ -10,6 +10,7 @@ import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
@@ -35,13 +36,13 @@ class ConfigurationEvaluation(
         val configPath: Path
     }
 
-    data class Missing(override val configPath: Path, val message: String) : Evaluation
+    data class Missing(override val configPath: Path, val message: PathText) : Evaluation
 
     /** Legacy default-path behavior: no regular configuration file, including a directory at that path. */
     data class Unconfigured(override val configPath: Path) : Evaluation
 
     /** `line` is the line at fault, or 0 when no one line is (see [InvalidConfigurationException]). */
-    data class Invalid(override val configPath: Path, val message: String, val line: Int) : Evaluation
+    data class Invalid(override val configPath: Path, val message: PathText, val line: Int) : Evaluation
 
     /**
      * Observations and saved plan retain saved policy; `plan` contains the effective draft policy.
@@ -155,7 +156,7 @@ class ConfigurationEvaluation(
         return try {
             loadRequired(configPath)
         } catch (exception: ConfigurationException) {
-            val message = exception.message ?: exception.toString()
+            val message = exception.text
             if (Files.notExists(configPath)) Missing(configPath, message)
             else Invalid(configPath, message, (exception as? InvalidConfigurationException)?.line ?: 0)
         }

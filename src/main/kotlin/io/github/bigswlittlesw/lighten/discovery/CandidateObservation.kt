@@ -1,5 +1,7 @@
 package io.github.bigswlittlesw.lighten.discovery
 
+import io.github.bigswlittlesw.lighten.fs.systemReason
+import java.nio.file.AccessDeniedException
 import java.nio.file.Path
 import java.time.Instant
 
@@ -36,3 +38,8 @@ data class CandidateObservation(
             )
     }
 }
+
+/** Why discovery could not read a path, for Browse: a denied read says so in plain words, the rest in the system's. */
+internal fun readFailure(exception: Throwable): String =
+    if (exception is AccessDeniedException || exception is SecurityException) "can't read: permission denied"
+    else systemReason(exception)

@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
+import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
@@ -9,6 +10,7 @@ import io.github.bigswlittlesw.lighten.config.validateConfiguration
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.PathText
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -91,7 +93,7 @@ class ReconciliationPlannerTest {
         assertEquals(archiveRoot.resolve("cache-" + sha256Hex(source.toRealPath().toString()).take(8)), suffixed)
         assertEquals(listOf(suffixed), archiveTargets(plan(relocation)), "a re-run gives the same destination")
         Files.createDirectories(suffixed)
-        assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive destination already exists")),
+        assertEquals(listOf(ReconciliationAction.Blocked(source, PathText("source archive destination already exists"))),
                 plan(relocation).actions())
     }
 
@@ -135,7 +137,7 @@ class ReconciliationPlannerTest {
         val inspector = PathInspector()
         val state = RelocationState(relocation, inspector.inspect(source), inspector.inspect(target))
 
-        assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive destination was not inspected")),
+        assertEquals(listOf(ReconciliationAction.Blocked(source, PathText("source archive destination was not inspected"))),
                 ReconciliationPlanner().plan(listOf(state)).actions())
     }
 
@@ -149,7 +151,7 @@ class ReconciliationPlannerTest {
         assertEquals(root.resolve("home/.lighten-archive/cache"),
                 default.actions.filterIsInstance<ReconciliationAction.ArchiveDirectory>().single().target)
         for (overlapping in listOf(target.resolve("archive"), source.resolve("archive"))) {
-            assertEquals(listOf(ReconciliationAction.Blocked(source, "source archive path overlaps a relocation path")),
+            assertEquals(listOf(ReconciliationAction.Blocked(source, PathText("source archive path overlaps a relocation path"))),
                     archive(overlapping).actions, overlapping.toString())
         }
     }
@@ -169,7 +171,7 @@ class ReconciliationPlannerTest {
         for ((words, make) in cases) {
             make()
 
-            assertEquals(listOf(ReconciliationAction.Blocked(source, "$archiveRoot $words")),
+            assertEquals(listOf(ReconciliationAction.Blocked(source, PathText(archiveRoot, " $words"))),
                     plan(archiving(source, target, archiveRoot)).actions(), words)
             Files.delete(archiveRoot)
         }
@@ -184,7 +186,7 @@ class ReconciliationPlannerTest {
         val creating = plan(Relocation(root.resolve("home/new"), root.resolve("local/deeper/new")))
 
         for (plan in listOf(moving, creating)) {
-            assertEquals("$file is a file, not a folder",
+            assertEquals(PathText(file, " is a file, not a folder"),
                     plan.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
         }
     }
@@ -196,7 +198,7 @@ class ReconciliationPlannerTest {
 
         val plan = plan(Relocation(file.resolve("cache"), target, whenOnlyTargetExists = WhenOnlyTargetExists.ADOPT_TARGET))
 
-        assertEquals(listOf(ReconciliationAction.Blocked(file.resolve("cache"), "$file is a file, not a folder")),
+        assertEquals(listOf(ReconciliationAction.Blocked(file.resolve("cache"), PathText(file, " is a file, not a folder"))),
                 plan.actions())
     }
 
@@ -212,7 +214,7 @@ class ReconciliationPlannerTest {
         val linkedStaging = plan(Relocation(source, linked.resolve("cache"), stagingRoot = stagingRoot))
 
         assertFalse(throughLinks.hasBlockedActions(), throughLinks.actions().toString())
-        assertEquals("the staging folder must be a real folder, not a link: $stagingRoot",
+        assertEquals(PathText("the staging folder must be a real folder, not a link: ", stagingRoot),
                 linkedStaging.actions().filterIsInstance<ReconciliationAction.Blocked>().single().reason)
     }
 
@@ -314,9 +316,9 @@ class ReconciliationPlannerTest {
             ),
         )
         for (relocations in invalidSets) {
-            val expected = assertThrows<IllegalArgumentException> {
+            val expected = assertThrows<ConfigurationException> {
                 validateConfiguration(relocations)
-            }.message
+            }.text
             val diagnostic = ReconciliationPlanner().plan(states(relocations)).diagnostics.single()
             assertEquals(expected, diagnostic.message)
             assertEquals(relocations.first().sourcePath, diagnostic.source)

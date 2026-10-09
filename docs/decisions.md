@@ -795,6 +795,17 @@ Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the insta
 
 Rejected: copying a socket as an empty file (programs refuse to bind over it); skipping pipes like sockets (programs use them for data and do not always recreate them).
 
+## 2026-10-08: Paths on screen use `~` for home; machine output keeps full paths
+
+#201 (user decision): every path people read, on any screen, dialog, Help page or human-readable CLI message, shows the home directory as `~`. `~` means only the user's home directory, never the configured `source-root`: a path under a source root elsewhere shows in full. `--json` output keeps every path in full. This replaces the Paths-section exception in tui-design §4.
+
+- **Paths stay `Path`s until shown (rung 6):** `PathText` holds words and `Path`s; `shown()` renders home as `~` through `displayPath`, `toString()` in full. Planner block reasons, plan diagnostics, relocation problems, the preflight's stale-plan diagnostics and `ConfigurationException` carry one, so the JSON and the screen share one sentence and differ only in how paths read. #172's `ActionFailure` keeps its own words, which differ from the executor's text.
+- **Exception text without paths or type names (walkthrough, user decision):** discovery's notes used the exception's text, `java.nio.file.NoSuchFileException: /home/me/.cache/uv`. They now say why in plain words, with the path beside them: `Note: not found · ~/.cache/uv`. `systemReason`, moved from `ActionFailure` and shared, gives the common reasonless file exceptions words (`not found`, `permission denied`, `already exists`, `not a folder`, …), else the system's reason; a Java type name is never shown, in Browse or in Results. Discovery's denied reads say `can't read: permission denied`.
+- **One `displayPath`:** `lighten update` and `install.sh` already shortened home; `update` now uses the same function.
+- **Results headline (user decision):** a stop counts the changes made, `Stopped after 2 changes. …`, or `Stopped. Nothing was changed. Check the failed step, then check again.` A pipe stopping the copy had shown `Stopped after some changes` although nothing changed. `Stopped unexpectedly; some changes may have been made.` stays: a bug can stop a step partway.
+- A test renders every screen, dialog and Help page at 80x24 and 200x60 with a temporary home and fails if its absolute path shows.
+- `[skipped: ~ in Configuration's fields, which show the file's text as written, add when a user wants the editor to rewrite full home paths]`
+
 ## How to add decisions
 
 Use this format:

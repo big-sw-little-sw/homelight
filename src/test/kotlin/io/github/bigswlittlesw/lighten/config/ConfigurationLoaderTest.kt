@@ -83,9 +83,9 @@ class ConfigurationLoaderTest {
     /** Lighten plans nothing for an ignored path, so the same path can't also be a relocation, however it is spelled. */
     @Test fun refusesAPathThatIsBothARelocationAndIgnored() {
         assertEquals(
-            "relocations[1].source-path and ignored-source-paths[0] are both ~/b/. A path can't be both a relocation " +
+            "relocations[1].source-path and ignored-source-paths[0] are both ~/b. A path can't be both a relocation " +
                 "and ignored: remove it from one of the two lists.",
-            failure("""
+            shownFailure("""
                 {"lighten": {"target-root": "/local",
                   "relocations": [{"source-path": "~/a"}, {"source-path": "~/b"}],
                   "ignored-source-paths": ["~/b/", "~/c"]}}
@@ -517,6 +517,12 @@ class ConfigurationLoaderTest {
     }
 
     private fun load(json: String): LightenConfiguration = ConfigurationLoader().load(write(json))
+
+    /** The failure as the screen and the CLI show it, with `~` for home. */
+    private fun shownFailure(json: String): String {
+        val file = write(json)
+        return assertThrows<ConfigurationException> { ConfigurationLoader().load(file) }.text.shown()
+    }
 
     private fun failure(json: String): String? {
         val file = write(json)

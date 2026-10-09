@@ -154,8 +154,10 @@ ones.
     chosen. The chosen choice is green and bold, focused or not; the focused
     one has the `❯` pointer. Without color, `●` and bold mark the choice and
     `❯` marks focus.
-- Paths on screen show the home directory as `~`. Paths sections in details show
-  the full absolute path.
+- Every path on screen, Paths sections included, shows the home directory as
+  `~`; so do the CLI's messages to people. Only the home directory becomes `~`:
+  a path under a `source-root` elsewhere shows in full. JSON keeps every path
+  in full. Configuration's fields show the file's text as written.
 - Word-wrap prose; wrap paths by character only when they cannot break.
 - Scrollbars appear only when content overflows. No numeric line counters.
 - In-sync relocations are hidden when others exist; `c` toggles them. The list
@@ -444,8 +446,10 @@ refused before any change (`Nothing changed: the disk no longer matches the
 reviewed plan. Check again.`), a step whose guard found something other than the
 plan (`Stopped: a step found something different from the plan. The steps after
 it did not run. See the failed step's details, then press r to check again.`;
-it does not guess when the disk changed), any other stop partway (`Stopped after
-some changes. Check the failed and not-run steps, then check again.`) and success
+it does not guess when the disk changed), any other stop, counting the changes made
+(`Stopped after 2 changes. Check the failed and not-run steps, then check
+again.`, or with none `Stopped. Nothing was changed. Check the failed step,
+then check again.`) and success
 (`Done. Checked again; results are kept until you check again.`). Results stay
 available through `2` until `r` or exit.
 
@@ -504,7 +508,7 @@ list does not show it.
   loses focus.
 - Right, bottom: **Details**, the focused field's help (in a text field also
   `Esc, then s to save.`), then a **Resolved** section with each path as the
-  loader reads it (absolute, updated as you type), or why it cannot. It always
+  loader reads it (home as `~`, updated as you type), or why it cannot. It always
   shows a field's whole value, and scrolls with the wheel, so long paths never
   push a field away.
 - Every path must be full or start with `~/`; anything else reads `Use a full

@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.application
 
 import io.github.bigswlittlesw.lighten.config.isJavaBlank
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -33,7 +34,7 @@ class LightenSessionTest {
         completion.join()
         session.awaitExecution()
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
-        assertEquals("worker unavailable", result.diagnostics.first())
+        assertEquals(PathText("worker unavailable"), result.diagnostics.first())
         assertNull(result.execution)
         assertFalse(session.isApplying())
         assertSame(completion, session.confirmApply { task -> fail<Unit>("Must not restart") })
@@ -151,7 +152,7 @@ class LightenSessionTest {
         val stale = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertTrue(stale.stale)
         assertNull(stale.execution)
-        assertTrue(stale.diagnostics.first().contains("local/second"))
+        assertTrue(stale.diagnostics.first().toString().contains("local/second"))
         assertTrue(stale.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertFalse(Files.exists(root.resolve("local/first")))
         assertFalse(Files.exists(root.resolve("home")))

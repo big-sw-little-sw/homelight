@@ -10,6 +10,7 @@ import io.github.bigswlittlesw.lighten.application.userGuide
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

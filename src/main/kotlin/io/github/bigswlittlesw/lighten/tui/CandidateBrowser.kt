@@ -18,6 +18,7 @@ import io.github.bigswlittlesw.lighten.config.CandidateDefinition
 import io.github.bigswlittlesw.lighten.config.CandidateSource
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Path
 
@@ -541,7 +542,10 @@ private fun weight(color: Color, selected: Boolean): Style = Style.EMPTY.fg(colo
 private fun line(vararg spans: Span): StyledElement<*> = Toolkit.richText(Text.from(dev.tamboui.text.Line.from(spans.toList())))
 
 private fun relative(draft: BrowseDraft, path: Path): String =
-    if (path.startsWith(draft.sourceRoot)) draft.sourceRoot.relativize(path).toString() else path.toString()
+    if (path.startsWith(draft.sourceRoot)) draft.sourceRoot.relativize(path).toString() else displayPath(path)
+
+/** A path from discovery, escaped for the screen. */
+private fun shownPath(path: Path): String = literal(displayPath(path))
 
 private fun compact(path: String): String {
     val value = literal(path)
@@ -600,7 +604,7 @@ private fun listDetails(draft: BrowseDraft): List<Line> {
     val result = draft.discovery ?: return listOf(Line(LISTS_DO_NOT_BLOCK))
     return listOf(Line(LISTS_DO_NOT_BLOCK)) + result.sources.flatMap { source ->
         listOf(listLine(source).copy(bold = true)) +
-            listOfNotNull(source.source.takeIf { it.kind == CandidateSource.Kind.SHARED }?.let { Line(location(literal(it.location))) }) +
+            listOfNotNull(source.source.takeIf { it.kind == CandidateSource.Kind.SHARED }?.let { Line(location(shownPath(Path.of(it.location)))) }) +
             source.problems.flatMap { problem ->
                 listOf(Line(listProblemAdvice(problem.kind), palette.warn), Line(diagnostic(literal(problem.detail))))
             } +
@@ -612,13 +616,13 @@ private fun listDetails(draft: BrowseDraft): List<Line> {
                     palette.warn,
                 )
             }
-    } + listOfNotNull(result.rootFailure?.let { d -> Line(rootProblem(literal(d.detail), literal(d.path.toString()))) })
+    } + listOfNotNull(result.rootFailure?.let { d -> Line(rootProblem(literal(d.detail), shownPath(d.path))) })
 }
 
 /** The details of `entry`, or that the directory at `path` is no longer listed. */
 private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDraft): List<Line> {
     if (entry == null) {
-        return listOfNotNull(Line(NO_LONGER_LISTED), path?.let { Line(sourceText(literal(it.toString()))) }, Line(BACK_FOR_SUGGESTIONS))
+        return listOfNotNull(Line(NO_LONGER_LISTED), path?.let { Line(sourceText(shownPath(it))) }, Line(BACK_FOR_SUGGESTIONS))
     }
     val candidate = entry.discovery
     val observation = candidate?.observation
@@ -632,18 +636,18 @@ private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDra
             },
             palette.text, true,
         ),
-        Line(sourceText(literal(path(entry).toString()))),
+        Line(sourceText(shownPath(path(entry)))),
         Line(stateLine(state(entry))),
     ) + (if (missing) MISSING_SUGGESTION.map(::Line) else listOf()) +
         listOfNotNull(
             Line(SIZE_AND_OWNERSHIP),
             observation?.takeIf { it.kind != CandidateObservation.Kind.PENDING }?.let { Line(observedLine(it.observedAt.toString())) },
-            observation?.rawLinkTarget?.let { Line(linkText(literal(it.toString()))) },
+            observation?.rawLinkTarget?.let { Line(linkText(shownPath(it))) },
         ) +
-        observation?.diagnostics.orEmpty().map { d -> Line(observationDetail(literal(d.detail), literal(d.path.toString()))) } +
-        candidate?.ancestors.orEmpty().map { Line(suggestedAround(literal(it.toString()))) } +
+        observation?.diagnostics.orEmpty().map { d -> Line(observationDetail(literal(d.detail), shownPath(d.path))) } +
+        candidate?.ancestors.orEmpty().map { Line(suggestedAround(shownPath(it))) } +
         draft.discovery?.candidates.orEmpty().filter { c -> candidate != null && candidate.catalog.sourcePath in c.ancestors }
-            .map { c -> Line(suggestedInside(literal(c.catalog.sourcePath.toString()))) } +
+            .map { c -> Line(suggestedInside(shownPath(c.catalog.sourcePath))) } +
         Line(
             when {
                 entry.row != null -> CHANGE_IN_CONFIGURATION
@@ -668,7 +672,7 @@ private fun attribution(entry: BrowseDraft.Entry): List<Line> {
             // The built-in list is inside Lighten, so only your list has a location worth showing.
             Line(
                 fromLine(
-                    d.source.location.takeIf { d.source.kind == CandidateSource.Kind.SHARED }?.let(::literal),
+                    d.source.location.takeIf { d.source.kind == CandidateSource.Kind.SHARED }?.let { shownPath(Path.of(it)) },
                     literal(d.location), literal(d.originalPath),
                 ),
             ),

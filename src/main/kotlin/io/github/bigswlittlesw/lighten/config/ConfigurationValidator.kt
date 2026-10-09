@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.config
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -10,11 +11,11 @@ import java.nio.file.Path
  */
 fun validateConfiguration(relocations: List<Relocation>, ignoredSourcePaths: List<Path> = listOf()) {
     require(relocations.isNotEmpty() || ignoredSourcePaths.isNotEmpty()) { "Choose at least one relocation" }
-    relocationProblem(relocations)?.let { throw IllegalArgumentException(it.message) }
+    relocationProblem(relocations)?.let { throw ConfigurationException(it.message) }
 }
 
 /** A broken relocation rule, reported against the [source] path of the relocation it concerns. */
-internal data class RelocationProblem(val source: Path, val message: String)
+internal data class RelocationProblem(val source: Path, val message: PathText)
 
 /**
  * The first problem that makes `relocations` unsafe together, or null.
@@ -27,19 +28,21 @@ internal fun relocationProblem(relocations: List<Relocation>): RelocationProblem
     for (relocation in relocations) {
         val source = normalized(relocation.sourcePath)
         if (intersects(source, relocation.targetPath)) {
-            return RelocationProblem(relocation.sourcePath, "source and target paths overlap: $source")
+            return RelocationProblem(relocation.sourcePath, PathText("source and target paths overlap: ", source))
         }
     }
     for ((index, left) in relocations.withIndex()) {
         for (right in relocations.drop(index + 1)) {
             val target = normalized(left.targetPath)
             if (target == normalized(right.targetPath)) {
-                return RelocationProblem(left.sourcePath, "duplicate target path: $target")
+                return RelocationProblem(left.sourcePath, PathText("duplicate target path: ", target))
             }
             if (intersects(left.sourcePath, right.sourcePath) || intersects(left.sourcePath, right.targetPath)
                 || intersects(left.targetPath, right.sourcePath) || intersects(left.targetPath, right.targetPath)
             ) {
-                return RelocationProblem(left.sourcePath, "relocation paths overlap: ${left.sourcePath} and ${right.sourcePath}")
+                return RelocationProblem(
+                    left.sourcePath, PathText("relocation paths overlap: ", left.sourcePath, " and ", right.sourcePath),
+                )
             }
         }
     }
@@ -67,7 +70,7 @@ internal fun aliasedRelocationProblem(relocations: List<Relocation>): Relocation
     val real = relocations.map { relocation ->
         relocation.copy(sourcePath = realSpelling(relocation.sourcePath), targetPath = realSpelling(relocation.targetPath))
     }
-    return relocationProblem(real)?.let { problem -> problem.copy(message = "${problem.message} (through a symlink)") }
+    return relocationProblem(real)?.let { problem -> problem.copy(message = problem.message + " (through a symlink)") }
 }
 
 /**

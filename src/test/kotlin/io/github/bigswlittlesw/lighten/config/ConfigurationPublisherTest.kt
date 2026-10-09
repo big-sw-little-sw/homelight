@@ -41,8 +41,8 @@ class ConfigurationPublisherTest {
         val overlapping = relocation(root.resolve("home/a/child"), root.resolve("local/b"))
         val duplicateTarget = relocation(root.resolve("home/b"), root.resolve("local/a"))
         val publisher = ConfigurationPublisher()
-        assertThrows<IllegalArgumentException> { publisher.saveNew(path, file(root, first, overlapping)) }
-        assertThrows<IllegalArgumentException> { publisher.saveNew(path, file(root, first, duplicateTarget)) }
+        assertThrows<ConfigurationException> { publisher.saveNew(path, file(root, first, overlapping)) }
+        assertThrows<ConfigurationException> { publisher.saveNew(path, file(root, first, duplicateTarget)) }
         // The loader's own check runs first: a value it rejects is never written.
         assertThrows<ConfigurationException> { publisher.saveNew(path, file(root, RelocationFile(""))) }
         assertFalse(Files.exists(path))

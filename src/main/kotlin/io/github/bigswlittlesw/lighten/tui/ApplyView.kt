@@ -12,6 +12,7 @@ import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.spinner.SpinnerState
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.pendingSteps
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import java.nio.file.Path
@@ -84,8 +85,11 @@ internal object ApplyView {
         val listPane = framed(Toolkit.panel(REVIEW_LIST_TITLE, list), focused == REVIEW_LIST)
         val detailLines = if (rows.isEmpty()) listOf(DetailViewport.Line(NO_STEPS))
         else details(rows[selected], reviewed, config) +
-            (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it, palette.error, false) } else listOf())
+            (if (model is ApplyModel.Result) model.diagnostics.map { DetailViewport.Line(it.shown(), palette.error, false) } else listOf())
         val destructive = plan.actions().count { it.destructive }
+        val changes = steps.filter { it.action.mutatesFilesystem }
+        fun count(status: ApplyModel.StepStatus) = changes.count { it.status == status }
+        val done = count(ApplyModel.StepStatus.COMPLETED)
         val headline = when (reviewed) {
             is ApplyModel.Confirmation -> when {
                 !plan.hasChanges() -> NO_CHANGES
@@ -99,10 +103,9 @@ internal object ApplyView {
                 reviewed.stale -> STALE
                 reviewed.succeeded() -> DONE
                 reviewed.execution == null -> WORKER_STOPPED
-                else -> STOPPED
+                else -> stopped(done)
             }
         }
-        val changes = steps.filter { it.action.mutatesFilesystem }
         val content = buildList {
             add(header)
             add(wrappedText("Config: " + displayPath(config), palette.dim))
@@ -112,8 +115,6 @@ internal object ApplyView {
                     wrappedText(plannedChanges(plan.actions().count { it.mutatesFilesystem }, destructive), palette.change),
                 )
             } else if (changes.isNotEmpty()) {
-                fun count(status: ApplyModel.StepStatus) = changes.count { it.status == status }
-                val done = count(ApplyModel.StepStatus.COMPLETED)
                 add(
                     // LineGauge sets each cell's whole style, so the background must be in it.
                     Toolkit.lineGauge(done.toDouble() / changes.size).thick()
@@ -248,7 +249,7 @@ internal object ApplyView {
         is ReconciliationAction.ReplaceSymlink -> "Link at: "
         is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged -> "Path: "
         is ReconciliationAction.Blocked -> "Blocked path: "
-    } + action.path
+    } + displayPath(action.path)
 
     fun destination(action: ReconciliationAction): String {
         val destination = action.destination ?: return ""
@@ -261,7 +262,7 @@ internal object ApplyView {
             is ReconciliationAction.EnsureDirectory, is ReconciliationAction.CreateDirectory,
             is ReconciliationAction.DeleteDirectory, is ReconciliationAction.NoOp,
             is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> ""
-        } + destination
+        } + displayPath(destination)
     }
 
     /** The plan's rows in display order: each relocation's heading, then its step rows. */

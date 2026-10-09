@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import java.nio.file.Path
 
 /** A concrete, inspectable step in a reconciliation plan. */
@@ -86,7 +87,8 @@ sealed interface ReconciliationAction {
     /** Records an explicit decision to leave source and target directories unmanaged. */
     data class LeaveUnchanged(override val path: Path) : ReconciliationAction
 
-    data class Blocked(override val path: Path, val reason: String) : ReconciliationAction
+    /** [reason] is in the planner's words, which JSON and screens share; only how its paths read differs. */
+    data class Blocked(override val path: Path, val reason: PathText) : ReconciliationAction
 }
 
 /** A configured [stagingRoot], or `.lighten-staging` beside [target]. */

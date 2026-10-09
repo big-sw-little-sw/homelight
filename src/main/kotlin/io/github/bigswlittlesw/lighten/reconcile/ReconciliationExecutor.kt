@@ -4,6 +4,7 @@ import io.github.bigswlittlesw.lighten.concurrent.RELOCATION_CONCURRENCY
 import io.github.bigswlittlesw.lighten.concurrent.Outcome
 import io.github.bigswlittlesw.lighten.concurrent.mapBounded
 import io.github.bigswlittlesw.lighten.fs.PathInspector
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import java.io.IOException
@@ -51,7 +52,7 @@ class ReconciliationExecutor internal constructor(
     private fun stalePlan(path: Path, expected: PathObservation): ReconciliationDiagnostic? =
         if (inspector.inspect(path) == expected) null else ReconciliationDiagnostic(
             ReconciliationDiagnostic.Severity.ERROR, path,
-            "STALE_PLAN", "Filesystem state changed since review: $path",
+            "STALE_PLAN", PathText("Filesystem state changed since review: ", path),
         )
 
     /**

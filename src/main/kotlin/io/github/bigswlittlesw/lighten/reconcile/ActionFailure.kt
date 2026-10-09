@@ -1,15 +1,13 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.systemReason
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystemException
 import java.nio.file.NoSuchFileException
-import java.nio.file.NotDirectoryException
-import java.nio.file.NotLinkException
 import java.nio.file.Path
 
 /**
@@ -67,32 +65,16 @@ enum class CopyDifference { MISSING_FOLDER, FILE_DIFFERS, LINK_DIFFERS, EXTRA_EN
 
 /** An I/O failure recognized by its exception type, never by its text. */
 internal fun ioFailure(exception: IOException): ActionFailure {
-    if (exception is PartlyPublishedException) return ActionFailure.PermissionsNotRestored(exception.target, reason(exception.failure))
+    if (exception is PartlyPublishedException) return ActionFailure.PermissionsNotRestored(exception.target, systemReason(exception.failure))
     val file = (exception as? FileSystemException)?.file?.let { Path.of(it) }
-        ?: return ActionFailure.Io(null, null, reason(exception))
+        ?: return ActionFailure.Io(null, null, systemReason(exception))
     val other = exception.otherFile?.let { Path.of(it) }
     return when (exception) {
         is AtomicMoveNotSupportedException ->
-            other?.let { ActionFailure.DifferentFilesystems(file, it) } ?: ActionFailure.Io(file, null, reason(exception))
+            other?.let { ActionFailure.DifferentFilesystems(file, it) } ?: ActionFailure.Io(file, null, systemReason(exception))
         is AccessDeniedException -> ActionFailure.AccessDenied(file)
         is NoSuchFileException -> ActionFailure.Gone(file)
         is FileAlreadyExistsException -> ActionFailure.AlreadyExists(file)
-        else -> ActionFailure.Io(file, other, reason(exception))
-    }
-}
-
-/**
- * The system's words for [exception]: a [FileSystemException]'s reason, which leaves out its paths, else its message.
- * The JDK throws some file exceptions without a reason; those that matter get one, the rest their type's name, so a
- * screenshot still says what failed.
- */
-private fun reason(exception: IOException): String {
-    if (exception !is FileSystemException) return exception.message ?: exception.toString()
-    return exception.reason ?: when (exception) {
-        is AccessDeniedException -> "permission denied"
-        is DirectoryNotEmptyException -> "the folder is not empty"
-        is NotDirectoryException -> "not a folder"
-        is NotLinkException -> "not a link"
-        else -> exception.javaClass.simpleName
+        else -> ActionFailure.Io(file, other, systemReason(exception))
     }
 }

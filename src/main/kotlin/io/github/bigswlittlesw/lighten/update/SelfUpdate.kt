@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.update
 
 import io.github.bigswlittlesw.lighten.application.resolveVersion
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import java.io.IOException
 import java.io.PrintWriter
 import java.nio.file.Files
@@ -96,7 +97,7 @@ internal class SelfUpdate(
         refuseOtherInstallers(binary)
         // The script installs <dir>/lighten; another name would leave this binary as it is.
         if (binary.fileName.toString() != "lighten") fail(
-            "The running binary is ${tilde(binary)}. lighten update runs the install script, which installs a file",
+            "The running binary is ${displayPath(binary)}. lighten update runs the install script, which installs a file",
             "named lighten, so it cannot update this one. Rename it to lighten, or update it by hand: see",
             README_INSTALL,
         )
@@ -141,18 +142,18 @@ internal class SelfUpdate(
         val underMise = "/mise/installs/" in binary.toString() ||
             miseDataDir?.let { binary.startsWith(Path.of(it).toAbsolutePath()) } == true
         if (underMise) fail(
-            "mise installed this lighten (${tilde(binary)}), so update it with mise:",
+            "mise installed this lighten (${displayPath(binary)}), so update it with mise:",
             "",
             "  mise upgrade github:big-sw-little-sw/lighten",
         )
     }
 
     private fun refuseUnwritable(binary: Path): Nothing = fail(
-        "You cannot write to ${tilde(binary.parent)}, so lighten update cannot replace ${tilde(binary)}.",
+        "You cannot write to ${displayPath(binary.parent)}, so lighten update cannot replace ${displayPath(binary)}.",
         "Lighten does not use sudo. To update it, run the install script for that directory as a user who can",
         "write to it, for example:",
         "",
-        "  curl -fsSL $RELEASES_URL/latest/download/install.sh | sudo sh -s -- --dir ${binary.parent}",
+        "  curl -fsSL $RELEASES_URL/latest/download/install.sh | sudo sh -s -- --dir ${displayPath(binary.parent)}",
         "",
         "Or download the binary by hand: see $README_INSTALL",
     )
@@ -197,11 +198,6 @@ internal class SelfUpdate(
     // The script reads the test-only base URL as Lighten does; without an override it must not see a stale one.
     private fun scriptEnvironment(environment: MutableMap<String, String>) {
         if (baseOverride == null) environment.remove(BASE_URL_VARIABLE) else environment[BASE_URL_VARIABLE] = baseOverride
-    }
-
-    private fun tilde(path: Path): String {
-        val home = System.getProperty("user.home")?.let(Path::of) ?: return path.toString()
-        return if (path.startsWith(home) && path != home) "~/" + home.relativize(path) else path.toString()
     }
 
     private inline fun reporting(operation: () -> Int): Int = try {

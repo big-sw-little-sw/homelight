@@ -13,12 +13,16 @@ import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.PathText
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import io.github.bigswlittlesw.lighten.reconcile.RelocationState
+import io.github.bigswlittlesw.lighten.reconcile.SpecialFileKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -79,7 +83,7 @@ class ApplyViewTest {
             ApplyModel.Step(relocation, relocation.actions.first(), ApplyModel.StepStatus.COMPLETED, "completed"),
             ApplyModel.Step(relocation, relocation.actions.last(), ApplyModel.StepStatus.FAILED, "Source changed"))
         // Row 2 is the failed step, under its relocation and the completed step.
-        val text = render(ApplyModel.Result.of(plan, steps, null, listOf("Review changed source"), true), 2, 80, 24)
+        val text = render(ApplyModel.Result.of(plan, steps, null, listOf(PathText("Review changed source")), true), 2, 80, 24)
         assertTrue(text.contains("Stopped: a step found something different from the plan."), text)
         assertTrue(text.contains("press r to check again"), text)
         assertTrue(text.contains("✔"), text)
@@ -87,6 +91,25 @@ class ApplyViewTest {
         assertTrue(text.contains("Source changed"), text)
         assertTrue(text.contains("r: Check again"), text)
         assertTrue(text.contains("Enter: Workspace"), text)
+    }
+
+    /** A failure before any change says nothing was changed (#201): a pipe stopping the copy changed nothing. */
+    @Test
+    fun aStopBeforeAnyChangeSaysNothingWasChanged() {
+        val text = render(stoppedAfter(0), 1, 80, 24)
+        assertTrue(text.contains("Stopped. Nothing was changed. Check the failed step, then check again."), text)
+        assertFalse(text.contains("Stopped after"), text)
+    }
+
+    /** A failure after some changes counts them, the way the progress line does. */
+    @Test
+    fun aStopAfterChangesCountsThem() {
+        val text = render(stoppedAfter(1), 1, 80, 24)
+        assertTrue(text.contains("Stopped after 1 change. Check the failed and not-run steps, then check again."), text)
+        assertTrue(text.contains("1 of 2 changes done"), text)
+        assertEquals(
+            "Stopped after 3 changes. Check the failed and not-run steps, then check again.", stopped(3),
+        )
     }
 
     /** A failed step's Details say, in plain words, what is there and what to do; the executor's own text is not shown. */
@@ -250,7 +273,7 @@ class ApplyViewTest {
         val plan = ReconciliationPlan(listOf(relocationPlan), listOf())
         val cause = "Failure at /staging/" + "segment/".repeat(40) + "failure-cause-suffix"
         val steps = actions.map { action -> ApplyModel.Step(relocationPlan, action, ApplyModel.StepStatus.FAILED, cause) }
-        val result = ApplyModel.Result.of(plan, steps, null, listOf("Diagnostic: $cause"), false)
+        val result = ApplyModel.Result.of(plan, steps, null, listOf(PathText("Diagnostic: $cause")), false)
         for (selected in 0 until actions.size) {
             val viewport = DetailViewport()
             for (size in listOf(intArrayOf(80, 24), intArrayOf(120, 30), intArrayOf(200, 50), intArrayOf(120, 30), intArrayOf(80, 24))) {
@@ -351,6 +374,27 @@ class ApplyViewTest {
                 listOf(ReconciliationAction.MigrateDirectoryForPublication(relocation.sourcePath, relocation.targetPath),
                     ReconciliationAction.ReplaceDirectoryWithSymlink(relocation.sourcePath, relocation.targetPath)),
                 listOf())), listOf())
+        }
+
+        /** [plan] run until a step failed after [done] completed changes, of its two; the rest did not run. */
+        fun stoppedAfter(done: Int): ApplyModel.Result {
+            val plan = plan()
+            val relocation = plan.relocations.single()
+            val failure = ActionFailure.Unmovable(Path.of("/home/cache/ipc"), SpecialFileKind.NAMED_PIPE)
+            val (executions, steps) = relocation.actions.mapIndexed { i, action ->
+                val (status, step) = when {
+                    i < done -> ReconciliationExecutor.ActionStatus.COMPLETED to ApplyModel.StepStatus.COMPLETED
+                    i == done -> ReconciliationExecutor.ActionStatus.FAILED to ApplyModel.StepStatus.FAILED
+                    else -> ReconciliationExecutor.ActionStatus.PENDING to ApplyModel.StepStatus.PENDING
+                }
+                val why = failure.takeIf { i == done }
+                ReconciliationExecutor.ActionExecution(action, status, status.name, why) to
+                    ApplyModel.Step(relocation, action, step, status.name, why)
+            }.unzip()
+            val execution = ReconciliationExecutor.ExecutionResult(
+                listOf(ReconciliationExecutor.RelocationExecution(relocation, executions)),
+            )
+            return ApplyModel.Result.of(plan, steps, execution, listOf(), false)
         }
 
         fun render(model: ApplyModel, selected: Int, width: Int, height: Int): String =

@@ -21,7 +21,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     fun anchor(root: Path): Anchor {
         val physical = access.realPath(root)
         val attributes = access.attributes(physical)
-        if (!attributes.isDirectory) throw IOException("Root is not a directory: $root")
+        if (!attributes.isDirectory) throw IOException("the source root is not a folder")
         return Anchor(root, physical, attributes)
     }
 
@@ -51,7 +51,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
                 } catch (e: NoSuchFileException) {
                     checkGuards(guards)
                     checkAnchor(anchor)
-                    diagnostics.add(Diagnostic(current, Reason.MISSING, e.toString()))
+                    diagnostics.add(Diagnostic(current, Reason.MISSING, readFailure(e)))
                     return observation(candidate, Kind.MISSING, null, generation, diagnostics)
                 }
                 if (attributes.fileKey() == null && diagnostics.none { it.reason == Reason.ALIAS_UNCERTAINTY }) {
@@ -104,7 +104,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
         }
         return observation(
             candidate, if (failure is Changed) Kind.UNKNOWN else Kind.INACCESSIBLE, null, generation,
-            diagnostics + Diagnostic(candidate, reason, failure.toString()),
+            diagnostics + Diagnostic(candidate, reason, readFailure(failure)),
         )
     }
 
@@ -112,13 +112,13 @@ internal class CandidateMetadata(private val access: Access = Access()) {
         if (access.realPath(anchor.lexical) != anchor.physical
             || !same(anchor.attributes, access.attributes(anchor.physical))
         ) {
-            throw Changed(anchor.lexical)
+            throw Changed()
         }
     }
 
     private fun checkGuards(guards: List<Guard>) {
         for (guard in guards) {
-            if (!same(guard.attributes, access.attributes(guard.path))) throw Changed(guard.path)
+            if (!same(guard.attributes, access.attributes(guard.path))) throw Changed()
         }
     }
 
@@ -126,7 +126,8 @@ internal class CandidateMetadata(private val access: Access = Access()) {
 
     private data class Guard(val path: Path, val attributes: BasicFileAttributes)
 
-    private class Changed(path: Path) : IOException("Filesystem identity changed: $path")
+    // The message leaves out the path: the diagnostic names it.
+    private class Changed : IOException("it changed while checking")
 
     /**
      * Deliberately excludes directory enumeration and file-content operations.

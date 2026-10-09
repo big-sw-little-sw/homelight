@@ -8,6 +8,7 @@ import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
@@ -129,14 +130,6 @@ private fun reasonWords(reason: CandidateObservation.Reason): String = when (rea
     CandidateObservation.Reason.MISSING -> "missing"
 }
 
-/**
- * `path` with the home directory shown as `~` (tui-design §4). Paths sections in details show the absolute path
- * instead, so they do not call this.
- */
-internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("user.home"))): String =
-    if (path.startsWith(home) && home.nameCount > 0) "~" + path.toString().substring(home.toString().length)
-    else path.toString()
-
 internal const val QUIT_TITLE = "Quit Lighten?"
 internal const val RESULTS_NOT_KEPT = "Results on this screen are not kept after you exit."
 internal val QUIT_BODY = listOf("Lighten finishes the changes it is making first, even if one fails.", RESULTS_NOT_KEPT)
@@ -225,10 +218,10 @@ internal fun unreadable(path: Path, problem: String, positioned: Boolean) = list
 )
 /** For the CLI's stderr; `init` creates a new file, as `i` does. */
 internal fun unreadableCli(path: Path, problem: String, positioned: Boolean) = listOf(
-    cannotRead(path.toString()), problem,
+    cannotRead(displayPath(path)), problem,
     "To fix it: open the file in a text editor, ${correct(positioned)}, then run the command again.",
     "To start over: rename or delete the file, then run lighten init" +
-        (if (path == ConfigurationLoader.DEFAULT_PATH) "" else " --config $path") + " to create a new one.",
+        (if (path == ConfigurationLoader.DEFAULT_PATH) "" else " --config " + displayPath(path)) + " to create a new one.",
 )
 private fun cannotRead(path: String) = "Lighten can't read $path"
 private fun correct(positioned: Boolean) = if (positioned) "correct that line" else "correct that setting"
@@ -367,9 +360,9 @@ internal fun choiceDecision(choice: DecisionChoice) =
 
 // The Paths section of Workspace and Review Details.
 internal const val PATHS = "Paths"
-internal fun sourceLine(path: Path) = "Source: $path"
-internal fun targetLine(path: Path) = "Target: $path"
-internal fun archiveLine(path: Path) = "Archive: $path"
+internal fun sourceLine(path: Path) = "Source: " + displayPath(path)
+internal fun targetLine(path: Path) = "Target: " + displayPath(path)
+internal fun archiveLine(path: Path) = "Archive: " + displayPath(path)
 
 /** The Workspace list title: the in-sync rows `c` hides or shows, or none when `c` would change nothing. */
 internal fun relocationsTitle(inSync: Int, shown: Boolean): String = when {
@@ -498,7 +491,12 @@ private fun thing(state: PathState): String = when (state) {
 
 internal const val WORKER_STOPPED =
     "Stopped unexpectedly; some changes may have been made. Check the steps, then check again."
-internal const val STOPPED = "Stopped after some changes. Check the failed and not-run steps, then check again."
+/** A step failed after [done] changes were made; with none, only the failed step needs checking. */
+internal fun stopped(done: Int): String = when (done) {
+    0 -> "Stopped. Nothing was changed. Check the failed step, then check again."
+    1 -> "Stopped after 1 change. Check the failed and not-run steps, then check again."
+    else -> "Stopped after $done changes. Check the failed and not-run steps, then check again."
+}
 internal const val NO_STEPS = "Nothing to do."
 internal fun inSyncRow(path: String) = "$path (in sync)"
 internal fun runningCount(done: Int, changes: Int, running: Int, failed: Int) =
