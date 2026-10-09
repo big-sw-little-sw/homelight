@@ -115,6 +115,9 @@ class LightenAppTest {
         assertEquals(0, ui.app.selectedIndex())
         // A relocation row shows the relocation in Details; a step row shows the step.
         assertTrue(WorkspaceViewTest.rightPane(ui.screen(120, 30), 120).contains("Paths"))
+        // Neither source nor target exists, so the steps create both parents and say which.
+        val steps = ui.screen(120, 30)
+        assertTrue(steps.contains("○ Create target parent directory") && steps.contains("○ Create source parent directory"), steps)
         ui.press(KeyCode.END)
         assertEquals(rows.size - 1, ui.app.selectedIndex())
         val screen = ui.screen(120, 30)

@@ -75,7 +75,7 @@ class ReconciliationPlannerTest {
         val plan = plan(archiving(source, target, archiveRoot))
 
         assertEquals(listOf(archiveRoot.resolve("cache")), archiveTargets(plan))
-        assertEquals(ReconciliationAction.EnsureDirectory(archiveRoot), plan.actions().first())
+        assertEquals(ReconciliationAction.EnsureDirectory(archiveRoot, ReconciliationAction.EnsureDirectory.Role.ARCHIVE_ROOT), plan.actions().first())
     }
 
     @Test
@@ -350,8 +350,8 @@ class ReconciliationPlannerTest {
 
         assertEquals(PathText(home.resolve("parent"), " contains ", home.resolve("parent/child"), ", which is also a relocation").toString(),
             blockReason(plan, 0))
-        assertEquals(listOf(ReconciliationAction.EnsureDirectory(local), ReconciliationAction.CreateDirectory(local.resolve("apart")),
-            ReconciliationAction.EnsureDirectory(home), ReconciliationAction.CreateSymlink(home.resolve("apart"), local.resolve("apart"))),
+        assertEquals(listOf(ReconciliationAction.EnsureDirectory(local, ReconciliationAction.EnsureDirectory.Role.TARGET_PARENT), ReconciliationAction.CreateDirectory(local.resolve("apart")),
+            ReconciliationAction.EnsureDirectory(home, ReconciliationAction.EnsureDirectory.Role.SOURCE_PARENT), ReconciliationAction.CreateSymlink(home.resolve("apart"), local.resolve("apart"))),
             plan.relocations[1].actions)
         assertEquals(PathText(home.resolve("parent/child"), " is inside ", home.resolve("parent"), ", which is also a relocation").toString(),
             blockReason(plan, 2))

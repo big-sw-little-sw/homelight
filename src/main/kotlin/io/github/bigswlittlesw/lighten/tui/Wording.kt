@@ -88,7 +88,11 @@ internal fun adoptingLabel(value: WhenAdoptingTarget): String = when (value) {
 internal const val ASK_EACH_TIME = "Ask each time"
 
 internal fun actionLabel(action: ReconciliationAction): String = when (action) {
-    is ReconciliationAction.EnsureDirectory -> "Create parent directory"
+    is ReconciliationAction.EnsureDirectory -> when (action.role) {
+        ReconciliationAction.EnsureDirectory.Role.TARGET_PARENT -> "Create target parent directory"
+        ReconciliationAction.EnsureDirectory.Role.SOURCE_PARENT -> "Create source parent directory"
+        ReconciliationAction.EnsureDirectory.Role.ARCHIVE_ROOT -> "Create archive directory"
+    }
     is ReconciliationAction.CreateDirectory -> "Create target directory"
     is ReconciliationAction.MigrateDirectoryForPublication -> "Copy to target and check"
     is ReconciliationAction.ReplaceDirectoryWithSymlink -> "Replace source with a link"

@@ -57,8 +57,13 @@ sealed interface ReconciliationAction {
     /**
      * Makes `path` a directory, with its missing parents. It follows an existing link to a directory, and fails on
      * anything else in the way.
+     *
+     * [role] says which directory `path` is for, so screens can name it. The path alone cannot say: the source's
+     * parent and the target's parent can be the same directory.
      */
-    data class EnsureDirectory(override val path: Path) : ReconciliationAction
+    data class EnsureDirectory(override val path: Path, val role: Role) : ReconciliationAction {
+        enum class Role { TARGET_PARENT, SOURCE_PARENT, ARCHIVE_ROOT }
+    }
 
     /**
      * Copies the source into a staging root, checks the copy, and moves it to [target] in one rename. A null

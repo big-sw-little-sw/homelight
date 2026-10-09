@@ -8,6 +8,7 @@ import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction.EnsureDirectory.Role
 import java.nio.file.Path
 
 /** Makes a plan from observations. It never changes the filesystem. */
@@ -42,8 +43,9 @@ class ReconciliationPlanner {
             RelocationSourceState.ABSENT -> when (state.target.state) {
                 PathState.ABSENT -> outcome(
                     state, listOf(
-                        ReconciliationAction.EnsureDirectory(target.parent),
-                        ReconciliationAction.CreateDirectory(target), ReconciliationAction.EnsureDirectory(source.parent),
+                        ReconciliationAction.EnsureDirectory(target.parent, Role.TARGET_PARENT),
+                        ReconciliationAction.CreateDirectory(target),
+                        ReconciliationAction.EnsureDirectory(source.parent, Role.SOURCE_PARENT),
                         ReconciliationAction.CreateSymlink(source, target),
                     ),
                 )
@@ -266,7 +268,7 @@ private fun onlyTargetExists(state: RelocationState): RelocationPlan =
     if (state.relocation.whenOnlyTargetExists == WhenOnlyTargetExists.ADOPT_TARGET)
         outcome(
             state, listOf(
-                ReconciliationAction.EnsureDirectory(state.relocation.sourcePath.parent),
+                ReconciliationAction.EnsureDirectory(state.relocation.sourcePath.parent, Role.SOURCE_PARENT),
                 ReconciliationAction.CreateSymlink(state.relocation.sourcePath, state.relocation.targetPath),
             ),
         )
@@ -308,7 +310,7 @@ private fun archiveSource(state: RelocationState): RelocationPlan {
     }
     return outcome(
         state, listOf(
-            ReconciliationAction.EnsureDirectory(archivePath.parent),
+            ReconciliationAction.EnsureDirectory(archivePath.parent, Role.ARCHIVE_ROOT),
             ReconciliationAction.ArchiveDirectory(relocation.sourcePath, archivePath),
             ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath),
         ),
@@ -325,9 +327,9 @@ private fun discardDirectories(state: RelocationState): RelocationPlan {
     val actions = listOf(
         ReconciliationAction.DeleteDirectory(relocation.sourcePath),
         ReconciliationAction.DeleteDirectory(relocation.targetPath),
-        ReconciliationAction.EnsureDirectory(relocation.targetPath.parent),
+        ReconciliationAction.EnsureDirectory(relocation.targetPath.parent, Role.TARGET_PARENT),
         ReconciliationAction.CreateDirectory(relocation.targetPath),
-        ReconciliationAction.EnsureDirectory(relocation.sourcePath.parent),
+        ReconciliationAction.EnsureDirectory(relocation.sourcePath.parent, Role.SOURCE_PARENT),
         ReconciliationAction.CreateSymlink(relocation.sourcePath, relocation.targetPath),
     )
     val warning = ReconciliationDiagnostic(

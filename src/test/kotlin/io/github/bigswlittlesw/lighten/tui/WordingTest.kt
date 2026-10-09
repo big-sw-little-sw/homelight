@@ -10,6 +10,7 @@ import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.CopyDifference
+import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.SpecialFileKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -58,6 +59,16 @@ class WordingTest {
             listOf("Choose", "Blocked", "Can't read", "Warning", "Move", "Keep target", "Link", "Archive", "Delete", "Left as is", "In sync"),
             PlanBadge.entries.map(::badgeLabel),
         )
+    }
+
+    /** One relocation can create two parent directories, so each step says whose parent it creates. */
+    @ParameterizedTest
+    @CsvSource(
+        "TARGET_PARENT, Create target parent directory", "SOURCE_PARENT, Create source parent directory",
+        "ARCHIVE_ROOT, Create archive directory",
+    )
+    fun parentStepsSayWhichDirectory(role: ReconciliationAction.EnsureDirectory.Role, label: String) {
+        assertEquals(label, actionLabel(ReconciliationAction.EnsureDirectory(Path.of("/home/me"), role)))
     }
 
     @Test
