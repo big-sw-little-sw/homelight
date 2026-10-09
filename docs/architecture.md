@@ -1,88 +1,62 @@
 # Lighten Architecture
 
-## Architectural direction
+## Shape
 
-Lighten should be a small Kotlin library with a presentation-neutral application workflow. The reconciliation library remains the durable safety boundary. A full-screen TUI is the primary human consumer, and JSON commands are the automation consumer.
+Lighten is one Gradle module of Kotlin on JVM 25, released as GraalVM Native Image binaries for Linux x86_64 (static, musl) and Linux arm64 (glibc 2.17 or later). The JVM build is for development and tests; the native binaries are the release.
 
-The design should support future integrations without placing presentation, serialization, Git, or HTTP concerns in the reconciliation engine.
+A presentation-neutral application workflow sits on a reconciliation core. The full-screen TUI is the human interface, and the `--json` commands are the automation interface. Both are adapters over the same workflow, planning and execution.
 
-Initially, use one Gradle module with clear package boundaries. Split into Gradle subprojects only when independent compilation, packaging, or dependency isolation becomes useful.
+## Packages
 
-## Boundaries
-
-```text
-domain
-  desired configuration, actual states, policies, actions, plans
-
-reconcile
-  pure comparison of desired and actual state
-
-fs
-  filesystem inspection and mutation primitives
-
-config
-  configuration serialization, validation, and path resolution
-
-tui
-  TamboUI screens, rendering, focus, navigation, and terminal lifecycle
-
-cli
-  Picocli routing, JSON contracts, and exit codes
-
-application
-  workflow state, typed user intents, and orchestration of configuration,
-  inspection, planning, and execution
-
-```
-
-The dependency direction is:
+All under `io.github.bigswlittlesw.lighten`:
 
 ```text
-tui -> application
-cli -> application
-application -> config, reconcile, fs
-reconcile -> domain
-fs -> domain
-config -> domain
-domain -> Kotlin and JDK standard libraries only where practical
+domain        shared domain values, such as a source's state relative to its target
+fs            filesystem inspection: what is at a path, without following links
+config        the configuration file, its validation and path resolution; relocations
+              and their rules; suggestion-list parsing and the built-in list
+reconcile     inspection of each relocation, the pure planner, and the executor that
+              stages, copies, archives and links
+discovery     Browse's suggestions: which built-in and shared-list directories exist,
+              with bounded, time-limited filesystem reads
+concurrent    bounded parallel work on virtual threads, and its limits
+application   the session: configuration evaluation, one-time choices, the reviewed
+              plan and its execution, the user guide
+update        lighten update: release versions and running the release's install.sh
+tui           TamboUI screens, wording, keys, help and terminal lifecycle
+cli           picocli commands, JSON output and exit codes; the entry point
 ```
 
-The reconciliation engine must not depend on `application`, `tui`, `cli`, terminal APIs, or a concrete configuration format. JSON commands must not initialize or depend on a live terminal session.
+The dependency direction:
+
+```text
+cli         -> application, tui, update, reconcile, config, domain
+tui         -> application, discovery, reconcile, config, fs, domain
+update      -> application
+application -> reconcile, discovery, config, fs, domain
+reconcile   -> config, fs, domain, concurrent
+discovery   -> config, concurrent
+fs          -> domain
+config, domain, concurrent -> Kotlin and JDK only
+```
+
+The reconciliation core (`reconcile` and below) never depends on `application`, `tui`, `cli` or terminal APIs. The JSON commands never start a terminal session.
 
 ## Application workflow
 
-The primary behavioral seam is a presentation-neutral workflow/session boundary. It accepts typed user intents and exposes immutable state describing the current screen, configuration draft, exact reviewed plan, plan freshness, diagnostics, and execution progress. Side effects are explicit operations delegated to configuration, inspection, planning, and execution services.
+`LightenSession` is the workflow boundary. It accepts typed user intents and exposes immutable state: the configuration and its evaluation, the current plan, one-time choices, the exact reviewed plan and execution progress. Side effects are explicit operations on configuration loading, inspection, planning and execution.
 
-TamboUI renders workflow state and translates input events into intents. JSON commands invoke the same orchestration directly and serialize versioned response contracts. Neither adapter owns reconciliation policy or filesystem mutation rules.
+The TUI renders session state and turns key presses into intents. The JSON commands call the same evaluation, planning and `ReviewedExecution` directly and print versioned responses. Neither adapter owns reconciliation policy or filesystem mutation rules.
 
-Conflict resolution uses typed domain or application choices. Presentation code must not infer a choice by matching diagnostic text or construct configuration overrides from screen indexes.
+Conflict resolution uses typed choices (`DecisionChoice`). Presentation code never infers a choice from diagnostic text or builds configuration overrides from screen positions.
 
-## Domain model
+## Planning and execution
 
-Use data classes for pure data and sealed types for genuinely closed concepts. The model should represent these separately:
+Inspection reads the filesystem once per relocation and records what it found. Planning is pure: it turns those observations into a structured plan and never prompts or mutates.
 
-- desired configuration
-- resolved paths
-- actual filesystem state
-- existing-content policy
-- concrete actions
-- warnings
-- conflicts
-- unresolved decisions
-- blocked operations
-- complete plans
+Execution performs only the actions in the plan. It refuses a plan with an open choice or a blocked relocation, and never guesses. The TUI keeps the exact reviewed plan. Preflight compares the whole plan's expected states with the disk before anything runs, and each action guards its own expected state as it runs, since preflight cannot lock out other writers. Either difference stops execution and needs a new plan and review. Execution never recomputes and substitutes a plan after confirmation.
 
-Do not encode the domain as a collection of loosely related boolean flags. Do not make prompt wording or terminal interaction part of the model.
-
-## Planning and application
-
-Planning is pure from the filesystem's perspective. It reads an inspection result and produces a structured plan. It does not prompt or mutate.
-
-Application consumes a plan and performs only the actions already represented in it. It must refuse plans containing unresolved decisions or blocked operations. It must not guess during execution.
-
-The TUI retains the exact reviewed plan. Application preflight checks its expected filesystem state immediately before execution. Drift invalidates the plan and requires a new review; application never silently recomputes and substitutes a plan after confirmation.
-
-Destructive actions must be marked explicitly. Symlink handling must avoid accidental traversal. Deletion and replacement must be narrowly scoped to validated intended paths.
+Destructive actions are marked explicitly. Mutation never follows a symlink by accident. Deletion and replacement are scoped to validated, intended paths. A move copies into a staging directory on the target's filesystem, checks the copy, publishes it with a rename, and then replaces the source with a link in atomic steps.
 
 ## Reconciliation and safety invariants
 
@@ -92,55 +66,31 @@ Destructive actions must be marked explicitly. Symlink handling must avoid accid
 - **`--yes` never resolves a choice.** It confirms a plan whose decisions the configuration's rules already resolve. A plan with an open choice or a blocked relocation is refused, with or without `--yes`.
 - **Exclusive ownership.** A path is owned by either Lighten or an external dotfile manager, never both. Lighten owns placement inside a relocated tree; ordinary dotfiles stay with tools such as Stow. Detection works from filesystem state and configured source roots, never from a manager's internals, so it applies equally to chezmoi, yadm or a plain Git checkout. An existing link into an external source root is never silently replaced.
 
-## Ports and adapters
+## Native Image
 
-Use interfaces at real external boundaries, for example:
+Native Image is the release, so the code stays friendly to it:
 
-```kotlin
-interface FileSystem {
-    fun inspect(path: Path): ActualPathState
-    fun execute(action: Action)
-}
+- explicit object construction; no dependency injection container, classpath scanning or dynamic plugins;
+- standard JDK APIs, especially `java.nio.file`;
+- no `kotlin-reflect`; compile-time serializers (kotlinx.serialization) for every file format;
+- picocli's reflection metadata is generated from the compiled classes at build time;
+- no in-process HTTP or TLS: `lighten update` runs `curl` or `wget` through the release's `install.sh`.
 
-interface ConfigStore {
-    fun load(path: Path): Configuration
-    fun write(path: Path, configuration: Configuration)
-}
-```
+A third-party library is acceptable when its native behavior is verified in CI (`Native test`, `Native distros`).
 
-The exact APIs may change. Do not introduce interfaces merely to abstract ordinary in-memory domain logic.
+## Testing
 
-Future Git or HTTP support should be adapters that provide source information or source material through a narrow port. The core must not know whether a source is managed by Stow, chezmoi, Git, HTTP, or a local directory.
+- Complete user journeys run through `LightenSession` and a headless TUI at fixed terminal sizes, asserting visible state and effects.
+- The planner is tested with combinations of states and rules; inspection and execution with temporary directory trees.
+- The CLI is tested for exact JSON shapes and exit codes.
+- CI compares the native binary's CLI output with the JVM's, drives the TUI under `expect` on several terminal types, and repeats this across Linux distributions.
 
-## GraalVM considerations
+The invariants the tests guard:
 
-GraalVM Native Image is a future packaging goal, not a reason to introduce a framework.
-
-Prefer:
-
-- explicit object construction
-- standard JDK APIs, especially `java.nio.file`
-- limited reflection
-- no runtime classpath scanning
-- no dependency injection container
-- no dynamic plugin loading in the initial design
-- compile-time serializers (kotlinx.serialization) and isolated integration clients
-- native-image verification early in the build lifecycle
-
-Third-party libraries are acceptable when they are isolated behind an adapter and their native-image behavior is verified. Configuration serialization should remain behind `ConfigStore` so its implementation can be changed without affecting the domain or CLI.
-
-## Testing strategy
-
-Drive complete user journeys through the presentation-neutral workflow/session boundary. These tests assert externally visible state transitions and effects rather than TamboUI implementation details. Test the pure reconciliation engine with state and policy combinations and filesystem behavior with temporary directory trees.
-
-Keep adapter tests narrow: deterministic TamboUI rendering and navigation at fixed terminal sizes, exact JSON schemas and exit codes, and a small real-terminal smoke test for startup, resizing, deep links, and clean shutdown. Visual review establishes the Lighten-specific design language before the complete workflow is built.
-
-Important invariants include:
-
-- correct existing symlinks produce no actions
-- unresolved or unsafe states never become silent destructive actions
-- `--yes` does not bypass unresolved conflicts
-- repeated planning after convergence is a no-op
-- mutation does not follow symlinks unexpectedly
-- external source ownership is not silently replaced
-- managed links inside Lighten-relocated trees are supported
+- correct existing symlinks produce no actions;
+- unresolved or unsafe states never become silent destructive actions;
+- `--yes` does not bypass unresolved conflicts;
+- repeated planning after convergence is a no-op;
+- mutation does not follow symlinks unexpectedly;
+- external source ownership is not silently replaced;
+- managed links inside Lighten-relocated trees are supported.
