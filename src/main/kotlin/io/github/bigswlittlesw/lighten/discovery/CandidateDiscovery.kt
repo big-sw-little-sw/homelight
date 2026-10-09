@@ -22,19 +22,22 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Session-scoped discovery. `refresh`, `snapshot`, `cancel` and `close` do no filesystem I/O and never wait for
- * workers. The bundled list is parsed synchronously from bytes read once per process. The shared list is read on
- * its own thread. A run thread resolves the root and then inspects candidates, [Workers.n] at a time, in catalog
- * order; paths that only the shared list names form a second batch once that list is accepted. `snapshot` reads
- * the recorded state and applies the deadlines.
+ * Finds which suggested directories exist under the source root, for one Configuration session. `refresh`,
+ * `snapshot`, `cancel` and `close` never touch the disk and never wait for a worker thread.
  *
- * The shared read and each root or candidate inspection have five seconds, measured from the start of its I/O. A
- * result that arrives later is rejected even if no snapshot was taken at the deadline.
+ * - The built-in list is parsed on the calling thread, from bytes read once per process.
+ * - The user's list is read on its own thread.
+ * - A run thread resolves the source root, then inspects the suggestions, [Workers.n] at a time, in list order.
+ *   Paths that only the user's list names are inspected in a second batch, after that list is accepted.
+ * - `snapshot` reads what the threads recorded and applies the time limits.
  *
- * A refresh replaces the request generation: older work stops before its next item and its results are dropped,
- * so rows read pending until this generation inspects them. A failed list read contributes no candidates.
- * Cancellation and closure discard all session data. Thread bounds are process-wide, including across closed
- * sessions; see [Workers].
+ * Reading the user's list, and each inspection of the root or a suggestion, has five seconds from the start of
+ * its disk access. A later result is refused, even when no snapshot was taken at the time limit.
+ *
+ * Each refresh starts a new generation. Older work stops before its next path and its results are dropped, so rows
+ * show as pending until the new generation inspects them. A list that fails to read gives no suggestions.
+ * Cancelling or closing drops all the session's data. The limits on threads hold for the whole process, also across
+ * closed sessions ([Workers]).
  */
 class CandidateDiscovery internal constructor(
     private val workers: Workers,
@@ -43,11 +46,11 @@ class CandidateDiscovery internal constructor(
     private val bundledReader: (Path) -> CandidateCatalog.Snapshot,
     private val metadata: CandidateMetadata,
 ) : AutoCloseable {
-    // Guarded by this instance's monitor. Worker threads take it only to record an attempt.
+    // This instance's monitor guards these fields. Worker threads take it only to record an attempt.
     private var generation: Long = 0
     private var closed = false
     private var request: Request? = null
-    // Outcomes as of the refresh. The shared entry is resolved against `sharedRead` when read.
+    // Each list's outcome as of the refresh. The entry for the user's list is combined with `sharedRead` when read.
     private val sources = LinkedHashMap<CandidateSource, SourceOutcome>()
     private var sharedRead: Attempt<SharedFile>? = null
     private var anchor: Attempt<CandidateMetadata.Anchor>? = null
@@ -57,7 +60,7 @@ class CandidateDiscovery internal constructor(
 
     constructor() : this(PROCESS_WORKERS, System::nanoTime, ::readShared, CandidateCatalog::bundled, CandidateMetadata())
 
-    /** Paths must already be absolute; no home expansion or location persistence. */
+    /** Both paths must already be absolute: this does not expand `~` and does not save the list's location. */
     @Synchronized
     fun refresh(root: Path, sharedLocation: Path?): Long {
         check(!closed) { "Discovery is closed" }
@@ -74,8 +77,8 @@ class CandidateDiscovery internal constructor(
     }
 
     /**
-     * Returned collections are read-only copies and observations are immutable.
-     * No aggregate byte total is supplied. Ancestors identify overlapping catalog candidates.
+     * The result's collections are read-only copies, and its observations never change. It gives no total size.
+     * A candidate's `ancestors` are the other suggestions that contain it.
      */
     @Synchronized
     fun snapshot(): Result {
@@ -133,7 +136,8 @@ class CandidateDiscovery internal constructor(
                 SharedFile(CandidateParser().parse(source, root, bytes), modified(location))
             }
             synchronized(this@CandidateDiscovery) {
-                // Freed together with the publish, so an immediate refresh cannot mistake a finished read for a stuck one.
+                // Free the slot in the same monitor block as the publish, so a refresh right after it never sees a
+                // finished read as stuck.
                 workers.sharedRead.set(false)
                 if (this.generation == generation) publishShared(generation, source, Attempt.Done(started, clock(), result))
             }
@@ -146,13 +150,13 @@ class CandidateDiscovery internal constructor(
         if (paths.isNotEmpty()) workers.chain { inspectBatch(generation, paths) }
     }
 
-    /** Claims the accepted catalog's paths that no earlier batch of this generation holds. */
+    /** Takes the paths of an accepted list that no earlier batch of this generation has taken. */
     private fun schedule(outcome: SourceOutcome): List<Path> {
         if (outcome.status != SourceStatus.CURRENT) return listOf()
         return outcome.catalog?.definitions.orEmpty().map { it.sourcePath }.filter { scheduled.add(it) }
     }
 
-    // Both run on a chained run thread, so the previous run has returned and this one owns all `workers.n` slots.
+    // Both run on a chained run thread: the previous run has returned, so this one has all `workers.n` slots.
     private fun run(generation: Long, root: Path, paths: List<Path>) {
         attempt(generation, { anchor = it }) { metadata.anchor(root) }
         inspectBatch(generation, paths)
@@ -173,7 +177,7 @@ class CandidateDiscovery internal constructor(
 
     /**
      * Records `Running`, does [io] outside the monitor, then records `Done`. Both records happen under the monitor
-     * and only while [generation] is current, so obsolete work never publishes.
+     * and only while [generation] is current, so work from an older generation never publishes.
      */
     private inline fun <T> attempt(generation: Long, record: (Attempt<T>) -> Unit, io: () -> T) {
         val started = synchronized(this) {
@@ -200,7 +204,7 @@ class CandidateDiscovery internal constructor(
         }
     }
 
-    /** This generation's evidence for [path]; `null` while queued or running. */
+    /** What this generation saw at [path], or `null` while its inspection waits or runs. */
     private fun observe(path: Path): CandidateObservation? {
         val attempt = inspections[path] ?: return null
         if (expired(attempt, METADATA_NANOS)) {
@@ -233,7 +237,7 @@ class CandidateDiscovery internal constructor(
     @ConsistentCopyVisibility
     data class Request private constructor(val root: Path, val sharedLocation: Path?) {
         companion object {
-            /** Both paths must be absolute; identity uses their normalized forms. */
+            /** Both paths must be absolute. Requests compare by the normalized paths. */
             fun of(root: Path, sharedLocation: Path?): Request =
                 Request(normalized(root), sharedLocation?.let(::normalized))
         }
@@ -276,8 +280,9 @@ class CandidateDiscovery internal constructor(
 }
 
 /**
- * Process-wide bounds on discovery threads, shared by every session so that reopening setup cannot add threads
- * stuck on a hung mount. A blocked `stat` ignores interrupts, so the bound comes from never starting more work:
+ * Limits on discovery threads for the whole process. Every session shares them, so reopening Configuration cannot
+ * add more threads stuck on a mount that does not respond. A blocked `stat` ignores interrupts, so the only limit is
+ * to never start more work:
  *
  * - Runs are chained. Each starts only after the previous run has returned, and a run inspects at most [n] paths
  *   at a time, so at most [n] inspections are in flight across refreshes and sessions.
@@ -307,16 +312,16 @@ private val PROCESS_WORKERS = Workers()
 private class NotRegular : IOException("not a regular file")
 
 private fun readShared(location: Path): ByteArray {
-    // Following the explicitly selected shared-file location is permitted. A later FIFO replacement may
-    // block open; the single in-flight read and the deadline still bound it.
+    // Following a link here is allowed: the user chose this location. If a FIFO replaces the file after the check,
+    // the open can block. The one read in flight and the time limit still bound that.
     if (!Files.readAttributes(location, BasicFileAttributes::class.java).isRegularFile) {
         throw NotRegular()
     }
     return Files.newInputStream(location).use { it.readNBytes(CandidateParser.MAX_BYTES + 1) }
 }
 
-// On the shared-list thread, after the read, so a slow stat is bounded by the same deadline. Only shown, so a
-// failure leaves it out rather than failing the list.
+// Runs on the user's list thread after the read, so the same time limit bounds a slow `stat`. The time is only
+// shown, so a failure leaves it out and does not fail the list.
 private fun modified(location: Path): Instant? =
     try {
         Files.getLastModifiedTime(location).toInstant()

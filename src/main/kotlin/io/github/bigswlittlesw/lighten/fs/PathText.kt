@@ -40,9 +40,8 @@ class PathText(vararg parts: Any) {
 }
 
 /**
- * [path] with the home directory shown as `~`, as every path on screen and in the CLI's human-readable output is
- * (tui-design §4). Only the home directory becomes `~`: a path under another root, such as `source-root`, stays in
- * full.
+ * [path] with the home directory shown as `~`, as every path on screen and in the CLI's human-readable output is.
+ * Only the home directory becomes `~`: a path under another root, such as `source-root`, stays in full.
  */
 internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("user.home"))): String =
     if (path.startsWith(home) && home.nameCount > 0) "~" + path.toString().substring(home.toString().length)
@@ -50,8 +49,8 @@ internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("us
 
 /**
  * The system's words for [exception], for text that names its paths separately: a [FileSystemException]'s reason,
- * which leaves out its paths, else its message. The JDK throws the common file exceptions without a reason; they get
- * plain words. A Java type name is never shown (user decision, #201).
+ * which leaves out its paths, else its message. The JDK throws the common file exceptions without a reason, so they
+ * get plain words here. A Java type name means nothing to users, so it is never shown.
  */
 internal fun systemReason(exception: Throwable): String {
     if (exception !is FileSystemException) return exception.message ?: NO_REASON

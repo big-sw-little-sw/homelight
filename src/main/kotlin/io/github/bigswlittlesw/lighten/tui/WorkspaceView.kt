@@ -127,8 +127,9 @@ internal object WorkspaceView {
                 is WorkspaceRow.Ignored -> badged(IGNORED_LABEL, palette.dim, shown.source)
             }
         }
+        // The in-sync count and its `c` key go in the list title, not in a row, so the list's selection never lands
+        // on them.
         val inSync = toggledInSync(configured)
-        // In the title, not a row, so the list's own selection never lands on it.
         list.elements(*rows.toTypedArray()).focusable(interactive).fill()
         // The list is framed by a panel, which can show focus with a thick border; ListElement offers only rounded.
         val listPane = framed(Toolkit.panel(relocationsTitle(inSync, showInSync), list), focused == WORKSPACE_LIST)

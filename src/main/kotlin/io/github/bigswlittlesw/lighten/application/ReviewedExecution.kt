@@ -10,12 +10,12 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 
-/** The accepted range of the visual-test delay that holds each action in its running state. */
+/** The allowed range of the debug delay that holds each step in its running state, so a person can watch it. */
 internal val DEBUG_STEP_DELAY_MILLIS: LongRange = 0L..60_000L
 
 /**
- * One captured plan's preflight, execution, immutable progress, and retained result.
- * Capturing performs no I/O; starting never reloads or substitutes the plan.
+ * Applies one reviewed plan: preflight, the steps, read-only progress snapshots, and the result, which it keeps.
+ * Creating it reads nothing from disk. Starting it never reloads the plan or replaces it with another.
  *
  * `choices` are the one-time choices the plan was made with; every snapshot carries them (see [ApplyModel.Reviewed]).
  */
@@ -23,8 +23,8 @@ class ReviewedExecution(
     private val plan: ReconciliationPlan, private val debugStepDelayMillis: Long = 0,
     private val choices: Map<Path, DecisionChoice> = mapOf(),
 ) {
-    // Guarded by this instance's monitor. The worker thread, and the executor's relocation threads when independent
-    // relocations run at once, publish progress through it, so steps change in one serial order.
+    // This instance's monitor guards these fields. The worker thread publishes progress through it. When independent
+    // relocations run at once, the executor's relocation threads do too. So steps change in one order.
     private var snapshot: ApplyModel
     private var completion: CompletableFuture<Void?>? = null
 
@@ -40,8 +40,8 @@ class ReviewedExecution(
     fun snapshot(): ApplyModel = snapshot
 
     /**
-     * Schedules at most once, returning the same completion on every subsequent call.
-     * The terminal snapshot is published before completion settles, including scheduling rejection.
+     * Starts the apply at most once. Each later call returns the same completion.
+     * The final snapshot is published before the completion finishes, also when the worker refuses the task.
      *
      * The executor reports I/O and environment failures as failed actions, so anything that escapes it is a bug:
      * the result shows [internalErrorMessage] and completion fails with the bug, so callers report it too.
@@ -65,14 +65,14 @@ class ReviewedExecution(
                 }
             }
         } catch (exception: RuntimeException) {
-            // Scheduling rejection: nothing ran, and it is an environment failure rather than a bug.
+            // The worker refused the task: nothing ran. This is an environment failure, not a bug.
             finishWithoutExecution(plan, listOf(PathText(exception.message ?: exception.toString())), false)
             completion.complete(null)
         }
         return completion
     }
 
-    /** Waits for started work without cancelling or interrupting its mutation sequence. */
+    /** Waits for a started apply to finish. It does not cancel or interrupt it, so no step stops halfway. */
     fun awaitExecution() {
         val pending = synchronized(this) { completion }
         pending?.join()
@@ -111,11 +111,11 @@ class ReviewedExecution(
             return
         }
         try {
-            // Delay only the execution worker after publishing RUNNING, so the TUI keeps animating.
+            // Delay only the apply worker, after it publishes RUNNING, so the TUI keeps animating.
             Thread.sleep(debugStepDelayMillis)
         } catch (exception: InterruptedException) {
             Thread.currentThread().interrupt()
-            // An I/O failure, so the executor reports it as the running action's failure rather than a bug.
+            // Throw an I/O failure, so the executor reports it as the running step's failure, not as a bug.
             throw InterruptedIOException("Interrupted during visual-test delay").apply { initCause(exception) }
         }
     }

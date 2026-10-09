@@ -10,11 +10,12 @@ import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecodingException
 
-// JSON input shared by configuration files and candidate lists. kotlinx owns the format: it rejects malformed
-// JSON, unknown keys, missing required keys, wrong value types and unknown enum values, and keeps the last value
-// of a repeated key. This file only turns kotlinx's offset into a position and keeps its messages readable.
+// JSON input for configuration files and suggestion lists. kotlinx.serialization checks the format: it rejects
+// malformed JSON, unknown keys, missing required keys, wrong value types and unknown enum values. It keeps the last
+// value of a repeated key. This file only turns kotlinx's offset into a line and column and keeps its messages
+// readable.
 
-/** Comments and trailing commas ease hand editing. Both options are experimental in kotlinx 1.11. */
+/** Comments and trailing commas make hand editing easier. Both options are experimental in kotlinx 1.11. */
 @OptIn(ExperimentalSerializationApi::class)
 private val INPUT = Json {
     allowComments = true
@@ -23,7 +24,7 @@ private val INPUT = Json {
 
 /**
  * Rejected input. `line` and `column` are one-based, and zero when kotlinx gives no offset (missing keys,
- * unknown enum values). The column counts UTF-16 characters. `path` is dotted, e.g. `lighten.relocations[0]`,
+ * unknown enum values). The column counts UTF-16 characters. `path` is dotted, for example `lighten.relocations[0]`,
  * and empty for the document.
  *
  * `message` keeps kotlinx's words. `problem` says the same in plain parts when kotlinx's message is one Lighten

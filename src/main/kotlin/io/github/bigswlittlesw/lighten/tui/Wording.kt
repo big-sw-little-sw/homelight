@@ -21,9 +21,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-// The TUI's words for application values and the messages its screens show (tui-design §9). Application enums keep
-// meaning only. Key hints stay in each screen's `keys` function, beside the handlers that bind them, so a hint and its
-// key cannot drift apart; only keys several screens share are here.
+// The TUI's words for application values and the messages its screens show. All screen text lives in this file, and
+// application enums carry meaning only. Key hints stay in each screen's `keys` function, beside the handlers that bind
+// them, so a hint and its key cannot drift apart. Only keys that several screens share are here.
 
 internal fun badgeLabel(badge: PlanBadge): String = when (badge) {
     PlanBadge.CONFLICT -> "Choose"
@@ -48,7 +48,10 @@ internal fun choiceLabel(choice: DecisionChoice): String = when (choice) {
     DecisionChoice.DISCARD_BOTH -> bothExistLabel(BothExistRule.DELETE_BOTH)
 }
 
-/** `archive` names where archiving would move the source, when the choice only offers it (#107). */
+/**
+ * `archive` is where archiving would move the source. While archiving is only offered, the choice names it, so the user
+ * sees where the source goes before choosing.
+ */
 internal fun choiceDescription(choice: DecisionChoice, archive: Path? = null): String = when (choice) {
     DecisionChoice.ADOPT_TARGET -> "Use the existing target and put a link to it at the source."
     DecisionChoice.ADOPT_AND_DISCARD_SOURCE ->
@@ -60,7 +63,7 @@ internal fun choiceDescription(choice: DecisionChoice, archive: Path? = null): S
     DecisionChoice.DISCARD_BOTH -> "Delete the contents of both, then create an empty target and link the source to it."
 }
 
-// A missing rule is "prompt", so it reads Ask each time too (decision "A missing rule means Ask each time").
+// A missing rule means `prompt`, so it also reads Ask each time.
 
 internal fun bothExistLabel(rule: BothExistRule): String = when (rule) {
     BothExistRule.ASK_EACH_TIME -> ASK_EACH_TIME
@@ -98,7 +101,7 @@ internal fun actionLabel(action: ReconciliationAction): String = when (action) {
     is ReconciliationAction.Blocked -> "Blocked"
 }
 
-/** A Browse row note (tui-design §8), also the state line in its details. */
+/** A Browse row's note. Its details use it as the state line too. */
 internal fun observationNote(observation: CandidateObservation): String = when (observation.kind) {
     CandidateObservation.Kind.PENDING -> "checking…"
     CandidateObservation.Kind.DIRECTORY -> "directory"
@@ -136,7 +139,7 @@ internal fun unappliedChoices(n: Int): List<String> = listOf(
 )
 internal const val QUITTING = "Lighten will exit when the changes finish."
 
-// Configuration (tui-design §7).
+// Configuration.
 internal const val DISCARD_SETUP_TITLE = "Discard this configuration?"
 internal val DISCARD_SETUP_BODY = listOf("Nothing has been saved yet.", "Your storage locations and relocations will be lost.")
 internal const val DISCARD_SETUP_KEYS = "y: Discard · n/Esc: Keep editing"
@@ -202,8 +205,9 @@ internal const val CHANGED_SINCE_LOADED =
         "To start again from the file, press q, then y, then e."
 internal fun cannotOpen(reason: String) = "Cannot open Configuration: $reason"
 
-// A configuration file Lighten can't read (#164). The Workspace, its Help purpose and the CLI say the same; only the
-// way to check again differs. `positioned`: the problem names a line, not a setting such as a missing key.
+// A configuration file Lighten can't read: what is wrong and how to fix it. The Workspace, its Help purpose and the
+// CLI use the same words; only the way to check again differs. `positioned` is true when the problem names a line,
+// and false when it names a setting, such as a missing key.
 internal fun unreadable(path: Path, problem: String, positioned: Boolean) = listOf(
     cannotRead(displayPath(path)), problem,
     "To fix it: open the file in a text editor, ${correct(positioned)}, then press r to check again.",
@@ -219,7 +223,7 @@ internal fun unreadableCli(path: Path, problem: String, positioned: Boolean) = l
 private fun cannotRead(path: String) = "Lighten can't read $path"
 private fun correct(positioned: Boolean) = if (positioned) "correct that line" else "correct that setting"
 internal fun cannotBrowse(reason: String) = "Fix the storage locations to browse: $reason"
-/** What the Workspace says after a save, once it has checked again (tui-design §1, Say the next step). */
+/** What the Workspace says after a save, once it has checked again. It always says what to do next. */
 internal fun savedNextStep(toChange: Int, needChoice: Int, blocked: Int): String = when {
     blocked > 0 -> "Saved. $FIX_TO_REVIEW"
     needChoice > 0 -> "Saved. " + relocationCount(needChoice) + (if (needChoice == 1) " needs" else " need") +
@@ -229,12 +233,15 @@ internal fun savedNextStep(toChange: Int, needChoice: Int, blocked: Int): String
 }
 internal const val SAVED = "Saved."
 
-/** Asked before saving over an existing configuration (tui-design §7); a new file is created without asking. */
+/**
+ * Asked before saving over an existing configuration, because the rewrite does not keep its comments. A new file is
+ * created without asking.
+ */
 internal fun replaceConfigurationTitle(path: Path) = "Replace ${displayPath(path)}?"
 internal val REPLACE_CONFIGURATION_BODY = listOf("Lighten rewrites the whole file.", "Comments in it are not kept.")
 internal const val REPLACE_CONFIGURATION_KEYS = "y: Replace · n/Esc: Keep editing"
 
-// Saving a Workspace choice as the rule (tui-design §5).
+// Saving a Workspace choice as the rule (`s: Always do this`).
 internal const val ALWAYS_DO_THIS_TITLE = "Always do this?"
 /** What `s` saves, for which relocation and where, in the case the choice is for. */
 internal fun alwaysDoThis(source: Path, rule: GoverningRule, choice: DecisionChoice, config: Path): List<String> = listOf(
@@ -248,8 +255,8 @@ private fun ruleCase(rule: GoverningRule): String = when (rule) {
     is GoverningRule.BothExist -> "when the source and the target both exist"
 }
 /**
- * The warning for a rule that deletes data not kept elsewhere (tui-design §5), or none. Once saved, it applies
- * without asking, `apply --yes` included.
+ * The warning for a rule that deletes data not kept elsewhere, or none. Once saved, the rule applies without asking,
+ * `apply --yes` included.
  */
 internal fun alwaysDoThisWarning(choice: DecisionChoice): List<String> = when (choice) {
     DecisionChoice.ADOPT_AND_DISCARD_SOURCE -> listOf(
@@ -268,7 +275,7 @@ internal const val CHOICE_NOT_SAVED =
     "Not saved: the configuration file changed after Lighten read it. Your choice is still here. Press r to " +
         "read the file again; that forgets the choice."
 
-// Ignoring a source (tui-design §5). The setting names appear because they are what the user finds in the file.
+// Ignoring a source. The dialogs name the settings because the user finds those names in the file.
 internal const val IGNORED_LABEL = "Ignored"
 internal const val IGNORED_BY_YOU = "Ignored by you"
 /** The ignored group's heading row: like the in-sync title, it says its key. */
@@ -313,7 +320,10 @@ internal fun stopIgnoringBody(config: Path) = listOf(
     "Lighten manages it only once you add it as a relocation.",
     "Nothing on disk changes.",
 )
-/** Added to the ignore dialogs while other relocations have one-time choices, which saving forgets (user decision). */
+/**
+ * Added to the ignore dialogs while other relocations have one-time choices. Saving checks again, and that forgets
+ * them.
+ */
 internal const val FORGETS_OTHER_CHOICES = "This also forgets your other one-time choices."
 internal const val STOP_IGNORING_KEYS ="y: Stop ignoring · n/Esc: Cancel"
 /** [CHOICE_NOT_SAVED] for `x`. */
@@ -345,7 +355,7 @@ internal fun deletesOrReplaces(n: Int) = "$n " + if (n == 1) "deletes or replace
 internal fun risks(warnings: Int, deleting: Int) =
     "Of these: $warnings with warnings · $deleting " + if (deleting == 1) "deletes data" else "delete data"
 
-/** The one Details line that says what decides a row and where that comes from (tui-design §5). */
+/** The one Details line that says what decides a row: a one-time choice or the rule in the configuration. */
 internal fun decisionLine(decision: RelocationDecision): String {
     val choice = decision.oneTimeChoice
     if (choice != null) return "Decision: " + choiceLabel(choice).lowercase() + " (your choice, this run only)"
@@ -385,7 +395,7 @@ internal const val DONE = "Done. Checked again; results are kept until you check
  * already says to press r, so the sentence does not. Paths show home as `~`; `config` is the configuration file in
  * use.
  *
- * It is the only text Results show for the failure (user decision), so it keeps every specific of the executor's own
+ * It is the only text Results show for the failure. So it keeps all that a bug report needs from the executor's own
  * text: each path it named, what was expected and found, and the system's reason.
  */
 internal fun failureWords(failure: ActionFailure, config: Path): String = when (failure) {
@@ -503,7 +513,7 @@ internal fun finishedCount(done: Int, changes: Int, failed: Int, notRun: Int) =
     "$done of $changes changes done · $failed failed · $notRun not run"
 internal fun plannedChanges(changes: Int, destructive: Int) = "$changes planned changes · " + deletesOrReplaces(destructive)
 
-// The Help screen (tui-design §3 Help screen). Its Guide tab is docs/user-guide.md, never copied here.
+// The Help screen. Its Guide tab shows docs/user-guide.md as packaged in the build, so no guide text is copied here.
 internal const val HELP_TITLE = "Help"
 internal const val THIS_SCREEN_TAB = "This screen"
 internal const val GUIDE_TAB = "Guide"
@@ -515,7 +525,7 @@ internal const val DO_KEYS = "Do"
 internal const val HELP_HINT = "Press ? for help."
 internal const val FIRST_RUN_HINT = "New to Lighten? Press ? to read the guide."
 
-/** The steps of using Lighten, as "You are here" names them. */
+/** The steps of using Lighten, as Help's `Step:` line names them. */
 internal fun stepLabel(step: Step): String = when (step) {
     Step.CONFIGURE -> "Configure"
     Step.WORKSPACE -> "Workspace"
@@ -584,7 +594,7 @@ internal val HOME_END_KEYS = KeyHint("Home/End", "First/last", inHelpArea = fals
 internal val SCROLL_ENDS_KEYS = KeyHint("Home/End", "Top/bottom", inHelpArea = false)
 internal val SCROLL_DETAILS_KEYS = KeyHint("[/]", "Scroll details", inHelpArea = false)
 
-// Browse (tui-design §8). The feature is the suggestion list: the built-in list and your list.
+// Browse. The feature is the suggestion list: the built-in list and your list. The screen never says "candidate".
 internal const val BUILT_IN_LIST = "Built-in list"
 internal const val YOUR_LIST = "Your list"
 internal const val NO_LIST_OF_YOUR_OWN = "Your list · none; set one in Storage locations"
@@ -635,7 +645,7 @@ internal const val OTHER_DIRECTORIES = "Other directories"
 internal const val OTHER_TOOLS = "Other tools"
 internal fun addedCount(added: Int, of: Int) = "$added of $of added"
 internal const val CANNOT_ADD_ANY = "can't add"
-// Browse's marks (tui-design §4 Glyphs): included or not.
+// Browse's marks say whether a directory is included. An empty circle means not included; a filled one means included.
 internal const val ADDED_MARK = "●"
 internal const val NOT_ADDED_MARK = "○"
 /** A heading only: some of its directories are added. */

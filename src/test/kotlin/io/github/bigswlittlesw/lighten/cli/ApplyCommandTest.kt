@@ -160,7 +160,7 @@ class ApplyCommandTest {
         assertTrue(Files.notExists(target.resolve("target")))
     }
 
-    /** #223: even a rule that deletes both never touches a source link to somewhere else, or where it points. */
+    /** Even a rule that deletes both never touches a source link to somewhere else, or where it points. */
     @Test
     fun neverTouchesASourceLinkToSomewhereElse(@TempDir temporary: Path) {
         val root = temporary.toRealPath()

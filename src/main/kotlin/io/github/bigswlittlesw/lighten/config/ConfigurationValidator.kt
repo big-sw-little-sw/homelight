@@ -6,8 +6,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Rejects a configuration with nothing in it, or whose relocations are unsafe together; see [relocationProblem]. One
- * that only ignores paths is kept: ignoring the last relocation leaves it so.
+ * Rejects a configuration with nothing in it, or whose relocations are unsafe together ([relocationProblem]). A
+ * configuration that only ignores paths is valid, because ignoring the last relocation leaves one like that.
  */
 fun validateConfiguration(relocations: List<Relocation>, ignoredSourcePaths: List<Path> = listOf()) {
     require(relocations.isNotEmpty() || ignoredSourcePaths.isNotEmpty()) { "Choose at least one relocation" }
@@ -20,9 +20,9 @@ internal data class RelocationProblem(val source: Path, val message: PathText)
 /**
  * The first problem that makes `relocations` unsafe together, or null.
  *
- * Each relocation is checked alone first: its source and target must not overlap. Then each pair is checked in order: no shared target, and no overlap among any of their paths.
- * A pair is reported against its earlier relocation. A shared target is also an overlap; it only gets a clearer
- * message.
+ * First each relocation is checked alone: its source and target must not overlap. Then each pair is checked in
+ * order: they must not share a target, and none of their paths may overlap. A pair is reported against its earlier
+ * relocation. A shared target is also an overlap, but it gets a clearer message.
  */
 internal fun relocationProblem(relocations: List<Relocation>): RelocationProblem? {
     for (relocation in relocations) {

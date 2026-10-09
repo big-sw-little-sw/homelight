@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 import java.nio.file.Path
 
 /**
- * One attributed occurrence, including its original spelling and literal reason and caution.
- * The record index is one-based. Consumers must escape control characters when
- * displaying text; reasons and cautions are not terminal markup or commands.
- * Structural locations use zero-based indices, e.g. `apps[1].directories[0]`.
+ * One suggestion as one list gives it: the list it came from, the path as written, and the reason and caution as
+ * written. `recordIndex` is one-based. Callers must escape control characters before they show this text. Reasons
+ * and cautions are plain text, never terminal markup or commands.
+ * `location` uses zero-based indices, for example `apps[1].directories[0]`.
  *
  * `category` is the app's, as this record's list gives it; only a directory with an app can have one.
  *

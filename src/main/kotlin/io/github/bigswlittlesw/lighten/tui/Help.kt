@@ -20,7 +20,7 @@ internal data class KeyHint(
     val text: String get() = "$keys: $action"
 }
 
-/** The steps of using Lighten, in order; Help's "You are here" line marks the current one. */
+/** The steps of using Lighten, in order. Help's `Step:` line marks the current one. */
 internal enum class Step { CONFIGURE, WORKSPACE, REVIEW, APPLY, RESULTS }
 
 /**

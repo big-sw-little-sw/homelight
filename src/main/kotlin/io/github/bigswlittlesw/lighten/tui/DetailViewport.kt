@@ -16,7 +16,10 @@ import dev.tamboui.toolkit.elements.ScrollbarElement
 import dev.tamboui.toolkit.markdown.MarkdownElement
 import dev.tamboui.widgets.block.BorderType
 
-/** Wraps at the actual pane width on every render, including resize and quit dialogs. */
+/**
+ * A scrollable pane of text. It wraps the text at the pane's current width on every render, so the text follows a
+ * resize, also while a dialog is open over it.
+ */
 internal class DetailViewport {
     private var top = 0
     private var maximum = 0
@@ -33,9 +36,9 @@ internal class DetailViewport {
     data class Anchored(val lines: List<Line>, val anchor: Int)
 
     /**
-     * Resolves overflow after the reader renders, so help reflects this frame's size. While a dialog is open and
-     * takes every key, help is not `shown` and its two lines stay blank. A `note` about the focused field takes the
-     * navigation line's place.
+     * The help lines for this pane. They check for overflow after the pane renders, so they match this frame's size.
+     * While a dialog is open and takes every key, help is not `shown` and its two lines stay blank. A `note` about
+     * the focused field takes the navigation line's place.
      */
     fun help(keys: ScreenHelp, shown: Boolean = true, note: String? = null): Element {
         class Help : StyledElement<Help>() {
@@ -60,7 +63,7 @@ internal class DetailViewport {
     fun keepChoiceVisible() { followingChoice = true; keepVisible = true }
     fun scroll(delta: Int) {
         followingChoice = false
-        // In Long: callers scroll by ±Int.MAX_VALUE to reach either end.
+        // Add in Long: callers pass ±Int.MAX_VALUE to reach either end, and that would overflow an Int.
         top = (top.toLong() + delta).coerceIn(0, maximum.toLong()).toInt()
     }
     fun scrollPage(direction: Int) = scroll(direction * page)

@@ -494,8 +494,8 @@ class ConfigurationLoaderTest {
     }
 
     /**
-     * `local` links to `real-local`, so each pair below is one place under two spellings (#128). Overlap, as written
-     * or through a link, is the planner's to block (#207), so such a file loads.
+     * `local` links to `real-local`, so each pair below names one place in two ways. The planner blocks only the
+     * relocations that overlap, as written or through a link, and plans the rest. So such a file loads.
      */
     @Test fun loadsRelocationsThatOverlap() {
         val real = Files.createDirectory(temporary.resolve("real-local"))
@@ -514,7 +514,10 @@ class ConfigurationLoaderTest {
         }
     }
 
-    /** #207: `USER`, else the OS account name; never empty text. */
+    /**
+     * `${USER}` is the `USER` variable, else the OS account name, which also works where `USER` is unset. It is never
+     * replaced with empty text: with no name, the setting is refused.
+     */
     @Test fun userNameFallsBackToTheAccountNameAndIsNeverEmpty() {
         assertEquals("env", userName("env", "account"))
         assertEquals("account", userName(null, "account"))

@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
 class DiscoverySettingTest {
     @TempDir lateinit var temporary: Path
 
-    /** The same rules as every other path (#207): `~`, `~/` and `${USER}` expand, and the result must be full. */
+    /** The same rules as every other path in the file: `~`, `~/` and `${USER}` expand, and the result must be full. */
     @Test fun followsThePathRulesOfEveryOtherPathWithoutInspectingIt() {
         fun list(value: String) =
             ConfigurationLoader().configuration(LightenFile(targetRoot = "/local", suggestionList = value)).sharedList

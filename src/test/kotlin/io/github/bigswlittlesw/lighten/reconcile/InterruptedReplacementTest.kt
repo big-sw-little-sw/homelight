@@ -18,7 +18,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 
 /**
- * A crash while a source directory is replaced with its link (#132). The crash is an [Error] thrown at a point in the
+ * A crash while a source directory is replaced with its link. The crash is an [Error] thrown at a point in the
  * replacement, so nothing after it runs; what a real crash would also leave, a temporary link, does not matter here.
  */
 class InterruptedReplacementTest {

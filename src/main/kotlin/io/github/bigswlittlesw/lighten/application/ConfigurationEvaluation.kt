@@ -18,9 +18,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Loads and inspects once; draft choices replan solely from the retained observations.
- * A draft lives only in one [Loaded]: any fresh [load] starts without one.
- * This bounded inspection pass is not an atomic filesystem snapshot.
+ * Loads the configuration and inspects the disk once. A one-time choice makes a new plan from the kept observations,
+ * without reading the disk again. The one-time choices live only in one [Loaded], so each [load] starts without any.
+ * The inspection reads each path in turn, so it is not one atomic snapshot of the filesystem.
  *
  * `inspect` and `plan` are functions so tests can inject a bug into either.
  */
@@ -35,14 +35,17 @@ class ConfigurationEvaluation(
 
     data class Missing(override val configPath: Path, val message: PathText) : Evaluation
 
-    /** Legacy default-path behavior: no regular configuration file, including a directory at that path. */
+    /**
+     * The default path holds no regular file, for example nothing or a directory. Lighten then has nothing to manage.
+     */
     data class Unconfigured(override val configPath: Path) : Evaluation
 
     /** `line` is the line at fault, or 0 when no one line is (see [InvalidConfigurationException]). */
     data class Invalid(override val configPath: Path, val message: PathText, val line: Int) : Evaluation
 
     /**
-     * Observations and saved plan retain saved policy; `plan` contains the effective draft policy.
+     * `observations` and `savedPlan` use the saved rules. `plan` uses the saved rules with the one-time choices in
+     * `draft`.
      * `choiceAvoidsFolder` holds the normalized sources whose [PlanRelocationItem.choiceAvoidsFolder] is true.
      * `file` is the file as read, which [ruleFile] edits; null under a command-line override, whose paths are not
      * the file's.
@@ -87,7 +90,7 @@ class ConfigurationEvaluation(
             )
         }.sortedBy { it.badge().priority }
 
-        /** Evaluation records choices, possibly none, for every configured source. */
+        /** Every configured source has a list of choices, which can be empty. */
         fun choicesFor(sourcePath: Path): List<DecisionChoice> = availableChoices.getValue(normalize(sourcePath))
 
         /**
@@ -162,14 +165,17 @@ class ConfigurationEvaluation(
         }
     }
 
-    /** Preserves loader exceptions for existing CLI error handling. The override is an input, never draft storage. */
+    /**
+     * Throws the loader's exceptions unchanged, so the CLI can report them. `override` changes only this load: it is
+     * never kept as a one-time choice.
+     */
     fun loadRequired(configPath: Path, override: ConfigurationLoader.PathOverride? = null): Loaded {
         val read = loader.read(configPath)
         val configuration = loader.resolve(configPath, read, override)
         val observations = inspectRelocations(configuration.relocations, inspect)
         val savedPlan = plan(observations)
-        // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
-        // their diagnostics. groupBy keeps sources in first-seen order.
+        // A one-time choice is kept by source path, so a source configured twice gets no choices. The planner still
+        // reports the duplicate. `groupBy` keeps sources in the order first seen.
         val choices = observations
             .groupBy({ state -> state.relocation.sourcePath }) { state ->
                 relocationDecision(state.source.state, state.target.state, state.relocation, null)?.offered.orEmpty()
@@ -229,7 +235,10 @@ class ConfigurationEvaluation(
     }
 }
 
-/** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
+/**
+ * True when the default configuration path holds no regular file. Evaluation and the JSON output then treat nothing
+ * as configured and report empty results. A path the user names must hold a file.
+ */
 fun isUnconfiguredDefault(configPath: Path): Boolean =
     normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
 

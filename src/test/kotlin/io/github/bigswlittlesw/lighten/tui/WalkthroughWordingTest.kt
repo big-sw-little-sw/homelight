@@ -10,7 +10,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
-/** Text people follow outside the app uses the words the app shows (#207). */
+/** Text people follow outside the app, in the user guide and the smoke fixture, uses the words the app shows. */
 class WalkthroughWordingTest {
     @TempDir lateinit var temporary: Path
 

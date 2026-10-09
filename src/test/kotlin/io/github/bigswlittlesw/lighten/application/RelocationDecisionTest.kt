@@ -63,14 +63,16 @@ class RelocationDecisionTest {
         fun rows(): List<Row> = listOf(
             Row(Observed.ONLY_TARGET, mapOf(), null, Expected(listOf(ADOPT_TARGET), null)),
             Row(Observed.ONLY_TARGET, mapOf(ONLY to "adopt-target"), null, Expected(listOf(ADOPT_TARGET), ADOPT_TARGET)),
-            // #211 bug 1: a saved Both exist rule must not hide the Only target rule that governs this case.
+            // A saved Both exist rule must not hide the Only target rule that governs this case, or no ● marks a
+            // choice.
             Row(
                 Observed.ONLY_TARGET, mapOf(BOTH to "adopt", ADOPTING to "discard-source", ONLY to "adopt-target"), null,
                 Expected(listOf(ADOPT_TARGET), ADOPT_TARGET),
             ),
             Row(Observed.ONLY_TARGET, mapOf(BOTH to "discard", ONLY to "adopt-target"), null, Expected(listOf(ADOPT_TARGET), ADOPT_TARGET)),
             Row(Observed.ONLY_TARGET, mapOf(), ADOPT_TARGET, Expected(listOf(ADOPT_TARGET), ADOPT_TARGET, oneTime = true)),
-            // #211 bug 2: a one-time Keep target over a saved Both exist rule is the choice in force.
+            // A one-time Keep target over a saved Both exist rule is the choice in force, so the ● and the Decision
+            // line agree.
             Row(
                 Observed.ONLY_TARGET, mapOf(BOTH to "leave-unchanged"), ADOPT_TARGET,
                 Expected(listOf(ADOPT_TARGET), ADOPT_TARGET, oneTime = true),

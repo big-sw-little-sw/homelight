@@ -4,8 +4,8 @@ import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.config.WhenOnlyTargetExists
 
 /**
- * Typed reconciliation decisions for unresolved conflicts. Each is a value of the rule for its case
- * ([GoverningRule]); `plan --json` names them in kebab case (`adopt-and-archive-source`).
+ * The one-time choices for a relocation that needs a choice. Each is a value of the rule for its case
+ * ([GoverningRule]). `plan --json` names them in kebab case, for example `adopt-and-archive-source`.
  */
 enum class DecisionChoice {
     ADOPT_TARGET,

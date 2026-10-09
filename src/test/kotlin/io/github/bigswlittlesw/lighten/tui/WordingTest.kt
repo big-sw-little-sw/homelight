@@ -89,7 +89,7 @@ class WordingTest {
     }
 
     /**
-     * One sentence per failure kind: what is there, what Lighten expected, and what to do (#172). Results show nothing
+     * One sentence per failure kind: what is there, what Lighten expected, and what to do. Results show nothing
      * else for a failure, so each keeps the executor's paths and the system's reason. Home shows as `~`.
      */
     @Test

@@ -8,7 +8,8 @@
 # SHA256SUMS, and only then installs it as <dir>/lighten (default ~/.local/bin): it copies it
 # beside the target and renames, so a rerun replaces an installed lighten in place. It never calls
 # sudo, and asks before it adds <dir> to PATH in shell startup files in the user's home.
-# Asset names are a contract: see "Release assets" in docs/decisions.md.
+# Asset names never change once published, because lighten update and tools such as mise
+# download by name. SelfUpdate.kt and .github/workflows/release.yml use the same asset names.
 #
 # For testing only: LIGHTEN_INSTALL_BASE_URL replaces
 # https://github.com/big-sw-little-sw/lighten/releases. The server must serve the assets at
@@ -266,7 +267,7 @@ rc_problem() {
   fi
 }
 
-# "a", "a and b", "a, b and c"
+# Joins the arguments as a list in words: "a", "a and b", "a, b and c".
 join_and() {
   case $# in
     0) ;;

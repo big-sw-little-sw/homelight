@@ -16,7 +16,7 @@ import java.util.concurrent.Executor
 class PaletteTest {
     @TempDir lateinit var temporary: Path
 
-    /** `docs/tui-design.md` §4 is the source of truth for both palettes. */
+    /** Both palettes must match the color table in `docs/tui-design.md`. */
     @Test
     fun bothPalettesMatchTheDesignDocument() {
         val rows = Regex("""^\| (\w+) \| `(#[0-9a-f]{6})` \| ([a-z ]+) \|""", RegexOption.MULTILINE)

@@ -30,9 +30,9 @@ private val stagingKeys: MutableSet<String> = ConcurrentHashMap.newKeySet()
  * any process, uses the same two names, and different targets never open each other's.
  *
  * [open] claims the key in [stagingKeys], then takes the lock without waiting, then clears whatever is at the copy's
- * name: under the lock, that can only be left by an earlier run that failed or was killed. [close] deletes the copy
- * under the lock, then releases the lock, then the key. The lock file is never deleted: another process may have it
- * open already, and a new file at the same name would let two processes each hold a lock for one target.
+ * name. Under the lock, only an earlier run that failed or was killed can have left something there. [close] deletes
+ * the copy under the lock, then releases the lock, then the key. The lock file is never deleted. Another process may
+ * have it open already, and a new file at the same name would let two processes each hold a lock for one target.
  */
 internal class StagingOperation private constructor(
     private val key: String, private val copy: Path, private val channel: FileChannel,

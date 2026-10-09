@@ -13,9 +13,10 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
 
 /**
- * Only root resolution, no-follow attributes and raw link text. No directory
- * enumeration or target probes. Rechecks detect replacements best-effort; Java
- * path-based operations do not provide atomic containment under concurrent renames.
+ * Reads only the real path of the source root, the attributes of each path without following links, and the text
+ * of a link. It never lists a directory or looks at where a link points. It checks the paths again to find a path
+ * replaced while it reads. This can miss a change: Java's path-based calls cannot lock a path against a concurrent
+ * rename.
  */
 internal class CandidateMetadata(private val access: Access = Access()) {
     fun anchor(root: Path): Anchor {
@@ -130,8 +131,8 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     private class Changed : IOException("it changed while checking")
 
     /**
-     * Deliberately excludes directory enumeration and file-content operations.
-     * Open so tests can inject filesystem replacements and failures between probes.
+     * Has no call that lists a directory or reads a file, so discovery cannot do either.
+     * Open so tests can replace a path or make a call fail between two reads.
      */
     open class Access {
         open fun realPath(path: Path): Path = path.toRealPath()

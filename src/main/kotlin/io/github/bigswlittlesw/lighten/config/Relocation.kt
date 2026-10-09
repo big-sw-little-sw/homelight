@@ -3,12 +3,12 @@ package io.github.bigswlittlesw.lighten.config
 import java.nio.file.Path
 
 /**
- * A source location, storage destination, and state-specific reconciliation rules. A rule left unset is
- * [WhenSourceAndTargetDirectoriesExist.PROMPT] (or its peer): the user decides each time.
+ * One directory Lighten manages: its source, its target, and a rule for each state it can find them in. A rule left
+ * unset is `PROMPT`, "Ask each time".
  *
  * `archiveRoot` is where archive-source moves the source, under the source's name (see `inspectArchiveDestinations`).
  *
- * Every path is normalized, and all but `archiveRoot` are absolute, so consumers compare and key paths as given. The
+ * Every path is normalized, and all but `archiveRoot` are absolute, so callers compare and key paths as given. The
  * loader resolves paths this way; a caller with paths from elsewhere normalizes them first.
  */
 data class Relocation(
