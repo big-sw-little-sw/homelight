@@ -508,6 +508,22 @@ Three commands never ask a question and print one line of JSON:
   changes nothing. A failed step's `message` is Lighten's exact error, not
   the sentence Results show.
 
+In `plan --json`, a relocation that needs a choice has a `conflict` whose
+`resolutions` are the choices Details offers for it, by these names:
+
+- `adopt-target`: **Keep target, link source**, when only the target
+  exists.
+- `adopt-and-discard-source`: **Keep target, delete source**, when both
+  exist.
+- `adopt-and-archive-source`: **Keep target, archive source**.
+- `leave-unchanged`: **Leave both as they are**.
+- `discard-both`: **Delete both, start empty**.
+
+`resolutions` is empty when no choice resolves it, such as a source that
+is a link to somewhere else: fix the link yourself, then plan again. To
+make a choice without the screens, save it as the rule (see **What each
+rule does on disk**).
+
 Screens and messages show your home directory as `~`. JSON output shows
 every path in full.
 

@@ -12,6 +12,7 @@ import dev.tamboui.widgets.common.ScrollBarPolicy
 import dev.tamboui.widgets.spinner.SpinnerState
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.pendingSteps
+import io.github.bigswlittlesw.lighten.application.relocationDecision
 import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
@@ -204,8 +205,10 @@ internal object ApplyView {
     private fun relocationDetails(row: PlanRow.RelocationRow, reviewed: ApplyModel.Reviewed): List<DetailViewport.Line> {
         val relocation = row.plan.relocation
         val observed = reviewed.plan.expectedStates.firstOrNull { it.relocation.sourcePath == relocation.sourcePath }
-        val decision = reviewed.choice(relocation.sourcePath)?.let(::choiceDecision)
-            ?: observed?.let { WorkspaceView.rule(relocation, it.source.state, it.target.state) }?.let(::ruleDecision)
+        // The plan's relocation has the choice applied, so its rules decide just as the saved ones did.
+        val decision = observed
+            ?.let { relocationDecision(it.source.state, it.target.state, relocation, reviewed.choice(relocation.sourcePath)) }
+            ?.let(::decisionLine)
         val archive = row.steps.firstNotNullOfOrNull { (it.action as? ReconciliationAction.ArchiveDirectory)?.destination }
         return listOfNotNull(
             DetailViewport.Line(displayPath(relocation.sourcePath), palette.text, true),

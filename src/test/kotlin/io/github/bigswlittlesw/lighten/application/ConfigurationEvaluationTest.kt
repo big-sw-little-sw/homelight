@@ -313,7 +313,7 @@ class ConfigurationEvaluationTest {
         val item = assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, session.evaluation()).items.single()
         assertEquals(PlanBadge.CONFLICT, item.badge())
         assertTrue(item.hasConflict())
-        assertEquals(listOf(DecisionChoice.ADOPT_TARGET), item.availableResolutions)
+        assertEquals(listOf(DecisionChoice.ADOPT_TARGET), item.decision?.offered)
         assertTrue(session.hasConflicts())
         assertFalse(session.isPlanReady())
 
@@ -336,7 +336,7 @@ class ConfigurationEvaluationTest {
         assertEquals(
             listOf(DecisionChoice.ADOPT_AND_DISCARD_SOURCE, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE,
                 DecisionChoice.LEAVE_UNCHANGED, DecisionChoice.DISCARD_BOTH),
-            item.availableResolutions,
+            item.decision?.offered,
         )
         val archived = evaluator.choose(loaded(), item.relocation.sourcePath, DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE)
         assertEquals(PlanBadge.BACKUP, archived.items.single().badge())

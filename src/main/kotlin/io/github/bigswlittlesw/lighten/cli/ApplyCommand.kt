@@ -46,9 +46,10 @@ internal class ApplyCommand(private val worker: Executor = Executor { it.run() }
             renderApplyJson(ReconciliationExecutor.ExecutionResult(listOf()), output)
             return CommandLine.ExitCode.OK
         }
-        val plan = ConfigurationEvaluation().loadRequired(config).plan
+        val loaded = ConfigurationEvaluation().loadRequired(config)
+        val plan = loaded.plan
         if (plan.hasBlockedActions() || plan.hasConflicts()) {
-            renderPlanJson(plan, output)
+            renderPlanJson(loaded, output)
             return 1
         }
         val execution = ReviewedExecution(plan)

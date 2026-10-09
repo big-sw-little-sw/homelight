@@ -13,7 +13,6 @@ import io.github.bigswlittlesw.lighten.application.DecisionChoice
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.application.PlanBadge
 import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
-import io.github.bigswlittlesw.lighten.config.Relocation
 import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
@@ -218,7 +217,7 @@ internal object WorkspaceView {
             is WorkspaceRow.IgnoredGroup, null -> null
         }
         val navigation = if (focused == WORKSPACE_DETAILS) {
-            val choices = !retained && item != null && item.availableResolutions.isNotEmpty()
+            val choices = !retained && item?.decision != null
             (if (choices) listOfNotNull(
                 KeyHint("↑/↓", "Choose", description = "Move between the choices"),
                 KeyHint("Space/Enter", "Select", description = "Pick the highlighted choice in place of the others, for the next apply only"),
@@ -344,7 +343,9 @@ internal object WorkspaceView {
         val source = item.relocation.sourcePath
         // Evaluation inspects the archive destination for every relocation, so it is known even when nothing archives.
         val archive = configured.observations.firstOrNull { it.relocation.sourcePath == source }?.archiveDestination?.path
-        val archiving = archives(item)
+        val decision = item.decision
+        // Archiving names its destination once: under Paths when it is in force, else in its choice.
+        val archiving = decision?.inForce == DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE
         val lines = buildList {
             val shown = displayPath(source)
             add(
@@ -364,7 +365,7 @@ internal object WorkspaceView {
                 RelocationSourceState.ABSENT, RelocationSourceState.FILE, RelocationSourceState.DIRECTORY,
                 RelocationSourceState.INACCESSIBLE, RelocationSourceState.OTHER -> {}
             }
-            decision(item, configured.draft[source])?.let { add(Line(it)) }
+            decision?.let { add(Line(decisionLine(it))) }
             add(Line("Will do: " + consequence(item), palette.text, true))
             item.plan.actions.filterIsInstance<ReconciliationAction.Blocked>()
                 .mapTo(this) { blocked -> Line(problem(blocked.reason.shown()), palette.error, false) }
@@ -372,10 +373,10 @@ internal object WorkspaceView {
             if (retained) add(Line(RESULTS_KEPT, palette.warn, false))
             item.plan.diagnostics.mapTo(this) { Line(it.message.shown(), palette.warn, false) }
             if (item.deletesData()) add(Line(DELETES_DATA, palette.warn, true))
-            if (!retained) item.availableResolutions.forEachIndexed { i, option ->
+            if (!retained && decision != null) decision.offered.forEachIndexed { i, option ->
                 add(Line(""))
                 if (i == choice) anchor = size
-                val chosen = item.selectedResolution() == option
+                val chosen = decision.inForce == option
                 add(
                     Line(
                         (if (i == choice && focused) "❯ " else "  ") + (if (chosen) "● " else "○ ") + choiceLabel(option),
@@ -402,20 +403,6 @@ internal object WorkspaceView {
     private fun leftBehind(item: PlanRelocationItem): Path? =
         item.plan.actions.filterIsInstance<ReconciliationAction.DeleteDirectory>().map { it.path }
             .firstOrNull { path -> path != item.relocation.sourcePath && path != item.relocation.targetPath }
-
-    /** Whether the effective rule or one-time choice archives the source in the case observed now. */
-    private fun archives(item: PlanRelocationItem): Boolean =
-        item.selectedResolution() == DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE &&
-            DecisionChoice.ADOPT_AND_ARCHIVE_SOURCE in item.availableResolutions
-
-    /**
-     * The one line saying what decides this row and where that comes from, or null when no rule governs the case
-     * observed now. A one-time choice wins over the saved rule it replaces for the next apply.
-     */
-    private fun decision(item: PlanRelocationItem, chosen: DecisionChoice?): String? {
-        if (chosen != null) return choiceDecision(chosen)
-        return rule(item.relocation, item.sourceObservation.state, item.targetObservation.state)?.let(::ruleDecision)
-    }
 
     private fun consequence(item: PlanRelocationItem): String {
         if (item.isBlocked()) return "nothing until you fix the problem below, then check again."
@@ -451,18 +438,6 @@ internal object WorkspaceView {
             SymlinkTargetAvailability.ABSENT -> "a broken link"
             SymlinkTargetAvailability.INACCESSIBLE -> "a link to something unreadable"
         }
-    }
-
-    /**
-     * The rule that governs the case where `source` and `target` are in these states, in the configuration's words,
-     * or null when none does.
-     */
-    fun rule(relocation: Relocation, source: PathState, target: PathState): String? = when {
-        target != PathState.DIRECTORY -> null
-        source == PathState.ABSENT -> onlyTargetLabel(relocation.whenOnlyTargetExists)
-        source == PathState.DIRECTORY ->
-            bothExistLabel(relocation.whenSourceAndTargetDirectoriesExist, relocation.whenAdoptingTarget)
-        else -> null
     }
 
     private fun color(badge: PlanBadge): Color = when (badge) {

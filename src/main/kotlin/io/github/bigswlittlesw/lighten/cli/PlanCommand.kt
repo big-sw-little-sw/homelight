@@ -3,7 +3,6 @@ package io.github.bigswlittlesw.lighten.cli
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.isUnconfiguredDefault
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
-import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.tui.launchTui
 import picocli.CommandLine.Command
 import picocli.CommandLine.Model.CommandSpec
@@ -42,9 +41,9 @@ internal class PlanCommand : Callable<Int> {
 
         val configPath = parent.config
         if (json) {
-            val plan = if (isUnconfiguredDefault(configPath)) ReconciliationPlan(listOf(), listOf())
-            else ConfigurationEvaluation().loadRequired(configPath, override).plan
-            renderPlanJson(plan, spec.commandLine().out)
+            val loaded = if (isUnconfiguredDefault(configPath)) null
+            else ConfigurationEvaluation().loadRequired(configPath, override)
+            renderPlanJson(loaded, spec.commandLine().out)
             return 0
         }
 

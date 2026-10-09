@@ -1,13 +1,19 @@
 package io.github.bigswlittlesw.lighten.cli
 
+import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
+import io.github.bigswlittlesw.lighten.application.DecisionChoice
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationDiagnostic
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import kotlinx.serialization.Serializable
 import java.io.PrintWriter
+import java.nio.file.Path
 import java.util.Locale
 
-internal fun renderPlanJson(plan: ReconciliationPlan, output: PrintWriter) {
-    output.println(encodeJson(PlanJson.serializer(), planJson(plan)))
+/** `loaded` is null when there is no configuration at the default path, which plans nothing. */
+internal fun renderPlanJson(loaded: ConfigurationEvaluation.Loaded?, output: PrintWriter) {
+    val json = if (loaded == null) planJson(ReconciliationPlan(listOf(), listOf())) { listOf() }
+        else planJson(loaded.plan, loaded::choicesFor)
+    output.println(encodeJson(PlanJson.serializer(), json))
 }
 
 @Serializable
@@ -36,7 +42,11 @@ private data class ConflictJson(val path: String, val reason: String, val resolu
 @Serializable
 private data class DiagnosticJson(val severity: String, val source: String, val code: String, val message: String)
 
-private fun planJson(plan: ReconciliationPlan) = PlanJson(
+/**
+ * A conflict's `resolutions` are the one-time choices the Workspace offers for it, so scripts and people see the same
+ * names; empty when no choice resolves it, such as a source link to somewhere else.
+ */
+private fun planJson(plan: ReconciliationPlan, offered: (Path) -> List<DecisionChoice>) = PlanJson(
     JSON_SCHEMA, plan.hasBlockedActions(), plan.hasConflicts(), plan.diagnostics.map(::diagnosticJson),
     plan.relocations.map { relocation ->
         RelocationPlanJson(
@@ -45,7 +55,7 @@ private fun planJson(plan: ReconciliationPlan) = PlanJson(
             relocation.conflict?.let { conflict ->
                 ConflictJson(
                     conflict.path.toString(), conflict.reason,
-                    conflict.resolutions.map { it.name.lowercase(Locale.ROOT).replace('_', '-') },
+                    offered(relocation.relocation.sourcePath).map { it.name.lowercase(Locale.ROOT).replace('_', '-') },
                 )
             },
             relocation.actions.map(::actionJson),

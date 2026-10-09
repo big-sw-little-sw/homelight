@@ -56,10 +56,7 @@ class ReconciliationPlanner {
                 PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
             RelocationSourceState.FILE -> blocked(state, PathText("source is a file; relocations require directories"))
-            RelocationSourceState.WRONG_SYMLINK -> conflict(
-                state, source, "source points to a live, non-configured destination",
-                ReconciliationConflict.Resolution.REPLACE_SOURCE_LINK, ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
-            )
+            RelocationSourceState.WRONG_SYMLINK -> conflict(state, source, "source points to a live, non-configured destination")
             RelocationSourceState.BROKEN_SYMLINK -> when (state.target.state) {
                 PathState.DIRECTORY -> outcome(state, listOf(replacementLink(state)))
                 PathState.ABSENT -> blocked(state, PathText("broken source link has no target directory"))
@@ -250,11 +247,11 @@ private fun onlyTargetExists(state: RelocationState): RelocationPlan =
                 ReconciliationAction.CreateSymlink(state.relocation.sourcePath, state.relocation.targetPath),
             ),
         )
-    else unresolved(state, state.relocation.targetPath, "a real target directory requires an adopt-target decision")
+    else conflict(state, state.relocation.targetPath, "a real target directory requires an adopt-target decision")
 
 private fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
     when (state.relocation.whenSourceAndTargetDirectoriesExist) {
-        WhenSourceAndTargetDirectoriesExist.PROMPT -> unresolved(
+        WhenSourceAndTargetDirectoriesExist.PROMPT -> conflict(
             state, state.relocation.sourcePath,
             "both source and target directories exist; choose which directory is authoritative",
         )
@@ -265,7 +262,7 @@ private fun bothDirectoriesExist(state: RelocationState): RelocationPlan =
 
 private fun adoptTarget(state: RelocationState): RelocationPlan =
     when (state.relocation.whenAdoptingTarget) {
-        WhenAdoptingTarget.PROMPT -> unresolved(
+        WhenAdoptingTarget.PROMPT -> conflict(
             state, state.relocation.sourcePath, "adopting the target requires a source disposition",
         )
         WhenAdoptingTarget.DISCARD_SOURCE -> outcome(
@@ -329,16 +326,8 @@ private fun replacementLink(state: RelocationState): ReconciliationAction.Replac
         state.relocation.sourcePath, state.relocation.targetPath, state.source.symlinkTarget!!,
     )
 
-private fun unresolved(state: RelocationState, path: Path, reason: String): RelocationPlan = conflict(
-    state, path, reason, ReconciliationConflict.Resolution.RESOLVE_EXISTING_CONTENT,
-    ReconciliationConflict.Resolution.LEAVE_UNMANAGED, ReconciliationConflict.Resolution.CHOOSE_DIFFERENT_TARGET,
-)
-
-private fun conflict(
-    state: RelocationState, path: Path, reason: String, vararg resolutions: ReconciliationConflict.Resolution,
-): RelocationPlan = RelocationPlan(
-    state.relocation, RelocationOutcome.UNRESOLVED, listOf(), listOf(),
-    ReconciliationConflict(path, reason, resolutions.toList()),
+private fun conflict(state: RelocationState, path: Path, reason: String): RelocationPlan = RelocationPlan(
+    state.relocation, RelocationOutcome.UNRESOLVED, listOf(), listOf(), ReconciliationConflict(path, reason),
 )
 
 private fun blocked(state: RelocationState, reason: PathText): RelocationPlan = RelocationPlan(

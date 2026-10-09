@@ -1,8 +1,10 @@
 package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
+import io.github.bigswlittlesw.lighten.application.BothExistRule
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.DecisionChoice
+import io.github.bigswlittlesw.lighten.application.GoverningRule
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
@@ -52,7 +54,7 @@ class AlwaysDoThisTest {
         val ui = chosen()
         ui.press('s')
         val dialog = squeezed(ui.screen(200, 50))
-        for (line in alwaysDoThis(root.resolve("home/cache"), choice = chosenChoice, config = config) + ALWAYS_DO_THIS_KEYS) {
+        for (line in alwaysDoThis(root.resolve("home/cache"), GoverningRule.BothExist(BothExistRule.ASK_EACH_TIME), chosenChoice, config) + ALWAYS_DO_THIS_KEYS) {
             assertTrue(dialog.contains(squeezed(line)), "$line\n$dialog")
         }
         assertTrue(dialog.contains(squeezed("keep target, delete source")), dialog)
@@ -75,7 +77,7 @@ class AlwaysDoThisTest {
         // Checked again: the rule decides, so the one-time choice is gone and `s` has nothing to save.
         assertTrue(draft(ui).isEmpty())
         val after = ui.screen(200, 50)
-        assertTrue(squeezed(after).contains(squeezed(ruleDecision("Keep target, delete source"))), after)
+        assertTrue(squeezed(after).contains(squeezed("Decision: keep target, delete source (your configuration)")), after)
         assertFalse(after.contains("this run only"), after)
         assertTrue(after.contains("Saved. 1 relocation will change: press a to review and apply."), after)
         assertFalse(after.contains(ALWAYS_DO_THIS), after)
