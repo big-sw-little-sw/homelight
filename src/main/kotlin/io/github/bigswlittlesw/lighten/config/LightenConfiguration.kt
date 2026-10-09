@@ -11,14 +11,14 @@ data class LightenConfiguration private constructor(
     val sharedList: Path?,
 ) {
     companion object {
-        /** Normalizes `sharedList` and copies the lists. */
+        /** Copies the lists. */
         fun of(
             targetRoot: Path,
             relocations: List<Relocation>,
             ignoredSourcePaths: List<Path>,
             sharedList: Path? = null,
         ): LightenConfiguration = LightenConfiguration(
-            targetRoot, relocations.toList(), ignoredSourcePaths.toList(), sharedList?.let(::normalizeSharedList),
+            targetRoot, relocations.toList(), ignoredSourcePaths.toList(), sharedList,
         )
     }
 }

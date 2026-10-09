@@ -172,9 +172,23 @@ class ConfigurationEvaluationTest {
         bothDirectories("source", "target")
         write(entry("source", "target"), entry("source", "target"))
         val duplicate = loaded()
-        assertTrue(duplicate.plan.hasBlockedActions())
-        assertFalse(duplicate.plan.diagnostics.isEmpty())
+        assertTrue(duplicate.plan.relocations.all { relocation -> relocation.actions.any { it is ReconciliationAction.Blocked } })
         assertThrows<IllegalArgumentException> { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
+    }
+
+    /** No choice avoids an overlap, so a row blocked by one never says a choice avoids a folder (#207). */
+    @Test
+    fun anOverlapIsNotAvoidedByAChoice() {
+        bothDirectories("parent", "target")
+        Files.createDirectory(root.resolve("parent/child"))
+        val archiveFile = Files.writeString(root.resolve("archive-file"), "a file")
+        val rules = mapOf("when-source-and-target-directories-exist" to "adopt", "when-adopting-target" to "archive-source",
+            "archive-root" to archiveFile.toString())
+        write(entry("parent", "target", rules), entry("parent/child", "child-target"))
+        assertTrue(loaded().items.none { it.choiceAvoidsFolder })
+
+        write(entry("parent", "target", rules))
+        assertTrue(loaded().items.single().choiceAvoidsFolder)
     }
 
     @Test

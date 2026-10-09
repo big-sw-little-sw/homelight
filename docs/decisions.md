@@ -22,12 +22,18 @@ Every published directory keeps the nine POSIX permission bits of its source; a 
 
 ### Existing ancestors may be symlinks; overlap compares real paths
 
-An existing ancestor may be a link to a directory (`/home -> /var/home`), but every directory Lighten creates, and the source, target and staging root themselves, must be real. Overlap compares real spellings: the loader refuses relocations that overlap only through a link, and overlap visible as written blocks the plan. The planner stays pure. Why: Fedora Atomic and macOS have linked ancestors; planner I/O could block on a slow mount on every choice. (#128)
+An existing ancestor may be a link to a directory (`/home -> /var/home`), but every directory Lighten creates, and the source, target and staging root themselves, must be real. Why: Fedora Atomic and macOS have linked ancestors. (#128)
 
 - `[skipped: real-path check of an archive path against its own relocation, add when an archive root reached through a symlink is reported]`
 - `[skipped: re-checking aliased overlap in preflight, add when ancestor links are seen to change between review and apply]`
 - `[skipped: removing toRealPath() from cli and application test fixtures, add when those tests next change]`
 - `[skipped: rewriting ensureDirectories's walk without mutable locals, add when it changes for another reason]`
+
+### Overlap blocks only the relocations involved
+
+Two relocations that overlap (one inside the other, or the same target), as written or through a link, are each blocked with a reason naming the other path; a relocation whose source and target overlap blocks only itself. The other relocations are planned, and any block keeps Review closed. Inspection records real spellings and the planner, which stays pure, compares them. Saving still refuses overlap as written. Why: one mistake should not hide the whole plan, and planner I/O could block on a slow mount on every choice. (#128, #207)
+
+- `[skipped: naming every overlapping relocation in one reason, add when users configure three or more that overlap]`
 
 ### One staging operation per target
 
@@ -56,9 +62,9 @@ Archive-source moves a source to `<archive root>/<source name>`, or `<source nam
 
 ### The planner blocks a folder that is not a folder
 
-Inspection walks every folder a step may create or work in, and the planner blocks a relocation whose steps need a path that is a file, link or unreadable; the staging root must be a real folder. Details offer a choice that avoids the folder when one exists. Why: the apply used to stop halfway and blame a change made before `y`. (#163)
+Inspection walks every folder a step may create or work in, and the planner blocks a relocation whose steps need a path that is a file, link or unreadable; the staging root must be a real folder. A planned move whose staging root is on another filesystem than its target is blocked too, naming the `staging-root` setting. Details offer a choice that avoids the folder when one exists. Why: the apply used to stop halfway and blame a change made before `y`. (#163, #207)
 
-- `[skipped: a plan-time check that the staging root is on the target's filesystem and that both support POSIX permissions, add when a user's apply stops on either]`
+- `[skipped: a plan-time check that the staging root and target support POSIX permissions, add when a user's apply stops on it]`
 - `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported]`
 - `[skipped: a stricter check when a configured staging root is also a source, target or archive parent, add when someone configures one that way]`
 
@@ -133,7 +139,7 @@ Configuration and suggestion lists are JSON with `//` and `/* */` comments and t
 
 ### Paths are full or start with `~/`, and stay as written
 
-Every path in the file is full or starts with `~/`, after `${USER}` is filled in; a relative one is refused. Paths expand only when converted to domain types, so a saved file keeps `~` and `${USER}`. `source-root` defaults to `~`; a target is derived from the source's place under it unless given. Why: a relative path would depend on where Lighten runs. (#114)
+Every path in the file, `suggestion-list` included, is `~`, full or starts with `~/`, after `${USER}` is filled in; a relative one is refused. `${USER}` is the `USER` variable, else the OS account name; with neither, a path using it is refused, never expanded to empty text. Paths expand only when converted to domain types, so a saved file keeps `~` and `${USER}`. `source-root` defaults to `~`; a target is derived from the source's place under it unless given. Why: a relative path would depend on where Lighten runs. (#114, #207)
 
 ### One editor for creating and editing
 

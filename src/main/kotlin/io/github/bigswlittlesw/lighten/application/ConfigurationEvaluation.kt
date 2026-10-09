@@ -206,21 +206,27 @@ class ConfigurationEvaluation(
     /**
      * The sources whose relocation [effectivePlan] blocks only because of a folder in the way, and which one of
      * their offered choices plans without a block. A relocation counts as blocked only by a folder when planning it
-     * with no folder in the way unblocks it. Each relocation is planned alone, which is enough: a configuration
-     * problem across relocations blocks every relocation whatever the folders are.
+     * with no folder in the way unblocks it. Each one is planned among the others, so an overlap, which no choice
+     * avoids, still blocks it.
      */
     private fun choiceAvoidsFolder(
         observations: List<RelocationState>, effectivePlan: ReconciliationPlan,
         choices: Map<Path, List<DecisionChoice>>,
-    ): Set<Path> = observations.zip(effectivePlan.relocations).filter { (saved, relocationPlan) ->
-        fun blocked(state: RelocationState) = plan(listOf(state)).hasBlockedActions()
-        val effective = saved.copy(relocation = relocationPlan.relocation)
-        relocationPlan.actions.any { it is ReconciliationAction.Blocked } &&
-            !blocked(effective.copy(notFolders = mapOf())) &&
-            choices.getValue(normalize(saved.relocation.sourcePath)).any { choice ->
-                !blocked(saved.copy(relocation = choice.applyTo(saved.relocation)))
-            }
-    }.map { (saved, _) -> normalize(saved.relocation.sourcePath) }.toSet()
+    ): Set<Path> {
+        val effective = observations.zip(effectivePlan.relocations) { saved, relocationPlan ->
+            saved.copy(relocation = relocationPlan.relocation)
+        }
+        fun blocked(i: Int, state: RelocationState) = plan(effective.mapIndexed { j, other -> if (j == i) state else other })
+            .relocations[i].actions.any { it is ReconciliationAction.Blocked }
+        return observations.indices.filter { i ->
+            val saved = observations[i]
+            effectivePlan.relocations[i].actions.any { it is ReconciliationAction.Blocked } &&
+                !blocked(i, effective[i].copy(notFolders = mapOf())) &&
+                choices.getValue(normalize(saved.relocation.sourcePath)).any { choice ->
+                    !blocked(i, saved.copy(relocation = choice.applyTo(saved.relocation)))
+                }
+        }.map { i -> normalize(observations[i].relocation.sourcePath) }.toSet()
+    }
 }
 
 /** Shared by evaluation and the legacy JSON empty responses; explicit non-default paths still require a file. */
