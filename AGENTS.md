@@ -59,6 +59,10 @@ Gaps in upstream projects such as TamboUI are worked around in our code; never f
 
 Record a product or architecture decision in `docs/decisions.md`, under its theme, in the same pull request.
 
+## Merging
+
+Work lands through pull requests into `main`, which requires the 7 CI checks. An agent may merge a pull request once all 7 checks pass and it has been reviewed, unless the change is user-visible: a change to what users see (screens, wording, CLI output, the user guide) waits for the maintainer's walkthrough, with captures at 80x24 and 120x30 and a `ci/try-pr` walkthrough in the pull request. Product and UX questions go to the maintainer; everything else is decided and recorded.
+
 ## Verification
 
 When asked to review, audit, or verify a claim, assess it independently. Report the evidence: relevant files inspected, checks run, and any remaining uncertainty. Do not describe work as complete without a proportionate spot-check.
