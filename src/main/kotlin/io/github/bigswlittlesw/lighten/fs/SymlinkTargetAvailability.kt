@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.lighten.fs
 
-/** The availability of the destination reached by a symlink. */
+/** Whether the place a symlink points to exists. A path that is not a symlink is [NOT_A_SYMLINK]. */
 enum class SymlinkTargetAvailability {
     EXISTS,
     ABSENT,

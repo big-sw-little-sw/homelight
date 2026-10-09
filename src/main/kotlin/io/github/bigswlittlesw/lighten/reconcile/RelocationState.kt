@@ -52,9 +52,9 @@ internal fun inspectRelocations(
 
 /**
  * Whether the staging root and the target's parent are on different filesystems, compared as the executor compares
- * them before a copy: the file store of each one's nearest existing ancestor. Two store lookups, no folder walk, so
- * every check can afford it. A path whose store can't be read counts as the same filesystem: the folder check or
- * the copy-time check reports it.
+ * them before a copy: the file store of each one's nearest existing ancestor. It makes two store lookups and walks no
+ * folders, so every check can afford it. A path whose store can't be read counts as the same filesystem. The folder
+ * check or the copy-time check then reports it.
  */
 internal fun stagingElsewhere(relocation: Relocation): Boolean {
     val targetParent = relocation.targetPath.parent ?: return false
@@ -144,11 +144,11 @@ private fun sourceName(source: Path): Path =
  *
  * The recognition rule: a directory at exactly this name is the remains of an interrupted replacement only while
  * [source] is a link to [target] and [target] is a directory. The planner then deletes it, and never treats it as a
- * source. That is safe because the replacement started only after [target] held the source's content, and the hash
- * ties the name to that one target: after the configuration moves the relocation to another target, the name no
- * longer matches. While [source] is absent the remains are kept, since the link that would make them redundant does
- * not exist yet. While [source] is a directory again (an application may recreate it), the relocation is blocked,
- * so a both-exist rule such as `discard` cannot act on a fresh source while the original one is still aside.
+ * source. That is safe because the replacement started only after [target] held the source's content. The hash ties
+ * the name to that one target: after the configuration moves the relocation to another target, the name no longer
+ * matches. While [source] is absent, the remains are kept, because the link that makes them redundant does not exist
+ * yet. While [source] is a directory again (an application may recreate it), the relocation is blocked. So a
+ * both-exist rule such as `discard` cannot act on a fresh source while the original one is still aside.
  */
 internal fun replacedSourcePath(source: Path, target: Path): Path {
     val absolute = source.toAbsolutePath().normalize()

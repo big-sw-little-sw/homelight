@@ -18,7 +18,10 @@ import java.nio.file.attribute.PosixFileAttributeView
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Applies a fully resolved plan, stopping when the filesystem no longer matches its guards. */
+/**
+ * Applies a plan with no blocked actions and no open choices. It stops when the filesystem no longer matches an
+ * action's guards.
+ */
 class ReconciliationExecutor internal constructor(
     private val concurrency: Int,
     /** A test seam, called as an action reaches each [Step]. */
@@ -29,9 +32,9 @@ class ReconciliationExecutor internal constructor(
     private val inspector = PathInspector()
 
     /**
-     * Checks all observations retained at review before any action runs. This compares
-     * path states, link destinations/availability, and directory emptiness, not tree contents.
-     * Per-action guards remain necessary because preflight cannot lock out external writers.
+     * Compares the disk with every observation kept at review, before any action runs. It compares path states, link
+     * destinations and whether they exist, and whether directories are empty. It does not compare tree contents.
+     * Each action still checks its own guards, because other programs can change the disk after preflight.
      */
     fun preflight(plan: ReconciliationPlan): List<ReconciliationDiagnostic> {
         require(plan.expectedStates.map { it.relocation } == plan.relocations.map { it.relocation }) {
@@ -80,7 +83,8 @@ class ReconciliationExecutor internal constructor(
             }
         }
         val groups = independentGroups(plan.relocations)
-        // A single group runs on the caller's thread, as before concurrency, so the caller's interrupts still reach it.
+        // A single group runs on the caller's thread, so the caller's interrupts still reach it. mapBounded never
+        // passes interrupts to its threads.
         val outcomes = if (groups.size == 1) {
             listOf(Outcome.Completed(run(groups.single())))
         } else {
@@ -214,11 +218,15 @@ class ReconciliationExecutor internal constructor(
     }
 
     /**
-     * Changes the source only in atomic steps (#132): it is renamed aside to its [replacedSourcePath], the link is
-     * moved into its place, and only then is the renamed tree deleted. A crash or failure therefore leaves the whole
-     * source at its path, or nothing there and the whole source aside, or the link there and the rest of the source
-     * aside. None of these is a partial source next to the target. The planner deletes what is left aside only once
-     * the link is in place.
+     * Changes the source only in atomic steps. The source is renamed aside to its [replacedSourcePath], then the link
+     * moves into its place, and only then is the renamed tree deleted. After a crash or failure, one of these is true:
+     * - The whole source is at its path.
+     * - Nothing is at its path, and the whole source is aside.
+     * - The link is at its path, and the rest of the source is aside.
+     *
+     * None of these is a partial source next to the target. A partial source would plan as both directories existing,
+     * and a saved `discard` rule would then delete the whole target. The planner deletes what is aside only once the
+     * link is in place.
      */
     private fun replaceDirectoryWithSymlink(action: ReconciliationAction.ReplaceDirectoryWithSymlink) {
         val aside = replacedSourcePath(action.path, action.target)
@@ -313,7 +321,10 @@ class ReconciliationExecutor internal constructor(
     }
 
     data class RelocationExecution(val relocation: RelocationPlan, val actions: List<ActionExecution>) {
-        /** Returns the execution outcome after accounting for an interrupted source replacement. */
+        /**
+         * The outcome after the actions ran. A failure after the migration published the target is
+         * [ExecutionOutcome.FAILED_RECOVERY]: the target exists, but the relocation did not finish.
+         */
         fun outcome(): ExecutionOutcome {
             if (actions.any { action -> action.status == ActionStatus.FAILED }) {
                 val targetPublished = actions.any { action ->
@@ -369,10 +380,11 @@ private fun failure(action: ReconciliationAction, message: String, failure: Acti
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.FAILED, message, failure)
 
 /**
- * Refuses publication where directory permission bits cannot be read or set, rather than letting
- * the copy fall back to provider defaults (decision 2026-09-30). A provider that accepts but ignores
- * the bits is caught later by [verifyCopy]. [store] is the [fileStoreOfExistingAncestor] of [path], which the
- * caller passes so the target's store is looked up once.
+ * Refuses publication where directory permission bits cannot be read or set. Otherwise the copy would get the
+ * filesystem's default permissions. Relocated directories often go to shared storage, where wider permissions would
+ * expose private data. [verifyCopy] later finds a filesystem that accepts the bits but ignores them.
+ *
+ * [store] is the [fileStoreOfExistingAncestor] of [path]. The caller passes it so the target's store is looked up once.
  */
 private fun requirePosixPermissions(path: Path, store: FileStore) {
     if (!store.supportsFileAttributeView(PosixFileAttributeView::class.java)) {
@@ -386,10 +398,10 @@ private fun requirePosixPermissions(path: Path, store: FileStore) {
  * Makes [path] a directory, creating its missing components.
  *
  * The symlink rule: an existing ancestor of a path that an action works on may be a symlink to a directory, as
- * `/var` is on macOS and `/home` on Fedora Atomic, so existing components here are followed. Every directory
- * Lighten creates must be real, and so must the paths that actions work on (source, target, staging root): their
- * guards and [ensureRealDirectory] do not follow links. Once a component is missing, the rest are created too, so a
- * symlink that appears there meanwhile is refused.
+ * `/var` is on macOS and `/home` on Fedora Atomic. So this follows existing components. Every directory Lighten
+ * creates must be real. So must the paths that actions work on: the source, target and staging root. Their guards and
+ * [ensureRealDirectory] do not follow links. Once a component is missing, this creates the rest too, so it refuses a
+ * symlink that appears there meanwhile.
  */
 private fun ensureDirectories(path: Path) {
     val absolute = path.toAbsolutePath().normalize()
@@ -420,8 +432,9 @@ private fun createRealDirectory(path: Path) {
 }
 
 /**
- * Follows a symlink at the nearest existing component, as [ensureDirectories] would. Inspection uses it too, so the
- * plan-time staging check ([stagingElsewhere]) and the copy-time one compare the same stores.
+ * The file store of the nearest existing ancestor of [path], following a symlink there as [ensureDirectories] does.
+ * Inspection uses it too, so the plan-time staging check ([stagingElsewhere]) and the copy-time check compare the
+ * same stores.
  */
 internal fun fileStoreOfExistingAncestor(path: Path): FileStore {
     val existing = generateSequence(path.toAbsolutePath().normalize()) { it.parent }

@@ -3,11 +3,11 @@ package io.github.bigswlittlesw.lighten.reconcile
 import io.github.bigswlittlesw.lighten.fs.PathText
 import java.nio.file.Path
 
-/** A concrete, inspectable step in a reconciliation plan. */
+/** One step of a plan. */
 sealed interface ReconciliationAction {
     val path: Path
 
-    /** The stable machine-readable name used by presentation adapters. */
+    /** The stable machine-readable name, which JSON output uses. */
     val type: String
         get() = when (this) {
             is CreateDirectory -> "create-directory"
@@ -51,15 +51,18 @@ sealed interface ReconciliationAction {
             is ReplaceSymlink -> true
         }
 
-    /** Creates `path` after its parent-directory prerequisites have been satisfied. */
+    /** Creates `path`. An earlier [EnsureDirectory] makes its parent. */
     data class CreateDirectory(override val path: Path) : ReconciliationAction
 
-    /** Creates a prerequisite directory when absent and refuses files or symlinks. */
+    /**
+     * Makes `path` a directory, with its missing parents. It follows an existing link to a directory, and fails on
+     * anything else in the way.
+     */
     data class EnsureDirectory(override val path: Path) : ReconciliationAction
 
     /**
-     * Migrates a verified source copy for target-local atomic publication.
-     * A null `stagingRoot` stages beside the target.
+     * Copies the source into a staging root, checks the copy, and moves it to [target] in one rename. A null
+     * `stagingRoot` stages beside the target.
      */
     data class MigrateDirectoryForPublication(override val path: Path, val target: Path, val stagingRoot: Path? = null) :
         ReconciliationAction {
@@ -68,15 +71,15 @@ sealed interface ReconciliationAction {
             get() = effectiveStagingRoot(target, stagingRoot)
     }
 
-    /** Moves a source directory into an unoccupied deterministic archive location. */
+    /** Moves the source in one rename to [target], its archive path, which must not exist yet. */
     data class ArchiveDirectory(override val path: Path, val target: Path) : ReconciliationAction
 
-    /** Removes a real directory tree after verifying it is still a directory. */
+    /** Deletes a directory tree after checking that it is still a directory. */
     data class DeleteDirectory(override val path: Path) : ReconciliationAction
 
     data class CreateSymlink(override val path: Path, val target: Path) : ReconciliationAction
 
-    /** Prepares a replacement link before removing an accepted source directory. */
+    /** Replaces the source directory with a link to [target]. The link is in place before the old source is deleted. */
     data class ReplaceDirectoryWithSymlink(override val path: Path, val target: Path) : ReconciliationAction
 
     data class ReplaceSymlink(override val path: Path, val target: Path, val expectedSourceTarget: Path) :
@@ -84,7 +87,7 @@ sealed interface ReconciliationAction {
 
     data class NoOp(override val path: Path) : ReconciliationAction
 
-    /** Records an explicit decision to leave source and target directories unmanaged. */
+    /** Records that the rule or one-time choice leaves both directories as they are. */
     data class LeaveUnchanged(override val path: Path) : ReconciliationAction
 
     /** [reason] is in the planner's words, which JSON and screens share; only how its paths read differs. */

@@ -8,7 +8,10 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 
-/** Inspects configured paths while treating symlinks as filesystem objects. */
+/**
+ * Observes a path without following a symlink at it. For a symlink, it also records where the link points and whether
+ * that exists.
+ */
 class PathInspector {
     fun inspect(path: Path): PathObservation {
         if (!Files.isSymbolicLink(path)) return inspectNonLink(path)

@@ -18,7 +18,7 @@ import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 
 /**
- * The plan blocks a relocation for a folder it needs exactly when the apply would fail on that folder (#214).
+ * The plan blocks a relocation for a folder it needs exactly when the apply would fail on that folder.
  *
  * Inspection ([inspectFolders], [stagingElsewhere]) and the executor (`ensureDirectories`, the staging file-store
  * check) apply the same rules separately. Each case plans for real, then forces the apply: it plans again from the
