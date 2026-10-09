@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.lighten.tui
 import dev.tamboui.tui.event.KeyCode
 import dev.tamboui.tui.event.KeyEvent
 import dev.tamboui.tui.event.KeyModifiers
+import io.github.bigswlittlesw.lighten.HANG_LIMIT
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.pollUntil
@@ -195,7 +196,7 @@ class LightenExitTest {
                 }
             }
         })
-        assertTrue(started.await(5, TimeUnit.SECONDS))
+        assertTrue(started.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
         try {
             ui.press('q')
             ui.press('y')
@@ -208,7 +209,7 @@ class LightenExitTest {
         } finally {
             release.countDown()
         }
-        completion.get(5, TimeUnit.SECONDS)
+        completion.get(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS)
         assertFalse(ui.app.exitRequested(), "worker must not touch UI exit intent")
         ui.frame()
         assertTrue(ui.app.exitRequested())

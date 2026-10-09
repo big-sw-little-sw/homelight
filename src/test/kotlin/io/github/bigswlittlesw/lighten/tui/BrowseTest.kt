@@ -12,21 +12,20 @@ import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExis
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.HANG_LIMIT
 import io.github.bigswlittlesw.lighten.pollUntil
+import io.github.bigswlittlesw.lighten.withoutHanging
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTimeout
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.function.Executable
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.LockSupport
 import java.util.regex.Pattern
@@ -214,17 +213,18 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
-            assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
-            assertTimeout(Duration.ofSeconds(1), Executable {
+            assertTrue(workers.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
+            // The read stays stalled until the end: none of these steps may wait for it.
+            withoutHanging {
                 workers.expire(); render(ui); key(ui, 'r'); key(ui, 'i')
                 assertTrue(all(ui).contains("Previous read still pending"))
                 escape(ui); escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui)
                 Files.writeString(root.resolve("config.json"), "concurrent winner")
                 key(ui, 's'); assertTrue(all(ui).contains("Not saved"))
                 assertEquals("concurrent winner", Files.readString(root.resolve("config.json")))
-            })
+            }
             Files.delete(root.resolve("config.json"))
-            assertTimeout(Duration.ofSeconds(1), Executable { key(ui, 's') })
+            withoutHanging { key(ui, 's') }
             assertTrue(render(ui).contains("[1: Workspace]"))
             assertNull(workers.workers.first().snapshot().request)
             workers.release.countDown()
@@ -239,7 +239,7 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
-            assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
+            assertTrue(workers.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
             escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui)
             key(ui, 'q'); escape(ui)
             assertTrue(render(ui).contains("manual"))
@@ -790,9 +790,8 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
-            assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
-            val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
-            while (!render(ui).contains("○ .m2") && System.nanoTime() < until) LockSupport.parkNanos(1_000_000)
+            assertTrue(workers.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
+            pollUntil("Bundled suggestions did not appear") { render(ui).contains("○ .m2") }
             choose(ui, ".m2"); enter(ui); key(ui, ' '); key(ui, 'e')
             down(ui); clear(ui); type(ui, "unfinished-target")
             workers.release.countDown(); await(workers, ui)
@@ -813,7 +812,7 @@ class BrowseTest {
         SetupDiscoveryFixture().use { workers ->
             workers.block = true
             val ui = ui(root, workers); locations(ui, root, root.resolve("shared.json")); key(ui, 'b')
-            assertTrue(workers.entered.await(2, TimeUnit.SECONDS))
+            assertTrue(workers.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
             key(ui, 'q'); key(ui, 'y')
             workers.release.countDown()
             repeat(20) {
