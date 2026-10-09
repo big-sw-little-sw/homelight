@@ -14,11 +14,16 @@ import java.nio.file.Path
 /**
  * Loads one JSON configuration rooted at `lighten`.
  *
- * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
- * rules: every path, `suggestion-list` included, follows [resolvePath]; a missing target is the source's path under
- * `source-root` (default `~`) placed under `target-root`; a missing archive root is [defaultArchiveRoot];
- * staging-root must be under target-root; a relocation's source must not also be ignored. Overlapping relocations
- * load: the planner blocks the ones involved. Environment variables and system properties never override values.
+ * kotlinx.serialization checks the format; [decodeJson] says what it rejects. This class applies Lighten's own rules:
+ *
+ * - Every path, `suggestion-list` included, follows [resolvePath].
+ * - A missing target is the source's path under `source-root` (default `~`), placed under `target-root`.
+ * - A missing archive root is [defaultArchiveRoot].
+ * - `staging-root` must be under `target-root`.
+ * - A relocation's source must not also be ignored.
+ *
+ * Overlapping relocations load: the planner blocks the ones involved. Environment variables and system properties
+ * never override values.
  */
 class ConfigurationLoader {
     /**
@@ -143,9 +148,10 @@ internal fun resolvePath(value: String, name: String): Path {
 }
 
 /**
- * A rejected file in plain words where [JsonProblem] has them, else in kotlinx's. Text that is not JSON leads with
- * its line and column; a value in valid JSON leads with its line when known (user decision), since the column of a
- * value or key is less exact. Keys are named below `lighten`, as the file's reader sees them.
+ * Why the file was rejected, in plain words when [JsonProblem] has them, else in kotlinx.serialization's words. Text
+ * that is not JSON starts with its line and column. A problem in valid JSON starts with only its line, when known,
+ * because the column of a value or key is less exact. Keys are named below `lighten`, as the user sees them in the
+ * file.
  */
 private fun problem(exception: JsonInputException): String {
     val line = if (exception.line > 0) "Line ${exception.line}: " else ""

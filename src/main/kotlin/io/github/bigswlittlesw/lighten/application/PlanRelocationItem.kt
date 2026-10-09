@@ -10,7 +10,7 @@ import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 
 /**
- * An evaluated relocation item combining configuration, observations, dry-run actions, and what decides it.
+ * One relocation in the plan: its configuration, what is on disk, the planned steps, and what decides it.
  *
  * `decision` is null when no rule governs the case observed now, or when the relocation takes no choice (a source
  * configured twice). `choiceAvoidsFolder` is true when the plan is blocked only by a folder in the way and one of
@@ -74,7 +74,7 @@ data class PlanRelocationItem(
         }
     }
 
-    /** A source link to somewhere else is blocked, not a warning: its reason says it. */
+    /** A source link that points somewhere else is blocked, not a warning: the blocked reason says so. */
     fun hasWarnings(): Boolean =
         sourceState == RelocationSourceState.BROKEN_SYMLINK
                 || plan.diagnostics.any { it.severity == ReconciliationDiagnostic.Severity.WARNING }

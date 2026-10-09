@@ -3,7 +3,7 @@ package io.github.bigswlittlesw.lighten.config
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** The decision required when both relocation paths are real directories. */
+/** The rule for when the source and the target are both real directories. */
 @Serializable
 @SerialName("when-source-and-target-directories-exist")
 enum class WhenSourceAndTargetDirectoriesExist {

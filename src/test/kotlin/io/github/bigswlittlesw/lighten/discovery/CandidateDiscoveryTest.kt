@@ -112,7 +112,7 @@ class CandidateDiscoveryTest {
         for (denied in listOf(true, false)) {
             discovery(Workers(), AtomicLong(), { path ->
                 if (denied) throw AccessDeniedException(path.toString())
-                // Simulates a reader failing after receiving a prefix: no prefix is returned for parsing.
+                // A read that fails after some bytes arrived: none of those bytes reach the parser.
                 throw IOException("Read failed after partial bytes")
             }, "cache", CandidateMetadata()).use { discovery ->
                 discovery.refresh(temporary, temporary.resolve("shared"))
@@ -138,7 +138,7 @@ class CandidateDiscoveryTest {
         try {
             withoutHanging { discovery.refresh(temporary, temporary.resolve("shared")) }
             assertTrue(gate.entered.await(HANG_LIMIT.toSeconds(), TimeUnit.SECONDS))
-            // The run does not wait for the shared read.
+            // The run does not wait for the read of the user's list.
             awaitResult(discovery) { r -> !r.candidates.isEmpty()
                     && r.candidates.first().observation.kind == Kind.MISSING }
             worker.get().interrupt()

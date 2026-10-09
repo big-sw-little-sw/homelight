@@ -11,7 +11,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Supplier
 
-/** Test-only access to the accepted worker seams, shared by UI tests. */
+/**
+ * Builds discoveries with their own workers, a clock the test moves, and a read of the user's list that the test
+ * can hold. UI tests use it too.
+ */
 class SetupDiscoveryFixture : Supplier<CandidateDiscovery>, AutoCloseable {
     private val threads = Workers()
     private val clock = AtomicLong()

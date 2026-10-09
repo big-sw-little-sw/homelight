@@ -9,10 +9,10 @@ import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
 import java.nio.file.Path
 
 /**
- * Immutable snapshots of one reviewed plan's confirmation and execution lifecycle.
+ * Read-only snapshots of one reviewed plan, from confirmation through apply to its result.
  *
- * Snapshots pass from the execution worker to the presentation thread, so their lists are
- * unmodifiable JDK copies made by each `of`.
+ * The apply worker hands snapshots to the UI thread. Each `of` copies its collections, so a snapshot never changes
+ * after it is made.
  */
 sealed interface ApplyModel {
     data object Idle : ApplyModel
@@ -51,7 +51,7 @@ sealed interface ApplyModel {
         }
     }
 
-    /** A result remains retained until explicit re-planning. Preflight failures have no execution. */
+    /** A result stays until the user checks again. When preflight fails, nothing runs, so `execution` is null. */
     @ConsistentCopyVisibility
     data class Result private constructor(
         override val plan: ReconciliationPlan, val steps: List<Step>, val execution: ExecutionResult?,
@@ -69,7 +69,7 @@ sealed interface ApplyModel {
 
     /**
      * [failure] says why a failed step failed, when the executor knows; [message] is then its own text. A completed
-     * copy lists the sockets it skipped in [skippedSockets].
+     * copy step lists the sockets it did not copy in [skippedSockets].
      */
     data class Step(
         val relocation: RelocationPlan, val action: ReconciliationAction, val status: StepStatus,

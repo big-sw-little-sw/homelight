@@ -51,7 +51,7 @@ class LightenSessionTest {
         val tasks = mutableListOf<Runnable>()
         session.confirmApply { tasks.add(it) }
         assertTrue(session.isBusy())
-        // Run on this thread: the apply and its re-check both finish before `run` returns.
+        // Run on this thread: the apply and the check after it both finish before `run` returns.
         tasks.single().run()
         assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         assertFalse(session.isBusy())
@@ -95,7 +95,7 @@ class LightenSessionTest {
         assertSame(reviewed, assertInstanceOf(ApplyModel.Confirmation::class.java, session.applyModel()).plan)
         assertFalse(Files.exists(root.resolve("local/cache")))
 
-        // A later config read must not silently substitute a different plan at confirmation.
+        // Confirming applies the reviewed plan, never a plan from a later read of the configuration file.
         Files.writeString(config, Files.readString(config).replace("home/cache", "home/other"))
         session.confirmApply().get(10, TimeUnit.SECONDS)
 

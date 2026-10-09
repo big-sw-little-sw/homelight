@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.lighten.config
 
-/** Attribution only. The shared location is never opened or used as a resolution root. */
+/** Names the list a suggestion came from. Nothing opens `location` or resolves paths against it. */
 data class CandidateSource(val kind: Kind, val location: String) {
     init {
         require(!location.isJavaBlank()) { "Source location is required" }

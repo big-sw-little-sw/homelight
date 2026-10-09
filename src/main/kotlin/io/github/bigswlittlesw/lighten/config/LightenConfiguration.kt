@@ -2,7 +2,7 @@ package io.github.bigswlittlesw.lighten.config
 
 import java.nio.file.Path
 
-/** Resolved paths used by the status and reconciliation adapters. */
+/** The configuration as loaded, with every path resolved and checked. */
 @ConsistentCopyVisibility
 data class LightenConfiguration private constructor(
     val targetRoot: Path,

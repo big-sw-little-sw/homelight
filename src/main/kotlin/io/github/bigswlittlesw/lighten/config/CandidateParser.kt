@@ -9,12 +9,12 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 /**
- * Strict, atomic parsing of already-read UTF-8 JSON contents for either source kind.
- * Shared I/O and its deadlines belong to the caller, not this lexical boundary.
+ * Parses a suggestion list from bytes already read, as strict UTF-8 JSON. It accepts the whole list or rejects
+ * all of it. The caller reads the file and sets any time limit.
  *
- * A shared list is written by someone else, so input is bounded: its size before decoding, and its records,
- * groups and string lengths after. Nesting needs no separate limit: the fixed file shape rejects any value
- * nested deeper than a record as a wrong type, before reading into it.
+ * Someone else can write the user's list, so the parser limits its size before decoding. After decoding it limits
+ * the number of records and app groups and the length of each string. Nesting needs no separate limit: the fixed
+ * file shape rejects any value nested deeper than a record as a wrong type, before reading into it.
  */
 class CandidateParser {
     fun parse(source: CandidateSource, root: Path, contents: ByteArray): CandidateCatalog.Snapshot {
@@ -32,7 +32,7 @@ class CandidateParser {
             val file = decodeJson(CandidateListFile.serializer(), text)
             CandidateCatalog.Snapshot.of(source, root, Reader(source, root).definitions(file), listOf())
         } catch (e: JsonInputException) {
-            // The message names the dotted path where kotlinx knows it.
+            // The message names the dotted path when kotlinx.serialization knows it.
             rejected(root, Invalid(CandidateDiagnostic(source, Kind.SYNTAX, 0, e.line, e.column, e.path, "", e.message)))
         } catch (e: Invalid) {
             rejected(root, e)
@@ -49,9 +49,9 @@ class CandidateParser {
     private class Invalid(val diagnostic: CandidateDiagnostic) : RuntimeException(diagnostic.message)
 
     /**
-     * Applies the domain rules to the decoded file: limits, path safety and nonblank text. Its diagnostics
-     * have no line or column: kotlinx keeps no positions once decoded, so they name the record by `location`
-     * and `key` instead.
+     * Applies Lighten's own rules to the decoded file: limits, safe paths and nonblank text. Its diagnostics
+     * have no line or column: kotlinx.serialization keeps no positions after decoding. So they name the record by
+     * `location` and `key` instead.
      */
     private class Reader(val source: CandidateSource, val root: Path) {
         fun definitions(file: CandidateListFile): List<CandidateDefinition> {
@@ -97,7 +97,7 @@ class CandidateParser {
                 val resolved = try {
                     resolveCandidatePath(root, path)
                 } catch (e: IllegalArgumentException) {
-                    // Both resolve's own failures and Path.of's InvalidPathException carry a message.
+                    // Both resolve's own failures and the InvalidPathException from Path.of have a message.
                     throw invalid(Kind.UNSAFE_PATH, index, record, "path", e.message!!)
                 }
                 val reason = note(directory.reason, index, record, "reason", "Reason")
@@ -160,7 +160,8 @@ internal fun resolveCandidatePath(root: Path, path: String): Path {
     return resolved
 }
 
-// The candidate list format. Every class has a serial name because kotlinx puts it in its error messages.
+// The suggestion list format. Every class has a serial name because kotlinx.serialization puts it in its error
+// messages.
 
 @Serializable
 @SerialName("candidate-list")
