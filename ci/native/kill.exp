@@ -1,0 +1,51 @@
+#!/usr/bin/expect -f
+# Starts a TUI apply and kills the process with SIGKILL once a path appears, to stop it partway.
+#
+#   expect ci/native/kill.exp <logfile> <glob> <command...>
+#
+# The command must open the Workspace on a plan with nothing to choose (`lighten -c <config> apply`).
+# Sends `a` then `y`, then polls every 5 ms until <glob> matches a path, and kills the process.
+# Prints `killed=<ms>`: the time from `y` until the kill. Exit status 0 when it killed the process,
+# 1 when the glob never matched or the process exited first.
+# Treat pty output as bytes so the log keeps the TUI's UTF-8 intact under any locale.
+encoding system iso8859-1
+set logfile [lindex $argv 0]
+set marker [lindex $argv 1]
+set cmd [lrange $argv 2 end]
+log_user 0
+log_file -a -noappend $logfile
+set stty_init "rows 30 cols 120"
+
+# Spawned directly, not through a shell, so the spawned pid is lighten's.
+spawn -noecho {*}$cmd
+set pid [exp_pid]
+set timeout 20
+expect {
+  -re {LIGHTEN|Review|Relocat} { }
+  timeout { puts "render=timeout"; exit 1 }
+  eof { puts "render=exited"; exit 1 }
+}
+set timeout 1
+expect -re {$^}
+send "a"
+expect -re {$^}
+set start [clock milliseconds]
+send "y"
+set timeout 0.005
+while {[clock milliseconds] - $start < 60000} {
+  expect {
+    -re {.+} { }
+    eof { puts "killed=exited-first"; exit 1 }
+    timeout { }
+  }
+  if {[llength [glob -nocomplain -- $marker]] > 0} {
+    exec kill -KILL $pid
+    puts "killed=[expr {[clock milliseconds] - $start}]"
+    catch { expect eof }
+    catch { wait }
+    exit 0
+  }
+}
+exec kill -KILL $pid
+puts "killed=timeout"
+exit 1

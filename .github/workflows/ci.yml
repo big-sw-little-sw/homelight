@@ -113,6 +113,19 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit $status
+      # Runs as the runner user: as root, the unreadable-folder cases would test nothing.
+      - name: End to end
+        if: ${{ !cancelled() }}
+        run: |
+          status=0
+          ci/native/e2e.sh dist/lighten results || status=$?
+          {
+            echo "### End to end, ${{ matrix.arch }}"
+            echo '| Result | Case | Covers | Unmet |'
+            echo '|---|---|---|---|'
+            sed 's/|/\\|/g; s/\t/ | /g; s/^/| /; s/$/ |/' results/e2e/matrix.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
@@ -121,6 +134,10 @@ jobs:
             results/screens.txt
             results/*.log
             results/native-transcript.txt
+            results/e2e/matrix.txt
+            results/e2e/*/*.json
+            results/e2e/*/*.err
+            results/e2e/*/*.log
           retention-days: 3
 
   native-distros:
