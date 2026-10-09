@@ -1,16 +1,16 @@
 # Lighten
 
 Lighten frees space in your home directory. It moves large directories, such
-as caches, to other storage and leaves a link at the old path, so programs
+as caches, to other storage. At the old path it leaves a link, so programs
 still find them.
 
-It always shows you its plan first. Nothing on disk changes until you press
-y.
+Lighten always shows you its plan first. Nothing on disk changes until you
+press y.
 
 ## What it does
 
-- **Moves directories to storage.** It copies a directory to storage, checks
-  the copy, then replaces the original with a link.
+- **Moves directories to storage.** It copies a directory to storage and
+  checks the copy. Then it replaces the original with a link.
 - **Prepares directories that do not exist yet.** It creates them in storage
   and links to them, so they never fill your home directory.
 - **Handles copies already in storage.** When storage already has the
@@ -19,14 +19,14 @@ y.
   and worth moving, such as tool caches.
 - **Shows every step before it runs.** You review the whole plan and confirm
   it with `y`.
-- **Checks again at any time.** Press `r` and Lighten looks at the disk
-  again and makes a new plan.
+- **Checks again at any time.** Press `r`. Lighten looks at the disk again
+  and makes a new plan.
 - **Works in scripts.** `status`, `plan` and `apply` can print JSON.
 
 ## How to use it
 
-Press `?` on any screen to see what it is for and its keys. In a text field,
-press `F1`.
+Press `?` on any screen to see what the screen is for and its keys. In a
+text field, press `F1`.
 
 ### Free space on this machine
 
@@ -37,99 +37,122 @@ Configure → Workspace → Review → Apply → Results
 ```
 
 1. **Configure.** Run `lighten`. The first time, there is no configuration
-   file yet: press `i` to open **Configuration**. Type where storage is in
-   **Target root**, such as `/data/me`, then press `Esc`. **Browse** opens
-   with Lighten's built-in suggestions: directories of common tools such as
-   Maven, Gradle, npm, pip, uv and Cargo. Press `Space` on each one you
-   want to move. Anything missing? Press `Esc` to go back to Configuration's
-   list, then `a`, and type the directory yourself. Paths are full, or start
-   with `~/`. Press `s` to save. Saving writes the configuration file and
-   nothing else. Later you can add a list of your own, for example one your
-   team shares, in **Suggestion list**: Browse merges it with the built-in
-   list.
-2. **Check the plan on the Workspace (`1`).** Each directory you added is a
-   *relocation*. The Workspace shows what is there now and what Lighten
-   will do, such as `[Move]` or `[In sync]`. A relocation marked `[Choose]`
-   needs your choice: select it, press `Tab`, pick a choice and press
-   `Enter`. The chosen one is marked `●` and the others `○`; picking
-   another replaces it. A choice is for the next apply only; to always do
-   this for that relocation, press `s` to save it as its rule. A
-   relocation marked `[Blocked]` cannot be done as things are, for example
-   because a file is where its archive folder should be. Its Details say
-   what is in the way: fix that, then press `r`. If Details say you can,
-   pick a choice below that doesn't need that folder instead.
-3. **Review (`2`).** Press `a` to see every step Lighten will take, listed
-   under the relocation it belongs to. Select a relocation to see its decision
-   and paths, or a step to see what it does. Nothing has changed yet. Press
-   `y` to apply, or `n` to go back.
+   file yet.
+   - Press `i` to open **Configuration**.
+   - In **Target root**, type where storage is, such as `/data/me`. Then
+     press `Esc`. **Browse** opens with Lighten's built-in suggestions. These
+     are directories of common tools such as Maven, Gradle, npm, pip, uv and
+     Cargo.
+   - Press `Space` on each directory that you want to move.
+   - To add a directory that is not in the list, press `Esc` to go back to
+     Configuration's list. Then press `a` and type the directory. A path is
+     full, or starts with `~/`.
+   - Press `s` to save. Saving writes the configuration file and nothing
+     else.
+
+   Later you can add a list of your own in **Suggestion list**, for example
+   one that your team shares. Browse merges it with the built-in list.
+2. **Check the plan on the Workspace (`1`).** Each directory that you added
+   is a *relocation*. The Workspace shows what is there now and what Lighten
+   will do, such as `[Move]` or `[In sync]`.
+   - A relocation marked `[Choose]` needs your choice. Select it, press
+     `Tab`, pick a choice and press `Enter`. The chosen one is marked `●` and
+     the others `○`. When you pick another, it replaces the first.
+   - A choice is for the next apply only. To always do this for that
+     relocation, press `s` to save the choice as its rule.
+   - A relocation marked `[Blocked]` cannot be done as things are. For
+     example, a file is where its archive folder must go. Its Details say
+     what is in the way. Fix that, then press `r`. If Details say that you
+     can, pick a choice below that does not need that folder.
+3. **Review (`2`).** Press `a` to see every step that Lighten will take.
+   Each step is under the relocation it belongs to. Select a relocation to
+   see its decision and paths. Select a step to see what it does. Nothing
+   has changed yet. Press `y` to apply, or `n` to go back.
 4. **Apply.** Lighten makes the changes and shows each step as it runs.
-   Leave it running until it finishes. If you press `q`, it finishes the
+   Let it run until it finishes. If you press `q`, Lighten finishes the
    changes first, then exits.
 5. **Results (`2`).** Each step shows whether it worked. Press `r` to check
-   again: the Workspace then shows each relocation as it is now, normally
-   `[In sync]`. If a step finds something different from the plan, Lighten
-   stops there and the steps after it do not run. The line at the top says
-   how many changes it made before it stopped, or `Stopped. Nothing was
-   changed.` Select the failed step: its Details say what is there, what
-   Lighten expected and what to do. Do that, then press `r` to check again.
-   To report a bug, a screenshot of these Details is enough.
+   again. The Workspace then shows each relocation as it is now, normally
+   `[In sync]`.
+
+   If a step finds something different from the plan, Lighten stops there.
+   The steps after it do not run. The line at the top says how many changes
+   Lighten made before it stopped, or `Stopped. Nothing was changed.`
+   - Select the failed step. Its Details say what is there, what Lighten
+     expected and what to do.
+   - Do that, then press `r` to check again.
+   - To report a bug, send a screenshot of these Details. That is enough.
 
 ### Change the configuration later
 
-Press `e` on the Workspace to open Configuration, change it, and press `s`.
-Lighten checks again and shows the new plan. The Workspace lists the
-relocations that need you first (`[Choose]`, `[Blocked]`, `[Can't read]`),
-then `[Warning]`, then those with changes such as `[Move]`, then
-`[Left as is]`, then `[In sync]`. Within each of these, they keep the order
-of your configuration.
+Press `e` on the Workspace to open Configuration. Change it, then press `s`.
+Lighten checks again and shows the new plan.
 
-- Select **Storage locations** or a relocation in the list on the left, and
-  press `Enter` to change its fields. `Esc` goes back to the list. In a
-  field every letter types, so press `Esc` before `s`.
-- `b` opens Browse to pick from the suggestions, `a` adds a relocation you
-  type yourself, and `d` removes the selected one. Nothing changes in the
-  file until you press `s`.
-- Saving asks first, because it replaces the whole file. Comments in the
-  file are not kept.
-- If the file changed after you opened Configuration, for example because you
-  edited it by hand, Lighten does not replace it. Your changes stay on
-  screen: press `q`, then `y`, then `e` to start again from the file.
+The Workspace lists relocations in this order:
+
+1. Those that need you: `[Choose]`, `[Blocked]` and `[Can't read]`.
+2. `[Warning]`.
+3. Those with changes, such as `[Move]`.
+4. `[Left as is]`.
+5. `[In sync]`.
+
+Within each group, relocations keep the order of your configuration.
+
+- Select **Storage locations** or a relocation in the list on the left.
+  Press `Enter` to change its fields, and `Esc` to go back to the list. In a
+  field, every letter types, so press `Esc` before `s`.
+- Press `b` to open Browse and pick from the suggestions. Press `a` to add a
+  relocation that you type. Press `d` to remove the selected one. Nothing
+  changes in the file until you press `s`.
+- Saving asks first, because it replaces the whole file. Saving does not
+  keep comments in the file.
+- The file can change after you open Configuration, for example when you
+  edit it by hand. Then Lighten does not replace it, and your changes stay
+  on screen. To start again from the file, press `q`, then `y`, then `e`.
 
 ### Leave a directory alone
 
-If another tool manages a directory, for example Stow or a sync app, tell
-Lighten to ignore it. Select its relocation on the Workspace and press `x`.
-Lighten asks first, then moves it from your relocations to the ignored
-paths in the configuration file. Nothing on disk changes. If the directory
-is already linked to storage, the link and the files in storage stay as
-they are; the dialog says how to undo the move by hand.
+Another tool can manage a directory, for example Stow or a sync app. Then
+tell Lighten to ignore that directory. Select its relocation on the
+Workspace and press `x`. Lighten asks first. Then it moves the directory
+from your relocations to the ignored paths in the configuration file.
+Nothing on disk changes.
 
-Ignored directories are listed at the end of the Workspace, under
-`i: show 2 ignored`. Press `i` to show them, and again to hide them. Each is
-marked `[Ignored]`. To manage one again, select it and press `x`: Lighten
-stops ignoring it, and you can add it again in Configuration.
+The directory can already be linked to storage. Then the link and the files
+in storage stay as they are. The dialog tells you how to undo the move by
+hand.
 
-Browse marks an ignored directory `⊘` with the note `ignored by you`. It is
-always shown and can't be added. Press `x` on a directory in Browse to
-ignore it, or on a `⊘` directory to stop ignoring it, then `s` in
-Configuration to save. `Space` on a category or app skips the ignored
-directories and says so.
+The Workspace lists ignored directories at the end, under
+`i: show 2 ignored`. Press `i` to show them, and press it again to hide
+them. Each one is marked `[Ignored]`. To manage one again, select it and
+press `x`. Lighten stops ignoring it, and you can add it again in
+Configuration.
 
-A directory can't be both a relocation and ignored. If the configuration
-file lists one in both, Lighten says which two settings to fix.
+Browse marks an ignored directory `⊘`, with the note `ignored by you`.
+Browse always shows it, and you cannot add it.
+
+- Press `x` on a directory in Browse to ignore it.
+- Press `x` on a `⊘` directory to stop ignoring it.
+- Then press `s` in Configuration to save.
+
+`Space` on a category or app does not add the ignored directories under it,
+and Browse says so.
+
+A directory cannot be both a relocation and ignored. If the configuration
+file lists a directory as both, Lighten tells you which two settings to fix.
 
 `lighten config` opens Configuration directly. The configuration file is
-`~/.lighten.json`, or the file you gave with `--config`. You can also edit
-it by hand, then press `r` in Lighten to check again. **Configuration
-file** under Reference lists every setting.
+`~/.lighten.json`, or the file that you give with `--config`. You can also
+edit the file by hand. Then press `r` in Lighten to check again. The
+**Configuration file** section under Reference lists every setting.
 
-Run Lighten again whenever you like, for example after you add a
-directory. It changes only what is not in sync yet.
+Run Lighten again at any time, for example after you add a directory.
+Lighten changes only what is not in sync yet.
 
 ### If Lighten can't read your configuration
 
-If the file has a mistake, the Workspace says `Lighten can't read`, the
-file's name, and what is wrong, such as one of these:
+If the file has a mistake, the Workspace shows `Lighten can't read`, the
+file's name, and what is wrong. For example:
 
 ```
 target-root is missing. Add it under "lighten".
@@ -137,81 +160,90 @@ Line 2: relocations[0].source-path should be text, but it is a number.
 lighten.target-root: Use a full path, or one starting with ~/
 ```
 
-- **To fix it:** open the file in a text editor, correct the line or
-  setting it names, then press `r` to check again.
-- **To start over:** rename or delete the file, then press `r`. Lighten
-  then offers `i` to create a new one.
+- **To fix it:** open the file in a text editor. Correct the line or setting
+  that the message names. Then press `r` to check again.
+- **To start over:** rename or delete the file, then press `r`. Lighten then
+  offers `i` to create a new file.
 
-Configuration can't open a file Lighten can't read, so `e` is not offered
-until the file is fixed. `lighten config` and the `--json` commands print
-the same explanation and exit with code 1.
+Configuration cannot open a file that Lighten cannot read. So Lighten does
+not offer `e` until you fix the file. `lighten config` and the `--json`
+commands print the same explanation and exit with code 1.
 
 ## Suggestion lists
 
-Browse, inside Configuration, suggests directories to move. The suggestions
-come from two suggestion lists:
+Browse is inside Configuration. It suggests directories to move. The
+suggestions come from two suggestion lists:
 
-- **The built-in list.** It comes with Lighten and names directories that
+- **The built-in list.** It comes with Lighten. It names directories that
   are usually large and safe to move: package caches, build caches,
-  toolchains and SDKs, and the versions that version managers install, for
-  Maven, Gradle, npm, pip, uv, pyenv, Cargo, Conan, vcpkg, ccache, Bazel,
-  Go, the Android SDK, mise, VS Code, Zed and others.
-- **Your list** (optional). A file you write, for example one on a shared
-  drive that everyone on your team uses. Browse always shows the built-in
+  toolchains and SDKs, and the versions that version managers install. It
+  covers Maven, Gradle, npm, pip, uv, pyenv, Cargo, Conan, vcpkg, ccache,
+  Bazel, Go, the Android SDK, mise, VS Code, Zed and others.
+- **Your list** (optional). A file that you write, for example one on a
+  shared drive that your whole team uses. Browse always shows the built-in
   list too.
 
-Press `b` in Configuration's list to open Browse. Its first two lines are
-the lists: the built-in list with its number of suggestions, then your list
-with its location, its number of suggestions and the day its file last
-changed. If your list could not be used, its line says why. Press `i` for
-the full detail.
+Press `b` in Configuration's list to open Browse. Its first two lines show
+the lists:
 
-Below them, the suggestions are listed under their category, such as
-Editors, Python or C and C++, and under it the name of their app. Apps with no
-category are under "Other tools", and directories with no app under
-"Other directories", at the end. Each directory has a mark:
+- The built-in list, with its number of suggestions.
+- Your list, with its location, its number of suggestions and the day its
+  file last changed. If Lighten cannot use your list, this line says why.
+  Press `i` for the full detail.
 
-- `●` it is in your configuration, whether saved earlier or added now.
+Below these lines, Browse lists the suggestions under their category, such
+as Editors, Python or C and C++. Under each category is the name of each
+app. Apps with no category are under "Other tools". Directories with no app
+are under "Other directories". These two groups are at the end.
+
+Each directory has a mark:
+
+- `●` it is in your configuration, saved earlier or added now.
 - `○` it is not. Press `Space` to add it.
-- `−` it cannot be added, for example because it is a link. Its note says
+- `−` you cannot add it, for example because it is a link. Its note says
   why.
-- `⊘` you ignore it: Lighten leaves it alone. Press `x` to stop ignoring
+- `⊘` you ignore it, so Lighten leaves it alone. Press `x` to stop ignoring
   it.
 
-`Space` on a `●` row takes it out again. A directory you take out stays in
+`Space` on a `●` row removes it again. A directory that you remove stays in
 the list until you leave Browse, so `Space` can add it back. Adding and
-removing change only what Configuration shows: the file changes when you
+removing change only what Configuration shows. The file changes when you
 press `s`. Press `e` on a `●` row to change its target or rules.
 
-Each category's and app's name has a mark too: `●` all the directories
-under it are added, `◐` some are, `○` none are, `−` none can be. Beside it,
-Browse counts them, such as `1 of 2 added`. `Space` on the name adds all
-the directories under it that are shown and can be added, so `Space` on
-"Python" adds every Python tool's directories at once. On a `●` name it
-takes them all out. If some could not be added, Browse says so, for example
-`Added 3. Skipped 1 that overlaps ~/.cache.`
+Each category's and app's name has a mark too:
+
+- `●` all the directories under it are added.
+- `◐` some are added.
+- `○` none are added.
+- `−` none can be added.
+
+Beside the name, Browse counts them, such as `1 of 2 added`. `Space` on the
+name adds all the directories under it that are shown and can be added. So
+`Space` on "Python" adds the directories of every Python tool at once. On a
+`●` name, `Space` removes them all. If Browse could not add some, it says
+so, for example `Added 3. Skipped 1 that overlaps ~/.cache.`
 
 A list can mark a directory **usually not needed**. Browse hides a directory
-when every list that names it says so, and counts what it hid. Press `u` to
-show them. A directory already in your configuration, or one you ignore,
-is never hidden.
+when every list that names it says so. Browse counts what it hid. Press `u`
+to show them. Browse never hides a directory that is in your configuration
+or that you ignore.
 
 Under the lists, a line such as `12 found on this machine` counts the
 suggested directories that exist on this machine. Press `f` to show only
-those, and `f` again to show all. Directories in your configuration are
-always shown. While `f` is on, `Space` on a category's or app's name adds
-only the found directories under it.
+those, and press `f` again to show all. Browse always shows the directories
+in your configuration. While `f` is on, `Space` on a category's or app's
+name adds only the found directories under it.
 
-When both lists name the same directory, Browse shows it once, in your
-list's group and with your list's advice. When both lists give the same app
-different categories, Browse uses your list's. Select a suggestion and press
-`Enter` to see which lists suggest it and what each one says, including any
-caution, marked `⚠ Caution`.
+Both lists can name the same directory. Then Browse shows it once, in your
+list's group and with your list's advice. Both lists can also give the same
+app different categories. Then Browse uses your list's category. To see
+which lists suggest a directory, select it and press `Enter`. Browse shows
+what each list says, including any caution, marked `⚠ Caution`.
 
-Some tools' clean commands, such as `sdk flush` or `deno clean`, remove the
-link to a moved directory, and the tool then creates a new folder in its
-place. Lighten then asks which folder to keep. The built-in list cautions
-about these.
+Some tools have clean commands, such as `sdk flush` or `deno clean`. These
+commands remove the link to a moved directory. The tool then creates a new
+folder in its place, and Lighten asks which folder to keep. The built-in
+list gives a caution about these tools.
 
 ### Write your own list
 
@@ -244,60 +276,62 @@ A suggestion list is a JSON file. For example:
 }
 ```
 
-- `apps` holds groups. Each has a `name` and its `directories`. The
-  top-level `directories` holds suggestions with no group; Browse shows them
-  under "Other directories". A file needs at least one of the two.
-- `category` is optional on an app: the heading Browse shows the app
-  under, such as `Python`. An app with none is under "Other tools". To move
-  a built-in app, such as Gradle, under another heading, name it in your
-  list with the category you want and at least one of its directories.
-- `path` is relative to your home directory: `.cache/huggingface`, not
-  `~/.cache/huggingface` or `/home/me/.cache/huggingface`. It cannot use `..`,
-  variables such as `$USER`, or wildcards.
+- `apps` holds groups. Each group has a `name` and its `directories`.
+- The top-level `directories` holds suggestions with no group. Browse shows
+  them under "Other directories".
+- A file needs `apps`, top-level `directories`, or both.
+- `category` is optional on an app. It is the heading that Browse shows the
+  app under, such as `Python`. An app with no category is under "Other
+  tools". You can move a built-in app, such as Gradle, under another
+  heading. To do this, name the app in your list with the category that you
+  want and at least one of its directories.
+- `path` is relative to your home directory. Write `.cache/huggingface`,
+  not `~/.cache/huggingface` or `/home/me/.cache/huggingface`. A `path`
+  cannot use `..`, variables such as `$USER`, or wildcards.
 - `advice` is optional: `consider` or `usually-unnecessary`.
 - `reason` is optional. Browse shows it with the suggestion.
-- `caution` is optional: a warning about moving the directory, such as a
-  command that undoes the move. Browse shows it after the reason, marked
+- `caution` is optional. It is a warning about moving the directory, such as
+  a command that undoes the move. Browse shows it after the reason, marked
   `⚠ Caution`.
 - Comments (`//` and `/* */`) and trailing commas are allowed. Any other key
   is an error.
 - The file can be up to 1 MiB and list up to 10,000 directories.
 
-One error rejects the whole file. Browse then says so on your list's line
-(press `i` for the detail) and uses the built-in list alone. Lighten waits
-at most 5 seconds for the file, so a slow or missing drive never blocks you.
-Configuration saves either way.
+One error rejects the whole file. Browse then says so on your list's line,
+and uses only the built-in list. Press `i` for the detail. Lighten waits at
+most 5 seconds for the file, so a slow or missing drive never blocks you.
+Configuration saves in both cases.
 
-To use a list, enter its path in Configuration's **Suggestion list** field,
-or add it to the configuration file:
+To use a list, enter its path in Configuration's **Suggestion list** field.
+Or add it to the configuration file:
 
 ```json
 "suggestion-list": "/net/team/lighten/suggestions.json"
 ```
 
 The path must be full or start with `~/`. Each person keeps their own
-configuration file; only the list is shared. After someone changes the list,
-press `r` in Browse to check again.
+configuration file. Only the list is shared. After someone changes the
+list, press `r` in Browse to check again.
 
 ## Words to know
 
-**Relocation.** One directory Lighten manages. Its **source** is where
+**Relocation.** One directory that Lighten manages. Its **source** is where
 programs look for it, in your home directory. Its **target** is where its
-contents live, in storage. After a move, the source is a link to the target.
+contents are, in storage. After a move, the source is a link to the target.
 
-**In sync.** The source already links to the target. Nothing to do.
+**In sync.** The source already links to the target. There is nothing to do.
 
-**Ignored.** A directory you told Lighten to leave alone. Lighten plans
+**Ignored.** A directory that you told Lighten to leave alone. Lighten plans
 nothing for it. The configuration file lists it under
 `ignored-source-paths`.
 
 **Rule or one-time choice.** A rule is saved in the configuration file and
-decides every time. A one-time choice decides one relocation for the next
-apply only. Checking again or applying forgets it. Press `s` to save a
-choice as the rule.
+decides every time. A one-time choice decides for one relocation, for the
+next apply only. Lighten forgets it when you check again or apply. Press `s`
+to save a choice as the rule.
 
 **Archive or delete.** Archive moves the source's contents into an archive
-folder, so you can move them back. Delete removes them for good.
+folder, so you can move them back. Delete removes them permanently.
 
 **Check again.** Lighten looks at the disk again and makes a new plan. Do it
 after you change files or the configuration outside Lighten.
@@ -308,23 +342,24 @@ There is no undo command. Nothing changes before you press `y`. After that,
 you can reverse a change by hand:
 
 - **Moved or linked:** remove the link, then move the target back. For
-  example: `rm ~/.cache/uv` (removes only the link), then
-  `mv /local/home/me/.cache/uv ~/.cache/uv`.
-- **Archived:** remove the link, then move the archive back, for example
-  `mv ~/.cache/.lighten-archive/uv ~/.cache/uv`. The target keeps its own
-  contents.
+  example, run `rm ~/.cache/uv` to remove only the link. Then run
+  `mv /local/home/me/.cache/uv ~/.cache/uv` to move the target back.
+- **Archived:** remove the link, then move the archive back. The target
+  keeps its own contents. For example, run
+  `mv ~/.cache/.lighten-archive/uv ~/.cache/uv` to move the archive back.
 - **Deleted:** Lighten cannot recover it. Restore it from a backup.
 
-Remove the relocation from the configuration first, or Lighten plans to
-move it again: press `e`, select it, press `d`, then `s`.
+First remove the relocation from the configuration. If you do not, Lighten
+plans to move it again. To remove it, press `e` and select it. Then press
+`d` and `s`.
 
 ## Reference
 
 ### Configuration file
 
-Lighten reads its settings from `~/.lighten.json`, or from the file you give
-with `--config`. Configuration writes this file for you. You can also write
-or change it by hand, then press `r` to check again. For example:
+Lighten reads its settings from `~/.lighten.json`, or from the file that you
+give with `--config`. Configuration writes this file for you. You can also
+write or change it by hand. Then press `r` to check again. For example:
 
 ```json
 {
@@ -348,29 +383,29 @@ or change it by hand, then press `r` to check again. For example:
 }
 ```
 
-Everything goes under `"lighten"`:
+All settings go under `"lighten"`:
 
 - `target-root` (required): where storage is, such as a larger disk.
-- `source-root` (default `~`): the folder your sources are usually in. A
-  relocation without a `target-path` keeps its place under this folder,
-  inside `target-root`, so `~/.m2` goes to `<target-root>/.m2`. A source
-  outside `source-root` needs a `target-path`. Browse looks for
-  suggestions under this folder too.
+- `source-root` (default `~`): the folder that your sources are usually in.
+  A relocation without a `target-path` keeps its place under this folder,
+  inside `target-root`. So `~/.m2` goes to `<target-root>/.m2`. A source
+  outside `source-root` needs a `target-path`. Browse also looks for
+  suggestions under this folder.
 - `staging-root` (default: a `.lighten-staging` folder beside each
   target): where Lighten copies a directory before it puts the copy in
   place. It must be inside `target-root`, on the same disk as the targets.
-  A relocation to move whose target is on another disk is `[Blocked]`
-  until you fix it. Configuration does not show it, but keeps it when it
-  saves.
-- `suggestion-list` (default: none): your own suggestion list, as **Write
-  your own list** describes. Empty text means none.
-- `relocations` (default: none): the directories Lighten manages. It
-  never touches a directory that is not in this list.
-- `ignored-source-paths` (default: none): directories Lighten leaves
-  alone, as **Leave a directory alone** describes. A directory can't be
+  If a relocation to move has its target on another disk, it is `[Blocked]`
+  until you fix this. Configuration does not show this setting, but keeps it
+  when it saves.
+- `suggestion-list` (default: none): your own suggestion list. **Write your
+  own list** tells you how to make one. Empty text means none.
+- `relocations` (default: none): the directories that Lighten manages.
+  Lighten never touches a directory that is not in this list.
+- `ignored-source-paths` (default: none): directories that Lighten leaves
+  alone. **Leave a directory alone** tells you more. A directory cannot be
   both here and a relocation's `source-path`.
 
-Each relocation has:
+Each relocation has these settings:
 
 - `source-path` (required): the directory to move.
 - `target-path` (default: from `source-root` and `target-root`, as
@@ -381,35 +416,37 @@ Each relocation has:
 - `when-adopting-target`: `prompt` (the default), `discard-source` or
   `archive-source`. It decides what happens to the source after `adopt`.
 - `archive-root` (default: a `.lighten-archive` folder beside the
-  source): where `archive-source` moves the source. It must be on the
-  same disk as the source. The source keeps its name there. If that name
-  is taken, Lighten adds a short code to it, such as `uv-3f9c2b1d`.
+  source): where `archive-source` moves the source. It must be on the same
+  disk as the source. The source keeps its name there. If that name is
+  taken, Lighten adds a short code to it, such as `uv-3f9c2b1d`.
 
-`prompt` is Ask each time. **What each rule does on disk** below says what
-the other values do. When Configuration saves, it leaves out every setting
-that has its default value.
+`prompt` is Ask each time. **What each rule does on disk** below tells you
+what the other values do. When Configuration saves, it leaves out each
+setting that has its default value.
 
 Paths:
 
-- Every path, `suggestion-list` too, is full, such as `/data/me`, or
-  starts with `~/`, or is `~`. Lighten refuses a path like `data/me`,
-  because its meaning would depend on the folder you run Lighten in.
-- `${USER}` is your user name: the `USER` environment variable, or your
-  account name when `USER` is not set. Other variables, such as `$HOME`,
-  are not filled in.
+- Every path, including `suggestion-list`, is full, such as `/data/me`. Or
+  it starts with `~/`, or it is `~`. Lighten refuses a path like `data/me`.
+  The meaning of such a path depends on the folder that you run Lighten in.
+- `${USER}` is your user name. It is the `USER` environment variable, or
+  your account name when `USER` is not set. Lighten does not fill in other
+  variables, such as `$HOME`.
 - Configuration keeps `~/` and `${USER}` as you typed them.
 
-The file is JSON, with two additions: comments (`//` and `/* */`) and a
-comma after the last item of a list or object. Configuration does not keep
-comments when it saves. If a setting appears twice in the same object, the
-last one counts.
+The file is JSON, with two additions:
 
-Lighten checks the whole file each time it reads it. It can't read a file
-with any of these, and shows what is wrong and where, as **If Lighten
-can't read your configuration** describes:
+- Comments (`//` and `/* */`). Configuration does not keep comments when it
+  saves.
+- A comma after the last item of a list or object.
+
+If a setting appears twice in the same object, the last one counts.
+
+Lighten checks the whole file each time it reads it. It cannot read a file
+that has one of these problems:
 
 - text that is not JSON, or a missing `target-root` or `source-path`;
-- a setting it does not know, such as a misspelled one;
+- a setting that it does not know, such as a misspelled one;
 - a value of the wrong kind, such as a number instead of text, or a rule
   value that is not in the lists above;
 - a path that is not full and does not start with `~/`;
@@ -417,30 +454,35 @@ can't read your configuration** describes:
   `source-root` with no `target-path`;
 - a directory that is both a relocation and ignored.
 
-When two relocations overlap, one inside the other or with the same
-target, Lighten reads the file and marks both `[Blocked]`. Each one's
-Details name the other, such as `~/a contains ~/a/b, which is also a
-relocation`. The other relocations are planned as usual, but nothing is
-applied until you fix it. Paths that are the same place through a link,
-such as `/home` linking to `/var/home`, count as overlapping too. A
-relocation whose source and target overlap is `[Blocked]` on its own.
+Lighten then shows what is wrong and where. **If Lighten can't read your
+configuration** tells you more.
+
+Two relocations can overlap: one is inside the other, or both have the same
+target. Lighten still reads the file, but marks both `[Blocked]`. The
+Details of each one name the other, such as `~/a contains ~/a/b, which is
+also a relocation`. Lighten plans the other relocations as usual, but
+applies nothing until you fix the overlap. Two paths that are the same
+place through a link also overlap, such as `/home` that links to
+`/var/home`. A relocation whose source and target overlap is `[Blocked]` on
+its own.
 
 ### What each rule does on disk
 
-Lighten looks at the source and the target, then:
+Lighten looks at the source and the target. Then:
 
-- **Only the source exists:** it copies the source to the target, checks the
-  copy, then replaces the source with a link. The Workspace marks it `[Move]`.
-  Sockets, named pipes and device files in it are handled as **Special
-  files** below says.
-- **Neither exists:** it creates an empty target and links the source to it
-  (`[Link]`).
-- **The source already links to the target:** nothing (`[In sync]`).
-- **The source links somewhere else:** nothing (`[Blocked]`). The link may
-  belong to another program, so Lighten never replaces it. Details say
-  where it points, such as `~/.cache/tool links to /data/tool, not to
-  /scratch/local/tool. Remove the link, or set its target to where it
-  points.` Then press `r`.
+- **Only the source exists:** Lighten copies the source to the target and
+  checks the copy. Then it replaces the source with a link. The Workspace
+  marks it `[Move]`. For sockets, named pipes and device files in the
+  source, see **Special files** below.
+- **Neither exists:** Lighten creates an empty target and links the source
+  to it (`[Link]`).
+- **The source already links to the target:** Lighten does nothing
+  (`[In sync]`).
+- **The source links somewhere else:** Lighten does nothing (`[Blocked]`).
+  The link can belong to another program, so Lighten never replaces it.
+  Details say where it points, such as `~/.cache/tool links to /data/tool,
+  not to /scratch/local/tool. Remove the link, or set its target to where
+  it points.` Then press `r`.
 - **Only the target exists:** the **Only target** rule decides.
 - **Both exist:** the **Both exist** rule decides.
 
@@ -448,73 +490,76 @@ Lighten looks at the source and the target, then:
 
 The configuration value is `when-only-target-exists`.
 
-- **Ask each time** (`prompt`): nothing until you choose (`[Choose]`).
-- **Keep target, link source** (`adopt-target`): links the source to the
-  existing target (`[Link]`).
+- **Ask each time** (`prompt`): nothing happens until you choose
+  (`[Choose]`).
+- **Keep target, link source** (`adopt-target`): Lighten links the source
+  to the existing target (`[Link]`).
 
 #### When source and target both exist
 
-The configuration values are `when-source-and-target-directories-exist`
-and, for what happens to the source when the target is kept,
-`when-adopting-target`.
+The configuration value is `when-source-and-target-directories-exist`.
+When Lighten keeps the target, `when-adopting-target` decides what happens
+to the source.
 
-- **Ask each time** (`prompt`): nothing until you choose (`[Choose]`).
-- **Keep target, ask about source** (`adopt`, `prompt`): nothing until you
-  choose to delete or archive the source.
-- **Keep target, delete source** (`adopt`, `discard-source`): deletes the
-  source and replaces it with a link to the target (`[Keep target]`). The
-  source's contents are gone for good.
-- **Keep target, archive source** (`adopt`, `archive-source`): moves the
-  source into the archive folder, then links it to the target (`[Archive]`).
-  The archive folder is `.lighten-archive` beside the source unless
-  `archive-root` says otherwise, so `~/.cache/uv` goes to
-  `~/.cache/.lighten-archive/uv`.
-- **Leave both as they are** (`leave-unchanged`): nothing (`[Left as is]`).
-- **Delete both, start empty** (`discard`): deletes both, creates an empty
-  target and links the source to it (`[Delete]`). Both contents are gone for
-  good.
+- **Ask each time** (`prompt`): nothing happens until you choose
+  (`[Choose]`).
+- **Keep target, ask about source** (`adopt`, `prompt`): nothing happens
+  until you choose to delete or archive the source.
+- **Keep target, delete source** (`adopt`, `discard-source`): Lighten
+  deletes the source and replaces it with a link to the target
+  (`[Keep target]`). The source's contents are permanently gone.
+- **Keep target, archive source** (`adopt`, `archive-source`): Lighten
+  moves the source into the archive folder. Then it links the source to the
+  target (`[Archive]`). The archive folder is `.lighten-archive` beside the
+  source, unless `archive-root` gives another folder. So `~/.cache/uv` goes
+  to `~/.cache/.lighten-archive/uv`.
+- **Leave both as they are** (`leave-unchanged`): Lighten does nothing
+  (`[Left as is]`).
+- **Delete both, start empty** (`discard`): Lighten deletes both. Then it
+  creates an empty target and links the source to it (`[Delete]`). The
+  contents of both are permanently gone.
 
-A one-time choice offers the same outcomes, for one relocation and the next
+A one-time choice gives the same results, for one relocation and the next
 apply only.
 
 #### Special files
 
 A directory to move can hold files that are not ordinary files, folders or
-links. Lighten can't copy them:
+links. Lighten cannot copy them:
 
-- **Sockets** are how a running program listens for others. Lighten leaves
-  them out of the copy, and the program makes a new one when it starts. A
-  program that was killed often leaves its socket behind. In Results, the
-  copy step names it, such as `Skipped ~/.local/share/zed/zed-stable.sock;
-  programs recreate it.`, or counts several. Once the source is replaced
-  with a link, the socket is gone from both places, so close the program
-  before you apply.
-- **Named pipes and device files** stop the move. The plan doesn't look for
-  them, since that would mean reading every file of every folder to move
-  each time Lighten checks. When the copy reaches one, Lighten throws the
-  copy away and nothing moves. The copy step names it, such as
+- **Sockets** let a running program listen for other programs. Lighten
+  leaves sockets out of the copy, and the program makes a new one when it
+  starts. A program that was killed often leaves its socket behind. In
+  Results, the copy step names the socket, for example:
+  `Skipped ~/.local/share/zed/zed-stable.sock; programs recreate it.`
+  If there are several, the step counts them. When Lighten replaces the
+  source with a link, the socket is gone from both places. So close the
+  program before you apply.
+- **Named pipes and device files** stop the move. The plan does not look
+  for them. To find them, Lighten would have to read every file of every
+  folder to move each time it checks. When the copy finds one, Lighten
+  deletes the copy and nothing moves. The copy step names the file, such as
   `~/.cache/tool/ipc is a named pipe; Lighten can't move it, so it threw the
   copy away and moved nothing. Remove it, or move this folder yourself.`
   Then press `r`.
 
 ### Scripting
 
-Three commands never ask a question and print one line of JSON:
+Three commands never ask a question. Each one prints one line of JSON:
 
-- `lighten status --json`: what is on disk now for each relocation. Without
-  a configuration file at the default path, `configured` is `false` and
+- `lighten status --json`: what is on disk now for each relocation. If there
+  is no configuration file at the default path, `configured` is `false` and
   `relocations` is empty.
-- `lighten plan --json`: the steps Lighten would take for each
+- `lighten plan --json`: the steps that Lighten would take for each
   relocation, any choices still needed (`conflicts`) and any warnings. It
   changes nothing.
-- `lighten apply --json --yes`: makes that plan and, if nothing is blocked
-  and no choice is needed, applies it and prints how each step went. If
-  something is blocked or needs a choice, it prints the plan instead and
-  changes nothing. A failed step's `message` is Lighten's exact error, not
-  the sentence Results show.
+- `lighten apply --json --yes`: makes that plan. If nothing is blocked and
+  no choice is needed, it applies the plan and prints how each step went.
+  Otherwise it prints the plan and changes nothing. The `message` of a
+  failed step is Lighten's exact error, not the sentence that Results show.
 
-In `plan --json`, a relocation that needs a choice has a `conflict` whose
-`resolutions` are the choices Details offers for it, by these names:
+In `plan --json`, a relocation that needs a choice has a `conflict`. Its
+`resolutions` are the choices that Details offers for it, by these names:
 
 - `adopt-target`: **Keep target, link source**, when only the target
   exists.
@@ -524,62 +569,69 @@ In `plan --json`, a relocation that needs a choice has a `conflict` whose
 - `leave-unchanged`: **Leave both as they are**.
 - `discard-both`: **Delete both, start empty**.
 
-These are choice names, not configuration values: one choice can set two
-rules, so `adopt-and-discard-source` is `adopt` with `discard-source`.
+These are choice names, not configuration values. One choice can set two
+rules. For example, `adopt-and-discard-source` is `adopt` with
+`discard-source`.
 
-To make a choice without the screens, save it as the rule (see **What
-each rule does on disk**).
+To make a choice without the screens, save it as the rule. **What each rule
+does on disk** tells you how.
 
-Something no choice fixes, such as a source that links somewhere else, is
-not a conflict: its `actions` hold one step of `type` `blocked`, whose
-`reason` says what is wrong and how to fix it. Fix it, then plan again.
+A problem that no choice fixes is not a conflict. An example is a source
+that links somewhere else. Its `actions` hold one step of `type` `blocked`.
+The `reason` of that step says what is wrong and how to fix it. Fix it, then
+plan again.
 
 Screens and messages show your home directory as `~`. JSON output shows
 every path in full.
 
-`apply --json` needs `--yes`, which confirms the plan the command makes.
-Without `--json`, `status`, `plan` and `apply` open Lighten as `lighten`
-does, starting on the Workspace, with or without `--yes`.
+`apply --json` needs `--yes`, which confirms the plan that the command
+makes. Without `--json`, `status`, `plan` and `apply` open Lighten as
+`lighten` does. They start on the Workspace, with or without `--yes`.
 
 Every response is a JSON object that starts with `"schema": 1`. The number
 changes when the output changes in a way that could break a script.
 
 Exit codes:
 
-- `0`: it worked. `plan --json` exits 0 even when a choice is needed or a
-  step is blocked; read `conflicts` and `blocked`.
-- `1`: the configuration file has a problem (what is wrong and how to fix
-  it on stderr, nothing on stdout), or `apply` was blocked, needed a choice
-  or had a step fail (JSON on stdout).
+- `0`: the command worked. `plan --json` exits 0 also when a choice is
+  needed or a step is blocked. Read `conflicts` and `blocked`.
+- `1`: one of these:
+  - The configuration file has a problem. Lighten writes what is wrong and
+    how to fix it on stderr, and nothing on stdout.
+  - `apply` was blocked, needed a choice or had a step that failed. Lighten
+    writes JSON on stdout.
 - `2`: the command line is wrong, such as an unknown option or
-  `apply --json` without `--yes` (a message on stderr).
-- `70`: a bug in Lighten (one line on stderr). Please report it.
+  `apply --json` without `--yes`. Lighten writes a message on stderr.
+- `70`: a bug in Lighten. Lighten writes one line on stderr. Please report
+  it.
 
 `lighten update` exits `0` when it updated Lighten or found nothing to
-update, and `1` when it could not (a message on stderr).
-`lighten update --check` exits `0` whether or not there is a newer
+update. It exits `1` when it could not update, and writes a message on
+stderr. `lighten update --check` exits `0` whether or not there is a newer
 release.
 
 ### Update Lighten
 
-`lighten update` updates Lighten to the latest release. It runs that
-release's install script on the folder that holds your `lighten`. The
-script downloads the new `lighten`, checks it against the release's
-`SHA256SUMS` file and only then puts it in place, so a failed download
-leaves yours as it was. It needs `curl` or `wget`.
+`lighten update` updates Lighten to the latest release. It runs the install
+script of that release on the folder that holds your `lighten`. The script
+downloads the new `lighten` and checks it against the `SHA256SUMS` file of
+the release. Only then does it put the new `lighten` in place. So a failed
+download leaves your `lighten` as it was. The script needs `curl` or
+`wget`.
 
-- `lighten update --check` shows the installed and the latest version and
+- `lighten update --check` shows the installed and the latest version. It
   changes nothing.
 - `lighten update --version 1.2.3` installs that release, even an older
   one. Without `--version`, it never installs an older one.
 - Lighten uses the network only while `lighten update` runs.
-- If you installed Lighten with mise, update it with mise instead, as
-  `lighten update` tells you: `mise upgrade github:big-sw-little-sw/lighten`
-- An install by eget or ubi updates the same way as one by the install
-  script, so `lighten update` works for those too.
-- If you cannot write to the folder that holds `lighten`, such as
-  `/usr/local/bin`, `lighten update` changes nothing and shows how to
-  update it as a user who can.
+- If you installed Lighten with mise, update it with mise instead.
+  `lighten update` tells you the command:
+  `mise upgrade github:big-sw-little-sw/lighten`
+- An install by eget or ubi updates in the same way as an install by the
+  install script. So `lighten update` works for those too.
+- You may not have permission to write to the folder that holds `lighten`,
+  such as `/usr/local/bin`. Then `lighten update` changes nothing. It shows
+  how to update `lighten` as a user who has permission.
 
 ### More help
 

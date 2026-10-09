@@ -1,106 +1,106 @@
 # Lighten
 
-Lighten moves directories out of a home directory to storage and leaves a link in each one's place. Its desired state for each managed directory is a real target directory and a source symlink to it.
+Lighten moves directories out of a home directory to storage and puts a link in the place of each one. For each directory that it manages, the desired state is a real target directory and a source symlink to it.
 
-Each term is the word users see (the user guide's "Words to know" and the screens), then the code's name for it. Use the user's word in the guide, the TUI and new docs.
+Each term starts with the word that users see in the user guide's "Words to know" and on the screens. Then it gives the name that the code uses. In the guide, the TUI and new docs, use the word that users see.
 
 ## Configuration
 
 **Relocation**:
-One directory Lighten manages: a source, a target and its rules.
+One directory that Lighten manages. It has a source, a target and rules.
 Code: `Relocation`; in the file, `RelocationFile` under `relocations`.
 _Avoid_: mapping, migration, entry
 
 **Source**:
-Where programs look for the directory, usually in the home directory. After a move it is a link to the target.
-Code: `Relocation.sourcePath`, `source-path`; what is there now, compared with the target, is a `RelocationSourceState` (in `fs`).
+The place where programs look for the directory, usually in the home directory. After a move, the source is a link to the target.
+Code: `Relocation.sourcePath`, `source-path`. A `RelocationSourceState` (in `fs`) records what is at the source now, compared with the target.
 
 **Target**:
-Where the directory's contents live, in storage.
-Code: `Relocation.targetPath`, `target-path`; derived from `source-root` and `target-root` when absent (`derivedTarget`).
+The place in storage where the contents of the directory are.
+Code: `Relocation.targetPath`, `target-path`. When it is not set, `derivedTarget` makes it from `source-root` and `target-root`.
 _Avoid_: destination
 
 **Target root, source root**:
-Where storage is, and the folder sources are usually in (default `~`). A relocation without a target keeps its place under the source root, inside the target root.
+The target root is where the storage is. The source root is the folder that usually holds the sources (default `~`). A relocation without a target keeps its path below the source root, but inside the target root.
 Code: `target-root`, `source-root` in `LightenFile`.
 
 **Rule**:
-A saved setting that decides what happens for one observed state of a relocation, every time. "Ask each time" is the default.
-Code: `WhenOnlyTargetExists`, `WhenSourceAndTargetDirectoriesExist`, `WhenAdoptingTarget` ("Ask each time" is `PROMPT`); the Both exist pair as one value is `BothExistRule`, the rule for the case observed now `GoverningRule`.
+A saved setting that decides what happens each time a relocation is in one observed state. The default is "Ask each time".
+Code: `WhenOnlyTargetExists`, `WhenSourceAndTargetDirectoriesExist`, `WhenAdoptingTarget` ("Ask each time" is `PROMPT`). `BothExistRule` holds the two "Both exist" settings as one value. `GoverningRule` is the rule for the state observed now.
 _Avoid_: policy (in user-facing text)
 
 **Ignored**:
-A directory the user told Lighten to leave alone. Lighten plans nothing for it but still lists it.
+A directory that the user told Lighten to leave alone. Lighten plans nothing for it, but it still shows it in the list.
 Code: `ignored-source-paths`, `LightenConfiguration.ignoredSourcePaths`.
 _Avoid_: excluded, skipped
 
 ## Planning and applying
 
 **Plan**:
-The steps Lighten would take for each relocation, made from what is on disk now and the rules. Making it changes nothing.
-Code: `ReconciliationPlan` of `RelocationPlan`s; a step is a `ReconciliationAction`; made by `ReconciliationPlanner`.
+The steps that Lighten would do for each relocation. Lighten makes the plan from what is on disk now and from the rules. Making a plan changes nothing.
+Code: `ReconciliationPlan` of `RelocationPlan`s; a step is a `ReconciliationAction`; `ReconciliationPlanner` makes the plan.
 
 **Choose**:
-A relocation whose rule is "Ask each time" in its current state, so the plan needs a decision before it can be applied.
+A relocation whose rule for its current state is "Ask each time". The user must make a decision before the plan can be applied.
 Code: `ReconciliationConflict`; badge `PlanBadge.CONFLICT`.
 _Avoid_: conflict (in user-facing text)
 
 **One-time choice**:
-A decision for one relocation that holds for the next apply only. Checking again or applying forgets it; saving it makes it the rule.
-Code: `DecisionChoice`, held by `LightenSession`; with the rule it replaces, `RelocationDecision` (`relocationDecision`). `plan --json` lists them as a conflict's `resolutions`.
+A decision for one relocation that is used only for the next apply. When the user checks again or applies, Lighten forgets it. When the user saves it, it becomes the rule.
+Code: `DecisionChoice`, held by `LightenSession`. `RelocationDecision` (`relocationDecision`) holds it together with the rule that it replaces. `plan --json` shows the choices as the `resolutions` of a conflict.
 _Avoid_: override, resolution
 
 **Blocked**:
-A relocation that cannot be done as things are, for example because a file is where a folder must go. Fixing the cause and checking again clears it.
+A relocation that Lighten cannot do in the current conditions. For example, a file is where a folder must go. When the user removes the cause and checks again, the relocation is no longer blocked.
 Code: `ReconciliationAction.Blocked`; badge `PlanBadge.BLOCKED`.
 
 **Review**:
-The screen listing every step of the plan before anything changes. `y` applies exactly that plan.
+The screen that shows all the steps of the plan before anything changes. `y` applies exactly that plan.
 Code: `ApplyModel.Reviewed`, `ReviewedExecution`.
 
 **Apply**:
-Carrying out a reviewed plan. Each step checks the disk is as planned; a difference stops it.
+To do the steps of a reviewed plan. Each step first checks that the disk is as the plan expects. If it is different, the apply stops.
 Code: `ReviewedExecution`, `ReconciliationExecutor`.
 _Avoid_: execute, run (in user-facing text)
 
 **Check again**:
-Looking at the disk and configuration again and making a new plan (`r`).
+To read the disk and the configuration again and make a new plan (`r`).
 Code: `LightenSession.refresh`.
 _Avoid_: refresh, re-plan (in user-facing text)
 
 **In sync**:
-A relocation whose target is a real directory and whose source is the correct link to it. Planning again does nothing.
+A relocation whose target is a real directory and whose source is the correct link to it. A new plan has no steps for it.
 Code: `RelocationOutcome.CONVERGED`; badge `PlanBadge.IN_SYNC`.
 _Avoid_: completed move, migrated, converged (in user-facing text)
 
 **Left as is**:
-A relocation deliberately not changed because its rule or choice says "Leave both as they are".
+A relocation that Lighten does not change on purpose, because its rule or choice is "Leave both as they are".
 Code: `WhenSourceAndTargetDirectoriesExist.LEAVE_UNCHANGED`, `RelocationOutcome.UNCHANGED`; badge `PlanBadge.SKIPPED`.
 _Avoid_: no-op, preserved
 
 **Keep target**:
-Treating an existing target directory as the one to keep. When the source is a directory too, it also needs a decision about the source: delete or archive.
-Code: `ADOPT`, `ADOPT_TARGET`; badge `PlanBadge.ADOPT` when the source is deleted, `PlanBadge.LINK` when there is no source.
+To use an existing target directory as the one to keep. When the source is also a directory, the user must also decide what to do with the source: delete it or archive it.
+Code: `ADOPT`, `ADOPT_TARGET`. The badge is `PlanBadge.ADOPT` when the source is deleted, and `PlanBadge.LINK` when there is no source.
 _Avoid_: adopt (in user-facing text), adopt source
 
 **Archive**:
-Moving the source into an archive folder, by default `.lighten-archive` beside the source, so it can be moved back. Opposed to delete, which removes it for good.
+To move the source into an archive folder, so that the user can move it back. The default archive folder is `.lighten-archive` next to the source. The opposite is delete, which removes the source permanently.
 Code: `WhenAdoptingTarget.ARCHIVE_SOURCE`, `Relocation.archiveRoot`, `ReconciliationAction.ArchiveDirectory`; badge `PlanBadge.BACKUP`.
 _Avoid_: backup
 
 **Staging**:
-A Lighten-owned folder on the target's filesystem, by default `.lighten-staging` beside the target, where a directory is copied and checked before it is put in place with a rename.
+A folder that Lighten owns, on the same filesystem as the target. The default is `.lighten-staging` next to the target. Lighten copies a directory into it and checks the copy. Then it renames the copy into its final place.
 Code: `staging-root`, `Staging.kt`, `ReconciliationAction.MigrateDirectoryForPublication`.
 _Avoid_: temporary directory, transaction journal
 
 ## Suggestions
 
 **Suggestion list**:
-A list of directories Browse suggests moving. The built-in list ships with Lighten; the user's own list (optional) is a file named in `suggestion-list`.
-Code: `CandidateCatalog`; a suggestion is a candidate (`CandidateDefinition`); the user's list is the shared list (`CandidateSource.Kind.SHARED`, `LightenConfiguration.sharedList`), the built-in one `CandidateCatalog.BUNDLED`.
+A list of directories that Browse suggests to move. The built-in list is part of Lighten. The user can also have a list of their own, in the file that `suggestion-list` names.
+Code: `CandidateCatalog`; a suggestion is a candidate (`CandidateDefinition`). The user's list is the shared list (`CandidateSource.Kind.SHARED`, `LightenConfiguration.sharedList`). The built-in list is `CandidateCatalog.BUNDLED`.
 _Avoid_: candidate list (in user-facing text)
 
 **Category, app**:
-The two levels Browse groups suggestions under: a category such as Python, then the app such as uv.
+The two levels that Browse uses to group suggestions: first a category, for example Python, then an app, for example uv.
 Code: `CandidateDefinition.category`, `CandidateDefinition.app`.
 _Avoid_: ecosystem, group
