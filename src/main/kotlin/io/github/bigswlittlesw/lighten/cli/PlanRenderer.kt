@@ -45,6 +45,10 @@ private data class DiagnosticJson(val severity: String, val source: String, val 
 /**
  * A conflict's `resolutions` are the one-time choices the Workspace offers for it, so scripts and people see the same
  * names; empty when no choice resolves it, such as a source link to somewhere else.
+ *
+ * They are [DecisionChoice] names in kebab case, not configuration values, on purpose: one choice can set two
+ * settings, so `adopt-and-discard-source` is `when-source-and-target-directories-exist: adopt` plus
+ * `when-adopting-target: discard-source`, and `discard-both` is `discard`.
  */
 private fun planJson(plan: ReconciliationPlan, offered: (Path) -> List<DecisionChoice>) = PlanJson(
     JSON_SCHEMA, plan.hasBlockedActions(), plan.hasConflicts(), plan.diagnostics.map(::diagnosticJson),

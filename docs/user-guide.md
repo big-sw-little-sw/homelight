@@ -519,6 +519,9 @@ In `plan --json`, a relocation that needs a choice has a `conflict` whose
 - `leave-unchanged`: **Leave both as they are**.
 - `discard-both`: **Delete both, start empty**.
 
+These are choice names, not configuration values: one choice can set two
+rules, so `adopt-and-discard-source` is `adopt` with `discard-source`.
+
 `resolutions` is empty when no choice resolves it, such as a source that
 is a link to somewhere else: fix the link yourself, then plan again. To
 make a choice without the screens, save it as the rule (see **What each
