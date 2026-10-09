@@ -7,9 +7,11 @@ import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.systemReason
 import java.io.IOException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileStore
+import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -133,7 +135,7 @@ class ReconciliationExecutor internal constructor(
             progress.started(relocation, action)
             completed(action, apply(action))
         } catch (exception: IOException) {
-            failure(action, exception.message ?: exception.toString(), ioFailure(exception))
+            failure(action, ioMessage(exception), ioFailure(exception))
         } catch (exception: EnvironmentException) {
             failure(action, exception.message.orEmpty(), exception.failure)
         }
@@ -378,6 +380,17 @@ private fun completed(action: ReconciliationAction, skippedSockets: List<Path>) 
 
 private fun failure(action: ReconciliationAction, message: String, failure: ActionFailure) =
     ReconciliationExecutor.ActionExecution(action, ReconciliationExecutor.ActionStatus.FAILED, message, failure)
+
+/**
+ * The executor's text for [exception]: the system's reason, then any paths it names, such as
+ * `permission denied: /home/me/.lighten-1.link`. The JDK throws the common file exceptions without a reason, so
+ * their own message is only a path.
+ */
+internal fun ioMessage(exception: IOException): String {
+    val reason = systemReason(exception)
+    val paths = (exception as? FileSystemException)?.let { listOfNotNull(it.file, it.otherFile) }.orEmpty()
+    return if (paths.isEmpty()) reason else reason + ": " + paths.joinToString(" -> ")
+}
 
 /**
  * Refuses publication where directory permission bits cannot be read or set. Otherwise the copy would get the

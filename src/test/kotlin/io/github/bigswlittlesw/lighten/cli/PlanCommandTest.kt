@@ -3,6 +3,7 @@ package io.github.bigswlittlesw.lighten.cli
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -145,6 +146,28 @@ class PlanCommandTest {
         assertTrue(output.contains("\"blocked\":true"), output)
         assertTrue(output.contains("\"type\":\"blocked\""), output)
         assertTrue(output.contains("\"reason\":\"$archive is a file, not a folder\""), output)
+    }
+
+    /** A broken link to somewhere else is a blocked step, never a `replace-symlink` one. */
+    @Test
+    fun rendersABrokenLinkToSomewhereElseAsABlockedAction(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val source = Files.createSymbolicLink(root.resolve("app"), root.resolve("nas/app"))
+        val target = Files.createDirectories(root.resolve("local/app"))
+        val config = Files.writeString(root.resolve("config.json"),
+            "{\"lighten\": {\"target-root\": \"${root.resolve("local")}\", \"relocations\": " +
+                "[{\"source-path\": \"$source\", \"target-path\": \"$target\"}]}}\n")
+        val command = LightenCommand.createCommandLine()
+        val out = StringWriter()
+        command.setOut(PrintWriter(out, true))
+
+        assertEquals(0, command.execute("plan", "--config", config.toString(), "--json"))
+        val output = out.toString()
+        val blocked = "{\"type\":\"blocked\",\"path\":\"$source\",\"destructive\":false,\"reason\":\"$source links to " +
+            "${root.resolve("nas/app")}, not to $target. What it links to does not exist now (perhaps an unmounted disk). " +
+            "Remove the link, or set its target to where it points\"}"
+        assertTrue(output.contains("\"actions\":[$blocked]"), output)
+        assertFalse(output.contains("replace-symlink"), output)
     }
 
     @Test

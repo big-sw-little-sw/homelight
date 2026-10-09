@@ -18,6 +18,8 @@ Lighten relocates directories only. A source that is a file is blocked. Lighten 
 
 A source link that points somewhere other than its target is blocked and never replaced. No rule or choice offers to replace it, because the link can belong to another tool. The reason names where the link points and gives both fixes: remove the link, or set its target to where it points. These words are correct when the user makes the fix in Configuration and when the user edits the file. `plan --json` shows this case as a `blocked` action with that reason, not as a conflict. Why: this case was a conflict before, and that conflict offered no choice. (#223)
 
+A broken source link that points somewhere other than its target is blocked in the same way, because a link to a disk that is not mounted looks broken. Its reason adds that what the link points to does not exist now. A broken link that points to the target keeps its own handling. Why: Lighten replaced such a link without a rule or a choice. (#237)
+
 - `[skipped: naming which tool owns the link, add with #5]`
 
 ### Directory permissions are kept or the move is refused
@@ -158,7 +160,7 @@ The configuration and the suggestion lists are JSON, with `//` and `/* */` comme
 
 ### Paths are full or start with `~/`, and stay as written
 
-After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the folder where Lighten runs. (#114, #207)
+After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `~` is the account's home directory (`user.home`), not `$HOME`. `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the folder where Lighten runs. (#114, #207)
 
 ### One editor for creating and editing
 
@@ -191,7 +193,7 @@ The loader throws `InvalidConfigurationException` with the path and the line. Wh
 - 2: usage error.
 - 70: internal error.
 
-JSON paths stay full. `apply --json` puts the executor's text in `message`. Control characters are escaped in lower-case hex (`\u001f`), as kotlinx writes them. Why: scripts need a stable contract, and JSON parsers do not see the case of an escape. (#19, #61, #172, #201)
+JSON paths stay full. `apply --json` puts the executor's text in `message`. For an I/O failure, that text is the system's reason and then the paths, such as `permission denied: <path>`, because the JDK's own message can be only a path (#237). Control characters are escaped in lower-case hex (`\u001f`), as kotlinx writes them. Why: scripts need a stable contract, and JSON parsers do not see the case of an escape. (#19, #61, #172, #201)
 
 - `[skipped: one shared envelope for every outcome across commands, add when someone scripts against Lighten and needs it]`
 - `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`

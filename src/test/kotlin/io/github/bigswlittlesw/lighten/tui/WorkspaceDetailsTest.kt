@@ -62,6 +62,10 @@ class WorkspaceDetailsTest {
         Files.createDirectories(local.resolve("elsewhere"))
         // A rule that links the source to an existing target still does not replace a link to somewhere else.
         add("elsewhere", ", \"when-only-target-exists\": \"adopt-target\"")
+        // A link to a disk that is not mounted: what it points to is missing, and the target exists.
+        Files.createSymbolicLink(home.resolve("unmounted"), root.resolve("nas/unmounted"))
+        Files.createDirectories(local.resolve("unmounted"))
+        add("unmounted")
         val config = Files.writeString(root.resolve("config.json"), body.append("]}}\n"))
         // Permissions cannot make a path unreadable when tests run as root, so inspection says so instead.
         val inspector = PathInspector()
@@ -170,6 +174,26 @@ class WorkspaceDetailsTest {
         assertTrue(squeezed(details).contains(squeezed("Current link destination: $other")), details)
         assertFalse(details.contains("○") || details.contains("●"), details)
         assertFalse(details.contains("points somewhere else"), details)
+    }
+
+    /** A broken link to somewhere else is blocked like a working one, and its problem says what is missing. */
+    @Test
+    fun aBrokenSourceLinkToSomewhereElseIsBlockedAndSaysWhatIsMissing() {
+        for (size in listOf(80 to 24, 120 to 30, 200 to 80)) {
+            val screen = screen("unmounted", size.first, size.second)
+            assertTrue(screen.lines().any { it.contains("❯") && it.contains("[Blocked]") }, screen)
+        }
+        val details = details("unmounted")
+        val source = root.resolve("home/unmounted")
+        val missing = root.resolve("nas/unmounted")
+        assertTrue(details.contains("Will do: nothing until you fix the problem below, then check again."), details)
+        assertTrue(squeezed(details).contains(squeezed(
+            "Problem: $source links to $missing, not to ${root.resolve("local/unmounted")}. What it links to does not " +
+                "exist now (perhaps an unmounted disk). Remove the link, or set its target to where it points.",
+        )), details)
+        assertTrue(squeezed(details).contains(squeezed("Current link destination: $missing")), details)
+        assertFalse(details.contains("The source link is broken"), details)
+        assertFalse(details.contains("○") || details.contains("●"), details)
     }
 
     @Test

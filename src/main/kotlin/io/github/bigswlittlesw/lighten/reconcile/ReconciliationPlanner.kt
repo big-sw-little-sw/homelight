@@ -57,7 +57,9 @@ class ReconciliationPlanner {
             }
             RelocationSourceState.FILE -> blocked(state, PathText("source is a file; relocations require directories"))
             RelocationSourceState.WRONG_SYMLINK -> blocked(state, wrongLinkReason(state))
-            RelocationSourceState.BROKEN_SYMLINK -> when (state.target.state) {
+            // A link to somewhere else looks broken while its disk is not mounted, so it is blocked like any other.
+            RelocationSourceState.BROKEN_SYMLINK -> if (!linksToTarget(state)) blocked(state, wrongLinkReason(state))
+            else when (state.target.state) {
                 PathState.DIRECTORY -> outcome(state, listOf(replacementLink(state)))
                 PathState.ABSENT -> blocked(state, PathText("broken source link has no target directory"))
                 PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
@@ -213,16 +215,26 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
 
 /**
  * A source link to somewhere else is blocked, never replaced: it may belong to another tool, and no rule or choice
- * replaces it. The reason names both paths and both fixes.
+ * replaces it. The reason names both paths and both fixes. When what the link points to is missing, the reason says
+ * so: a disk that is not mounted is the usual cause, and the link is right once it is.
  *
  * The reason does not name the tool that owns the link. Add that when Lighten can recognize links that dotfile
  * managers such as GNU Stow or chezmoi make.
  */
-private fun wrongLinkReason(state: RelocationState): PathText = PathText(
+private fun wrongLinkReason(state: RelocationState): PathText {
     // A wrong link is a symlink observation, which always has a link target.
-    state.relocation.sourcePath, " links to ", state.source.symlinkTarget!!, ", not to ", state.relocation.targetPath,
-    ". Remove the link, or set its target to where it points",
-)
+    val pointsTo = state.source.symlinkTarget!!
+    val missing = state.source.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT
+    return PathText(
+        state.relocation.sourcePath, " links to ", pointsTo, ", not to ", state.relocation.targetPath, ". " +
+            (if (missing) "What it links to does not exist now (perhaps an unmounted disk). " else "") +
+            "Remove the link, or set its target to where it points",
+    )
+}
+
+/** Whether the source link points to the target, compared as `sourceStateForTarget` compares a working link. */
+private fun linksToTarget(state: RelocationState): Boolean =
+    state.source.symlinkTarget == state.relocation.targetPath.toAbsolutePath().normalize()
 
 private fun migrateSourceForPublication(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
@@ -331,7 +343,10 @@ private fun unsupportedTarget(state: RelocationState): RelocationPlan =
 private fun outcome(state: RelocationState, actions: List<ReconciliationAction>): RelocationPlan =
     RelocationPlan(state.relocation, RelocationOutcome.CONVERGED, actions, listOf())
 
-/** Only planned for a broken symlink with a directory target, so the source observation has a link target. */
+/**
+ * Only planned for a broken symlink to the target while the target is a directory, so the source observation has a
+ * link target.
+ */
 private fun replacementLink(state: RelocationState): ReconciliationAction.ReplaceSymlink =
     ReconciliationAction.ReplaceSymlink(
         state.relocation.sourcePath, state.relocation.targetPath, state.source.symlinkTarget!!,

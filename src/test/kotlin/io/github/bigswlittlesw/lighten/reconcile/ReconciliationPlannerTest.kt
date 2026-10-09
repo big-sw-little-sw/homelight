@@ -9,6 +9,7 @@ import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.PathText
+import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -240,19 +241,54 @@ class ReconciliationPlannerTest {
         assertTrue(symlinkPlan.hasBlockedActions())
     }
 
+    /**
+     * A broken link to somewhere else, such as a disk that is not mounted, is blocked like a working one, whatever
+     * the rules and whether or not the target exists. The reason says that what it points to does not exist now.
+     */
     @Test
-    fun repairsBrokenLinksOnlyWhenTheTargetIsARealDirectory(@TempDir root: Path) {
+    fun aBrokenSourceLinkToSomewhereElseIsBlockedWhateverTheRules(@TempDir root: Path) {
         val source = root.resolve("home/cache")
         Files.createDirectories(source.parent)
-        Files.createSymbolicLink(source, root.resolve("missing"))
+        val missing = root.resolve("mnt/nas/cache")
+        Files.createSymbolicLink(source, missing)
+        val target = root.resolve("local/cache")
 
-        val unavailable = plan(Relocation(source, root.resolve("local/cache")))
-        val target = Files.createDirectories(root.resolve("local/cache"))
-        val repair = plan(Relocation(source, target))
+        for (targetExists in listOf(false, true)) {
+            if (targetExists) Files.createDirectories(target)
+            for (relocation in listOf(
+                Relocation(source, target),
+                Relocation(source, target, WhenSourceAndTargetDirectoriesExist.DISCARD, WhenOnlyTargetExists.ADOPT_TARGET),
+            )) {
+                val plan = plan(relocation)
 
-        assertTrue(unavailable.hasBlockedActions())
-        assertEquals(RelocationOutcome.CONVERGED, repair.relocations.first().outcome)
-        assertTrue(repair.actions().any { it is ReconciliationAction.ReplaceSymlink })
+                assertFalse(plan.hasConflicts())
+                assertEquals(listOf(ReconciliationAction.Blocked::class), plan.actions().map { it::class })
+                assertEquals(
+                    "$source links to $missing, not to $target. What it links to does not exist now (perhaps an " +
+                        "unmounted disk). Remove the link, or set its target to where it points",
+                    blockReason(plan, 0),
+                )
+            }
+        }
+    }
+
+    /** A broken link to the target is handled as before: blocked while the target is missing, else repaired. */
+    @Test
+    fun aBrokenSourceLinkToTheTargetIsBlockedOnlyWhileTheTargetIsMissing(@TempDir root: Path) {
+        val source = root.resolve("home/cache")
+        Files.createDirectories(source.parent)
+        val target = root.resolve("local/cache")
+        Files.createSymbolicLink(source, target)
+
+        assertEquals("broken source link has no target directory", blockReason(plan(Relocation(source, target)), 0))
+
+        // The target can appear between the two observations. The link then looks broken while the target is a folder.
+        val brokenLink = PathObservation(PathState.SYMLINK, target, SymlinkTargetAvailability.ABSENT)
+        val repair = ReconciliationPlanner().plan(listOf(
+            RelocationState(Relocation(source, target), brokenLink, PathObservation(PathState.DIRECTORY)),
+        ))
+        assertEquals(RelocationOutcome.CONVERGED, repair.relocations.single().outcome)
+        assertEquals(listOf(ReconciliationAction.ReplaceSymlink(source, target, target)), repair.actions())
     }
 
     @Test

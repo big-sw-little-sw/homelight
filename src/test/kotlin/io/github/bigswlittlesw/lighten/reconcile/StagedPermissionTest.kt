@@ -330,7 +330,7 @@ class StagedPermissionTest {
             val failed = ReconciliationExecutor().execute(plan(source, target))
             assertUnpublishedFailure(failed, source, target)
             // The entry that could not be deleted, not deleteRecursively's generic summary.
-            assertEquals(copy.toString(), failed.relocations.first().actions.first().message)
+            assertEquals("permission denied: $copy", failed.relocations.first().actions.first().message)
             assertEmpty(copy)
         } finally {
             mode(staging, "rwx------")

@@ -47,6 +47,22 @@ class ActionFailureTest {
         }
     }
 
+    /** The executor's text always says what happened, even when the JDK's own message is only a path. */
+    @Test
+    fun theExecutorsTextGivesTheReasonThenThePaths() {
+        for ((exception, expected) in listOf(
+            AccessDeniedException("$path") to "permission denied: $path",
+            NoSuchFileException("$path") to "not found: $path",
+            FileAlreadyExistsException("$path", "$other", null) to "already exists: $path -> $other",
+            FileSystemException("$path", null, "No space left on device") to "No space left on device: $path",
+            FileSystemException(null, null, "Read-only file system") to "Read-only file system",
+            IOException("no existing ancestor for $path") to "no existing ancestor for $path",
+            IOException() to "the system gave no reason",
+        )) {
+            assertEquals(expected, ioMessage(exception), exception.toString())
+        }
+    }
+
     @Test
     fun aCopyThatDiffersFromItsSourceNamesTheSourceEntry(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("source/sub"))
