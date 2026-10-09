@@ -1,6 +1,6 @@
 # Contributing to Lighten
 
-Lighten is Kotlin on the JVM, built with Gradle (Kotlin DSL) and released as GraalVM native binaries for Linux. Read [`AGENTS.md`](AGENTS.md) for the coding conventions, [`docs/architecture.md`](docs/architecture.md) for the structure, [`CONTEXT.md`](CONTEXT.md) for the domain words and [`docs/decisions.md`](docs/decisions.md) for recorded decisions.
+Lighten is Kotlin on the JVM, built with Gradle (Kotlin DSL) and released as GraalVM native binaries for Linux. Read [`AGENTS.md`](AGENTS.md) for the coding conventions, [`docs/architecture.md`](docs/architecture.md) for the structure, [`CONTEXT.md`](CONTEXT.md) for the domain words and [`docs/decisions.md`](docs/decisions.md) for the current rules and why.
 
 ## Build and test
 
@@ -52,6 +52,6 @@ git tag v1.2.3 origin/main
 git push origin v1.2.3
 ```
 
-`.github/workflows/release.yml` checks the commit, rebuilds both binaries with the tag's version and publishes a GitHub Release with the binaries, `SHA256SUMS`, `install.sh` and notes generated from the merged pull requests. A version with a pre-release part is published as a pre-release, which install tools skip. Tagging before `main`'s CI finishes fails the release; re-run the workflow once CI passes. Asset names are a public contract: see "Release assets" in [`docs/decisions.md`](docs/decisions.md).
+`.github/workflows/release.yml` checks the commit, rebuilds both binaries with the tag's version and publishes a GitHub Release with the binaries, `SHA256SUMS`, `install.sh` and notes generated from the merged pull requests. A version with a pre-release part is published as a pre-release, which install tools skip. Tagging before `main`'s CI finishes fails the release; re-run the workflow once CI passes. Asset names are a public contract: see [Release assets](docs/decisions.md#release-assets) in `docs/decisions.md`.
 
 A manual run of the workflow is a dry run: it builds the same assets and uploads them as a workflow artifact, and publishes nothing.

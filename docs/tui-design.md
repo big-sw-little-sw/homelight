@@ -1,7 +1,7 @@
 # Lighten TUI Design
 
-The current rules for the full-screen TUI. Decisions and the alternatives they
-rejected are in [decisions.md](decisions.md); this file holds only what the TUI
+The current rules for the full-screen TUI. Why each rule exists is in the TUI
+section of [decisions.md](decisions.md#tui); this file holds only what the TUI
 must do now. Update it in the same PR as any change to the contract.
 
 ## 1. Principles

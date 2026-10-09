@@ -1,832 +1,332 @@
-# Lighten Design Decisions
+# Lighten Decisions
 
-This document records decisions that affect implementation direction. Add entries when a product or architecture choice is made, especially when an alternative is intentionally rejected.
+The rules Lighten follows today and why, grouped by theme. Each rule gives the decision, a one-line reason, the omissions still open as `[skipped: X, add when Y]`, and the issues and pull requests behind it. Implementation details, measurements and rejected alternatives live in those issues and pull requests and in git history. Superseded entries are listed in the [archive](#archive). How decisions are made is in [`AGENTS.md`](../AGENTS.md).
 
-## 2026-08-29: Use a library-oriented core
+## Product and safety
 
-HomeLight will use a small presentation-independent reconciliation library with a thin Picocli CLI. It will not start as a framework-based application.
+### One library core, two thin adapters
 
-The core should remain usable by future CLI, GUI, and automation consumers.
+A presentation-neutral workflow and reconciliation core sits under a full-screen TUI for people and `--json` commands for automation, in one binary. No dependency injection, classpath scanning, plugin framework or application framework (Spring, Quarkus). Why: a filesystem tool needs fast startup and plain tests, and every layer on the safety-critical path is risk. See [`architecture.md`](architecture.md). (2026-08-29, 2026-09-07, 2026-09-12)
 
-## 2026-08-29: Keep integrations behind adapters
+### Apply exactly the reviewed plan
 
-Configuration storage, Git, HTTP, and other external integrations belong behind narrow adapters. The reconciliation engine operates on desired state and inspected filesystem state, not on Stow, Git, HTTP, or a particular dotfile repository.
+The TUI keeps the plan shown in Review. Preflight checks its expected states before anything runs; drift makes the plan stale and needs a new check. Lighten never re-plans and substitutes after `y`. Why: the user confirmed those steps, not others. (2026-09-12)
 
-## 2026-08-29: Defer framework and plugin infrastructure
+### Directories only, no ownership registry
 
-Dependency injection, runtime scanning, and a general plugin framework are deferred. They would add complexity to the safety-critical path and are not needed for the initial product.
+Lighten relocates directories; a source that is a file is blocked. It keeps no record of what it did: an already-correct link is recognized from the disk, and adopting or replacing anything else needs a rule or a choice. Why: no recovery, staleness or lifecycle state to get wrong. (2026-09-08)
 
-## 2026-08-29: Design for native-image compatibility
+### Directory permissions are kept or the move is refused
 
-GraalVM Native Image is a future aspiration. The project will favor explicit construction, standard Java APIs, isolated serialization, and minimal reflection. Native-image verification should be added before the architecture becomes difficult to change.
+Every published directory keeps the nine POSIX permission bits of its source; a target filesystem that cannot store them refuses publication. Ownership, ACLs, timestamps, extended attributes and special bits are out of scope. Why: relocated homes often go to shared storage, where widening `0700` exposes private data. (2026-09-30)
 
-## 2026-09-07: Prefer guided CLI over desktop GUI
+### Existing ancestors may be symlinks; overlap compares real paths
 
-_Superseded by “Use a full-screen TUI as the primary human interface” below._
-
-HomeLight will focus on a command-line interface with guided prompts rather than a desktop GUI (such as JavaFX).
-
-HomeLight targets quota-constrained Linux workstations and remote environments where SSH and headless access are standard. Guided CLI workflows such as discovery in `init` retain a single-binary distribution with minimal GraalVM Native Image reachability friction.
-
-Desktop GUI alternatives (JavaFX, Gluon Substrate, webview wrappers) are deferred because they introduce substantial build complexity, native graphics bindings, OS packaging overhead, and requirement for display forwarding over remote sessions.
-
-## 2026-09-07: Combine non-interactive and guided CLI in a single binary
-
-_Superseded by “Keep TUI and JSON automation in one binary without dual human presentation” below._
-
-HomeLight will provide both non-interactive commands and guided prompts within the same executable.
-
-The Picocli CLI layer is the primary entry point and routing mechanism. It supports automation through flags such as `--yes` and `--json`, and invokes prompts only for interactive workflows.
-
-## 2026-09-07: Maintain a single Maven module with logical package boundaries
-
-_Maven is superseded by “Build with Gradle Kotlin DSL” (2026-10-01). The single module with package boundaries stands._
-
-The project will remain a single Maven module with clear package boundaries (`domain`, `reconcile`, `fs`, `config`, `cli`) instead of splitting into a multi-module Maven build upfront.
-
-For a solo developer, logical package boundaries provide clean architectural separation and decoupled unit testing without the build maintenance, multi-POM configuration, and refactoring friction of multi-module builds.
-
-## 2026-09-07: Use plain Java 25 and targeted libraries instead of application frameworks
-
-_Java and the SnakeYAML/Jackson choice are superseded by “Move to Kotlin and kotlinx.serialization” (2026-10-01). Targeted libraries instead of a framework stand._
-
-HomeLight will use plain Java 25 with targeted libraries (Picocli for command routing, JLine 3 / TamboUI for terminal interactions, SnakeYAML Engine / Jackson for serialization) rather than a full-stack application framework like Spring Boot 4 or Quarkus.
-
-A filesystem utility does not require runtime dependency injection, classpath scanning, or server-oriented lifecycle management. Plain libraries ensure fast startup, low binary footprint, straightforward unit tests, and seamless GraalVM Native Image compilation.
-
-## 2026-09-12: Use a full-screen TUI as the primary human interface
-
-Running `homelight` starts one persistent full-screen TamboUI application. `init`, `config`, `plan`, `apply`, and `status` are screens within that application, and the corresponding command names deep-link to those screens.
-
-The earlier guided inline CLI approach created separate short-lived terminal applications for plan display, conflict resolution, confirmation, and progress. That lifecycle made focus, rendering, and workflow continuity unreliable. A single application lifecycle and retained workflow state match the product's need to compare relocations, edit decisions, review an exact plan, and observe execution progress in place.
-
-TamboUI remains the presentation toolkit because its high-level layout, widget, focus, and styling primitives allow a distinctive interface without rebuilding terminal infrastructure. It remains isolated behind the TUI adapter because its pre-1.0 API still changes between releases.
-
-## 2026-09-12: Keep TUI and JSON automation in one binary without dual human presentation
-
-The full-screen TUI is the only human-oriented presentation. Existing guided, inline, and plain-text human renderers will be removed rather than maintained as a compatibility layer.
-
-JSON commands remain prompt-free automation interfaces. `--json` bypasses TamboUI completely; responses use versioned contracts and stable exit codes. `apply --json` requires `--yes`, which confirms an already-resolved plan but never supplies missing policy decisions. A non-interactive invocation without `--json` fails clearly.
-
-## 2026-09-12: Apply the exact reviewed plan
-
-The TUI retains the exact structured plan shown during review. Immediately before application, HomeLight preflights the plan's expected filesystem state. State drift marks the plan stale and requires re-planning. HomeLight never recomputes and substitutes an unreviewed plan after the user confirms application.
-
-## 2026-09-12: Establish a HomeLight-specific visual language
-
-The TUI must be intentionally designed around HomeLight's relocation workflows. It will not use a generic dashboard-card composition, gratuitous gradients, excessive borders, decorative clutter, or canned interface copy. Hierarchy, typography, spacing, color, keyboard behavior, empty and failure states, and narrow-terminal behavior are part of the product contract.
-
-The complete visual language, color ergonomics, progress indicators, and screen layouts are codified in [docs/tui-design.md](tui-design.md).
-
-## 2026-09-08: Keep initial reconciliation stateless and directory-only
-
-The initial planner manages directories only. A configured file source is blocked until file relocation has a complete, separately designed state model.
-
-HomeLight does not persist an ownership registry in the initial implementation. It recognizes an already-correct configured symlink structurally, creates absent targets, and requires an explicit conflict resolution before adopting or replacing unknown existing state. This avoids recovery, staleness, and lifecycle complexity while preserving fail-closed behavior.
-
-## 2026-09-30: Stay on Java; ship Linux native binaries
-
-_The Java part is superseded by “Move to Kotlin and kotlinx.serialization” (2026-10-01). The native Linux targets stand._
-
-HomeLight stays on Java 25 and ships GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+). macOS is a development platform, not a release target. A spike showed identical CLI and TUI behavior to the JVM across Oracle Linux 7 through Fedora 44, with 2–15 ms startup.
-
-Spike numbers (2026-09-30, Oracle GraalVM 25.0.3; the full write-up was removed in #196):
-
-- **Startup:** native `--help` 2.2 ms and `plan --json` 2.5 ms on Linux arm64, against 128 and 206 ms on the JVM. TUI first frame 8–48 ms.
-- **Memory:** peak RSS 18–27 MB native, against 93–106 MB on the JVM. A native build needs at least 3 GB of RAM.
-- **Binary size:** about 31 MB.
-- **glibc 2.17:** arm64 builds on Oracle Linux 8 with gcc 12 (gcc 4.8 on Oracle Linux 7 lacks outline atomics) and needs `GLIBC_2.17`, the aarch64 baseline. `-march=compatibility` is set because GraalVM defaults to x86-64-v3.
-- **musl:** the x86_64 build with Oracle's musl toolchain is fully static and ran on CentOS 6 through Fedora 44 and Alpine 3.22. musl arm64 was not tried.
-- **Distro matrix:** the full CLI and TUI suite passed on Oracle Linux 7.9, Ubuntu 24.04 (including `noexec` `/tmp`), Debian 13 and Fedora 44 for x86_64, and on Oracle Linux 8.10, Ubuntu 24.04 and Fedora 44 for arm64; Oracle Linux 7.9 arm64, CentOS 6 and Alpine were smoke-tested.
-- **JLine's exec provider:** native builds use it (`TuiLauncher` sets it at runtime). The JNI provider extracts a library to `java.io.tmpdir` on every launch, warns when `/tmp` is `noexec`, and cannot load under musl. The FFM provider is unavailable in Native Image and hangs the TUI.
-
-Rejected: Kotlin (same JVM and native-image constraints, little gain over Java 25). Rust was a viable alternative: smaller binaries, simpler cross-compilation, no native-image metadata, a mature TUI library. None of those blocked Java, and a port would cost about 13k lines including tests.
-
-## 2026-09-30: Replace smallrye-config with snakeyaml
-
-_snakeyaml is superseded by “Use JSON for configuration and candidate lists” (2026-10-01). Dropping environment and system-property overrides stands._
-
-SmallRye's `@ConfigMapping` generates classes at runtime, which Native Image cannot do; the only workaround depends on SmallRye internals. Configuration is parsed with snakeyaml, which is already a dependency, behind `ConfigurationLoader`. Environment and system-property overrides are dropped: they were an unused side effect of SmallRye's default sources. `${USER}` expansion in paths remains.
-
-## 2026-09-30: Preserve directory permission bits during staged relocation
-
-Every published directory keeps the nine POSIX permission bits of its source. Where the target filesystem cannot represent them, publication is refused rather than silently widening access. Ownership, ACLs, timestamps, extended attributes and special mode bits remain out of scope.
-
-Rejected: accepting filesystem defaults with a documented limitation. Relocated home directories often move to shared storage, so widening `0700` to `0755` exposes private data.
-
-## 2026-09-30: Run agent work through a cloud coordinator
-
-A Claude Code routine acts as coordinator; worker agents run as cloud sessions, one issue and one PR each. GitHub labels and comments carry all state, so no session depends on another's memory. GitHub Actions runs CI only. The human decides product and UX questions, accepts user-visible PRs, and performs every merge to `main`.
-
-Rejected: running agents in GitHub Actions. Long agent sessions would consume private-repo Actions minutes and require a Claude credential stored as a repository secret.
-
-## 2026-09-30: Keep candidate lists on the filesystem
-
-Shared candidate lists stay filesystem paths, typically on a NAS or NFS mount the target machines already share. HomeLight does not fetch lists over HTTP or Git. A list kept in Git is cloned by the user and referenced by path.
-
-Rejected for now: built-in HTTP or Git sources. They add network failure modes (proxies, TLS, offline), caching and staleness rules, and for Git either a large dependency or credential handling. Revisit if machines without a shared filesystem need a curated list; the parser and merge already accept any source that produces a snapshot.
-
-## 2026-09-30: Relax candidate-list strictness
-
-_Since the move to JSON (2026-10-01) there are no aliases to limit, and kotlinx.serialization replaced the planned Jackson binding. Values must have the declared JSON type; see “Read JSON configuration strictly”._
-
-Candidate lists keep the protections that matter for shared, untrusted input: size, nesting depth, string length, record count and alias limits, and rejection of unknown and duplicate keys. Exact YAML tag checks, the single-document rule and format-specific error wording are no longer requirements. Scalars read as text, and null, empty or blank values count as absent.
-
-This lets configuration and candidate lists share one reader, and allows a standard binding library (Jackson, roadmap step 4b) to replace hand-written parsing.
-
-## 2026-10-01: Move to Kotlin and kotlinx.serialization
-
-HomeLight moves from Java 25 to Kotlin and uses kotlinx.serialization instead of Jackson. This supersedes the Java direction in “Stay on Java” and the Jackson adoption planned as roadmap step 4b. Native Linux binaries remain the release targets.
-
-Why:
-
-- Readability: less ceremony for the same code.
-- Null safety in the type system instead of `Optional` and conventions.
-- Immutable data classes with `copy`, and sealed types with exhaustive `when`.
-- kotlinx.serialization generates serializers at compile time: no reflection metadata, and no JDK XML stack in the native image. The Jackson trial (PR #39, closed) grew the binary by 54% because Jackson pulls in the XML stack, and binding YAML still needed a hand-written pre-pass.
-
-How: a mechanical conversion first (build, then main code by package group, then tests), with a mixed Java/Kotlin build during the migration and the Java tests guarding behavior until they are converted. An idiomatic pass follows. JSON output stays byte-identical, with one recorded exception: see “Write JSON control-character escapes in lower-case hex”. Work runs on the `kotlin-migration` branch; the epic is #40.
-
-The earlier rejection of Kotlin weighed only the shared JVM and native-image constraints. It did not weigh null safety, data classes or compile-time serialization.
-
-## 2026-10-01: Build with Gradle Kotlin DSL
-
-The build moves from Maven to Gradle with Kotlin DSL (`build.gradle.kts`). Native images are built with the official GraalVM `org.graalvm.buildtools.native` plugin. Kotlin's compiler plugins (kotlinx.serialization) are first-class in Gradle, and the build script uses the same language as the code.
-
-## 2026-10-01: No dependency on GraalVM internals
-
-HomeLight never depends on GraalVM internals: no `@Substitute`, `@TargetClass` or other svm APIs. Native-image support uses only supported mechanisms: reachability metadata, build arguments and the build plugin. Internals change between GraalVM releases and would tie upgrades to them.
-
-## 2026-10-01: Use JSON for configuration and candidate lists
-
-Configuration and candidate lists move from YAML to JSON, parsed with kotlinx.serialization (roadmap migration phase K6b, #49). Nothing has been released, so existing YAML files are not migrated.
-
-Why:
-
-- Precise parser errors and duplicate-key detection.
-- No aliases or tags to guard against in shared, untrusted lists.
-- First-party kotlinx.serialization support: no third-party YAML library and no hand-written reader.
-- One format for input and output; `--json` responses are already JSON.
-
-Trade-off: hand editing loses YAML's comfort. Allowing comments and trailing commas offsets part of that, and the TUI writes the configuration anyway. Curated candidate lists remain hand-edited.
-
-## 2026-10-01: Write JSON control-character escapes in lower-case hex
-
-JSON responses are encoded by kotlinx.serialization, which writes `\u001f` where the earlier jackson-core writers wrote `\u001F`. This affects U+000B, U+000E, U+000F and U+001A–U+001F in paths, reasons and messages (K6.4, PR #61). JSON `\uXXXX` escapes are case-insensitive, so decoded values are identical. All other escaping is unchanged.
-
-Rejected: a custom string encoder to keep upper-case hex. It would add code for a difference no JSON parser sees.
-
-## 2026-10-01: Read JSON configuration strictly
-
-_Superseded in part by “Let kotlinx.serialization own the file format” (2026-10-02): repeated keys keep their last value, and kotlinx now reports missing keys and invalid policy values._
-
-Configuration and candidate lists are decoded into `@Serializable` file-shape classes and then converted into domain types (K6b, PR #62).
-
-- Unknown keys and values of the wrong JSON type are rejected; a number or boolean is not read as a string.
-- Duplicate keys are rejected by a scan of the accepted text, because kotlinx.serialization keeps the last value.
-- `//` and `/* */` comments and trailing commas are allowed.
-- Decoding errors give line, column and the dotted key path in kotlinx.serialization's wording. Rules checked after decoding (missing keys, policy values, path and limit rules) give the key path without a position, because decoded classes keep no offsets.
-- No separate nesting-depth limit: the fixed file shape rejects deeper values as a wrong type before reading them.
-
-Error messages changed wording from the YAML reader; scripts must not parse them.
-
-## 2026-10-01: Generate picocli reflection metadata from compiled classes
-
-picocli's annotation processor cannot see Kotlin sources. A Gradle task runs picocli-codegen's `ReflectionConfigGenerator` on the compiled classes on every build and writes `reflect-config.json` where the processor did, so Native Image metadata for the commands cannot go stale.
-
-Rejected: kapt (its Java stubs failed on the `@JvmRecord` classes during the migration, and kapt is in maintenance mode) and a hand-written metadata file (it would drift from the commands).
-
-## 2026-10-01: Keep Java whitespace semantics for validation
-
-Kotlin's `isBlank` and `trim` treat no-break spaces as whitespace; Java's `String.isBlank` and `strip` do not. Validation of configuration and candidate text keeps Java's semantics through the helpers in `JavaStrings.kt`, so the move to Kotlin did not change which values are accepted.
-
-## 2026-10-01: Keep threads and locks during the Kotlin migration
-
-The migration kept the existing platform threads, locks and executors. Coroutines are not adopted; #10 decides the concurrency mechanism later.
-
-## 2026-10-02: Let kotlinx.serialization own the file format
-
-One set of `@Serializable` classes defines the configuration and candidate-list formats for both reading and writing (#79). Hand-written value parsing is gone: required fields are non-null, optional ones have defaults, and policies and `advice` are `@Serializable` enums with `@SerialName` constants. kotlinx rejects unknown keys, missing required keys, wrong types and unknown enum or policy names. The loader keeps only domain rules: path expansion and blank paths, target derivation, staging-root under target-root, the path override, and the candidate limits and path validation. A blank string is a value, rejected only where a domain rule says so. Output uses `encodeDefaults = false`, so written files hold only what is set, in declaration order.
-
-All three policies, `when-adopting-target` included, are plain strings:
-
-```json
-"when-adopting-target": "archive-source",
-"archive-root": "~/archive"
-```
-
-`source-archive-root` becomes the optional relocation key `archive-root`. In the domain `Relocation.archiveRoot` is non-null and defaults to `.homelight-archive` beside the source. Archiving is an atomic rename, so the root must be on the source's filesystem, and beside the source it almost always is. With a root always present, archive-source without a root cannot happen, and review can always offer archiving when the policy prompts. The plan still blocks an archive path that overlaps the source or target. Paths stay as written in the file classes and expand only when converted to domain types, so a file read and written back keeps `~/…` and `${USER}`. A relocation using the default root is written without `archive-root`.
-
-Considered: a sealed `when-adopting-target` (`prompt`, `discard-source`, `archive-source` with its root) in the domain and the file, written as an object with a `policy` discriminator. It needed the experimental `@JsonClassDiscriminator`, gave errors without position or path when `policy` was missing, and still needed a root on `prompt` to offer archiving at review. Also considered: a generic domain `Policy<C>` (`Prompt` or `Decided(choice)`) for all three policies; deferred to the simplification pass.
-
-- A repeated key keeps its last value, as kotlinx does. The text scan that rejected duplicates is removed.
-- Error wording is kotlinx's, with the dotted path. Each file class and enum has a `@SerialName`, so messages name `relocation` or `when-adopting-target`, not Kotlin classes. kotlinx gives no offset for missing keys or unknown enum values, so those errors have a path but no line and column.
-- Writing a configuration drops comments. kotlinx can read comments but has no model that keeps them; the TUI is the primary editor (#17).
-
-Nothing has been released, so existing files are not migrated.
-
-Rejected: a hand-written pre-pass or validator to restore the earlier error details (closed PR #39 tried this with Jackson). It would reintroduce the parsing code this decision removes.
-
-## 2026-10-03: Stay with TamboUI; Kotlin TUI frameworks reviewed
-
-HomeLight stays with TamboUI, now pinned to the 0.5.0 release from Maven Central (#88). A survey of Kotlin TUI frameworks found none that meets our requirements: a full-screen alternate-screen app with layout widgets, running in a static native binary.
-
-- **Mosaic 0.18:** no alternate screen (#455), only basic layout widgets, coroutines required, native image untested (#764). Its bundled JNI `.so` likely cannot load in a fully static musl binary. No release in 13 months.
-- **Kotter 1.4:** inline only, no alternate screen (#156), GraalVM support self-described as incomplete, 4 contributors.
-- **Mordant 3.1:** the best native-image story (graal-ffi), but it is an output and input library, not a full-screen app framework.
-- **Lanterna:** needs reflection configuration, and LGPL-3.0 in a static binary is an open question.
-- **ratatui-kotlin ports:** immature.
-
-Issue numbers in this list are the upstream projects' own.
-
-Revisit if Mosaic ships alternate-screen support and CI-tested native-image support, or if TamboUI stalls: no release for about 6 months, or a native regression upstream won't fix.
-
-## 2026-10-04: How design and simplification decisions are made
-
-Every proposal names the first rung that answers it: (1) does it need to exist at all, (2) reuse existing code, (3) Kotlin or JDK standard library, (4) a TamboUI or platform feature, (5) an existing dependency, (6) only then minimal new code. For the TUI, use TamboUI as much as possible and delete our own equivalents, even when that is an app-wide change. Anything dropped or deferred is recorded as `[skipped: X, add when Y]` in the decision and its ticket. HomeLight never files issues or pull requests on upstream projects; TamboUI gaps are worked around in our code.
-
-## 2026-10-04: One configuration editor for creating and editing
-
-`homelight init`, `homelight config`, `i` (no configuration) and `e` (from Workspace) open one Configuration screen. It edits the file's own shape (`HomeLightFile`/`RelocationFile`), validated by the loader's conversion, so path rules have one owner and `~`/`${USER}` survive a round trip. Layout is master-detail like Workspace; "Storage locations" is the first list entry, so there is no separate locations step. A blank Target means "derived from the target root", as a blank Archive root already means the default. Unsaved changes are the draft compared with the loaded file. Save creates a new file directly; replacing an existing file asks for `y`, notes that comments are not kept, refuses if the file's bytes changed since load, and writes atomically. Save returns to Workspace, checks again and says the next step. Saved and new relocations are the same kind of row, so Browse has two markers, `[ ]` and `[x]`, and Space toggles.
-
-The configuration gains an optional `source-root`, default `~`. Targets derive from a source's position under it; a source outside it needs an explicit target. New rows start with the source root filled in, and Browse scans under it.
-
-This removes setup's own relative-to-root rows and path rules, the creation-only "configured" join with its `[=]` state (never reachable in production: `SetupView` always passed an empty list), and the separate locations mode.
-
-- `[skipped: per-row changed/new markers, add when users lose track of edits in long lists]`
-
-Rejected: a second editor for existing files beside create-only setup (two editors for the same rows); extending setup's relative-to-root rows to existing files (needs absolute/relative mapping and makes the dead outside-root case real); deferring existing-file editing; a source root kept only in the editor (saves typing, nothing else).
-
-## 2026-10-04: Workspace choices are for one apply; rules are saved on request
-
-A choice made in Workspace applies to the next apply only and is cleared by any re-check, save or apply. `s: Always do this` saves the choice as the relocation's rule through the Configuration save path, after a dialog that explains it. This supersedes the product-spec line that durable decisions are written before application, and drops the logic that kept choices across a re-check (`DiscardedChoice`, `DiscardReason`, `Replanned` and the "draft choices discarded" banner).
-
-- `[skipped: keeping one-time choices across a re-check, add when users re-check often with many open choices]`
-
-Rejected: keeping choices across re-checks (code for a rare case); saving every choice as a rule (a one-off "delete both" would become permanent for `apply --json --yes`); a per-choice "also save" toggle.
-
-## 2026-10-04: A missing rule means "Ask each time"
-
-The three rule fields are non-null and default to `prompt`, which is omitted when written. The screen shows a missing and an explicit `prompt` the same way: "Ask each time". This reverses the part of #65 that showed `Default (prompt)` separately; the other #65 wording rules stand. A file that spells out `"prompt"` loses that line on its next save, with the same meaning. The editor merges `when-source-and-target-directories-exist` and `when-adopting-target` into one **Both exist** choice whose values read as outcomes (Ask each time; Keep target, delete source; Keep target, archive source; Keep target, ask about source; Leave both as they are; Delete both, start empty); the file keeps both keys. On screen a policy is a "rule".
-
-- `[skipped: showing a missing rule apart from an explicit prompt, add when a global defaults layer exists]`
-- `[skipped: generic Policy<C>, add when a fourth rule appears or code needs to treat all rules the same way]`
-
-Rejected: `Policy<C>` (each rule would need a hand-written serializer to keep the file's plain strings, the cost the 2026-10-02 decision already rejected).
-
-## 2026-10-04: TamboUI owns focus, fields, choices and dialogs
-
-The TUI uses TamboUI's `FocusManager` with fixed element ids, its text inputs (`TextInputState`), `Select` for every fixed-value choice, `dialog()` for dialogs, `LineGauge` and `Spinner` for progress. One app key handler, keyed by the focused id, handles what elements leave: Esc goes back one level (field, list, screen) and never exits. While a dialog is open the screen behind renders non-focusable, because TamboUI has no inert or focus-scope option and handles Tab before any element. Key bindings switch from vim to TamboUI's `standard` set, which removes the text-field-first exception, the paging guard and the risk that a TamboUI fix for binding-aware text input would make `x` delete. Tab moves through every control in order; ↑/↓ also move between form fields. A throwaway prototype confirmed all of this (escape, typing in fields, dialogs trapping keys, testability, quit).
-
-- `[skipped: TamboUI FormElement, add when it supports per-field key handling and a dialog on top]`
-- `[skipped: TreeElement for Browse, add when its selection can follow an item rather than a position]`
-- `[skipped: mouse support, add when users ask to click; mouse capture disables plain drag-to-copy]`
-- `[skipped: Tab completion for paths, add when typing paths becomes a complaint]`
-
-Rejected: keeping our own focus and field code with only TamboUI text inputs (keeps code TamboUI provides); Tab switching panes only (TamboUI owns Tab, so it would mean keeping our focus code).
-
-## 2026-10-04: Dialogs for short questions, screens for work
-
-A dialog asks one question or confirms one action over the current screen and returns to exactly where the user was. Dialogs have a double border in their own color, are centered and sized to content, and never cover the header or help lines. Multi-step work is a screen with one plainly labelled way back.
-
-- `[skipped: dimming the whole screen behind a dialog, add when the border and lost focus are not enough separation]`
-
-## 2026-10-04: Harbor palette on HomeLight's own dark background
-
-The TUI paints its own dark background and uses the Harbor palette as exact RGB colors, named by role in one palette file; terminals without full-color support fall back to the nearest basic color per role. Color may carry meaning alone when the same information is also on screen another way. This replaces "inherit the terminal background" and "color never replaces words". The palette was chosen from three candidates rendered on real screens.
-
-Rejected: the terminal's 16 colors only (plain, and drifts across 88 call sites); inheriting the terminal background with separate light and dark shades selected by a setting (two shade sets and a setting).
-
-## 2026-10-04: Browse shows its lists and drops stale evidence
-
-Browse always shows each candidate list's location, count and the shared file's modification time. Discovery no longer keeps previous results on screen while checking again, no longer distinguishes waiting from checking, and no longer remembers which lists once suggested a row. Deadlines, the single in-flight shared read, chained runs and the bundled-first batch stay (#84, #10). When both lists name a directory, the candidate list's app and advice win. Row notes use plain words.
-
-- `[skipped: showing previous results while checking again, add when re-checks are slow enough that blank rows annoy users]`
-- `[skipped: per-row list history, add when users need to know a list used to suggest a row]`
-
-Rejected: showing "lists disagree" on rows where the lists differ (two pieces of advice per row).
-
-## 2026-10-04: Apply progress does not follow running steps
-
-With several relocations running at once, the selection stays where the user put it. Each relocation row shows its own status, the tree updates in place, a line gauge and one count line summarize progress, and on finish the selection moves once to the first failure or last completed action. Action names use plain words.
-
-Rejected: following the first running step (pulls the selection away while reading); following the most recent step.
-
-## 2026-10-04: Application-layer cleanup
-
-`PlanSummary` is deleted (one reader compared two of its fields). `PlanModel` folds into the loaded evaluation. Screen text moves out of `DecisionChoice` and `PlanBadge` into the TUI's wording file. `HomeLightSession` stops being `open`; TUI tests drive real sessions. Review's pending steps are built in one place.
-
-- `[skipped: merging the Missing and Unconfigured evaluation states, add when the JSON contract is revisited]`
-
-## 2026-10-04: TUI design document holds current rules only
-
-`tui-design.md` holds the current rules; history lives here and in git. Screens are checked at 80x24 and 120x30. Displayed paths show the home directory as `~`.
-
-- `[skipped: 200x50 checks, add when a wide-terminal layout bug appears]`
-
-## 2026-10-04: Only environment failures fail an action
-
-The executor reports an action as failed only for an I/O failure or an expected environment failure: state drift, a staging root on another filesystem, or a filesystem without POSIX permissions. Any other exception is a bug and propagates out of `execute`, after staging cleanup and once running relocations finish. Apply then shows the exception's message as a diagnostic, beside the step that was running. Executing a `Blocked` action is a bug, because `execute` refuses plans that contain one.
-
-- `[skipped: a stack trace for a bug that escapes execute, add when a bug report needs more than its message]`
-
-## 2026-10-04: Bugs are reported as internal errors
-
-A bug is any exception that is not a configuration, I/O or environment failure. It reads `Internal error (please report): <ExceptionType>: <message>`, with no stack trace. The CLI prints that one line on stderr and exits 70 (`EX_SOFTWARE`); a configuration error still prints its message and exits 1. `apply --json` still prints the result it has on stdout before the line, so automation keeps the evidence of what ran. Configuration evaluation turns only a `ConfigurationException` into an invalid or missing configuration, so a bug in inspection or planning is no longer shown as an invalid file. In the TUI, a bug while checking the configuration ends the TUI, restores the terminal and prints the line; a bug during apply shows the line as Apply's diagnostic, and the line is printed again with exit 70 when HomeLight exits. A terminal failure still prints `Failed to run HomeLight TUI: <message>` and exits 1.
-
-- `[skipped: printing the stack trace, add when a bug report needs more than the exception type and message, e.g. behind a debug option]`
-
-## 2026-10-04: Existing ancestors may be symlinks; overlap compares real paths
-
-An existing ancestor of a path HomeLight works on may be a symlink to a directory, such as `/var` on macOS or `/home -> /var/home` on Fedora Atomic. Every directory HomeLight creates must be real, and so must the source, the target and the staging root themselves; their guards still inspect them without following links. `EnsureDirectory` follows the same rule, so an existing symlinked parent is accepted rather than refused.
-
-Overlap compares each path's real spelling: the real path of its longest existing ancestor plus the remaining components, never following the path itself, because a source may be the link HomeLight created. The loader checks configured relocations this way and refuses overlap that appears only through a symlink; overlap visible as written stays a plan diagnostic. The executor's grouping compares claims this way at execute time. The planner stays pure: it runs again for every Workspace choice, and filesystem reads there could block on a slow mount.
+An existing ancestor may be a link to a directory (`/home -> /var/home`), but every directory Lighten creates, and the source, target and staging root themselves, must be real. Why: Fedora Atomic and macOS have linked ancestors. (#128)
 
 - `[skipped: real-path check of an archive path against its own relocation, add when an archive root reached through a symlink is reported]`
 - `[skipped: re-checking aliased overlap in preflight, add when ancestor links are seen to change between review and apply]`
 - `[skipped: removing toRealPath() from cli and application test fixtures, add when those tests next change]`
+- `[skipped: rewriting ensureDirectories's walk without mutable locals, add when it changes for another reason]`
 
-Rejected: resolving in the planner (I/O in a pure step that runs on each choice); storing real paths in the configuration (links and displayed paths would change spelling).
+### Overlap blocks only the relocations involved
 
-## 2026-10-04: One staging operation per target
+Two relocations that overlap (one inside the other, or the same target), as written or through a link, are each blocked with a reason naming the other path; a relocation whose source and target overlap blocks only itself. The other relocations are planned, and any block keeps Review closed. Inspection records real spellings and the planner, which stays pure, compares them. Saving still refuses overlap as written. Why: one mistake should not hide the whole plan, and planner I/O could block on a slow mount on every choice. (#128, #207)
 
-Staged publication uses one operation per target (#130, decisions D1 and D3 of the executor simplification). In the staging root, `operation-<sha256 of the target's real spelling>` is the staged copy and `operation-<same>.lock` its lock file, which is never deleted. A process claims the key in an in-process set, takes the file lock without waiting, clears whatever is at the copy's name (under the lock it can only be an earlier run's leftover), then copies, verifies and publishes; closing deletes the copy, releases the lock and then the key. Different targets never open each other's files, so relocations that share a staging root always run concurrently. A target already being staged, by this process or another, is an environment failure. The atomic-move probe is gone: the same-filesystem check rules out a cross-device rename, and `publish` uses `ATOMIC_MOVE`, which fails before the source changes.
+- `[skipped: naming every overlapping relocation in one reason, add when users configure three or more that overlap]`
 
-This replaces UUID-named operations, the `target` marker, the claimed-names set, stale cleanup of other operations, the lock probe and the lock-unsupported fallback. It also fixes four bugs: a leftover containing a symlink is now cleared (B2); a staging cleanup failure is added to the original failure instead of replacing it (B4); a failure after the copy was renamed into place reports `failed-recovery`, not `unresolved` (B5); and no probe file can leak (B8).
+### One staging operation per target
 
-- `[skipped: sweeping other targets' leftovers, add when abandoned staging copies are reported]` A target's leftover is cleared the next time that target is staged, and it stays inside the staging root.
-- `[skipped: deleting per-target lock files, add when users object; safe deletion is defeated by inode reuse]` One empty `.lock` per target stays behind.
-- The same target staged by two processes now fails fast with an environment failure, instead of the loser failing on drift after a full copy.
-- The on-disk layout changes. Nothing has been released, so there is no migration.
+A move copies into `operation-<sha256 of the target's real spelling>` in the staging root, under a non-waiting lock on `operation-<same>.lock`, verifies, then publishes with one atomic rename. A target already being staged, by this or another process, is an environment failure; leftovers at that name are cleared the next time the target is staged. Why: different targets never touch each other's files, so relocations sharing a staging root run concurrently. (#130)
 
-## 2026-10-04: A source is replaced by its link in atomic steps
+- `[skipped: sweeping other targets' leftovers, add when abandoned staging copies are reported]`
+- `[skipped: deleting per-target lock files, add when users object; safe deletion is defeated by inode reuse]`
 
-Replacing a source directory with its link (#132, bug B6) renames the source aside within its own parent, moves the link into its place, and only then deletes the renamed tree. Each step is one rename, so a crash leaves the whole source at its path, or nothing there and the whole source aside, or the link there with the rest of the source aside. It never leaves a partial source next to the target, which the next plan used to report as "both exist" and a saved `discard` rule would then delete together with the target.
+### A source is replaced by its link in atomic steps
 
-The source is set aside as `<source parent>/.homelight-replaced-<source name>-<SHA-256 of the target's absolute normalized path>`. A directory at exactly that name is recognized only while the source is a link to that target and the target is a directory: the plan then deletes it (a `delete-directory` step with a `REPLACED_SOURCE_LEFT` warning) and never treats it as a source. The hash ties the name to the target that holds the content, so after the relocation moves to another target the name no longer matches. While the source is absent the set-aside tree is kept, and the usual only-target plan applies; once the link exists, the next plan deletes it. While the source is a directory again (an application may recreate it), the relocation is blocked until the user deals with the set-aside tree. Deletion still never follows links and never changes permissions, so an entry that cannot be deleted now stays in the set-aside tree, beside the link, rather than in the source.
+The source is renamed aside to `.lighten-replaced-<name>-<sha256 of the target>`, the link takes its place, then the set-aside tree is deleted. A set-aside tree is recognized only while the source links to that target; the next plan deletes it. Why: a crash never leaves a partial source that a saved rule could treat as "both exist". (#132)
 
-- `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]` The plan asks for the adopt-target decision instead, and keeps the set-aside tree until the link exists.
-- `[skipped: recognizing a published target whose source was not yet set aside, add when a crash between publication and replacement is reported]` A crash there leaves two whole directories, reported as "both exist" exactly as a failure after publication already is (B5). A saved `discard` rule would delete both whole copies; no name or marker distinguishes this case from two directories the user made.
+- `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]`
 
-## 2026-10-05: Functions return their results
+### A crash between publishing and setting the source aside is left as is
 
-Functions no longer take a mutable collection to fill; they return what they build, and an accumulator stays local to the function that builds it. This was a habit left from the Java port, not a design choice. Preflight, candidate parsing, candidate metadata failures, available choices, independent groups and per-action execution now return their results; parent walks use `generateSequence`. TUI line builders follow the same rule as their screens change (#110, #111, #115): they return `List<Line>`, or a small `Anchored(lines, anchor)` when they also need an anchor.
-
-Moving `progress.finished` for a completed action out of the executor's `try` also fixes a bug: a listener that threw `IOException` there recorded the action twice, completed and then failed. An exception from `finished` now propagates like any other listener bug.
-
-Legitimately mutable state stays: lock-guarded monitors, the executor's `halted` flag, `mapBounded`'s slots, staging keys, the JDK file visitor, picocli fields and `DetailViewport.wrap`.
-
-- `[skipped: rewriting ensureDirectories's walk, add when it changes for another reason]`
-
-## 2026-10-05: The archive destination is the source's name under the archive root
-
-Archive-source moves a source to `<archive root>/<source name>` (rung 6, minimal new code), instead of nesting the source's full absolute path under the root, which was unique but hard to read (#142). When that name is taken, by an existing entry or by another configured relocation whose plain destination has the same real spelling, the name becomes `<source name>-<first 8 hex digits of the SHA-256 of the source's real spelling>`. The suffix reuses `sha256Hex` and the real-spelling rule from #128 (rung 2). The relocation rule depends only on the configuration, so two relocations with the same source name get different names whichever archives first; the suffix depends only on the source, so the same state always plans the same destination.
-
-Inspection chooses the name, because whether it is taken is a filesystem fact; the planner stays pure and uses the inspected path. Its guards are unchanged: the destination must be absent, outside the source and target, and archiving is an atomic rename, so it fails before changing anything on another filesystem. A suffixed name that is taken too blocks archiving.
-
-- `[skipped: a counter or further suffix when the suffixed name is also taken, add when users hit it; it means the same source was archived before and that archive is still there]`
-- The on-disk layout of archives changes. Nothing has been released, so there is no migration.
-
-Rejected: always adding the suffix (unreadable in the common case); a timestamp suffix (a re-check would plan a different path); giving the plain name to the first relocation in file order (reordering the file would change where a source goes).
-
-## 2026-10-05: Workspace Details say the decision once and warn only for deletions
-
-Workspace Details (#110) replace the "Your rule" and "Your choice (not saved)" pair with one `Decision:` line that says what will happen and where it comes from, for example `Decision: ask each time (your configuration)`. Rows no rule governs (Move, Link, In sync, blocked, can't read) have no such line. `Archive:` appears under Paths only when the rule or choice archives the source; while archiving is only offered, the archive choice names its destination (#107). A blocked row now shows the planner's reason after `Will do`, which already pointed to "the problem below".
-
-`⚠ This deletes data for good.` and the summary's `deletes data` count cover only data that is not kept elsewhere: deleting a source while keeping the target, deleting both, or deleting what an interrupted replacement left behind. A verified Move no longer carries a warning: it replaces the source with a link only after the copy is checked, and its `Will do` line already says so. Review keeps its per-step ⚠ on every step that deletes or replaces something, because it lists exact steps.
-
-- `[skipped: plain-language reasons for blocked rows, add when the planner's reasons are reworded for JSON output too]` The reasons are shared with JSON, so Details shows them as written.
-- `[skipped: a softer Review warning for a verified "Replace source with a link" step, add when the Review walkthrough finds it alarming]`
-- `[skipped: keeping the Decision line in view when Details takes focus, add when users miss it]` Focusing Details still scrolls to the focused choice (#108).
-- `[skipped: List<Line> or Anchored builders in Setup and Browse, add when #114 and #115 replace those screens]`
-
-Rejected: a softer warning line on a Move ("Replaces the source with a link after a verified copy."), because it repeats the `Will do` line.
-
-## 2026-10-05: Quitting asks before forgetting one-time choices
-
-From the #110 walkthrough, folded into #111. `q` with one-time choices that are not applied yet opens a dialog that says how many there are and that quitting forgets them; `n` or Esc goes back. A plan with no one-time choices quits at once, because the next run plans it again. Details call a choice `(your choice, this run only)`, matching the dialog; "saved" is kept for rules saved with `s` (#116).
-
-Apply progress (#111) keeps the plan a tree by starting relocation rows at the left edge with their mark (`✔ ~/.cache/uv`), while action rows keep the pointer slot (`❯ ○ Replace source with a link ⚠`). Actions sit two cells under their relocation, as before, and the longest label still fits at 80 columns beside the scrollbar's cell. A deeper indent would cut it.
-
-- `[skipped: "or s to always do this" in the quit dialog, add with #116]`
-- `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
-
-## 2026-10-05: Help is a screen with two tabs, and the user guide is its only text
-
-Walkthroughs of #127, #136, #140 and #144 asked about the order of the workflow and its concepts, which the two help lines cannot say (#146). `?` opens a full-screen Help screen from any screen, and F1 opens it everywhere, text fields included, where `?` types and the help lines offer `F1: Help`. It has two tabs (TamboUI `TabsElement`, rung 4):
-
-- **This screen**: the place (such as `Configuration › Target root`), one purpose line for the screen's state, `Step: Configure › Workspace › Review › Apply › Results` with the current step bold in the focus color, then `Keys on <place>` and "They work after you go back (Esc or q). In Help they do nothing.", then the keys for the current focus in two groups, "Move around" and "Do". Each key shows a description that names what it acts on and whether it asks first (`↑/↓  Select a relocation`, `y  Apply the plan; this changes files on disk`); the help lines keep the short label. One `KeyHint(keys, action, description = action)` holds both, so they share one source. This framing was option B of a wording pass after the walkthrough, which found the bare labels unclear out of their screen and the keys easy to misread as working inside Help.
-- **Guide**: `docs/user-guide.md`, rendered with TamboUI's Markdown element.
-
-Tab and ←/→ switch tabs and each keeps its scroll; Esc, `q`, `?` or F1 return exactly where the user was; an apply keeps running behind. From the empty Workspace before there is a configuration file, Help opens on Guide, so a first run starts by reading it; that Workspace says `New to HomeLight? Press ? to read the guide.` From Configuration it opens on This screen. The tab bar shows the open tab bold in the focus color and the other dim. The help lines drop every scroll key while the open tab has nothing to scroll. Configuration's field reads **Suggestion list (optional)**, so the guide's name for it is true now; its help text and the configuration key stay for #115 and #114.
-
-This reverses the first version of #152, which rejected a separate help screen. That version was a `?` dialog with five steps and three "key ideas" kept in `Wording.kt`, plus a separate `docs/user-guide.md` and a test that the two matched. The walkthrough rejected it: the dialog never said what HomeLight is, used the internal name "Setup", and pointed to a Markdown file that users of the native binary never see. A second walkthrough split the screen into tabs, so the keys and the guide each get the whole pane, and asked for F1 and a product-first guide.
-
-- The guide is written for people using HomeLight: what it does, how to use it (one section per journey, "Free space on this machine" today), suggestion lists, words to know, undo, then reference. It takes over the Scripting section #19 put in the README while no guide existed. The feature is the **suggestion list** ("the built-in list", "your list"); the on-screen and configuration-key renames follow with #115 and #114, and until then the guide shows the current key. A test fails if the guide names tickets or pull requests or has a line over 78 columns.
-- The guide is packaged as a resource and rendered by `MarkdownElement` (`tamboui-toolkit-markdown`) inside a `DetailViewport` pane that scrolls it and draws the scrollbar (rung 2). This screen is Markdown built from code, so both tabs render the same way. `homelight guide` prints the guide; its online address comes from one constant, `main` for a `-SNAPSHOT` version, else the `v<version>` tag, and `homelight --help` ends with it.
-- Native Image needs CommonMark's `org/commonmark/internal/util/entities.txt` registered for any HTML entity. The guide has none now, so a JVM test renders an entity fixture and checks that every registered resource exists; the native TUI test opens both tabs.
-- TamboUI moves focus on Tab before any handler sees it, so the open tab follows focus: the open tab's pane has that tab's id and the tab bar has the other's.
-- HomeLight captures the mouse, for its wheel only (user decision). The walkthrough saw scrolling switch Help's tabs at an edge, in WezTerm on macOS with a MacBook Pro trackpad. Without capture, a terminal in its alternate screen turns the wheel into arrow keys (alternate-scroll, on by default in WezTerm), and WezTerm sends a horizontal wheel event as ←/→ (`term/src/terminalstate/mouse.rs`, `mouse_wheel`), so a trackpad's sideways drift switched tabs. The scroll keys themselves do nothing at an edge. Options considered: a timing guard that ignored ←/→ within 150 ms of another arrow (tried in this PR; unpredictable, and blind to arrows a list takes itself); Tab alone switching Help's tabs (also tried; it fixed only Help and made Help's keys differ from the rest); mouse capture. Capture won because it fixes the cause on every screen and keeps the keys consistent: TamboUI then reports wheel up, down, left and right as separate wheel events, never as keys. Wheel up and down scroll the pane under the pointer, or move a list's selection, and never change focus or a tab; sideways scrolling, clicks, drags and taps do nothing, because HomeLight's handler takes every mouse event before TamboUI's click-to-focus. TamboUI turns capture off when the runner closes, on normal exit, Ctrl+C, an internal error and its shutdown hook; the native TUI test checks the log for it. Selecting text now takes the terminal's bypass modifier (Shift-drag in WezTerm and Ghostty, Option-drag in iTerm2), which the guide says once. This supersedes `[skipped: mouse support, …]` from 2026-10-04 for the wheel only.
-- The focused pane has a thick border (`┏━┓`) and the others a plain one, so focus shows without color. Lists sit in a TamboUI panel for this, because the list element offers only a rounded border.
-- Each screen's help is a `ScreenHelp(name, purpose, step, navigation, commands)` built in one function (`WorkspaceView.screenHelp`, `ApplyView.screenHelp`, `SetupView.screenHelp`, `CandidateBrowser.screenHelp`). The help lines show the hints marked for them and Help lists all of them, so the two cannot disagree.
-- `q` on Help goes back, like Esc, `?` and F1, as in less, man, htop's help and lazygit's help: it never quits and never opens a discard question. The help line names where it goes, `Esc/q: Back to <screen>`, from the same place as the This screen pane's title. An earlier push passed `q` to the screen behind; the walkthrough found that quitting from Help was wrong. Ctrl+C still quits from Help through the usual path (user decision), so unapplied choices, a Configuration draft and a running apply still get their question.
-- The current step and the open tab are bold as well as in the focus color, so they stand out without color. HomeLight keeps bold in the basic palette and neither it nor TamboUI drops styles for `NO_COLOR`, so no extra marker such as `[Workspace]` is needed.
-- Names users see: `[Setup]` becomes `[Configuration]`, and the warning badge `[Check]` becomes `[Warning]` (it clashed with "Check again"). `init` says "Create a configuration file." The README no longer lists `homelight config` until #114 adds it.
-- Setup's relocations table says `b: Browse` instead of `b: Browse candidates`, so the line and `?: Help` fit 80 columns.
-- `[skipped: tying key handlers to their listing, add when a walkthrough finds a listed key that does nothing]`
-- `[skipped: first-run tour, add when walkthroughs show Help is not found]`
-- `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]` Help lists only keys that work.
-- `[skipped: click to focus or select, add when users ask]`
-- `[skipped: "Leave" group for q/Esc, add when a walkthrough still misreads q or Esc after the descriptions]`
-- Esc from Configuration's first fields closed it without asking, against this document's rule that Esc-to-close asks before discarding. It now opens the discard question when anything was typed or a relocation exists, and closes at once otherwise; its description says so.
-- Configuration's `s` saves only a new file and never replaces an existing one, so its description says that rather than "asks before replacing".
-
-Rejected: a `?` dialog with its own steps and key ideas (the first version of this PR; it duplicated the guide and still did not say what HomeLight is); one long Help pane with the keys above the guide (the second version; the keys pushed the guide off the first screen); `1`/`2` for the tabs (they are the Workspace and Review keys); listing keys by hand beside the help lines (two lists that drift); a hand-written Markdown renderer (kept as the fallback if TamboUI's failed in Native Image).
-
-## 2026-10-05: Scripting keeps today's JSON commands, versioned
-
-#19 is trimmed (user decision). The JSON commands already share evaluation, planning and `ReviewedExecution` with the TUI, and CI's native comparison depends on them, so they stay. Most of the original scope is not needed now. What remains: `plan --no-color`, parsed but never read, is removed; `status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; the README documents the three commands, `--yes` and exit codes 0, 1, 2 and 70. `status --json` now has one shape, configured or not: `{"schema": 1, "configured": <bool>, "configPath": "...", "relocations": [...]}`. A configured status used to be a bare array, which has no first field. No one scripts against it yet, so the break costs nothing, and one shape needs one response class.
-
-- `[skipped: one shared envelope for every outcome across commands, add when someone scripts against HomeLight and needs it]`
-- `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`
-- `[skipped: config validate --json, add when a script needs validation without planning]`
-- `[skipped: redirected-I/O/terminal-isolation and source-audit test suites beyond what exists]`
-
-## 2026-10-05: B6 is left as is
-
-A crash between publishing the target and setting the source aside leaves two whole directories, so the next plan reports "both exist". The reorder alternative needs recovery that relies on naming conventions, which is brittle (user).
+It leaves two whole directories, and the next plan reports "both exist". Why: recovering it would rely on brittle naming conventions (user decision). (B6)
 
 - `[skipped: crash recovery between copying and linking, add when users report "both exist" after an interrupted apply]`
 
-## 2026-10-06: Review's plan is a TamboUI tree
+### The archive destination is the source's name under the archive root
 
-The tree described below was replaced by headings in a list on 2026-10-07; see "Review's plan is headings and rows".
+Archive-source moves a source to `<archive root>/<source name>`, or `<source name>-<8 hex digits of its real spelling's SHA-256>` when that name is taken on disk or by another relocation. The default archive root is `.lighten-archive` beside the source. Why: readable in the common case, and the same state always plans the same path. (#142)
 
-Review, Applying and Results draw the plan with TamboUI's `TreeElement` (#150, rung 4) instead of a list whose items were one relocation line plus its first action. Each relocation is a parent row, always expanded, and its actions are children; every row is selectable. Selecting a relocation shows its path, its Decision line and its paths (Source, Target, Archive) in Details, which is now titled `Details` for both kinds of row. The tree counts lines, not items, so the trailing blank cell that kept TamboUI's scrollbar off two-line items is gone. Marks, spinner, colours and the once-at-finish selection rule from #111 are unchanged; the finish rule picks step rows only.
+- `[skipped: a counter or further suffix when the suffixed name is also taken, add when users hit it]`
 
-Spike, recorded in the PR: our keys keep their meaning, "Replace source with a link ⚠" fits beside the scrollbar at 80 columns, the selection holds during apply, and the wheel moves the selection while clicks do nothing. Each has a test.
+### The planner blocks a folder that is not a folder
 
-- Keys: `TreeElement` handles ←/→ (collapse/expand), Enter and Space (toggle) itself when focused. Its `onKeyEvent` hook runs first, so the tree passes every key except ↑/↓, PageUp/PageDown and Home/End straight to HomeLight's key handler (rung 6, one lambda). → still opens Details, ← does nothing in the tree, Enter still leaves Results, and nothing collapses. No key changed, so the help lines and Help › This screen keep their keys; only the descriptions now say "a relocation or a step" and "the plan".
-- Mouse: HomeLight's handler already takes every mouse event before TamboUI's elements, so the tree's own wheel (three rows) and click handling never run. The wheel over the tree moves its selection one row with `selectPrevious`/`selectNext`.
-- Width: the pointer `❯` is the tree's one-cell highlight symbol and guides use `indentWidth(2)`, so a step label gets 28 cells at 80 columns beside the scrollbar. A two-cell pointer cut the label by one cell.
-- The tree always draws `▼` before a parent. An in-sync relocation has no children, so it gets no `▼` and is indented two cells to keep the marks in one column.
-- The tree's highlight style applies to the symbol and the whole row, so `❯` cannot take the focus colour without recolouring the row's marks. The selected row is bold instead, and `❯` is in the text colour.
-- Review's Decision line says where the decision came from, in the Workspace's words (`ruleDecision`, `choiceDecision`; user decision in the #153 review). The reviewed plan alone cannot tell, because it has any one-time choice applied to the rule, and applying clears the session's draft. So starting a review captures the draft in `ReviewedExecution`, and every reviewed snapshot (`ApplyModel.Reviewed.choices`) carries it: Results still say `(your choice, this run only)` after the apply. Otherwise the line is the saved rule for the observations the plan was made from, with `(your configuration)`, so Results keep it after the disk changes. `WorkspaceView.rule` now takes the two observed states instead of a Workspace row (rung 2).
-- `[skipped: TamboUI's own tree keys (collapse a relocation with ←, toggle with Enter), add when plans are long enough that users ask to fold them]`
-- `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`
-- `[skipped: a status line in a relocation's Details (for example "2 of 3 steps done"), add when the step marks are not enough]`
+Inspection walks every folder a step may create or work in, and the planner blocks a relocation whose steps need a path that is a file, link or unreadable; the staging root must be a real folder. A planned move whose staging root is on another filesystem than its target is blocked too, naming the `staging-root` setting. Details offer a choice that avoids the folder when one exists. Why: the apply used to stop halfway and blame a change made before `y`. (#163, #207)
 
-## 2026-10-06: Configuration edits the file's own shape
+- `[skipped: a plan-time check that the staging root and target support POSIX permissions, add when a user's apply stops on it]`
+- `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported]`
+- `[skipped: a stricter check when a configured staging root is also a source, target or archive parent, add when someone configures one that way]`
 
-#114 replaces setup with the one Configuration editor decided on 2026-10-04. `SetupView` became `ConfigurationView` (rung 2: same screen, same Browse, same discard dialog), and `SetupDraft` with its relative rows, path rules, `configured` join, `[=]` marker, `outsideRoot` and LOCATIONS mode is gone.
+### The copy skips sockets and stops on named pipes and device files
 
-- **Draft:** a `HomeLightFile` (rung 2). Each relocation also keeps the index of the loaded row it came from, changed only by add and remove, so `N unsaved changes` counts an edited row once and a field typed back to its old value as no change. Fields the screen does not show (`staging-root`, `ignored-source-paths`) ride along untouched.
-- **One owner for path rules:** the loader. `ConfigurationLoader.read` returns the file and the bytes it read (for the replace check, #113). The publisher takes a `HomeLightFile`, checks it with the loader's own conversion plus `validateConfiguration`, and writes paths as given, so `~` and `${USER}` survive. `ConfigurationDraft` and `configurationFile` are deleted (rung 1). The Resolved section uses the loader's `resolvePath` and `derivedTarget`, named with the screen's labels, so its messages are plain.
-- **Fields:** TamboUI text inputs, each with its own focus id; Tab moves through list and fields, ↑/↓ between fields, Esc back to the list (rung 4). TamboUI has a `Select` widget but no element for it, so a ten-line element renders the widget (rung 6). `s` saves from the list and Selects; in a text field it types, so Details there says "Esc, then s to save." No Ctrl-S: some terminals take it to pause output (walkthrough).
-- **Labels beside their fields at every size** (walkthrough), in an 18-cell label column; the field label is "Suggestion list", with "optional" as its placeholder, so the column stays short. At 80x24 the list pane is 28 columns and the fields pane 52, so a field is 32 cells wide (58 at 120x30), wide enough for the longest Select value (31). TamboUI's text input scrolls sideways to keep the cursor in view while typing; Configuration moves the cursor to the start when a field loses focus, so it shows the value's beginning, and to the end when it gains focus. Details' Resolved section always shows the whole value.
-- **Help:** a field's note moved from the help area into the Details pane under the fields, which fixes the wrap that pushed the commands line out at 80x24; a test checks both help lines on every focus. F1 is listed in text fields.
-- **Saving:** a new file is created directly; an existing one goes through the replace dialog and `ConfigurationPublisher.replace`. "Changed since it was loaded" is its own exception type (`ConfigurationChangedException`) and message, which keeps the draft and says how to start again. After a save the Workspace checks again and says the next step below its panes, until the next key it handles.
-- **Invalid files (decision):** `e` opens only a file that loads. `e` is not offered on an invalid file, and `homelight init` and `config` refuse it with the loader's message and exit 1. Most broken files are JSON errors the editor could not show anyway, and the Workspace already says why the file is broken.
-- **Entry:** `config` is a picocli alias of `init` (rung 4); both open a loaded file for editing or a new one.
-- **Config key:** `discovery.shared-list` is now `suggestion-list` directly under `homelight`, matching "suggestion list" on screen and in the guide, and the `discovery` object is gone (walkthrough: it only held this one setting). Nothing is released, so there is no compatibility shim.
-- **Browse:** rows from the file are ordinary draft rows (`[x]`), `e` edits any of them, and adding a suggestion still refuses an overlap. Its #115 work (Space toggle, Lists lines, renames) is not done here.
-- **Relative paths are refused** (walkthrough), by the loader and so by Configuration: every path in the file is full or starts with `~/` (after `${USER}` is filled in), as the suggestion list already was. A relative path meant "from wherever HomeLight runs", which no one wants for storage. One error everywhere: "Use a full path, or one starting with ~/". `--source-path`/`--target-path` on the command line may still be relative to where the command runs.
-- **Choices changed back are no change:** a Both exist value that does not keep the target puts the source's rule back to the file's value, so the unsaved count compares choices with the loaded file as it does text.
+Sockets are left out of the copy and its check, and Results name them. A named pipe or device file stops the copy before it is opened; the copy is thrown away and nothing is published. There is no plan-time check. Why: programs recreate sockets; a pipe or device could block or never end; walking every source tree on every check is too slow. (#198)
+
+- `[skipped: plan-time block for pipes and devices, add when a user hits one]`
+- `[skipped: saying in Review that sockets will be skipped, add when users are surprised by it in Results]`
+- `[skipped: a socket in the native comparison, add when CI containers have a tool that makes one]`
+
+### Independent relocations run two at a time; an apply waits on a hung mount
+
+Relocations whose paths do not overlap run on at most `RELOCATION_CONCURRENCY` (2) virtual threads through `mapBounded`; steps within one relocation stay in order. After a failure no new relocation starts and running ones finish. A step blocked in the kernel, such as on a stuck NFS mount, holds its thread and the apply waits: no timeout and no abandoned threads. Quitting during an apply means "exit when it finishes"; to stop sooner the user ends the process. Why: that is safe, because the source changes only at atomic renames, the staging lock dies with the process, and the next apply of that target clears its leftover copy. (#10)
+
+### Only environment failures fail an action; bugs are internal errors
+
+An action fails only for I/O or an expected environment failure (drift, staging on another filesystem, no POSIX permissions), reported as a typed `ActionFailure`. Any other exception is a bug: it propagates after cleanup and reads `Internal error (please report): <Type>: <message>`, exit 70, with no stack trace. Why: a bug must not pass as a disk problem or an invalid file. (2026-10-04, #172)
+
+- `[skipped: printing the stack trace, add when a bug report needs more than the exception type and message, e.g. behind a debug option]`
+
+### Choices are for one apply; rules are saved on request
+
+A Workspace choice applies to the next apply only; any check, save or apply clears it. `s: Always do this` saves it as the relocation's rule after a dialog that warns when the rule deletes data. A missing rule means "Ask each time" (`prompt`, omitted when written). Why: a one-off "delete both" must not become permanent for `apply --json --yes`. (#116)
+
+- `[skipped: keeping one-time choices across a re-check, add when users re-check often with many open choices]`
+- `[skipped: showing a missing rule apart from an explicit prompt, add when a global defaults layer exists]`
+- `[skipped: generic Policy<C>, add when a fourth rule appears or code needs to treat all rules the same way]`
+
+### Ignored sources are listed, never planned
+
+`x` ignores a source: Lighten plans nothing for it and never offers it, but always shows it. A path cannot be both a relocation and ignored; the loader and every save refuse it. Why: the user can always see and undo what they ignored. (#147)
+
+- `[skipped: listing ignored paths in Configuration's list with d to remove one, add when users want to manage ignores without Browse]`
+- `[skipped: shared ignore lists in their own files, add when users want ignores shared across machines]`
+- `[skipped: naming which app owns a path, add with #5/#117]`
+- `[skipped: an ignored count in the Workspace summary rows, add when users miss it]`
+
+### The name is Lighten
+
+The tool is Lighten, the command `lighten`, the file `~/.lighten.json` with key `"lighten"`, and on-disk names start with `.lighten-`. No compatibility with earlier names. Why: the old name was long and held by a trademark; nothing was released. (#174)
+
+## Platform and build
+
+### Kotlin on JVM 25, released as native Linux binaries
+
+Code is Kotlin with kotlinx.serialization. Releases are GraalVM Native Image binaries for Linux x86_64 (fully static, musl) and Linux arm64 (`--static-nolibc`, glibc 2.17+, `-march=compatibility`). macOS is a development platform only. Why: null safety, data and sealed types, compile-time serializers; native startup and memory suit the target machines. (#40, 2026-09-30)
+
+The 2026-09-30 spike (Oracle GraalVM 25.0.3): native start 2–3 ms against 130–210 ms on the JVM; TUI first frame 8–48 ms; peak RSS 18–27 MB against 93–106 MB; binary about 31 MB; a native build needs 3 GB of RAM. The arm64 build needs gcc 12 (Oracle Linux 8). The suite passed on Oracle Linux 7.9, Ubuntu 24.04 (with `noexec` `/tmp`), Debian 13 and Fedora 44; musl x86_64 ran down to CentOS 6 and on Alpine.
+
+### One Gradle module with package boundaries
+
+Gradle Kotlin DSL, the official `org.graalvm.buildtools.native` plugin, one module. Why: package boundaries separate concerns without multi-module upkeep. (2026-09-07, 2026-10-01)
+
+### Native support through supported mechanisms only
+
+No GraalVM internals (`@Substitute`, `@TargetClass`, svm APIs), no `kotlin-reflect`, no in-process HTTP or TLS. Native builds use JLine's exec provider. Why: internals tie upgrades to GraalVM releases; TLS added 15 MB; JLine's JNI provider fails on a `noexec` `/tmp` and under musl, and its FFM provider hangs. (2026-10-01, #169)
+
+### Keep picocli; generate its metadata
+
+picocli stays the CLI library. Its reflection metadata is generated from the compiled classes on every build by picocli-codegen. Why: Clikt reached full option parity, but needed about 45 lines re-creating picocli features (inherited options, rejecting repeated options, exit codes, UTF-8 output); a 2.5 MB smaller binary and dropping codegen did not outweigh that and the help-text change. Generated metadata cannot drift. (#70, #156, #161)
+
+### Stay with TamboUI
+
+TamboUI (pinned in `gradle/libs.versions.toml`) is the TUI toolkit, used as fully as possible; gaps are worked around in our code. Why: no Kotlin TUI framework offers a full-screen app with layout widgets in a static native binary. Revisit if Mosaic ships alternate-screen and tested native support, or TamboUI stalls for about six months. (#88)
+
+## Configuration and formats
+
+### JSON, read and written by kotlinx.serialization
+
+Configuration and suggestion lists are JSON with `//` and `/* */` comments and trailing commas. One set of `@Serializable` classes defines each format; kotlinx rejects unknown keys, missing keys, wrong types and unknown rule values, and a repeated key keeps its last value. The loader adds only domain rules. Writing uses `encodeDefaults = false` and drops comments. No environment or system-property overrides. Why: precise errors, no YAML aliases or tags in shared input, no hand-written parser. (#49, #79)
+
+### Paths are full or start with `~/`, and stay as written
+
+Every path in the file, `suggestion-list` included, is `~`, full or starts with `~/`, after `${USER}` is filled in; a relative one is refused. `${USER}` is the `USER` variable, else the OS account name; with neither, a path using it is refused, never expanded to empty text. Paths expand only when converted to domain types, so a saved file keeps `~` and `${USER}`. `source-root` defaults to `~`; a target is derived from the source's place under it unless given. Why: a relative path would depend on where Lighten runs. (#114, #207)
+
+### One editor for creating and editing
+
+Configuration edits the file's own shape, checked by the loader's own conversion, so path rules have one owner. A new file is written directly; replacing one asks first, says comments are lost, refuses if the file changed since it was read, and writes atomically. Only a file that loads can be edited. Why: one set of rows and rules instead of two editors. (#114)
+
 - `[skipped: opening an invalid file in Configuration, add when users ask to fix a broken file from the editor]`
 - `[skipped: per-row changed/new markers, add when users lose track of edits in long lists]`
 - `[skipped: Tab completion for paths, add when typing paths becomes a complaint]`
-- `[skipped: the mouse wheel over Configuration's list and fields, add when users ask; it scrolls Details and Browse]`
-
-## 2026-10-06: Browse is a tree of suggestions with a toggle and its lists on top
-
-#115 finishes Browse inside Configuration (tui-design §8). The tree described below was replaced after the second walkthrough; see the last items. It supersedes `[skipped: TreeElement for Browse, add when its selection can follow an item rather than a position]` from 2026-10-04.
-
-- **Tree (rung 4, replaced by variant C below):** apps are parent rows and directories children in TamboUI's `TreeElement`, set up as Review's (one-cell `❯`, `indentWidth(2)`, bold selected row). It replaces the hand-built group rows. Browse keeps the selected item and sets the tree's index from it on every frame, so the selection follows the item through Check again, `u`, adding and removing. When the selected item is not listed (hidden, or not suggested until a check finishes), the row at its place becomes the selected item.
-- **Spike, all passed:** the focused Browse screen offers every key to the tree inside it, so the tree's `onKeyEvent` passes every key to the app's handler, as Review's does (rung 2); the tree's own moves, expand, collapse and toggle never run, and Space and Enter keep their meaning. At 80 columns a row keeps its marker, a 30-cell path and a note such as `not created yet` beside the scrollbar. The app takes every mouse event first, so the wheel over the tree moves its selection a row and clicks do nothing. Each has a test.
-- **Space toggles** `[ ]` and `[x]` (decision 2026-10-04). Removing goes through Configuration's own remove (rung 2), so it edits only the draft. `a` no longer adds in Browse (rung 1: Space does it).
-- **Lists lines (rung 2, 3):** the discovery snapshot already has each list's state; the shared-list thread now also reads the file's modification time (`Files.getLastModifiedTime`) after the read, so the UI thread never touches the file.
-- **Your list wins (rung 2):** `CandidateCatalog.merge` puts the shared list's definitions first within each candidate, so the first definition's app and advice are the row's, and Details lists yours first. Hiding is unchanged: hidden only when every list that names a directory marks it usually not needed.
-- **Words:** "suggestion list", "Built-in list", "Your list", "Suggested by", `r: Check again`, `i: Lists`, "Details", "Suggestion lists"; no "candidate" or "draft" on screen. Every string is in `Wording.kt`.
-- **After the walkthrough (user decisions):** when the selected item is hidden, the row at its place becomes the selection and stays (no jump back). A configured directory no list suggests stays listed as `[ ]` after Space takes it out, until Browse closes (`BrowseDraft`'s `kept` sources), and rows keep the place they were first listed in. While Browse is open the header reads `[Configuration › Browse]`. `a` stays out of Browse.
-- **Space on an app row (user request, rung 6):** the row reads `[x]`, `[ ]` or `[~]` over its directories that are in the configuration or can be added. Space adds every shown one that can be added, through the same add as a single row, so each overlap is refused and counted; on `[x]` it takes them all out. `Added 3. Skipped 1 that overlaps ~/.cache.` says what was skipped.
-- **Layout variant C (user decision, from four rendered mockups):** a TamboUI `ListElement` of heading and row lines replaces the `TreeElement` (rung 4, the same element as Configuration's list). App names are bold headings without `▼` or guides, with `N of M added` (or `can't add`) dim at the notes column; directories are indented two cells and marked `●` added, `○` not added, `−` can't be added. `not created yet` and `checking…` are dim; `already a link` and `usually not needed` keep the text color and problems the warning color. The list's `onKeyEvent` passes every key to the app's handler as the tree's did, the rows draw the one-cell `❯` and bold themselves, and the wheel and clicks behave as before. Headings keep a mark (user addition), because Space acts on them: `●` all added, `◐` some, `○` none, `−` none can be, in the rows' mark column, with the dim count beside it; Space on `−` does nothing. The heading's mark sits at the left and its rows' marks two cells further in, so headings stand apart without colour; the count starts at the rows' notes column.
-- **Groups no longer collapse (rung 1):** groups are a few rows each, and Space on a heading is the group action, so Enter on a heading does nothing. This drops `[skipped: showing [x] rows inside a collapsed group, …]`.
-- **Glyph vocabulary** (tui-design §4), since `●` and `○` now appear on three screens: progress (`○` not run yet, spinner, `✔`, `✖`), included or not (`●`, `○`, `−`), one of several choices (`(●)`, `(○)`), with `◐` for a group heading that is partly added. A group row gets a mark only when the group itself can be selected; Review's relocation rows keep progress marks, which are status. An empty circle means nothing has happened yet or not included; filled or `✔` means it has. Parentheses mean pick one; bare marks mean each row is its own.
-- `[skipped: PageUp/PageDown in Browse, add when suggestion lists grow past a few screens]`
-- `[skipped: the year in "file updated", add when lists older than a year are common]`
-
-## 2026-10-07: Review's plan is headings and rows
-
-#157 gives Review, Applying and Results the layout Browse has after #115 (variant C, user decision 2026-10-07), so the two screens match. A TamboUI `ListElement` of heading and row lines replaces the `TreeElement` (rung 4, the element Workspace and Browse already use). Each relocation is a heading: its progress mark (spinner, `✔`, `✖` or `○`) at the left, then its path in bold. Its steps follow, indented two cells, with their marks. There is no `▼` and no guide. An in-sync relocation stays one dim heading, `─` and its path. Headings keep their progress marks: they show status, not selection (tui-design §4).
-
-- **Kept from #111/#150:** every row is selectable, and a heading's Details still show the decision's origin and the paths; the rows, `finishedSelection` and so the once-at-finish rule are unchanged (rung 2). Colours are unchanged.
-- **Pointer:** rows draw the one-cell `❯` and bold themselves, as Browse's do, so the list's highlight is off. `❯` now takes the focus colour, which the tree's highlight could not give it without recolouring the row. Width is unchanged: pointer, two-cell indent and mark take the five cells that pointer, guide and mark took, so "Replace source with a link ⚠" still fits beside the scrollbar at 80 columns.
-- **Keys:** the list moves its selection on ↑/↓, PageUp/PageDown and Home/End, as the tree did; its `onKeyEvent` passes every other key to the app's handler first, so no TamboUI binding moves it and → and Enter keep their meaning (rung 2, the same lambda).
-- **Mouse:** the app still takes every mouse event first; the wheel over the list moves its selection one row through the app's `moveSelection`, as on Workspace (rung 2), and clicks do nothing.
-- This drops `[skipped: hiding the ▼ indicator, add when TamboUI's TreeElement lets a caller set it]`.
-- `[skipped: folding a relocation's steps, add when plans are long enough that users ask to fold them]` replaces the tree-keys item of 2026-10-06.
-
-## 2026-10-07: An unreadable configuration says what is wrong and how to fix it
-
-#164, from the user's walkthrough: a malformed `~/.homelight.json` showed kotlinx's raw text (`Line 1, column 1: Expected start of the object '{', but had 'h' instead`) and no next step. The Workspace now fills its pane with `HomeLight can't read <path>`, the problem, `To fix it: …` and `To start over: …` (tui-design §5); Help's purpose line repeats the same four lines, and the help lines stay `r`, `?`, `q`. The CLI prints the same lines on stderr for `--json` commands and for `init`/`config`, with `run the command again` and `run homelight init [--config <path>]` for the TUI's keys; exit codes are unchanged.
-
-- **Plain words for text that is not JSON (rung 6, small):** `decodeJson` recognizes kotlinx's lexer messages by their wording (`Expected … '{', but had 'h' instead`, `Expected end of the array or comma`, `Expected EOF after parsing`, an open block comment, a bad escape) and gives `JsonProblem.Syntax`, such as `should start with "{" but starts with "h"`. The loader leads it with `It isn't valid JSON: line L, column C`. A message no recognizer knows keeps kotlinx's words too, so a kotlinx upgrade can make a message less plain, never wrong. Parsing to a `JsonElement` first was rejected: kotlinx's tree reader accepts unquoted text such as `homelight`, so it cannot tell syntax from shape (rung 5 tried).
-- **`InvalidConfigurationException` (rung 6):** the loader throws it, with the file's path and the line at fault (0 for a value check such as a relative path), for any problem in the file's text or values. The CLI explains only this exception; a missing file keeps its one line. `ConfigurationEvaluation.Invalid` keeps the line, so `To fix it` says `correct that line` or `correct that setting`.
-- **Missing keys and values of the wrong kind in plain words (user decision after the walkthrough, rung 6):** kotlinx reports a value of the wrong kind with the same lexer messages, so where a value starts and the text there is a JSON value (`{`, `[`, `"`, a number, `true`, `false`, `null`), it is `JsonProblem.WrongKind`: `Line 2: relocations[0].source-path should be text, but it is a number.` A missing key is `JsonProblem.MissingKey`: `target-root is missing. Add it under "homelight".` Keys are named below `homelight`, as the reader sees them in the file.
-- **Unknown keys and bad rule values in plain words (coordinator, before merge, rung 6):** `Line 2: relocations[0] has an unknown setting "existing". Check its spelling or remove it.` and `relocations[0].when-only-target-exists can't be "sometimes". Use one of: prompt, adopt-target.` kotlinx's message names only the enum, so the allowed values come from its `SerialDescriptor`, found by that name under the root descriptor (rung 5: generated at compile time, no reflection).
-- **A value error shows its line, not its column (user decision after the walkthrough):** kotlinx's column for a key or value points past it, so a wrong kind and an unknown key read `Line 2: …`. Syntax errors keep line and column. The loader's own checks (relative path, blank path, staging root) keep their words and gain the `To fix it` and `To start over` lines.
-- **Help's purpose is plain text (rung 2):** Help escapes Markdown punctuation in every purpose, since this one quotes the file.
-- `[skipped: start over with a backup from inside the app, add when users ask]`
-- `[skipped: own steps for a file HomeLight cannot open (a directory at the path, no permission, not UTF-8), add when a user hits one; the TUI shows the generic steps, the CLI its one line]`
-
-## 2026-10-07: The planner blocks a folder that is not a folder
-
-#163, from the #160 walkthrough: with the archive location replaced by a file, the plan was accepted and the apply stopped at "Create parent folder", and Results blamed a disk change that had happened before `y`.
-
-- **Plan-time check (rung 2, the executor's own rule):** inspection now also walks each folder a step may create or work in, the way `ensureDirectories` does: the parents of the source, target and archive destination, and the staging root. Walking down from the filesystem root, every existing path must be a folder through links; the staging root itself must be a real folder. The first existing path where the walk stops is kept in `RelocationState.notFolders`, by the folder that needs it. The planner stays free of I/O: after planning a relocation, it blocks it when a folder one of its actions needs (`EnsureDirectory`, or a migration's target parent and staging root) has an entry. A plan that needs none of those folders, such as one already in sync, is not blocked by them.
-- **Reasons in plain words:** `<path> is a file, not a folder`, `is a link, not a folder` (a link to something other than a folder), `is a broken link, not a folder`, `can't be read, so HomeLight can't tell if it is a folder`, or `is not a folder`. A staging root that is a working link gets its own reason (user decision): `the staging folder must be a real folder, not a link: <path>`. They show on the Workspace as `Problem: …` and in `plan --json` as a blocked action's `reason`.
-- **A way around (user decision):** when a row is blocked only by a folder in the way and one of its offered choices plans without a block, Details add `Or choose an option below that doesn't need this folder.` under the Problem line. Evaluation works this out (rung 2, the planner it already has): it plans the row again with no folder in the way, and once per offered choice, each alone. That is a few pure plans per blocked row, so it is cheap.
-- **One inspection:** `inspectRelocations` builds every `RelocationState`, for `ConfigurationEvaluation` and the planner tests (rung 2).
-- **Stop message:** `Stopped: a step found something different from the plan. The steps after it did not run. See the failed step's details, then press r to check again.` replaces "the disk changed while applying", which guessed a cause. The failed step's Details keep the exact problem.
-- Executor preconditions now checked at plan time: every `EnsureDirectory` path, and a migration's target parent and staging root (each walked as above, the staging root without following a link at its end). Already checked before: the state of the source, target, archive destination and replaced source, which `CreateDirectory`, `ArchiveDirectory`, `CreateSymlink`, `DeleteDirectory` and the replacements guard.
-- `[skipped: a plan-time check that the staging root is on the target's filesystem and that both support POSIX permissions, add when a user's apply stops on either]`
-- `[skipped: preflight re-checking these folders between review and y, add when a folder breaking in that window is reported; the step still stops with the new message]`
-- `[skipped: a stricter check when a configured staging root is also a source, target or archive parent; the parents' rule wins, add when someone configures one that way]`
-
-## 2026-10-07: Browse groups apps by ecosystem; pixi joins the built-in list
-
-#165 (user decision, 2026-10-07) adds a level above apps in Browse, so a whole ecosystem (JVM, Python, …) can be added with one key (tui-design §8).
-
-- **Format (rung 5):** an optional `"ecosystem"` string per app, read by kotlinx.serialization as the other optional keys are; nonblank and trimmed like `name`. Each `CandidateDefinition` carries its app's ecosystem. Existing lists stay valid.
-- **Your list wins, per app (rung 2):** an app's ecosystem is your list's when your list gives that app one, else the built-in list's; within a list the first one given. An app your list names without an ecosystem keeps the built-in one, so a team can add directories to Maven without retyping `JVM`. The rule lives in Browse beside the existing "first definition's app wins", from the definitions `CandidateCatalog.merge` already orders.
-- **Three levels in the same `ListElement` (rung 2):** ecosystem headings, app headings two cells in, directories two further. Apps with no ecosystem go under **Other tools**; directories with no app stay under **Other directories**, a heading at the ecosystems' level. Ecosystems and apps keep first-appearance order; Other tools, then Other directories, come last. The built-in list is ordered by ecosystem so the file reads like the screen.
-- **Space on an ecosystem (rung 2):** the same group logic as an app heading from #155: counts, marks, `AddAll`/`RemoveAll`, overlaps refused one by one, and the same skip message. Only the Help descriptions differ.
-- **Width:** a path now shows at most 28 cells (was 30), so the notes column stays where it was despite the deeper indent. At 80 columns notes start at column 38, leaving 40 cells before the scrollbar; the longest note, `can't read: its real location is unclear` (40), still fits exactly.
-- **Built-in ecosystems:** JVM (Maven, Gradle, JBang), Rust (Cargo, rustup), JavaScript (npm, Yarn, pnpm, node-gyp, nvm, Bun; JavaScript rather than Node because of Bun), Python (pip, uv, Poetry, PDM, virtualenv, pipx, pixi), Go (Go), Editors (JetBrains, VS Code).
-- **pixi under Python:** pixi's docs present it as multi-language, built on conda packages, but Python is its main use and it reads `pyproject.toml` and installs PyPI packages. One more heading for one app (`Conda`) did not seem worth it. Directories, from pixi's and rattler's source and docs: `.cache/rattler` (the package cache: `rattler::default_cache_dir`, `dirs::cache_dir()/rattler/cache`), `.cache/pixi` (used instead when it exists: `pixi_config::resolve_cache_root`), and `.pixi/envs` (global tool environments under `PIXI_HOME`, default `~/.pixi`). `.pixi/bin` (small trampolines on `PATH`) and `.pixi/manifests` (the user's global manifest) stay home. Environments link files from the cache with hard links when both are on one filesystem; with the cache moved, new environments in the home directory get copies instead.
-- **conda, mamba, micromamba not added:** their directories depend on where the user installed them (`~/miniconda3`, `~/miniforge3`, `~/anaconda3`, or micromamba's root prefix, default `~/micromamba`), with packages and environments inside, and the base install holds the `conda` command itself. `~/.conda/pkgs` and `~/.conda/envs` are used only when the base install is not writable. None is clearly one safe user-level path.
-- `[skipped: conda, mamba and micromamba directories, add when users ask for a specific install layout]`
-- `[skipped: moving an app to another ecosystem without naming one of its directories, add when teams want to retag built-in apps wholesale]`
-- `[skipped: the ecosystem in Details' "Suggested by" lines, add when users ask which list set it]`
-- `[skipped: folding ecosystems, add when the built-in list grows past a few screens]`
-
-## 2026-10-07: Rename HomeLight to Lighten
-
-#174 (user decision): the tool is **Lighten** and its command `lighten`. `homelight` was long to type, and HomeLight, Inc. (real estate) holds HOMELIGHT trademarks and owns the search results. Among the names the user liked, `lighten` had the fewest collisions.
-
-- **Everything that carries the name:** the header `⌂ LIGHTEN` (the `⌂` mark stays), Help, dialogs, `--help`, `--version`, the guide, the binary and CI artifacts `lighten-linux-<arch>`, the Kotlin package `io.github.bigswlittlesw.lighten`, class names, the config file `~/.lighten.json` and its key `"lighten"`, the hidden names written to disk (`.lighten-staging`, `.lighten-archive`, `.lighten-replaced-…`, temporary `.lighten-*` files), thread names and CI environment variables. A test renders every screen and Help tab and fails if the old name shows.
-- **No compatibility with the old names:** nothing is released. The README tells anyone who ran an earlier build how to rename the file, its key and leftover folders; the guide does not mention HomeLight.
-- **History stays:** the dated entries above keep the old name.
-- **Ecosystem becomes category (user decision):** the suggestion-list level above apps is a **category**, and its JSON key `"ecosystem"` is now `"category"`, in the built-in list, the parser and the fixtures, with no compatibility. "Ecosystem" did not fit Editors or Other tools, and "app group" would clash with an app's own group of directories. Code names, Help's descriptions, the guide and `tui-design.md` follow; headings still show the names (JVM, Python, Editors, Other tools), so only Help's text changes on screen. The #165 entry above keeps the old word.
-- `[skipped: the repository URL, add when the user renames big-sw-little-sw/homelight; then ci/try-pr, the guide URL and the README links follow]`
-
-## 2026-10-07: A failed step says what is there and what to do
-
-#172, from the #166 walkthrough: a failed step's Details showed the executor's text, such as `expected absent at /scratch/archive/tool-b but found file`.
-
-- **A sealed `ActionFailure` (rung 6):** each failure the executor reports carries what it knows: state drift (path, expected and found state), a changed link, a staging root on another filesystem, no POSIX permissions, a busy staging lock (this or another Lighten), a copy that differs from its source or did not keep its permissions, permissions not restored after publishing, a move across filesystems, denied access, a path gone, a path already taken, and any other I/O failure with its paths and the system's reason. A copy that differs says how (a folder missing, a file or link that differs, an extra entry); permissions not restored keep the system's reason. `EnvironmentException` carries one; I/O exceptions are recognized by their type (`AccessDeniedException`, `NoSuchFileException`, `FileAlreadyExistsException`, `AtomicMoveNotSupportedException`, `FileSystemException`), never by their text. A file exception the JDK throws without a reason gets one (`permission denied`, `the folder is not empty`, `not a folder`, `not a link`) or else its type's name. `stateDrift` and `targetPublished` are now read from the failure, so `StateDriftException` is gone. `deleteTree` keeps a denied access recognizable when it rejoins an entry's path.
-- **Plain words in the TUI only (rung 2, the Wording file):** `failureWords` names the path, what is there, what Lighten expected and what to do: `/scratch/archive/tool-b already exists as a file. Lighten expected nothing there. Move or remove it.` Only something in the way of a step asks the user to move or remove it; a folder that changed or went away gets no step of its own, since `r` then shows the new plan and any block. A copy that differs names the source entry, not the staged copy's hidden path.
-- **Walkthrough changes (user decisions):** paths show home as `~`, like the rest of the screen. The sentence no longer ends with `press r to check again`: the Results headline already says it. The staging-filesystem sentence says where the setting lives: `Set the staging-root setting in ~/.lighten.json to a folder on the target's filesystem.`, with the configuration file in use.
-- **No raw text in Results (user decision):** the dim `Detail:` line with the executor's text, first shipped in this PR, is dropped. In exchange the sentence keeps everything that text had for a bug report: each path it named, what was expected and found, and the system's reason inline (`Lighten couldn't change ~/x: no space left on device.`), so a screenshot of Results is still enough. A test renders every kind and checks its paths and reason. `apply --json` keeps the executor's text in `message`, unchanged: scripts get the exact error, and `press r` means nothing outside the TUI. `schema` stays 1, and `ci/native/compare.sh` is unaffected.
-- `[skipped: a machine-readable failure kind in apply --json, add when a script needs to tell failures apart]`
-- `[skipped: plain words for the preflight refusal's diagnostics ("Filesystem state changed since review: <path>"), add when a walkthrough finds them unclear]`
-- `[skipped: own words for errors the OS reports only as a reason (no space left, read-only filesystem), add when a user hits one; they read "Lighten couldn't change <path>: <reason>."]`
-
-## 2026-10-07: Version managers and more JavaScript tools join the built-in list
-
-#176 (user decision, 2026-10-07) adds version managers and JavaScript browser and runtime caches to the built-in list (rung 1: data only; no code changes).
-
-- **New categories:** Ruby (rbenv) and Version managers (mise, asdf). Version managers tied to one language stay under it: SDKMAN under JVM, pyenv under Python, rbenv under Ruby, Volta and fnm under JavaScript beside nvm.
-- **Directories, from each tool's docs or source:** mise `.local/share/mise/installs` (`MISE_DATA_DIR`/`MISE_INSTALLS_DIR`); asdf `.asdf/installs` (`ASDF_DATA_DIR`); SDKMAN `.sdkman/candidates` and `.sdkman/tmp` (`SDKMAN_DIR`; installs keep each downloaded zip in `tmp`); pyenv `.pyenv/versions` (`PYENV_ROOT`); rbenv `.rbenv/versions` (`RBENV_ROOT`); Volta `.volta` (`VOLTA_HOME`); fnm `.local/share/fnm/node-versions` (`FNM_DIR`); Deno `.cache/deno` (`DENO_DIR`); Corepack `.cache/node/corepack` (`COREPACK_HOME`); Playwright `.cache/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`); Puppeteer `.cache/puppeteer` (`PUPPETEER_CACHE_DIR`); Cypress `.cache/Cypress` (`CYPRESS_CACHE_FOLDER`); Electron `.cache/electron` (`electron_config_cache`) and `.cache/electron-builder` (`ELECTRON_BUILDER_CACHE`).
-- **Narrowest directory:** the versions or installs folder where the parent also holds the tool itself, its shims, plugins or settings (`.pyenv`, `.rbenv`, `.asdf`, `.local/share/mise`, `.local/share/fnm`, `.sdkman`). Shims and the tool stay in the home directory.
-- **Volta moves whole:** Volta unpacks into `.volta/tmp` and renames into `.volta/tools`. With only `tools` on another disk, every install failed with `Invalid cross-device link (os error 18)`. Moving all of `.volta` worked, its `bin` (shims and Volta itself, about 26 MB) included.
-- **Checked in containers:** each tool was installed in an Ubuntu 24.04 arm64 container, used, relocated with `lighten apply` to a separate filesystem, then used again: existing versions ran, new versions installed, global packages and reshims worked, and uninstalling worked. Puppeteer was checked with Firefox, as Chrome for Testing has no Linux arm64 build.
-- **Clean commands replace the link with a folder:** `sdk flush`, `deno clean`, `cypress cache clear` and `mise cache clear` delete the link, not what it points to, and the tool then creates a new folder in the home directory. The moved files stay on the other disk. Lighten's status then shows the source as a folder, and its plan asks which of the two folders to keep. Corepack's `cache clean`, Playwright's `uninstall` and Puppeteer's `browsers clear` keep the link. These tools stay in the list: the tools keep working either way.
-- **A `caution` per directory (user decision, rung 5):** an optional `"caution"` string beside `reason`, in either list, read by kotlinx.serialization and checked as `reason` is (bounded, nonblank when given). Browse Details shows it after that list's reason as `⚠ Caution: …` in `warn`, so with both lists each caution stays under its own list. The sign keeps it visible without color.
-- **Cautions in the built-in list:** `.sdkman/tmp` (`sdk flush`), `.cache/deno` (`deno clean`) and `.cache/Cypress` (`cypress cache clear`). None on `.sdkman/candidates`: `sdk flush` cleans only `tmp` and `var/metadata` (`sdkman-flush.sh`). None on mise: in the container, `mise cache clear` and `mise prune` left the `installs` link in place.
-- **"Advice is optional, not a safety assessment or a requirement." removed from Details (user decision):** the line added words to every Details without helping a choice, and a caution now carries the warnings that matter.
-- **mise cache not added:** `.cache/mise` held 21 MB after installing Node.js and Python, mostly a pyenv checkout mise uses to build Python, plus version lists. It is not large, and `mise cache clear` is a common command.
-- `[skipped: .cache/mise, add when users report it growing large]`
-- `[skipped: legacy .fnm/node-versions (fnm uses ~/.fnm only when it already exists), add when users with old installs ask]`
-- `[skipped: Volta's .volta/tools alone, add if Volta stages installs inside tools]`
-- `[skipped: a caution on the Browse row itself, add when users miss cautions that only Details shows]`
-
-## 2026-10-07: Bare marks for choices
-
-#173 (user decision): Workspace Details mark one-time choices with bare `●` chosen and `○` not chosen, as Browse marks its rows. The chosen choice is green and bold whether or not Details have focus; the focused one keeps `❯`, so without color `●` and bold mark the choice and `❯` marks focus (user decision, from the #179 walkthrough). "Parentheses mean pick one" (#165 entry) is dropped: a choice list is one of many by behaviour, since choosing one clears the others, and the Help for `Space/Enter` says so.
-
-## 2026-10-07: Workspace keeps the file's order within each urgency group
-
-#183 (user decision, option B): Workspace rows were sorted by urgency, then A–Z by source path. They now keep the urgency groups (needs a choice, blocked or can't read; warning; changes; left as is; in sync) and, within a group, the order of `relocations` in the configuration file, the order Configuration's list already shows. The file's order is the one the user wrote and sees while editing, so a relocation is where they expect it on both screens.
-
-- **Stable sort (rung 1):** `Loaded.items` sorts by `PlanBadge.priority` alone; the stable sort keeps file order inside a group. Nothing new is stored.
-- **Selection unchanged:** the Workspace already restores the selection by source, so a row that moves between groups after a choice stays selected.
 - `[skipped: a way to reorder relocations in Configuration, add when users ask to rearrange without editing the file]`
 
-## 2026-10-07: Always do this saves a choice as the rule
+### An unreadable configuration says what is wrong and how to fix it
 
-#116 adds `s: Always do this` on the Workspace, as decided on 2026-10-04 (Workspace choices are for one apply; rules are saved on request).
+The loader throws `InvalidConfigurationException` with the path and line, and kotlinx's messages are reworded where a recognizer knows them (syntax, wrong kind, missing or unknown key, bad rule value); unknown wording passes through. The TUI and CLI both show the problem, `To fix it` and `To start over`. Why: raw parser text gave no next step. (#164)
 
-- **When it is offered:** while the selected relocation has a one-time choice that differs from its saved rule. Every choice is a rule value (`DecisionChoice.applyTo`), so the only choice that cannot be saved is one the rule already makes, such as Leave both as they are under a `leave-unchanged` rule; saving it would change nothing, so `s` is neither shown nor bound for it.
-- **Reuse (rung 2):** the evaluation keeps the file it read and its bytes (`ConfigurationLoader.read`, with `resolve` doing `load`'s checks on it), `applyTo` gives the rule fields, and `ConfigurationPublisher.replace` writes them, so a file changed since it was read is refused and its permissions and symlink stay. The dialog is `confirmDialog` and reuses Configuration's "Lighten rewrites the whole file. Comments in it are not kept." After `y` the Workspace checks again and says the next step, as after a save in Configuration; the rule then decides and the choice is gone. Saving and Configuration share one function that turns a failed save into its message (`saveProblem`, in `Dialog.kt` beside `confirmDialog`).
-- **Changed since read:** the Workspace says `Not saved: the configuration file changed after Lighten read it. Your choice is still here. Press r to read the file again; that forgets the choice.` Configuration's message tells the user to press q, y, e, which on the Workspace would quit.
-- **Help line:** `s` sits on the navigation line beside `Space/Enter: Select`, because the commands line has no room at 80 columns once `a: Review & apply` shows (96 cells). Help › This screen still lists it under Do (user decision, from the #185 walkthrough): `KeyHint.acts` moves a hint to Do on the Help screen whichever help line shows it, so one hint stays the only source. In Details the line now shows `Esc: Back`, with `Tab` Help-only like `←`, so it fits 80 columns with `s` and `[/]: Scroll` (79 cells).
-- **Deletion warning (user decision, from the #185 walkthrough):** when the rule being saved deletes data, the dialog adds a `⚠` line in the warning color, worded per rule: `⚠ This rule deletes the source's contents for good whenever it applies, including with lighten apply --yes.` (Keep target, delete source) or `⚠ This rule deletes the contents of both source and target for good whenever it applies, including with lighten apply --yes.` (Delete both, start empty). A saved rule applies without asking, so this is the last point where the user sees it. `confirmDialog` takes the warning lines; archiving, leaving both and keeping a target with no source keep the data and get none.
-- The quit dialog for unapplied choices adds `To make a choice the rule, select its relocation and press s.`, which supersedes `[skipped: "or s to always do this" in the quit dialog, add with #116]`.
-- `[skipped: wrapping long paths in dialogs, add when a path cut off at 80 columns is reported]` The replace dialog's title already has the same limit.
+- `[skipped: start over with a backup from inside the app, add when users ask]`
+- `[skipped: own steps for a file Lighten cannot open (a directory at the path, no permission, not UTF-8), add when a user hits one]`
 
-Rejected: `s` on the commands line (does not fit at 80 columns); offering `s` for a choice the rule already makes (a key that does nothing); reusing Configuration's changed-since-load message as is (its keys quit from the Workspace).
+## CLI and JSON contract
 
-## 2026-10-07: x ignores a source, in the Workspace and in Browse
+### TUI for people, JSON for scripts
 
-#147 makes `ignored-source-paths` mean something: Lighten plans nothing for an ignored path and never offers to add it, but always shows it, so the user can see and undo what they ignored.
+`lighten` and its commands open the TUI; there is no plain-text human output. `--json` never starts a terminal. A command without `--json` and without a terminal exits 2. `apply --json` needs `--yes`, which confirms a plan the rules already resolve and never resolves a choice. Why: one human interface to keep right, and automation that cannot prompt. (2026-09-12)
 
-- **Invariant (rung 1):** a path can't be both a relocation and ignored. The loader refuses it, naming both settings in plain words (#164's style, `correct that setting`), and the publisher's check is the loader's, so every save refuses it too. Only the same path counts; ignoring a folder inside or around a relocation is allowed.
-- **Workspace save path (rung 2):** `x` reuses #116's whole path. `Loaded.ignoredFile`/`unignoredFile` edit the file as read beside `ruleFile`; `LightenSession.ignore`/`stopIgnoring` share one private `replace` with `saveChoice`; the dialog is `confirmDialog` with its optional `⚠` lines; `saveProblem`, check again and `savedNotice` follow, as after `s`. Only the changed-since-read message differs, because it names `x`.
-- **Linked relocation:** ignoring one that is linked now adds a `⚠` line: the link and the target's files stay, and how to undo the move by hand (`rm` the link, `mv` the target back), as the guide's Undo says. Nothing on disk changes either way.
-- **Forgotten choices (user decision, from the #187 walkthrough):** saving checks again, which forgets one-time choices, so while another relocation has one both dialogs add `This also forgets your other one-time choices.` The ignored relocation's own choice goes with it and is not counted.
-- **The last relocation (rung 6):** `validateConfiguration` now accepts a file with no relocations when it ignores paths, so ignoring the last relocation saves instead of failing with "Choose at least one relocation".
-- **Workspace group (rung 6):** the list's rows are a sealed `WorkspaceRow` (relocation, ignored heading, ignored source). The group sits last, below in sync, and starts closed every run. Its heading is a selectable row that says its key, `i: show 2 ignored`, like the in-sync title says `c`; the title has no room for both at 80 columns. **Key:** `i`, for ignored; on the Workspace it otherwise acts only while there is no configuration (create), when there is nothing to ignore.
-- **Help:** `x` is on the navigation line beside `s` with `acts`, so Help lists it under Do; in Details with choices the line is full at 80 columns, so `x` is Help-only there. `i` is Help-only, as `c` is. Neither is offered where it does nothing (the heading, kept results, a command-line path override).
-- **Browse mark:** `⊘`, the empty circle struck through: not included, on purpose. It differs in shape from `●`, `○`, `◐` and `−`, and the row notes `ignored by you`, so it reads without color; the mark is dim. In Browse `x` edits Configuration's draft like Space, and `s` writes it, so Browse keeps one rule: nothing is written until you save. An ignored path no list suggests is still listed (under Other directories), so Browse shows every ignore. Space on a heading skips ignored rows and says `Skipped 1 you ignored.`
-- `[skipped: listing ignored paths in Configuration's list with d to remove one, add when users want to manage ignores without Browse; Browse lists every ignored path and x there stops ignoring it]`
-- `[skipped: shared ignore lists in their own files, add when users want ignores shared across machines]`
-- `[skipped: naming which app owns a path, add with #5/#117]`
-- `[skipped: an ignored count in the Workspace summary rows, add when users miss it; the group heading counts them]`
+### Versioned responses and stable exit codes
 
-Rejected: `x` in Browse saving the file at once (Browse would then have two save rules); a heading that only lives in the list title (no room at 80 columns); `g`, `u` or `h` for the group (no mnemonic, or `u` already means "usually not needed" in Browse).
+`status --json`, `plan --json` and `apply --json --yes` start with `"schema": 1`; `status` has one shape whether configured or not. Exit codes: 0 success, 1 configuration or apply failure, 2 usage, 70 internal error. JSON paths stay full. `apply --json` keeps the executor's text in `message`. Control characters are escaped in lower-case hex (`\u001f`), as kotlinx writes them. Why: scripts need a stable contract; escape case is invisible to JSON parsers. (#19, #61, #172, #201)
 
-## 2026-10-07: A version tag publishes a GitHub Release
+- `[skipped: one shared envelope for every outcome across commands, add when someone scripts against Lighten and needs it]`
+- `[skipped: JSON errors on stdout (config errors, internal errors stay one stderr line), add when a script needs to parse them]`
+- `[skipped: config validate --json, add when a script needs validation without planning]`
+- `[skipped: a machine-readable failure kind in apply --json, add when a script needs to tell failures apart]`
+- `[skipped: merging the Missing and Unconfigured evaluation states, add when the JSON contract is revisited]`
+- `[skipped: redirected-I/O/terminal-isolation and source-audit test suites beyond what exists]`
 
-#167 (user decision): pushing a tag `v<major>.<minor>.<patch>[-<pre-release>]` publishes a GitHub Release (`.github/workflows/release.yml`).
+### Paths on screen use `~`; machine output keeps full paths
 
-- **Only a tested commit on main:** a gate job fails the release unless the tagged commit is on `main` and the 7 required checks (`JVM verify`, `Native build`, `Native test` and `Native distros` for each architecture) all passed on it. The names are written in the workflow, since the workflow's token cannot read branch protection; a change to the required checks changes both. Tagging before main's CI finishes fails the gate; re-run the workflow once CI is green.
-- **Version from the tag:** `v1.2.3` builds with `-PreleaseVersion=1.2.3`, which `version.properties` carries into `lighten --version` and the guide link (`/blob/v1.2.3/`). Every other build stays `1.0-SNAPSHOT`. The binaries are rebuilt with `ci/native/build.sh`, so the static and glibc 2.17 checks run again; the build then checks `--version` and the guide link. The native tests are not repeated: the gate's checks tested the same source, and only the version differs. That check found picocli wrapping the address in `--help` at 80 columns once the version is longer than about 10 characters (`0.0.0-dry-run`, `1.0.0-beta.10`); the footer is now printed as is.
-- **Release notes:** GitHub's generated notes, the pull requests merged since the previous release (rung 4). The maintainer edits the release afterwards if needed.
-- **Dry run:** a manual run, or a pull request that changes the workflow or `ci/native/build*.sh`, builds the same assets, `SHA256SUMS` and notes and uploads them as a workflow artifact. The gate reports its problems as warnings and nothing is published. A manual run needs the workflow on `main`.
-- **A version with a pre-release part** (`1.0.0-rc.1`) is published as a pre-release, which mise, ubi and eget skip when they install the latest release.
+Every path people read shows the home directory as `~` (never the source root); `--json` keeps full paths. Paths stay `Path`s inside messages (`PathText`) until shown, and exception text never shows a Java type name. Why: shorter, and scripts need exact paths. (#201)
+
+- `[skipped: ~ in Configuration's fields, which show the file's text as written, add when a user wants the editor to rewrite full home paths]`
+
+## Release and distribution
+
+### A version tag publishes a GitHub Release
+
+Pushing `v<major>.<minor>.<patch>[-<pre-release>]` publishes a release, only if the commit is on `main` and the 7 required checks passed on it. The tag's version is built in; notes are GitHub's generated ones; a pre-release part publishes a pre-release. Why: only tested commits are released, with no manual steps. Steps are in [`CONTRIBUTING.md`](../CONTRIBUTING.md). (#167)
+
 - `[skipped: signed releases (minisign or cosign), add when users outside the maintainer's machines install it]`
 - `[skipped: JBang catalog, add when a JVM build is wanted for macOS/Windows or architectures without native binaries]`
 - `[skipped: Homebrew tap, add when Linuxbrew users ask or macOS binaries ship]`
 - `[skipped: waiting for the checks in the release workflow, add when tagging right after a merge becomes common]`
 
-## 2026-10-07: Release assets
+### Release assets
 
-#167: release asset names are a public contract for the install script, `lighten update` and tools that install from GitHub Releases. They do not change once published.
+Asset names are a public contract for `install.sh`, `lighten update` and tools that install from GitHub Releases (mise, ubi, eget). They never change once published.
 
 ```text
 lighten-<version>-linux-x86_64-musl    static musl binary, any Linux x86_64
 lighten-<version>-linux-aarch64-gnu    glibc 2.17+ binary, Linux arm64
 SHA256SUMS                             sha256sum output for both binaries
+install.sh                             the install script
 ```
 
-- **Bare binaries, not archives:** one file each, so the install script needs no `tar`, and each tool below installs it as is.
-- **`uname -m` names:** `x86_64` and `aarch64` are what `uname -m` prints, so a script needs no table. mise, ubi and eget accept both these and `amd64`/`arm64`. The CI artifacts keep `lighten-linux-<arch>`; they are not public.
-- **The libc suffix** says what each binary needs. The x86_64 binary runs everywhere; the aarch64 one needs glibc 2.17 or later.
-- **Checked against the tools' source** (current main, 2026-10-07), with no flags:
-  - mise `github:` backend (`src/backend/asset_matcher.rs`): scores OS, then arch, then libc (a mismatch costs a little, never excludes), so glibc and musl x86_64 hosts and glibc arm64 hosts get the right binary. It names a bare binary after the tool (`lighten`), makes it executable, and checks it against GitHub's asset digest or `SHA256SUMS`.
-  - ubi (`src/picker.rs`): filters by OS and arch, and on a musl host drops `gnu` assets. Installs `<dir>/lighten`, mode 0755. No checksum.
-  - eget (`detect.go`, `extract.go`): matches OS and arch, renames a bare binary to the repository name `lighten` and makes it executable. It checks only `<asset>.sha256`, not `SHA256SUMS`.
-- **Alpine on arm64 is not supported:** there is no musl aarch64 binary. ubi stops with "could not find a release asset"; mise and eget install the gnu binary, which does not run without `gcompat`.
-- **aqua and cargo-binstall are not listed:** aqua needs an `aqua.yaml` per install or an aqua-registry entry, and cargo-binstall needs a Rust crate.
+Why: bare binaries need no `tar`; `uname -m` names need no table; the libc suffix says what each needs. Alpine on arm64 needs `gcompat`. (#167)
+
 - `[skipped: lighten-<version>-linux-aarch64-musl, add when Alpine arm64 users ask; eget would then ask which arm64 binary to take]`
 - `[skipped: a <asset>.sha256 file per binary for eget's check, add when eget users ask]`
 - `[skipped: aqua-registry entry, add when aqua users ask]`
 
-## 2026-10-07: Install script
+### Install script
 
-#168 (user decision): `install.sh`, a POSIX `sh` script at the repository root, published as a release asset so `curl -fsSL https://github.com/big-sw-little-sw/lighten/releases/latest/download/install.sh | sh` installs the latest release.
+`install.sh` (POSIX `sh`) picks the asset from `uname -m`, reads the latest version from `SHA256SUMS` (no GitHub API), checks the hash, test-runs `--version` and renames into place, `~/.local/bin` by default. It never calls sudo, asks once before editing a shell startup file, and edits only files the user owns in their home. Why: one safe install and update path that leaves an existing install untouched on failure. (#168)
 
-- **Minimal new code (rung 6) on the release assets (rung 2):** it picks `lighten-<version>-linux-<arch>-<libc>` from `uname -m`, downloads with curl or wget, and checks with `sha256sum` or `shasum -a 256`, whichever exists.
-- **Latest version from `SHA256SUMS`:** `releases/latest/download/SHA256SUMS` names each binary with its version, so the script needs no GitHub API call (rate-limited, JSON) and no redirect parsing. `--version 1.2.3` reads `releases/download/v1.2.3/` instead.
-- **Install:** to `~/.local/bin` by default (`--dir`). It downloads to a temporary directory and checks the hash; only then does it create the install directory, copy the binary beside the target, run `--version` on the copy (not in the temporary directory, which may be noexec) and rename it over the old one. A failed or corrupt download leaves an installed `lighten` untouched and creates no directory; if the `--version` run fails, it removes the directories it created and nothing that existed before (user decision). Rerunning updates in place. A directory the user cannot write to stops the script before the download, with the `sudo sh install.sh --dir …` command to run; it never calls sudo.
-- **musl on arm64:** the arm64 binary needs glibc. On a musl system with gcompat's glibc loader (`/lib/ld-linux-aarch64.so.1`) the script installs it, which runs on Alpine 3.24 arm64 (tested in CI). Without it, the script explains `apk add gcompat` and stops. There is no option to install anyway (user decision): the `--version` run would refuse the binary, so `--force` would only have helped with a glibc loader at another path.
-- **PATH:** when the directory is not on `PATH`, it shows the line and the startup files for the user's `$SHELL`: for bash `~/.bashrc` and the login file, `~/.bash_profile` if it exists or else `~/.profile`; for zsh `${ZDOTDIR:-~}/.zshrc`; for fish `${XDG_CONFIG_HOME:-~/.config}/fish/conf.d/lighten.fish`; otherwise `~/.profile`. It asks once, `[y/N]`, on `/dev/tty`, since stdin is the script under `curl | sh`, naming every file it will change. Yes appends the line under `# Added by the Lighten installer`; a rerun finds the line and does not add it again. Without a terminal, or with `--no-modify-path`, it only prints the line.
-- **Only the user's own files (user decision):** it changes a startup file only if it is in the user's home and is a regular file the user owns and can write, or is missing from a directory the user owns. It skips any other file, for example one an admin manages, and says why, so the user can add the line by hand. It never touches `/etc`.
-- **Testing:** `LIGHTEN_INSTALL_BASE_URL` replaces the releases URL, for tests only. `ci/install/test.sh` serves a build under its release names and runs `ci/install/scenarios.sh` in Ubuntu 24.04, Fedora, Alpine and Oracle Linux 7 containers on both architectures, as a step of `Native distros`, so the 7 required checks are unchanged.
-- `[skipped: signature checks beyond SHA256SUMS, add with signed releases (see the #167 entry)]`
+- `[skipped: signature checks beyond SHA256SUMS, add with signed releases]`
 - `[skipped: an uninstall option, add when users ask; removing ~/.local/bin/lighten and the marked line is the uninstall]`
 - `[skipped: a containers test of the shasum fallback, add when a supported distro lacks sha256sum]`
 - `[skipped: a system-wide PATH entry (/etc/profile.d) for root installs, add when admins install for all users]`
-## 2026-10-08: `lighten update` runs the release's install script
 
-#169 (user decision, option C in #192 review): `lighten update` checks for a newer release and runs that release's `install.sh` on the running binary's directory. `--check` only reports; `--version 1.2.3` installs that release, downgrades included.
+### `lighten update` runs the release's install script
 
-- **One implementation of the install rules (rung 2, reuse `install.sh`):** Lighten never writes its binary. Download, `SHA256SUMS` check, the `--version` run of the new binary and the rename into place live only in `install.sh`, so the two cannot drift. The first version of #192 did all of it in Kotlin over `java.net.http.HttpClient`.
-- **About 30 MB, not 45:** in-process HTTPS put the Java TLS stack, its crypto providers and the CA certificates into the native binary: x86_64 grew from 30.1 to 44.7 MB and arm64 from 30.4 to 46.0 MB. `HttpURLConnection` was no better (43.8 MB on arm64), because the cost is TLS itself. Lighten now downloads with `curl` or `wget`, as the script does, and carries no HTTP or TLS code.
-- **Needs `curl` or `wget`, and `sh`:** the price of the above. Without them Lighten says so before doing anything; the README's manual steps remain.
-- **Latest version from `SHA256SUMS`:** `releases/latest/download/SHA256SUMS` names each binary with its version, so neither Lighten nor the script calls the GitHub API. `--check` compares it with the installed version. `update` reads it first too, so it never downgrades without `--version`: when the latest release is older than the installed one (say an installed `1.1.0-rc.1`), it says so and prints the `--version` command. When it is the same, the script is not run.
-- **The script:** `releases/latest/download/install.sh`, or `releases/download/v<version>/install.sh` with `--version`, downloaded to a temporary file and run as `sh install.sh --dir <dir> [--version <version>] --no-modify-path`. Its output and exit code are passed through. `--no-modify-path` keeps an update from editing shell startup files; the script still says when `<dir>` is not on `PATH`.
-- **Which directory:** the real directory of `/proc/self/exe`, symlinks resolved. The script replaces `<dir>/lighten`, so a symlink such as `~/bin/lighten` keeps pointing at the updated file; given the link's own directory, `mv` would have replaced the link with a file. A binary whose real name is not `lighten` is refused, since the script would install a second file beside it.
-- **Lighten's own checks, before any download:** a development build (a version that is not a release, such as `1.0-SNAPSHOT`); the JVM, which has no binary to replace; a platform without a release asset; a binary under mise (`/mise/installs/` in its path, or under `$MISE_DATA_DIR`), which says to run `mise upgrade`; a directory the user cannot write to, which shows the `install.sh | sudo sh -s -- --dir <dir>` command; no `curl` or `wget`; no `sh`. The script would refuse an unwritable directory too, but only after Lighten had downloaded it, and it knows nothing about mise.
-- **eget and ubi are not detected, and need not be:** both write a plain file into a directory and keep no record of it, so the script replacing it is correct. mise keeps versioned directories and shims, so replacing a file there would confuse it.
-- **`--check` exits 0 whether or not an update exists**, and 1 only when it could not find out. It prints `Installed:` and `Latest:` lines a script can read. It also runs on a development build, which lets CI exercise the native binary's downloads.
-- **Network:** only while `update` runs. `curl --connect-timeout 10 --max-time 60`, `wget -T 10`, and a 90 s backstop per download. Offline, the message names the URL, adds the tool's own line, and says where to look.
-- **Native Image:** only `ProcessBuilder`; no reflection or reachability metadata.
-- **Testing:** `LIGHTEN_INSTALL_BASE_URL`, test-only and shared with `install.sh`, replaces the releases URL; Lighten passes it to the script. `SelfUpdateTest` serves releases with the repository's `install.sh` and shell-script binaries. On Linux it runs the script: update, downgrade with `--version`, a checksum mismatch, a symlink. On any OS: `--check` with curl and with wget, up to date, no downgrade, an unpublished version, an unwritable directory, offline, no curl or wget, no sh, a wrongly named binary, a development build, mise and the JVM. `ci/native/compare.sh` adds the steps that need no server. `ci/native/update.sh` serves releases from `127.0.0.1` and runs in `Native test` on both architectures. CI's builds are development builds, so there it checks `--check`, the refusal and the missing-tools message; given a release build it also updates, checks a mismatch and updates through a symlink.
+`update` checks `SHA256SUMS`, then runs that release's `install.sh` on the running binary's real directory with `--no-modify-path`, using `curl` or `wget`. It never downgrades without `--version`, and refuses development builds, the JVM, mise installs, unwritable directories and a binary not named `lighten` before downloading. `--check` only reports. Why: one copy of the install rules, and no TLS in the binary (about 15 MB). (#169)
+
 - `[skipped: automatic update notice, add when users run old versions without knowing]`
 - `[skipped: signature verification, add with signed releases]`
 - `[skipped: a distinct --check exit code for "update available", add when a script needs it]`
-- `[skipped: a native end-to-end update in CI, add by testing the release build in release.yml; CI's builds are development builds, which update refuses]`
+- `[skipped: a native end-to-end update in CI, add by testing the release build in release.yml]`
 - `[skipped: detecting aqua or Homebrew installs, add when either is a documented install method]`
 
-Rejected: Kotlin over `HttpClient` (above: 15 MB, and a second copy of the install rules).
+## Suggestion-list curation
 
-## 2026-10-08: First run makes the built-in suggestions the obvious path
+### Lists are files, the built-in list first, yours merged in
 
-#189 (user decision): most users fill their configuration from the built-in list, but on a first run it showed only as `b: Browse`, and "Suggestion list (optional)" read as if a list of your own were needed.
+The built-in list ships in the binary; `suggestion-list` names an optional shared file, typically on storage the machines already share. Lighten never fetches lists over HTTP or Git. When both lists name a directory, yours gives its app and advice; an app takes your list's category when yours gives one, else the built-in one. Lists are bounded (size, records, string length) and strictly decoded. Why: no network failure modes or credentials; a team can extend the built-in list without retyping it. (2026-09-30, #115, #165)
 
-- **First run opens Browse (rung 2):** on a new file, the first time focus goes from the storage locations' fields to the list with both roots valid and no relocations, Configuration opens Browse through its own `openBrowse`, with a two-line note: `Pick what to move: Space adds.` / `Rather type a path yourself? Press Esc, then a.` The second line puts typing beside picking from the start, for users who would rather type (user decision, from the #193 walkthrough); each line fits 80 columns. Esc returns to the list as it always does. Moving from Target root to Source root or Suggestion list does not count, so both can be set first and Browse reads them; opening on ↓ from Target root would have taken the user past Suggestion list before they could type one. Only render sees Tab move focus, so the check runs there, beside `pull`. Once per Configuration; an existing file never opens Browse by itself.
-- **Counts and examples from the catalog (rung 1):** the empty list and Suggestion list's Details read the built-in list once: its directories counted as Browse's Lists line counts them (44 today), and the first app of each of the first four categories (Maven, Cargo, npm, pip). The issue's "40+ common tools" became "44 suggestions for common tools", the same number Browse shows; the list has 34 apps.
-- **Typing stays visible:** the empty list (`… or a to type one yourself.`), the Browse note, Configuration's and Browse's Help purposes and the guide's step 1 all say a missing directory can be typed with `a`, and that a list of your own can be added later and is merged. From a field the empty list says `Esc, then b …`, since there `b` and `a` type.
-- **Placeholder** `optional; adds to built-in list`: the issue's `optional; built-in suggestions are always included` is 50 cells and the field is 32 at 80 columns.
-- `[skipped: "N found on this machine" in Browse and a filter for them, add when "not created yet" rows make suggestions hard to find]` (done in #190)
-- `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
+### Categories group apps, in the file's order
 
-## 2026-10-08: C and C++, Android, build tools and Zed join the built-in list, in a new category order
+Each app may name a `category`; Browse shows categories, apps and directories in first-appearance order, with Other tools and Other directories last. Built-in order: Editors, Python, Rust, C and C++, JVM, JavaScript, Go, Ruby, Android, Build tools, Version managers. A version manager for one language sits under that language. Why: whole stacks can be added with one key, and the file reads like the screen. (#165, #176, #191)
 
-#191 (user decision, 2026-10-08) adds C and C++ package managers, build caches, Android and the Zed editor to the built-in list, and reorders its categories (rung 1: data only; no code changes).
+- `[skipped: moving an app to another category without naming one of its directories, add when teams want to retag built-in apps wholesale]`
+- `[skipped: the category in Details' "Suggested by" lines, add when users ask which list set it]`
 
-- **Category order (user decision):** Editors, Python, Rust, C and C++, JVM, JavaScript, Go, Ruby, Android, Build tools, Version managers; Other tools and Other directories stay last. Browse shows categories in the order the list first names them, so the order is the file's. Apps keep their order within a category, and new apps go at the end of theirs. The empty list's examples, the first app of each of the first four categories (#189), now read JetBrains, pip, Cargo, Conan.
-- **New categories:** C and C++ (Conan, vcpkg, xmake, Hunter, PlatformIO), Android (Android SDK, Android emulator, Android Studio) and Build tools (ccache, sccache, Bazel, Zig). Zed joins Editors.
-- **Directories, from each tool's docs or source:** Conan `.conan2/p` (`CONAN_HOME`, `core.cache:storage_path`); vcpkg `.cache/vcpkg/archives` (`VCPKG_DEFAULT_BINARY_CACHE`, `XDG_CACHE_HOME`); xmake `.xmake/packages` (`XMAKE_GLOBALDIR`, `XMAKE_PKG_INSTALLDIR`); Hunter `.hunter` (`HUNTER_ROOT`); PlatformIO `.platformio/packages` (`PLATFORMIO_CORE_DIR`, `PLATFORMIO_PACKAGES_DIR`); ccache `.cache/ccache` (`CCACHE_DIR`; `~/.ccache` only when it already exists); sccache `.cache/sccache` (`SCCACHE_DIR`); Bazel `.cache/bazel` (`XDG_CACHE_HOME`, `--output_user_root`); Zig `.cache/zig` (`ZIG_GLOBAL_CACHE_DIR`, `XDG_CACHE_HOME`); Android SDK `Android/Sdk` (`ANDROID_HOME`; Android Studio's default on Linux); emulator `.android/avd` (`ANDROID_AVD_HOME`); Android Studio `.cache/Google` (`idea.system.path`); Zed `.local/share/zed/languages`, `node` and `extensions` (`XDG_DATA_HOME`).
-- **Narrowest directory:** the package store, not the tool's home, where the home also holds settings or the tool itself: Conan's profiles and `global.conf`, xmake's recipe repositories and settings, PlatformIO's own Python environment (`penv`) and its platforms (a few MB of build scripts), and `~/.android`'s debug keystore and adb keys stay home.
-- **Zed by subdirectory:** moving all of `.local/share/zed` failed. Lighten stopped on `zed-stable.sock`, a Unix socket Zed keeps in its data directory while it runs and leaves there when it is killed (`No such device or address`). Language servers, Node.js and extensions held 426 of the 436 MB in the test; Zed's database, logs and socket stay home. `.cache/zed` held only temporary files.
-- **Android Studio as `.cache/Google`:** it holds one `AndroidStudio<version>` folder per installed version, and the list format has no wildcards. Plugins (`.local/share/Google`) are small, and settings stay home.
-- **Checked in containers:** each tool was installed in an Ubuntu 24.04 container, used, relocated with `lighten apply` to a separate filesystem, then used again: cached packages and outputs were reused, new ones were installed or built through the link, and the tool's clean or remove commands ran. Android ran in an x86_64 container, as platform-tools, the emulator and Android Studio have no Linux arm64 build. The Android SDK was tested with command-line tools, platform-tools, build-tools, the emulator and the smallest system image, not the NDK or a Gradle build; AVDs were created, listed and deleted with `avdmanager` and listed by `emulator`, but not booted (no KVM). Android Studio ran only its headless formatter; Zed ran on a virtual display with software Vulkan.
-- **Hard links:** Hunter links each package's files between its `Cellar` and the install tree. Lighten copies hard-linked files separately, so packages installed before the move take twice the space on the target. Hunter keeps working, and packages it installs after the move are linked again. Conan's cache has no hard links.
-- **Bazel:** the output base holds absolute links into `~/.cache/bazel`, which resolve through the moved directory; Bazel then reports its output base by its real path. Moving it with the Bazel server running also worked: the next build reused the action cache.
-- **No cautions:** `ccache -C`, `conan remove`, `conan cache clean`, `xrepo clean`, `pio system prune`, `bazel clean --expunge`, `sdkmanager --uninstall` and `avdmanager delete avd` all kept the link.
-- **CMake left out:** it keeps no large per-user directory by default. Its package registry `~/.cmake/packages` is tiny, FetchContent works in the build tree, and CPM's `CPM_SOURCE_CACHE` is opt-in.
-- **Native TUI check:** `ci/native/setup.exp` now waits for `.cache/JetBrains`, the list's first entry, since Maven's `.m2` is no longer on Browse's first screen.
+### Each directory is checked and the narrowest safe one is listed
+
+A directory joins the built-in list only after the tool was installed in a container, relocated with `lighten apply`, used again and cleaned with its own commands, with paths taken from the tool's docs or source. The list names the cache or install folder, not a parent that also holds the tool, its shims or settings, unless the tool needs the whole parent on one filesystem (Volta). Where a tool's clean command replaces the link with a folder, the entry carries a `caution`, shown in Browse Details. Why: a suggestion must keep the tool working after the move. (#165, #176, #191)
+
+- `[skipped: conda, mamba and micromamba directories, add when users ask for a specific install layout]`
+- `[skipped: .cache/mise, add when users report it growing large]`
+- `[skipped: legacy .fnm/node-versions, add when users with old installs ask]`
+- `[skipped: Volta's .volta/tools alone, add if Volta stages installs inside tools]`
+- `[skipped: a caution on the Browse row itself, add when users miss cautions that only Details shows]`
 - `[skipped: CMake, add when it gains a default per-user cache]`
-- `[skipped: Zed's whole data directory, add when Lighten moves a directory that holds a socket]` (done in #198)
+- `[skipped: Zed's whole data directory; #198 removed the socket that blocked it, add when users ask for Zed's database and logs to move too]`
 - `[skipped: .platformio/platforms and .platformio/.cache, add when users report them large]`
-- `[skipped: .cache/bazelisk (about 70 MB per Bazel version), add when users report versions piling up]`
+- `[skipped: .cache/bazelisk, add when users report versions piling up]`
 - `[skipped: .local/share/Google (Android Studio plugins), add when users report it large]`
 - `[skipped: keeping hard links when moving, add when users move Hunter or similar caches and ask about the space]`
 
-## 2026-10-08: Browse counts and filters what is found on this machine
+## TUI
 
-#190 (user decision, split from #189): most built-in suggestions read `not created yet` on any one machine, which buries the ones that matter.
+The rules themselves are in [`tui-design.md`](tui-design.md), which holds only current rules; history is here and in git.
 
-- **Found** means the last check saw a directory or a link at the path (rung 1, reuse discovery's observation). A link counts because a directory Lighten has moved is a link; leaving links out would hide the user's own relocations after Apply. A file, a problem or `checking…` does not count.
-- **Count line:** `12 found on this machine` under the Lists lines; while filtered, `, plus 2 in your configuration` when configured rows not found are shown, else `, only these shown`; and `Checking this machine…` until every row is checked, so the number does not climb on screen. It shares its line with `1 usually not needed, hidden` (now in the text color, not `warn`), so the list loses no row at 80x24.
-- **Key `f`** ("found"), toggled like `u`. Free in Browse: `u`, `i`, `x`, `r`, `e`, Space and Enter are taken, and `a`/`b` are Configuration's list keys, which users would expect to mean the same there. It goes on the navigation help line with `acts`, since the commands line is full at 80 columns with `x: Stop ignoring` and `u`.
-- **Configured rows always show** (user decision, #197 walkthrough): a directory in the configuration stays listed while `f` is on, found or not, as `u` never hides what you chose. Its `●` and note (`not created yet`) set it apart, and the count line says why it is there. This includes relocations no list suggests, which discovery does not check.
-- **Headings follow the shown rows:** a category or app with nothing shown is not listed, and `1 of 2 added`, the mark and Space all count only the shown directories, as they already did for `u`. Space on a heading while filtered adds only found directories and the message says how many it skipped: `Skipped 3 not found on this machine; f shows all.` Help's Space description says `found on this machine` while `f` is on. Taking a group out is unchanged, since every configured row under it is shown.
-- **List order kept:** found directories do not sort first. `f` already brings them together; sorting would move rows under the user, against "rows keep the place they were first listed in".
-- **Hidden count while filtered** counts only found directories, so `u: Show N` matches what `u` would add.
-- `[skipped: / to filter by text, add when lists grow past two screens]`
-- `[skipped: first-run Browse with f on, add when new users report scrolling past tools they don't have]` (user decision: Browse opens with `f` off, as every other time)
+- **Full-screen TamboUI app** with screens for every command; not a desktop GUI, which needs a display over SSH. ([§2](tui-design.md#2-screens-and-navigation), 2026-09-12)
+- **Its own visual language**, designed around relocation work, not a generic dashboard. ([§1](tui-design.md#1-principles))
+- **Harbor palette on Lighten's own background**, basic colors as fallback; color may carry meaning only when the screen also says it another way. ([§4 Color](tui-design.md#color))
+- **TamboUI owns focus, fields, choices and dialogs**, with its `standard` key bindings; Esc goes back one level and never exits. ([§3](tui-design.md#3-keys-and-focus))
+  - `[skipped: TamboUI FormElement, add when it supports per-field key handling and a dialog on top]`
+- **Mouse captured for the wheel only**; clicks do nothing, and selecting text takes the terminal's bypass modifier. ([§3](tui-design.md#3-keys-and-focus), #146)
+  - `[skipped: click to focus or select, add when users ask]`
+  - `[skipped: the mouse wheel over Configuration's list and fields, add when users ask]`
+- **Dialogs for one question, screens for work.** ([§4 Dialogs](tui-design.md#dialogs))
+  - `[skipped: dimming the whole screen behind a dialog, add when the border and lost focus are not enough separation]`
+  - `[skipped: wrapping long paths in dialogs, add when a path cut off at 80 columns is reported]`
+- **Help is a screen with two tabs**, This screen and Guide; the user guide is its only text and the help lines share one source with it. ([§4 Help screen](tui-design.md#help-screen), #146)
+  - `[skipped: tying key handlers to their listing, add when a walkthrough finds a listed key that does nothing]`
+  - `[skipped: first-run tour, add when walkthroughs show Help is not found]`
+  - `[skipped: PageUp/PageDown and Home/End in Review's Action details, add when long action details are reported]`
+  - `[skipped: "Leave" group for q/Esc, add when a walkthrough still misreads q or Esc after the descriptions]`
+- **Workspace** keeps the file's order within each urgency group, says the decision once, and warns only where data is lost for good. ([§5](tui-design.md#5-workspace), #110, #183)
+  - `[skipped: plain-language reasons for blocked rows, add when the planner's reasons are reworded for JSON output too]`
+  - `[skipped: keeping the Decision line in view when Details takes focus, add when users miss it]`
+- **Quitting asks before forgetting one-time choices.** ([§3 Quit](tui-design.md#quit), #111)
+- **Review, Applying and Results** list the plan as headings and rows; progress never moves the selection, which moves once at the finish; a failed step says what is there and what to do. ([§6](tui-design.md#6-review-applying-and-results), #111, #157, #172)
+  - `[skipped: a softer Review warning for a verified "Replace source with a link" step, add when the Review walkthrough finds it alarming]`
+  - `[skipped: a status line in a relocation's Details, add when the step marks are not enough]`
+  - `[skipped: folding a relocation's steps, add when plans are long enough that users ask to fold them]`
+  - `[skipped: indenting action rows more than two cells, add when the plan list is wider at 80 columns or its rows become one line each]`
+  - `[skipped: plain words for the preflight refusal's diagnostics, add when a walkthrough finds them unclear]`
+  - `[skipped: own words for errors the OS reports only as a reason (no space left, read-only filesystem), add when a user hits one]`
+- **Configuration** has labels beside fields and opens Browse on a first run. ([§7](tui-design.md#7-configuration), #114, #189)
+  - `[skipped: selecting the first added relocation when the first-run Browse closes, add when users miss where their picks went]`
+- **Browse** is a list of categories, apps and directories with bare marks; it always shows its lists, drops stale results while checking, and can filter to what is found on this machine. ([§8](tui-design.md#8-browse), #115, #165, #190)
+  - `[skipped: showing previous results while checking again, add when re-checks are slow enough that blank rows annoy users]`
+  - `[skipped: per-row list history, add when users need to know a list used to suggest a row]`
+  - `[skipped: PageUp/PageDown in Browse, add when suggestion lists grow past a few screens]`
+  - `[skipped: the year in "file updated", add when lists older than a year are common]`
+  - `[skipped: folding categories, add when the built-in list grows past a few screens]`
+  - `[skipped: / to filter by text, add when lists grow past two screens]`
+  - `[skipped: first-run Browse with f on, add when new users report scrolling past tools they don't have]`
+- **Bare marks for choices**: `●` chosen, `○` not, in green and bold. ([§4 Layout and glyphs](tui-design.md#layout-and-glyphs), #173)
+- **Screens are checked at 80x24 and 120x30.** ([§10](tui-design.md#10-verification))
+  - `[skipped: 200x50 checks, add when a wide-terminal layout bug appears]`
 
-## 2026-10-08: The copy skips sockets and stops on named pipes and device files
+## Archive
 
-#198, from #191 (user decision: fix before 1.0): moving Zed's data folder failed during apply with "No such device or address" on `zed-stable.sock`, a socket Zed leaves behind when killed. The copy treated it as a file.
+Superseded or history-only entries, with the names they used at the time. Full text is in git history.
 
-- **One rule for the kind of file (rung 6):** `specialFileKind` reads the type bits of the `unix:mode` attribute, without following links; Java's basic attributes call sockets, pipes and devices all "other". The `unix` view exists on Linux and macOS and needs no reflection, so the native binary reads it too (`ci/native/compare.sh` applies a folder with a named pipe).
-- **Sockets are skipped (rung 2, the copy and its check):** the copy leaves them out, and `verifyCopy` agrees: it accepts a source socket with nothing at its name in the copy, and returns the sockets it saw. The replacement deletes the source as before, so none is left behind. The executor keeps them in `ActionExecution.skippedSockets`; `apply --json`'s `message` reads `completed; skipped sockets: <paths>`.
-- **Results name a skipped socket (user decision):** `Skipped ~/.local/share/zed/zed-stable.sock; programs recreate it.` in place of `completed`; several are counted, `Skipped 3 sockets; programs recreate them.`
-- **Named pipes and device files stop the copy (user decision, rung 2, #172's failures):** the copy stops before it opens one (a pipe would wait for a writer, a device can be endless), throws the copy away and publishes nothing, with `ActionFailure.Unmovable`: `~/x/ipc is a named pipe; Lighten can't move it, so it threw the copy away and moved nothing. Remove it, or move this folder yourself.` `verifyCopy` refuses one too, in case it appeared after the copy passed it.
-- **No plan-time block (user decision):** the first version of this PR walked the source at plan time, where a copy was planned, and blocked the move like #163's non-folder block. Inspection walks no source tree otherwise, and this walk (a directory read and one `lstat` per entry) ran on every check: start, `r`, after apply, `plan`, `status`, `apply`, on the TUI's thread. Measured warm with Java's `walkFileTree`, 300,000 files took 0.85 s on Linux (ext4 under OrbStack) and about 10 s on macOS (APFS, `~/Library/Caches`); a cold cache or network storage is slower. Pipes and devices in a cache are rare, and the copy's failure is safe and says what to do, so planning stays as light as before.
-- `[skipped: plan-time block for pipes and devices, add when a user hits one; it costs a walk of every pending move's tree on every check, measured above]`
-- `[skipped: saying in Review that sockets will be skipped, add when users are surprised by it in Results]`
-- `[skipped: a socket in the native comparison, add when CI containers have a tool that makes one; the pipe exercises the same mode check]`
+- 2026-08-29: Keep integrations behind adapters. History: no adapter layer was needed; the core reads the filesystem through `java.nio.file`, and lists are not fetched.
+- 2026-08-29: Design for native-image compatibility. Done: native binaries are the release.
+- 2026-09-07: Prefer guided CLI over desktop GUI. Superseded by the full-screen TUI; the desktop GUI rejection stands.
+- 2026-09-07: Combine non-interactive and guided CLI in a single binary. Superseded by TUI for people, JSON for scripts.
+- 2026-09-07: Maintain a single Maven module. Maven superseded by Gradle; the single module stands.
+- 2026-09-07: Use plain Java 25 and targeted libraries. Java, SnakeYAML and Jackson superseded by Kotlin and kotlinx.serialization.
+- 2026-09-30: Stay on Java; ship Linux native binaries. Java superseded by Kotlin; native targets and spike numbers stand. Rust was viable but a port cost about 13k lines.
+- 2026-09-30: Replace smallrye-config with snakeyaml. snakeyaml superseded by JSON; dropping environment overrides stands.
+- 2026-09-30: Relax candidate-list strictness. Superseded by JSON.
+- 2026-09-30: Run agent work through a cloud coordinator. History-only.
+- 2026-10-01: Move to Kotlin and kotlinx.serialization. Now "Kotlin on JVM 25"; the migration (#40, `kotlin-migration` branch) is done.
+- 2026-10-01: Read JSON configuration strictly. Superseded by "Let kotlinx.serialization own the file format" (#79).
+- 2026-10-01: Keep Java whitespace semantics for validation. Moved to `AGENTS.md` rule 10.
+- 2026-10-01: Keep threads and locks during the Kotlin migration. Moved to `AGENTS.md` rule 11; #10 chose bounded virtual threads.
+- 2026-10-04: How design and simplification decisions are made. Moved to `AGENTS.md`.
+- 2026-10-04: Application-layer cleanup. Done.
+- 2026-10-05: Functions return their results. Moved to `AGENTS.md` rule 5.
+- 2026-10-06: Review's plan is a TamboUI tree. Replaced by headings and rows (#157).
+- 2026-10-06: Browse is a tree of suggestions. Replaced by the heading list, variant C (#115).
+- 2026-10-07: Browse groups apps by ecosystem. The level is now "category" (#174).
+- 2026-10-07: Rename HomeLight to Lighten: the repository rename it left open is done.
 
-Rejected: copying a socket as an empty file (programs refuse to bind over it); skipping pipes like sockets (programs use them for data and do not always recreate them).
+## How to add
 
-## 2026-10-08: Paths on screen use `~` for home; machine output keeps full paths
-
-#201 (user decision): every path people read, on any screen, dialog, Help page or human-readable CLI message, shows the home directory as `~`. `~` means only the user's home directory, never the configured `source-root`: a path under a source root elsewhere shows in full. `--json` output keeps every path in full. This replaces the Paths-section exception in tui-design §4.
-
-- **Paths stay `Path`s until shown (rung 6):** `PathText` holds words and `Path`s; `shown()` renders home as `~` through `displayPath`, `toString()` in full. Planner block reasons, plan diagnostics, relocation problems, the preflight's stale-plan diagnostics and `ConfigurationException` carry one, so the JSON and the screen share one sentence and differ only in how paths read. #172's `ActionFailure` keeps its own words, which differ from the executor's text.
-- **Exception text without paths or type names (walkthrough, user decision):** discovery's notes used the exception's text, `java.nio.file.NoSuchFileException: /home/me/.cache/uv`. They now say why in plain words, with the path beside them: `Note: not found · ~/.cache/uv`. `systemReason`, moved from `ActionFailure` and shared, gives the common reasonless file exceptions words (`not found`, `permission denied`, `already exists`, `not a folder`, …), else the system's reason; a Java type name is never shown, in Browse or in Results. Discovery's denied reads say `can't read: permission denied`.
-- **One `displayPath`:** `lighten update` and `install.sh` already shortened home; `update` now uses the same function.
-- **Results headline (user decision):** a stop counts the changes made, `Stopped after 2 changes. …`, or `Stopped. Nothing was changed. Check the failed step, then check again.` A pipe stopping the copy had shown `Stopped after some changes` although nothing changed. `Stopped unexpectedly; some changes may have been made.` stays: a bug can stop a step partway.
-- A test renders every screen, dialog and Help page at 80x24 and 200x60 with a temporary home and fails if its absolute path shows.
-- `[skipped: ~ in Configuration's fields, which show the file's text as written, add when a user wants the editor to rewrite full home paths]`
-
-## 2026-10-08: One path rule, narrower overlap blocks, staging checked at plan time
-
-#207 (user decisions), found while writing the guide's configuration reference.
-
-- **`suggestion-list` follows `resolvePath` (rung 1, reuse):** it accepts `~`, `~/` and `${USER}` like every other path, and a relative one gets the same `Use a full path, or one starting with ~/`. Blank still means none. `parseSharedList` and `normalizeSharedList` are deleted; Configuration's Resolved line uses the same `resolved` as the other fields.
-- **Overlap blocks only the relocations involved (rung 2, the planner):** each one gets its own `Blocked` reason naming the other path, and what it is: `~/a contains ~/a/b, which is also a relocation`, `~/a/b is inside ~/a, the target of ~/b`, `/s/x is also the target of ~/b`. A relocation whose own source and target overlap blocks only itself: `the target ~/c/t is inside the source ~/c`. Only the first overlap is named, in configuration order. The plan-wide `INVALID_RELOCATION` diagnostic and the `relocation configuration is invalid` block are gone; `plan --json` carries the reasons per relocation. Any block still keeps Review closed, so nothing is applied until it is fixed.
-- **Overlap through a link loads (rung 2):** inspection records each source's and target's `realSpelling` in `RelocationState.realSpellings`, keyed by the path as written, so a draft copy with other paths cannot reuse stale spellings. The planner, which stays pure, compares as written first, then by real spelling, and says `through a link`. The loader no longer refuses such a file; `aliasedRelocationProblem` is deleted.
-- **Saving still refuses overlap:** Configuration's save and `validateConfiguration` keep `relocationProblem`, so Lighten never writes a file with relocations that overlap as written.
-- **Staging on another filesystem is blocked at plan time (rung 2, reuse):** inspection compares `fileStoreOfExistingAncestor` of the staging root and of the target's parent, the executor's own check, now `internal`. Two store lookups per relocation, no folder walk. Only a planned move is blocked, with `the staging folder … is on another filesystem than …, so Lighten can't move the copy there in one step. Set staging-root to a folder on the target's filesystem, or remove staging-root to stage beside each target` (user decision: both options, setting it first). A store that can't be read counts as the same; the copy-time check stays.
-- **`${USER}` falls back to the account name:** `USER`, else the JVM's `user.name` when `USER` is unset or empty, which comes from the OS user database and works in a native image. With neither, a path that uses it is refused naming the setting; it never expands to empty text.
-- **Choose-around-folder hint:** `choiceAvoidsFolder` plans each relocation among the others, since no choice avoids an overlap.
-- `[skipped: naming every overlapping relocation in one reason, add when users configure three or more that overlap]`
-
-## How to add decisions
-
-Use this format:
-
-```markdown
-## YYYY-MM-DD: Short decision title
-
-Decision and rationale.
-
-Alternatives considered, if relevant.
-```
+Add a decision under its theme, as a `###` rule in the form above: the rule, a one-line why, open `[skipped: …]` items, and the issue or pull request. Change a rule in place when it changes, and add a line to the archive when a rule is removed or replaced. Put details in the pull request, not here.

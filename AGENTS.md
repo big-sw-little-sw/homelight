@@ -30,9 +30,9 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 
 9. **Keep visibility narrow.** Default to `private` or `internal`. Do not mark a class or member `open` unless something subclasses it. Do not use `@JvmStatic`, `@JvmField`, `@JvmName`, `@JvmRecord` or hand-written Java-style accessors unless a Java or JVM consumer needs them: `main`, picocli-annotated fields, or a Native Image constraint. Say which in a comment.
 
-10. **Use Kotlin's string functions.** Where exact whitespace semantics matter for validation, use the documented Java-semantics helpers in `JavaStrings.kt` rather than adding new ones.
+10. **Use Kotlin's string functions.** Where exact whitespace semantics matter for validation, use the documented Java-semantics helpers in `JavaStrings.kt` rather than adding new ones: Kotlin's `isBlank` and `trim` treat a no-break space as whitespace, Java's `isBlank` and `strip` do not, and validation keeps Java's rule.
 
-11. **Make concurrency ownership explicit.** Each thread, executor, lock, and piece of shared mutable state has one clear owner that starts and stops it. Coroutines are not adopted yet (issue #10 decides); keep the existing threads and locks.
+11. **Make concurrency ownership explicit.** Each thread, executor, lock, and piece of shared mutable state has one clear owner that starts and stops it. Bounded parallel work uses `mapBounded` in `concurrent/Bounded.kt` on virtual threads, with each limit a named constant there (#10); otherwise use plain threads, executors and locks, not coroutines.
 
 12. **Avoid unnecessary classes and files.** Kotlin allows several top-level declarations per file: keep related, non-public types and functions in the file of their primary public type when that makes the layout clearer. Nest a type only when its enclosing type conceptually owns it. Do not accumulate unrelated declarations in one file merely to reduce file count.
 
@@ -41,6 +41,23 @@ These are judgment calls, not mechanical find-and-replace rules. Apply the princ
 ## User guide
 
 `docs/user-guide.md` is end-user documentation shown inside the app. Plain language, names as shown on screen, no internal names or history. Any ticket that changes what users see updates the guide in the same PR, and the walkthrough covers the guide diff.
+
+## Decisions
+
+Before proposing a design or simplification, name the first rung that answers it, and say which in the proposal:
+
+1. Does it need to exist at all?
+2. Reuse existing code.
+3. Kotlin or JDK standard library.
+4. A TamboUI or platform feature. In the TUI, use TamboUI as much as possible and delete our own equivalents, even when that is an app-wide change.
+5. An existing dependency.
+6. Only then, minimal new code.
+
+Record anything dropped or deferred as `[skipped: X, add when Y]` in the pull request, its issue and the decision. In code, mark a known limit taken on purpose with `// shortcut: <the limit>, <when to upgrade>` (a line comment or KDoc, whichever fits).
+
+Gaps in upstream projects such as TamboUI are worked around in our code; never file issues or pull requests on upstream projects.
+
+Record a product or architecture decision in `docs/decisions.md`, under its theme, in the same pull request.
 
 ## Verification
 
@@ -62,4 +79,4 @@ Default canonical label vocabulary (`needs-triage`, `needs-info`, `ready-for-age
 
 ### Domain docs
 
-Single-context layout (`CONTEXT.md` + `docs/adr/`). See `docs/agents/domain.md`.
+Single-context layout (`CONTEXT.md` + `docs/decisions.md`). See `docs/agents/domain.md`.
