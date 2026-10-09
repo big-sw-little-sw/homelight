@@ -119,7 +119,8 @@ file lists one in both, Lighten says which two settings to fix.
 
 `lighten config` opens Configuration directly. The configuration file is
 `~/.lighten.json`, or the file you gave with `--config`. You can also edit
-it by hand, then press `r` in Lighten to check again.
+it by hand, then press `r` in Lighten to check again. **Configuration
+file** under Reference lists every setting.
 
 Run Lighten again whenever you like, for example after you add a
 directory. It changes only what is not in sync yet.
@@ -317,6 +318,108 @@ Remove the relocation from the configuration first, or Lighten plans to
 move it again: press `e`, select it, press `d`, then `s`.
 
 ## Reference
+
+### Configuration file
+
+Lighten reads its settings from `~/.lighten.json`, or from the file you give
+with `--config`. Configuration writes this file for you. You can also write
+or change it by hand, then press `r` to check again. For example:
+
+```json
+{
+  "lighten": {
+    // Where storage is. The only setting you must give.
+    "target-root": "/local/home/${USER}",
+    "suggestion-list": "/net/team/lighten/suggestions.json",
+    "relocations": [
+      // No target-path: it goes to /local/home/<you>/.m2.
+      {"source-path": "~/.m2"},
+      {
+        "source-path": "~/.cache/uv",
+        "target-path": "/scratch/${USER}/uv",
+        "when-source-and-target-directories-exist": "adopt",
+        "when-adopting-target": "archive-source",
+        "archive-root": "~/old",
+      },
+    ],
+    "ignored-source-paths": ["~/.cache/pip"],
+  }
+}
+```
+
+Everything goes under `"lighten"`:
+
+- `target-root` (required): where storage is, such as a larger disk.
+- `source-root` (default `~`): the folder your sources are usually in. A
+  relocation without a `target-path` keeps its place under this folder,
+  inside `target-root`, so `~/.m2` goes to `<target-root>/.m2`. A source
+  outside `source-root` needs a `target-path`. Browse looks for
+  suggestions under this folder too.
+- `staging-root` (default: a `.lighten-staging` folder beside each
+  target): where Lighten copies a directory before it puts the copy in
+  place. It must be inside `target-root`, on the same disk as the targets.
+  Configuration does not show it, but keeps it when it saves.
+- `suggestion-list` (default: none): your own suggestion list, as **Write
+  your own list** describes. Empty text means none.
+- `relocations` (default: none): the directories Lighten manages. It
+  never touches a directory that is not in this list.
+- `ignored-source-paths` (default: none): directories Lighten leaves
+  alone, as **Leave a directory alone** describes. A directory can't be
+  both here and a relocation's `source-path`.
+
+Each relocation has:
+
+- `source-path` (required): the directory to move.
+- `target-path` (default: from `source-root` and `target-root`, as
+  above): where its contents go.
+- `when-only-target-exists`: `prompt` (the default) or `adopt-target`.
+- `when-source-and-target-directories-exist`: `prompt` (the default),
+  `adopt`, `leave-unchanged` or `discard`.
+- `when-adopting-target`: `prompt` (the default), `discard-source` or
+  `archive-source`. It decides what happens to the source after `adopt`.
+- `archive-root` (default: a `.lighten-archive` folder beside the
+  source): where `archive-source` moves the source. It must be on the
+  same disk as the source. The source keeps its name there. If that name
+  is taken, Lighten adds a short code to it, such as `uv-3f9c2b1d`.
+
+`prompt` is Ask each time. **What each rule does on disk** below says what
+the other values do. When Configuration saves, it leaves out every setting
+that has its default value.
+
+Paths:
+
+- Every path is full, such as `/data/me`, or starts with `~/`. Lighten
+  refuses a path like `data/me`, because its meaning would depend on the
+  folder you run Lighten in.
+- `${USER}` is your user name, taken from the `USER` environment
+  variable. Other variables, such as `$HOME`, are not filled in. The
+  `suggestion-list` path can't use `${USER}`.
+- Configuration keeps `~/` and `${USER}` as you typed them.
+
+The file is JSON, with two additions: comments (`//` and `/* */`) and a
+comma after the last item of a list or object. Configuration does not keep
+comments when it saves. If a setting appears twice in the same object, the
+last one counts.
+
+Lighten checks the whole file each time it reads it. It can't read a file
+with any of these, and shows what is wrong and where, as **If Lighten
+can't read your configuration** describes:
+
+- text that is not JSON, or a missing `target-root` or `source-path`;
+- a setting it does not know, such as a misspelled one;
+- a value of the wrong kind, such as a number instead of text, or a rule
+  value that is not in the lists above;
+- a path that is not full and does not start with `~/`;
+- a `staging-root` outside `target-root`, or a source outside
+  `source-root` with no `target-path`;
+- a directory that is both a relocation and ignored;
+- two relocations whose paths overlap through a link, such as `/home`
+  linking to `/var/home`.
+
+When two relocations overlap as written, one inside the other or with the
+same target, Lighten reads the file but plans nothing: every relocation is
+`[Blocked]` until you fix it. So is a relocation whose source and target
+overlap.
 
 ### What each rule does on disk
 
