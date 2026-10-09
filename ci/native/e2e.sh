@@ -46,9 +46,9 @@ matrix=$results/matrix.txt
 
 # --- case bookkeeping
 
-begin() { # <case> <what it covers>
+begin() { # <case> <what it covers> [folder to build it in, default results-dir]
   name=$1; about=$2; ok=1; notes=(); step=0; started=$(date +%s%N)
-  C=$results/$name; H=$C/home; L=$C/local
+  C=${3:-$results}/$name; H=$C/home; L=$C/local
   mkdir -p "$H" "$L"
 }
 
@@ -79,7 +79,7 @@ skip() { # <case> <why>
 run() { # <command> [args...]: lighten --json against $C/config.json; output in $out, exit code in $status
   step=$((step + 1))
   out=$C/$step-$1.json
-  HOME=$H "$binary" -c "$C/config.json" "$@" --json > "$out" 2> "$out.err" < /dev/null
+  "$binary" -c "$C/config.json" "$@" --json > "$out" 2> "$out.err" < /dev/null
   status=$?
 }
 
@@ -469,7 +469,7 @@ end
 
 # A TUI apply killed with SIGKILL when <glob> appears, then checked and applied again.
 killed() { # <glob> <delay-ms>
-  line=$(TERM=xterm-256color HOME=$H expect "$here/kill.exp" "$C/kill.log" "$1" \
+  line=$(TERM=xterm-256color expect "$here/kill.exp" "$C/kill.log" "$1" \
     "$binary" --debug-step-delay-ms "$2" -c "$C/config.json" apply)
   check "killed partway ($line)" [ $? -eq 0 ]
   echo "  $line; files in staging: $(find "$L" -path '*/operation-*/*' -type f | wc -l)"
@@ -519,7 +519,7 @@ begin killed-during-replace "TUI apply killed while deleting the set-aside sourc
 fill "$H/app"; big
 want=$(tree "$H/app")
 config "$(rel app)"
-line=$(TERM=xterm-256color HOME=$H expect "$here/kill.exp" "$C/kill.log" "$H/.lighten-replaced-*" \
+line=$(TERM=xterm-256color expect "$here/kill.exp" "$C/kill.log" "$H/.lighten-replaced-*" \
   "$binary" -c "$C/config.json" apply)
 check "killed partway ($line)" [ $? -eq 0 ]
 echo "  $line; set-aside files left: $(find "$H" -path '*/.lighten-replaced-*' -type f | wc -l)"
@@ -546,7 +546,9 @@ end
 
 # --- the TUI and plan --json tell the same story
 
-begin parity "the Workspace rows match plan --json for one fixture with most states"
+# Built under a short path, so no row is cut off at the list's width.
+short=$(mktemp -d /tmp/lighten-e2e.XXXXXX)
+begin parity "the Workspace rows match plan --json for one fixture with most states" "$short"
 fill "$H/move"
 mkdir -p "$L/sync" "$L/only" "$H/both" "$L/both" "$H/leave" "$L/leave" "$H/arch" "$L/arch" "$H/del" "$L/del" \
   "$H/keep" "$L/keep" "$C/elsewhere" "$H/unread"
@@ -563,12 +565,14 @@ config "$(rel move)" "$(rel new)" "$(rel sync)" "$(rel only)" "$(rel both)" \
 run plan
 plan=$out
 run status
-line=$(TERM=xterm-256color HOME=$H expect "$here/tui.exp" "$C/tui.log" "$binary" -c "$C/config.json" status)
+line=$(TERM=xterm-256color expect "$here/tui.exp" "$C/tui.log" "$binary" -c "$C/config.json" status)
 check "TUI ran ($line)" [ $? -eq 0 ]
 python3 "$here/render.py" "$C/tui.log" 140x50 > "$C/screen.txt"
-parity=$(python3 - "$plan" "$out" "$C/screen.txt" "$H" <<'EOF'
-import json, re, sys
-plan, status, screen, home = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), open(sys.argv[3]).read(), sys.argv[4]
+parity=$(python3 - "$plan" "$out" "$C/screen.txt" <<'EOF'
+import json, os, pwd, re, sys
+plan, status, screen = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), open(sys.argv[3]).read()
+# Rows show `~` for the home directory, which the binary takes from the account, not from $HOME.
+home = pwd.getpwuid(os.getuid()).pw_dir
 states = {r["sourcePath"]: r["state"] for r in status["relocations"]}
 
 def badge(r):  # what plan --json says, in the Workspace's words
@@ -583,7 +587,6 @@ def badge(r):  # what plan --json says, in the Workspace's words
     if r["outcome"] == "unchanged": return "Left as is"
     return "In sync"
 
-# Rows show `~` for the home directory, which the binary takes from the account, not from $HOME.
 shown = {re.sub(r"^~", home, m.group(2)): m.group(1) for m in re.finditer(r"\[([A-Za-z' ]+)\] ([~/]\S*)", screen)}
 diff = []
 for r in plan["relocations"]:
@@ -599,6 +602,9 @@ echo "  parity: $parity"
 check "rows agree ($parity)" matches "$parity" 'rows agree$'
 chmod 700 "$H/unread"
 end
+mkdir -p "$results/parity"
+cp "$C"/*.* "$results/parity/"
+rm -rf "$short"
 
 # --- summary
 
