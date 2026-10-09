@@ -64,7 +64,7 @@ class WordingTest {
     /** One relocation can create two parent directories, so each step says whose parent it creates. */
     @ParameterizedTest
     @CsvSource(
-        "TARGET_PARENT, Create target parent directory", "SOURCE_PARENT, Create source parent directory",
+        "TARGET_PARENT, Create parent of target", "SOURCE_PARENT, Create parent of source",
         "ARCHIVE_ROOT, Create archive directory",
     )
     fun parentStepsSayWhichDirectory(role: ReconciliationAction.EnsureDirectory.Role, label: String) {

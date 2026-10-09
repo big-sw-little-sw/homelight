@@ -89,8 +89,8 @@ internal const val ASK_EACH_TIME = "Ask each time"
 
 internal fun actionLabel(action: ReconciliationAction): String = when (action) {
     is ReconciliationAction.EnsureDirectory -> when (action.role) {
-        ReconciliationAction.EnsureDirectory.Role.TARGET_PARENT -> "Create target parent directory"
-        ReconciliationAction.EnsureDirectory.Role.SOURCE_PARENT -> "Create source parent directory"
+        ReconciliationAction.EnsureDirectory.Role.TARGET_PARENT -> "Create parent of target"
+        ReconciliationAction.EnsureDirectory.Role.SOURCE_PARENT -> "Create parent of source"
         ReconciliationAction.EnsureDirectory.Role.ARCHIVE_ROOT -> "Create archive directory"
     }
     is ReconciliationAction.CreateDirectory -> "Create target directory"
