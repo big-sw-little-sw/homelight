@@ -2,7 +2,10 @@ package io.github.bigswlittlesw.lighten.fs
 
 import java.nio.file.AccessDeniedException
 import java.nio.file.DirectoryNotEmptyException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystemException
+import java.nio.file.FileSystemLoopException
+import java.nio.file.NoSuchFileException
 import java.nio.file.NotDirectoryException
 import java.nio.file.NotLinkException
 import java.nio.file.Path
@@ -28,7 +31,8 @@ class PathText(vararg parts: Any) {
 
     operator fun plus(more: String): PathText = PathText(*(parts + more).toTypedArray())
 
-    private fun render(path: (Path) -> String): String = parts.joinToString("") { if (it is Path) path(it) else it as String }
+    private fun render(path: (Path) -> String): String =
+        parts.joinToString("") { if (it is Path) path(it) else it as String }
 
     override fun equals(other: Any?): Boolean = other is PathText && other.parts == parts
 
@@ -46,16 +50,21 @@ internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("us
 
 /**
  * The system's words for [exception], for text that names its paths separately: a [FileSystemException]'s reason,
- * which leaves out its paths, else its message. The JDK throws some file exceptions without a reason; those that
- * matter get one, the rest their type's name, so a screenshot still says what failed.
+ * which leaves out its paths, else its message. The JDK throws the common file exceptions without a reason; they get
+ * plain words. A Java type name is never shown (user decision, #201).
  */
 internal fun systemReason(exception: Throwable): String {
-    if (exception !is FileSystemException) return exception.message ?: exception.toString()
+    if (exception !is FileSystemException) return exception.message ?: NO_REASON
     return exception.reason ?: when (exception) {
+        is NoSuchFileException -> "not found"
         is AccessDeniedException -> "permission denied"
+        is FileAlreadyExistsException -> "already exists"
         is DirectoryNotEmptyException -> "the folder is not empty"
         is NotDirectoryException -> "not a folder"
         is NotLinkException -> "not a link"
-        else -> exception.javaClass.simpleName
+        is FileSystemLoopException -> "its links loop"
+        else -> NO_REASON
     }
 }
+
+private const val NO_REASON = "the system gave no reason"

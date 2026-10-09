@@ -272,7 +272,7 @@ class BrowseTest {
                     lists.contains("Your list · ${root.resolve("shared.json")} · not used: " + if (missing) "file not found" else "1 error in the file"),
                     lists,
                 )
-                key(ui, 'i'); assertTrue(all(ui).contains(if (missing) "NoSuchFileException" else "line"))
+                key(ui, 'i'); assertTrue(all(ui).contains(if (missing) "Diagnostic: not found" else "line"))
                 escape(ui); escape(ui); key(ui, 'a'); type(ui, "manual"); escape(ui); key(ui, 's')
                 assertTrue(render(ui).contains("[1: Workspace]"))
             }

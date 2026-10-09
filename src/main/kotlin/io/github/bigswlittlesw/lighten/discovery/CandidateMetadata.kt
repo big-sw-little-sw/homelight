@@ -3,7 +3,6 @@ package io.github.bigswlittlesw.lighten.discovery
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Diagnostic
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
-import io.github.bigswlittlesw.lighten.fs.systemReason
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -22,7 +21,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     fun anchor(root: Path): Anchor {
         val physical = access.realPath(root)
         val attributes = access.attributes(physical)
-        if (!attributes.isDirectory) throw IOException("Root is not a directory: $root")
+        if (!attributes.isDirectory) throw IOException("the source root is not a folder")
         return Anchor(root, physical, attributes)
     }
 
@@ -52,7 +51,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
                 } catch (e: NoSuchFileException) {
                     checkGuards(guards)
                     checkAnchor(anchor)
-                    diagnostics.add(Diagnostic(current, Reason.MISSING, systemReason(e)))
+                    diagnostics.add(Diagnostic(current, Reason.MISSING, readFailure(e)))
                     return observation(candidate, Kind.MISSING, null, generation, diagnostics)
                 }
                 if (attributes.fileKey() == null && diagnostics.none { it.reason == Reason.ALIAS_UNCERTAINTY }) {
@@ -105,7 +104,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
         }
         return observation(
             candidate, if (failure is Changed) Kind.UNKNOWN else Kind.INACCESSIBLE, null, generation,
-            diagnostics + Diagnostic(candidate, reason, systemReason(failure)),
+            diagnostics + Diagnostic(candidate, reason, readFailure(failure)),
         )
     }
 
@@ -128,7 +127,7 @@ internal class CandidateMetadata(private val access: Access = Access()) {
     private data class Guard(val path: Path, val attributes: BasicFileAttributes)
 
     // The message leaves out the path: the diagnostic names it.
-    private class Changed : IOException("Filesystem identity changed")
+    private class Changed : IOException("it changed while checking")
 
     /**
      * Deliberately excludes directory enumeration and file-content operations.

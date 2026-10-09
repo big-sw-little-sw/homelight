@@ -67,6 +67,7 @@ class HomePathTest {
             "Copy from: ~/.cache/piped",
             "~/.cache/piped/sub/ipc is a named pipe",
             "Your list · ~/team.json",
+            "Note: not found · ~/.cache/uv",
             "Lighten can't read ~/unreadable.json",
         )) {
             assertTrue(wide.contains(squeezed(shown)), "no screen showed \"$shown\"")
@@ -307,6 +308,8 @@ class HomePathTest {
     private fun assertNoHome(screens: List<String>) {
         for (screen in screens) {
             assertFalse(screen.contains(home.toString()) || screen.contains(HOME_NAME), screen)
+            // Nor a Java exception's name, which notes about unreadable paths once showed.
+            assertFalse(Regex("[A-Za-z]Exception").containsMatchIn(screen), screen)
         }
     }
 
