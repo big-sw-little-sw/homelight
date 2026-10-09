@@ -8,6 +8,18 @@ Use KDoc (`/** */`) with Markdown for API documentation. Prefer backticks for in
 
 Do not add documentation comments that merely restate names, types, or obvious behavior. Document public contracts, invariants, constraints, and non-obvious decisions.
 
+A comment states the reason itself, in plain words. Do not point to issue or pull request numbers, document section numbers, decision dates, or ladder rungs. Name another file only when it must change together with this code (for example, "install.sh uses the same asset names").
+
+## Writing
+
+Comments, the README, the user guide and the other docs follow the writing rules of ASD-STE100 Simplified Technical English (not its controlled dictionary):
+
+- Keep sentences short: at most 20 words in instructions and 25 in descriptions.
+- Put one idea in each sentence. Use the active voice and the present tense.
+- Write instructions in the imperative, one step for each list item.
+- Use one word for one meaning. Use the terms in `CONTEXT.md` and do not use synonyms for them.
+- Use the plainest common word. Do not use vague words or unexplained abbreviations.
+
 ## Code style principles
 
 These are judgment calls, not mechanical find-and-replace rules. Apply the principle, not merely its most literal form.
