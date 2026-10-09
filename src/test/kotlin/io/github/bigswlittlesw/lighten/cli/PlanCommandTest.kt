@@ -145,7 +145,7 @@ class PlanCommandTest {
         val output = out.toString()
         assertTrue(output.contains("\"blocked\":true"), output)
         assertTrue(output.contains("\"type\":\"blocked\""), output)
-        assertTrue(output.contains("\"reason\":\"$archive is a file, not a folder\""), output)
+        assertTrue(output.contains("\"reason\":\"$archive is a file, not a directory\""), output)
     }
 
     /** A broken link to somewhere else is a blocked step, never a `replace-symlink` one. */

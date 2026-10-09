@@ -13,7 +13,7 @@ import io.github.bigswlittlesw.lighten.reconcile.RelocationPlan
  * One relocation in the plan: its configuration, what is on disk, the planned steps, and what decides it.
  *
  * `decision` is null when no rule governs the case observed now, or when the relocation takes no choice (a source
- * configured twice). `choiceAvoidsFolder` is true when the plan is blocked only by a folder in the way and one of
+ * configured twice). `choiceAvoidsDirectory` is true when the plan is blocked only by a directory in the way and one of
  * the offered choices plans without that block.
  */
 data class PlanRelocationItem(
@@ -23,7 +23,7 @@ data class PlanRelocationItem(
     val plan: RelocationPlan,
     val sourceState: RelocationSourceState,
     val decision: RelocationDecision?,
-    val choiceAvoidsFolder: Boolean = false,
+    val choiceAvoidsDirectory: Boolean = false,
 ) {
     fun badge(): PlanBadge {
         if (sourceObservation.state == PathState.INACCESSIBLE || targetObservation.state == PathState.INACCESSIBLE) {

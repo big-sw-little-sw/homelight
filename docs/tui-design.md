@@ -310,15 +310,15 @@ The details pane gives this information, in this order:
    for the next apply only. Any check again, save or apply clears it.
 3. **Will do:** the result of the current rule or choice. Without a choice:
    `Will do: nothing until you choose.` A blocked row adds `Problem: …` with
-   the reason. For example, a step must create or use a folder, but something
-   else is at that path: `Problem: /scratch/archive is a file, not a folder.`
+   the reason. For example, a step must create or use a directory, but something
+   else is at that path: `Problem: /scratch/archive is a file, not a directory.`
    Relocations that overlap block only themselves, and each one names the
    other: `Problem: ~/a contains ~/a/b, which is also a relocation.` A move is
-   blocked before Review when its staging folder is on a different filesystem
+   blocked before Review when its staging directory is on a different filesystem
    from its target. The problem names both paths and the `staging-root`
-   setting. When one of the row's choices makes a plan without that folder,
+   setting. When one of the row's choices makes a plan without that directory,
    the next line is `Or choose an option below that doesn't need this
-   folder.` A row that deletes data adds `⚠ This deletes data for good.`
+   directory.` A row that deletes data adds `⚠ This deletes data for good.`
 4. **Choices:** the choices that apply. They show only when a choice is
    necessary. While archiving is only offered and not chosen, its choice names
    the destination: `Move the source to ~/.cache/.lighten-archive/… and replace
@@ -524,7 +524,7 @@ text, in the same colour. The text names one socket (`Skipped
 than one (`Skipped 3 sockets; programs recreate them.`). `apply --json` keeps
 the executor's text, which names all of them. When a copy finds a named pipe
 or a device file, it fails with `~/x/ipc is a named pipe; Lighten can't move
-it, so it threw the copy away and moved nothing. Remove it, or move this folder
+it, so it threw the copy away and moved nothing. Remove it, or move this directory
 yourself.`
 
 ## 7. Configuration
@@ -750,7 +750,7 @@ screen never says "candidate" or "draft".
 | Policy | rule |
 | `prompt` or missing | Ask each time |
 | Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]`, and `[Ignored]` for an ignored source |
-| Actions | Create parent folder · Create target folder · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete folder · Already in sync · Leave as is |
+| Actions | Create parent directory · Create target directory · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete directory · Already in sync · Leave as is |
 
 All screen text is in one TUI wording file.
 

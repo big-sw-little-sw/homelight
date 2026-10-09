@@ -33,7 +33,7 @@ class ActionFailureTest {
                 ActionFailure.Io(path, null, "No space left on device"),
             FileSystemException("$path", "$other", "Too many levels of symbolic links") to
                 ActionFailure.Io(path, other, "Too many levels of symbolic links"),
-            DirectoryNotEmptyException("$path") to ActionFailure.Io(path, null, "the folder is not empty"),
+            DirectoryNotEmptyException("$path") to ActionFailure.Io(path, null, "the directory is not empty"),
             FileSystemException(null, null, "Read-only file system") to ActionFailure.Io(null, null, "Read-only file system"),
             InterruptedIOException("Interrupted during visual-test delay") to
                 ActionFailure.Io(null, null, "Interrupted during visual-test delay"),

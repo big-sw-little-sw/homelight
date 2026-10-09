@@ -118,7 +118,7 @@ class ConfigurationLoader {
 
     /**
      * A relocation whose source is also ignored, in plain words naming both settings, or null. Lighten plans nothing
-     * for an ignored path, so it can't also manage it. Only the same path counts: ignoring a folder inside or around
+     * for an ignored path, so it can't also manage it. Only the same path counts: ignoring a directory inside or around
      * a relocation is not refused.
      */
     private fun ignoredRelocationProblem(relocations: List<Relocation>, ignored: List<Path>): PathText? {

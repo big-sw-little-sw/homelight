@@ -176,7 +176,7 @@ class ConfigurationEvaluationTest {
         assertThrows<IllegalArgumentException> { evaluator.choose(duplicate, root.resolve("source"), DecisionChoice.DISCARD_BOTH) }
     }
 
-    /** No choice avoids an overlap, so a row that an overlap blocks never says a choice avoids a folder. */
+    /** No choice avoids an overlap, so a row that an overlap blocks never says a choice avoids a directory. */
     @Test
     fun anOverlapIsNotAvoidedByAChoice() {
         bothDirectories("parent", "target")
@@ -185,10 +185,10 @@ class ConfigurationEvaluationTest {
         val rules = mapOf("when-source-and-target-directories-exist" to "adopt", "when-adopting-target" to "archive-source",
             "archive-root" to archiveFile.toString())
         write(entry("parent", "target", rules), entry("parent/child", "child-target"))
-        assertTrue(loaded().items.none { it.choiceAvoidsFolder })
+        assertTrue(loaded().items.none { it.choiceAvoidsDirectory })
 
         write(entry("parent", "target", rules))
-        assertTrue(loaded().items.single().choiceAvoidsFolder)
+        assertTrue(loaded().items.single().choiceAvoidsDirectory)
     }
 
     @Test

@@ -119,32 +119,32 @@ class WordingTest {
                 ActionFailure.Drift(archive, PathState.ABSENT, PathState.FILE) to "/scratch/archive/tool-b already " +
                     "exists as a file. Lighten expected nothing there. Move or remove it.",
                 ActionFailure.Drift(target, PathState.ABSENT, PathState.DIRECTORY) to "/scratch/local/tool-a already " +
-                    "exists as a folder. Lighten expected nothing there. Move or remove it.",
+                    "exists as a directory. Lighten expected nothing there. Move or remove it.",
                 ActionFailure.Drift(source, PathState.DIRECTORY, PathState.ABSENT) to
-                    "~/.cache/tool-a no longer exists. Lighten expected a folder there.",
+                    "~/.cache/tool-a no longer exists. Lighten expected a directory there.",
                 ActionFailure.Drift(Path.of("/scratch/archive"), PathState.DIRECTORY, PathState.SYMLINK) to
-                    "/scratch/archive is a link. Lighten expected a folder there.",
+                    "/scratch/archive is a link. Lighten expected a directory there.",
                 ActionFailure.Drift(source, PathState.SYMLINK, PathState.OTHER) to
                     "~/.cache/tool-a is a special file. Lighten expected a link there.",
                 ActionFailure.Drift(source, PathState.DIRECTORY, PathState.INACCESSIBLE) to
-                    "~/.cache/tool-a can't be read. Lighten expected a folder there. Check its permissions.",
+                    "~/.cache/tool-a can't be read. Lighten expected a directory there. Check its permissions.",
                 ActionFailure.LinkChanged(source, target, Path.of("/elsewhere")) to
                     "~/.cache/tool-a now links to /elsewhere. Lighten expected it to link to /scratch/local/tool-a.",
-                ActionFailure.StagingElsewhere(Path.of("/scratch/local/.staging"), target) to "The staging folder " +
+                ActionFailure.StagingElsewhere(Path.of("/scratch/local/.staging"), target) to "The staging directory " +
                     "/scratch/local/.staging is not on the same filesystem as /scratch/local/tool-a, so Lighten can't " +
-                    "move the copy there in one step. Set the staging-root setting in ~/.lighten.json to a folder on " +
+                    "move the copy there in one step. Set the staging-root setting in ~/.lighten.json to a directory on " +
                     "the target's filesystem.",
                 ActionFailure.NoPosixPermissions(Path.of("/mnt/usb")) to "/mnt/usb is on a filesystem without Unix " +
-                    "permissions, so Lighten can't keep the folder's permissions when it copies it. Use a location " +
+                    "permissions, so Lighten can't keep the directory's permissions when it copies it. Use a location " +
                     "on a filesystem that has them.",
                 ActionFailure.Busy(target, here = false) to
-                    "Another Lighten is moving a folder to /scratch/local/tool-a. Wait for it to finish.",
-                ActionFailure.Busy(target, here = true) to "Lighten is already moving another folder to /scratch/local/tool-a.",
+                    "Another Lighten is moving a directory to /scratch/local/tool-a. Wait for it to finish.",
+                ActionFailure.Busy(target, here = true) to "Lighten is already moving another directory to /scratch/local/tool-a.",
                 ActionFailure.CopyChanged(source.resolve("index.db"), CopyDifference.FILE_DIFFERS) to "~/.cache/tool-a/" +
                     "index.db changed while Lighten was copying it (the copied file doesn't match), so Lighten threw " +
                     "the copy away and moved nothing. Close any app that uses it.",
-                ActionFailure.CopyChanged(source.resolve("sub"), CopyDifference.MISSING_FOLDER) to "~/.cache/tool-a/sub " +
-                    "changed while Lighten was copying it (the folder is missing from the copy), so Lighten threw the " +
+                ActionFailure.CopyChanged(source.resolve("sub"), CopyDifference.MISSING_DIRECTORY) to "~/.cache/tool-a/sub " +
+                    "changed while Lighten was copying it (the directory is missing from the copy), so Lighten threw the " +
                     "copy away and moved nothing. Close any app that uses it.",
                 ActionFailure.CopyChanged(source.resolve("current"), CopyDifference.LINK_DIFFERS) to "~/.cache/tool-a/" +
                     "current changed while Lighten was copying it (the copied link points elsewhere), so Lighten threw " +
@@ -154,14 +154,14 @@ class WordingTest {
                     "threw the copy away and moved nothing. Close any app that uses it.",
                 ActionFailure.Unmovable(source.resolve("ipc"), SpecialFileKind.NAMED_PIPE) to "~/.cache/tool-a/ipc is " +
                     "a named pipe; Lighten can't move it, so it threw the copy away and moved nothing. Remove it, or " +
-                    "move this folder yourself.",
+                    "move this directory yourself.",
                 ActionFailure.Unmovable(source.resolve("tty"), SpecialFileKind.DEVICE) to "~/.cache/tool-a/tty is " +
                     "a device file; Lighten can't move it, so it threw the copy away and moved nothing. Remove it, or " +
-                    "move this folder yourself.",
+                    "move this directory yourself.",
                 ActionFailure.PermissionsNotKept(source) to "The copy of ~/.cache/tool-a didn't keep its permissions, " +
                     "so Lighten threw the copy away and moved nothing. Check that the target's filesystem keeps Unix " +
                     "permissions.",
-                ActionFailure.PermissionsNotRestored(target, "Operation not permitted") to "Lighten copied the folder " +
+                ActionFailure.PermissionsNotRestored(target, "Operation not permitted") to "Lighten copied the directory " +
                     "to /scratch/local/tool-a but couldn't set the copy's permissions back: operation not permitted. " +
                     "The source is still in place. Give /scratch/local/tool-a the source's permissions.",
                 ActionFailure.DifferentFilesystems(source, archive) to "~/.cache/tool-a and /scratch/archive/tool-b are " +

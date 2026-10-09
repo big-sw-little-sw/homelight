@@ -73,7 +73,7 @@ class PlanTimeBlockTest {
             val screen = HeadlessTui(LightenSession(config), width = width, height = height).screen()
             assertTrue(screen.contains("1 blocked"), screen)
             assertTrue(squeezed(rightPane(screen, width)).contains(squeezed(
-                "Problem: the staging folder /dev/lighten-staging is on another filesystem than $storage/move, so " +
+                "Problem: the staging directory /dev/lighten-staging is on another filesystem than $storage/move, so " +
                     "Lighten can't move the copy there in one step.")), screen)
         }
     }

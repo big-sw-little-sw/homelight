@@ -58,8 +58,8 @@ internal fun systemReason(exception: Throwable): String {
         is NoSuchFileException -> "not found"
         is AccessDeniedException -> "permission denied"
         is FileAlreadyExistsException -> "already exists"
-        is DirectoryNotEmptyException -> "the folder is not empty"
-        is NotDirectoryException -> "not a folder"
+        is DirectoryNotEmptyException -> "the directory is not empty"
+        is NotDirectoryException -> "not a directory"
         is NotLinkException -> "not a link"
         is FileSystemLoopException -> "its links loop"
         else -> NO_REASON

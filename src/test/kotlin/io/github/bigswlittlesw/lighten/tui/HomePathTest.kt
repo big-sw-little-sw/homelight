@@ -55,7 +55,7 @@ class HomePathTest {
         val wide = squeezed(screens.joinToString(""))
         for (shown in listOf(
             "Config: ~/.lighten.json",
-            "Problem: ~/blocker is a file, not a folder.",
+            "Problem: ~/blocker is a file, not a directory.",
             "Current link destination: ~/elsewhere",
             "Source: ~/.cache/both",
             "Target: $storage/.cache/both",
@@ -88,7 +88,7 @@ class HomePathTest {
         for (text in listOf(err, missing, init)) assertFalse(text.contains(home.toString()), text)
 
         val (json, _) = run("plan", "--json", "-c", workspaceConfiguration().toString())
-        assertTrue(json.contains("\"reason\":\"$home/blocker is a file, not a folder\""), json)
+        assertTrue(json.contains("\"reason\":\"$home/blocker is a file, not a directory\""), json)
         assertFalse(json.contains("~/"), json)
     }
 

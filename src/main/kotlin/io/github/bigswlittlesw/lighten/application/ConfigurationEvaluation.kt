@@ -46,7 +46,7 @@ class ConfigurationEvaluation(
     /**
      * `observations` and `savedPlan` use the saved rules. `plan` uses the saved rules with the one-time choices in
      * `draft`.
-     * `choiceAvoidsFolder` holds the normalized sources whose [PlanRelocationItem.choiceAvoidsFolder] is true.
+     * `choiceAvoidsDirectory` holds the normalized sources whose [PlanRelocationItem.choiceAvoidsDirectory] is true.
      * `file` is the file as read, which [ruleFile] edits; null under a command-line override, whose paths are not
      * the file's.
      */
@@ -55,7 +55,7 @@ class ConfigurationEvaluation(
         override val configPath: Path, val savedConfiguration: LightenConfiguration,
         val observations: List<RelocationState>, val savedPlan: ReconciliationPlan,
         val draft: Map<Path, DecisionChoice>, val availableChoices: Map<Path, List<DecisionChoice>>,
-        val plan: ReconciliationPlan, val choiceAvoidsFolder: Set<Path>, internal val file: LoadedFile?,
+        val plan: ReconciliationPlan, val choiceAvoidsDirectory: Set<Path>, internal val file: LoadedFile?,
     ) : Evaluation {
         companion object {
             /** Copies the collections, including each list of choices. */
@@ -63,12 +63,12 @@ class ConfigurationEvaluation(
                 configPath: Path, savedConfiguration: LightenConfiguration,
                 observations: List<RelocationState>, savedPlan: ReconciliationPlan,
                 draft: Map<Path, DecisionChoice>, availableChoices: Map<Path, List<DecisionChoice>>,
-                plan: ReconciliationPlan, choiceAvoidsFolder: Set<Path>, file: LoadedFile?,
+                plan: ReconciliationPlan, choiceAvoidsDirectory: Set<Path>, file: LoadedFile?,
             ): Loaded = Loaded(
                 configPath, savedConfiguration, observations.toList(), savedPlan,
                 draft.toMap(),
                 availableChoices.mapValues { it.value.toList() },
-                plan, choiceAvoidsFolder.toSet(), file,
+                plan, choiceAvoidsDirectory.toSet(), file,
             )
         }
 
@@ -86,7 +86,7 @@ class ConfigurationEvaluation(
             PlanRelocationItem(
                 relocation, state.source, state.target, relocationPlan,
                 state.source.sourceStateForTarget(relocation.targetPath),
-                decision, source in choiceAvoidsFolder,
+                decision, source in choiceAvoidsDirectory,
             )
         }.sortedBy { it.badge().priority }
 
@@ -183,7 +183,7 @@ class ConfigurationEvaluation(
             .mapValues { (_, choices) -> choices.singleOrNull() ?: listOf() }
         return Loaded.of(
             configPath, configuration, observations, savedPlan, mapOf(), choices, savedPlan,
-            choiceAvoidsFolder(observations, savedPlan, choices),
+            choiceAvoidsDirectory(observations, savedPlan, choices),
             // An override replaces the file's paths, so there is no file to save a rule to.
             read.takeIf { override == null },
         )
@@ -205,17 +205,17 @@ class ConfigurationEvaluation(
         return Loaded.of(
             current.configPath, current.savedConfiguration, current.observations,
             current.savedPlan, draft, current.availableChoices, effectivePlan,
-            choiceAvoidsFolder(current.observations, effectivePlan, current.availableChoices), current.file,
+            choiceAvoidsDirectory(current.observations, effectivePlan, current.availableChoices), current.file,
         )
     }
 
     /**
-     * The sources whose relocation [effectivePlan] blocks only because of a folder in the way, and which one of
-     * their offered choices plans without a block. A relocation counts as blocked only by a folder when planning it
-     * with no folder in the way unblocks it. Each one is planned among the others, so an overlap, which no choice
+     * The sources whose relocation [effectivePlan] blocks only because of a directory in the way, and which one of
+     * their offered choices plans without a block. A relocation counts as blocked only by a directory when planning it
+     * with no directory in the way unblocks it. Each one is planned among the others, so an overlap, which no choice
      * avoids, still blocks it.
      */
-    private fun choiceAvoidsFolder(
+    private fun choiceAvoidsDirectory(
         observations: List<RelocationState>, effectivePlan: ReconciliationPlan,
         choices: Map<Path, List<DecisionChoice>>,
     ): Set<Path> {
@@ -227,7 +227,7 @@ class ConfigurationEvaluation(
         return observations.indices.filter { i ->
             val saved = observations[i]
             effectivePlan.relocations[i].actions.any { it is ReconciliationAction.Blocked } &&
-                !blocked(i, effective[i].copy(notFolders = mapOf())) &&
+                !blocked(i, effective[i].copy(notDirectories = mapOf())) &&
                 choices.getValue(saved.relocation.sourcePath).any { choice ->
                     !blocked(i, saved.copy(relocation = choice.applyTo(saved.relocation)))
                 }
