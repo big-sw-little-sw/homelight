@@ -234,6 +234,7 @@ class LightenExitTest {
             Thread.ofPlatform().start(tasks.single())
             pollUntil("the result is published") { session.applyModel() is ApplyModel.Result }
             assertFalse(session.executionSettled())
+            assertTrue(session.isBusy())
             ui.press('q')
             ui.press('y')
             assertFalse(ui.app.exitRequested())

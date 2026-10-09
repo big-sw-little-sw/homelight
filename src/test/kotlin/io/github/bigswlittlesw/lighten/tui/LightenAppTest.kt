@@ -28,6 +28,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executor
+import kotlin.io.path.createDirectories
 
 class LightenAppTest {
 
@@ -372,6 +373,51 @@ class LightenAppTest {
         val ui = HeadlessTui(session)
         assertTrue(ui.app.showInSync)
         assertEquals(0, ui.app.selectedIndex())
+    }
+
+    @Test
+    fun inSyncToggleActsOnlyWhileItsHintIsShown(@TempDir temporary: Path) {
+        // All in sync: every row is shown and there is nothing to hide.
+        val all = HeadlessTui(session(temporary.resolve("all").createDirectories(), inSync = listOf("source1")))
+        assertFalse(all.screen(80, 24).contains("c: "), all.screen(80, 24))
+        all.press('c')
+        assertTrue(all.app.showInSync)
+        // `c` did not become the user's setting, which would outlast a check again.
+        all.press('r')
+        assertTrue(all.app.showInSync)
+
+        // Nothing in sync: there is nothing to show.
+        val none = HeadlessTui(session(temporary.resolve("none").createDirectories(), conflicts = listOf("source1")))
+        assertFalse(none.screen(80, 24).contains("c: "), none.screen(80, 24))
+        none.press('c')
+        assertFalse(none.app.showInSync)
+
+        // Some in sync: the hint is shown and `c` toggles.
+        val some = HeadlessTui(
+            session(temporary.resolve("some").createDirectories(), inSync = listOf("source2"), conflicts = listOf("source1")),
+        )
+        assertTrue(some.screen(80, 24).contains("c: show 1 in sync"))
+        some.press('c')
+        assertTrue(some.app.showInSync)
+    }
+
+    @Test
+    fun reviewAndApplyActsOnlyWhileItsHintIsShown(@TempDir temporary: Path) {
+        // Nothing to apply: the help line lists only `2`, and `a` stays on the Workspace.
+        val nothing = HeadlessTui(session(temporary.resolve("nothing").createDirectories(), inSync = listOf("source1")))
+        assertFalse(nothing.screen(80, 24).contains("Review & apply"), nothing.screen(80, 24))
+        nothing.press('a')
+        assertEquals(Screen.WORKSPACE, nothing.app.activeScreen)
+        assertSame(ApplyModel.Idle, nothing.app.session.applyModel())
+        nothing.press('2')
+        assertEquals(Screen.APPLY, nothing.app.activeScreen)
+
+        // Changes to apply: `a` is listed and opens Review.
+        val changes = HeadlessTui(LightenSession(twoMissingSources(temporary.resolve("changes").createDirectories())))
+        assertTrue(changes.screen(80, 24).contains("Review & apply"), changes.screen(80, 24))
+        changes.press('a')
+        assertEquals(Screen.APPLY, changes.app.activeScreen)
+        assertInstanceOf(ApplyModel.Confirmation::class.java, changes.app.session.applyModel())
     }
 
     @Test

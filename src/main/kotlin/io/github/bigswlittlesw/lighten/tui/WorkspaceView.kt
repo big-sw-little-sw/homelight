@@ -59,8 +59,11 @@ internal object WorkspaceView {
         return visibleItems(model, showInSync).map(WorkspaceRow::Planned) + group
     }
 
-    /** The in-sync rows `c` hides or shows: none when every row is in sync, because then they always show. */
-    private fun toggledInSync(model: ConfigurationEvaluation.Loaded): Int {
+    /**
+     * The in-sync rows `c` hides or shows: none when every row is in sync, because then they always show. With none,
+     * `c` is not listed and does nothing.
+     */
+    fun toggledInSync(model: ConfigurationEvaluation.Loaded): Int {
         val inSync = model.items.count { item -> item.badge() == PlanBadge.IN_SYNC }
         return if (inSync == model.items.size) 0 else inSync
     }
@@ -179,6 +182,15 @@ internal object WorkspaceView {
         }
     }
 
+    /**
+     * Whether `a` opens Review: only for a plan that is ready and changes something. Otherwise `2` alone is listed,
+     * to see results or a plan with nothing to apply.
+     */
+    fun offersApply(session: LightenSession): Boolean {
+        val model = session.evaluation()
+        return session.isPlanReady() && model is ConfigurationEvaluation.Loaded && model.plan.hasChanges()
+    }
+
     /** The selected row of `list`, as [rows] lists it. */
     fun selectedRow(model: ConfigurationEvaluation.Loaded, list: ListElement<Any>, showInSync: Boolean, showIgnored: Boolean): WorkspaceRow? =
         rows(model, showInSync, showIgnored).let { it.getOrNull(selection(list, it)) }
@@ -239,7 +251,7 @@ internal object WorkspaceView {
         val review = when {
             retained -> listOf(KeyHint("2", "Results", description = "Show what the last apply did"))
             !session.isPlanReady() -> listOf()
-            model.plan.hasChanges() -> listOf(
+            offersApply(session) -> listOf(
                 KeyHint("a", "Review & apply", description = "Review the plan; nothing changes until you press y there"),
                 KeyHint("2", "Review", description = "Open Review, as a does"),
             )
