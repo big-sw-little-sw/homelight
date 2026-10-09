@@ -501,7 +501,7 @@ internal class LightenApp(
     }
 
     private fun settleDeferredExit() {
-        // Result publication alone does not imply that post-execution refresh has settled.
+        // The result can appear before the check again that follows the apply has finished, so wait for both.
         if (exitIntent == ExitIntent.AFTER_EXECUTION && session.executionSettled()) exitIntent = ExitIntent.EXIT
     }
 
@@ -541,7 +541,7 @@ internal class LightenApp(
         if (item == null || session.applyModel() is ApplyModel.Result) return
         session.choose(item.relocation.sourcePath, choice)
         restoreSelection(item.relocation.sourcePath)
-        // Choosing re-plans the same loaded relocations, so the list still has a selected item.
+        // Choosing plans the same loaded relocations again, so the list still has a selected item.
         detailSelectedIndex = selectedPlanItem()!!.decision?.offered.orEmpty().indexOf(choice)
         workspaceDetails.followChoice()
     }

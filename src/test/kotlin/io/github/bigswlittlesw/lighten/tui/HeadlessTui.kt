@@ -19,8 +19,8 @@ import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
  * [EventRouter] route each key, and a frame renders after every key, so focus, Tab and dialogs behave as they do
  * on screen.
  *
- * `ToolkitRunner.run` per frame: clear focusables and routes, render the root, register it, then focus the first
- * focusable when focus is missing or stale.
+ * Each frame does what `ToolkitRunner.run` does: clear the focusables and routes, render the root and register it,
+ * then focus the first focusable when focus is missing or stale.
  */
 internal class HeadlessTui(
     session: LightenSession,

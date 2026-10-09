@@ -51,7 +51,8 @@ internal sealed interface BrowseAction {
 
 /**
  * Browse: the suggestions in TamboUI's list under a heading per category and per app, with each directory's details
- * and the suggestion lists' state one key away. The selected row and draft membership are independent states.
+ * and the suggestion lists' state one key away. Which row is selected does not depend on which directories are in the
+ * draft.
  *
  * The selection follows an item, not a position: Browse keeps the selected item and sets the list's index from it on
  * every frame, so checking again, `u`, `f` and a row added or removed never move it to another item. When the item is no
@@ -422,13 +423,14 @@ internal fun literal(text: String): String = buildString {
 
 private fun entry(draft: BrowseDraft, path: Path): BrowseDraft.Entry? = draft.entries().firstOrNull { it.sourcePath == path }
 
-// Browse lists only entries with a source path (entriesByPath).
+// Browse lists only entries with a source path: [entriesByPath] leaves out the others.
 private fun path(entry: BrowseDraft.Entry): Path = checkNotNull(entry.sourcePath)
 
 private fun entriesByPath(draft: BrowseDraft): Map<Path, BrowseDraft.Entry> {
     val entries = linkedMapOf<Path, BrowseDraft.Entry>()
     draft.entries().forEach { e -> e.sourcePath?.let { path -> entries.putIfAbsent(path, e) } }
-    // Membership changes must not reorder the list while marking adjacent rows.
+    // Discovery's order comes first, so adding or taking out a row never reorders the list while the user marks the
+    // rows next to it.
     val ordered = linkedMapOf<Path, BrowseDraft.Entry>()
     draft.discovery?.candidates?.forEach { c ->
         val path = c.catalog.sourcePath
@@ -499,7 +501,8 @@ private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
 
 /**
  * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, `○` not added, `⊘` ignored, `−`
- * cannot be added), the path under the source root and its notes. A note that only says it is not there yet is dim; the others keep their weight.
+ * cannot be added), the path under the source root and its notes. A note that only says the directory is not there
+ * yet is dim. The other notes keep their weight.
  */
 private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
     val marker = when {

@@ -93,7 +93,7 @@ class ApplyViewTest {
         assertTrue(text.contains("Enter: Workspace"), text)
     }
 
-    /** A failure before any change says nothing was changed (#201): a pipe stopping the copy changed nothing. */
+    /** A failure before any change says nothing was changed, for example when a named pipe stops the copy. */
     @Test
     fun aStopBeforeAnyChangeSaysNothingWasChanged() {
         val text = render(stoppedAfter(0), 1, 80, 24)

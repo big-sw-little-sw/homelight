@@ -225,9 +225,9 @@ class LightenExitTest {
         val session = LightenSession(configuration(temporary))
         session.requestApply()
         val ui = HeadlessTui(session)
-        // The re-check after an apply takes the session's monitor, so holding it keeps a published result unsettled.
-        // The worker starts only after `confirmApply` returns: a worker that finished first would leave the re-check to
-        // the confirming thread, which already holds the monitor, and the execution would settle inside the call.
+        // The check again after an apply takes the session's monitor, so holding it keeps a published result
+        // unsettled. The worker starts only after `confirmApply` returns. A worker that finished first would leave the
+        // check again to the confirming thread, which already holds the monitor, so the apply would settle in the call.
         val completion = synchronized(session) {
             val tasks = mutableListOf<Runnable>()
             val completion = session.confirmApply(Executor { tasks.add(it) })

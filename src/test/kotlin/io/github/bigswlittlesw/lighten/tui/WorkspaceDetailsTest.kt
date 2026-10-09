@@ -16,7 +16,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Workspace Details for each kind of row (tui-design §5), read from the rendered pane. */
+/** Workspace Details for each kind of row, read from the rendered pane. */
 class WorkspaceDetailsTest {
     @TempDir lateinit var temporary: Path
     private lateinit var root: Path
@@ -152,7 +152,7 @@ class WorkspaceDetailsTest {
         assertTrue(squeezed(filed).contains(squeezed(CHOOSE_AROUND_FOLDER)), filed)
     }
 
-    /** #223: blocked, naming both paths and the fix, with its current destination under Paths and no choices. */
+    /** Details name both paths and the fix, show the link's current destination under Paths, and offer no choices. */
     @Test
     fun aSourceLinkToSomewhereElseIsBlockedWithHowToFixIt() {
         for (size in listOf(80 to 24, 120 to 30, 200 to 80)) {

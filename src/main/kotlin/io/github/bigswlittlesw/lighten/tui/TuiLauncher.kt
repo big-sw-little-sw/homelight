@@ -76,9 +76,9 @@ internal fun terminalRefusal(interactive: Boolean, term: String?): String? = whe
  * The key handlers depend on [KEY_BINDINGS], so a custom configuration gets them too.
  *
  * The mouse is captured so the wheel reaches Lighten as wheel events. Without capture a terminal sends it as arrow
- * keys, and a trackpad's sideways scrolling as ←/→, which switched Help's tabs. Lighten uses only the wheel; to
- * select text, the user holds the terminal's bypass modifier (tui-design §3). TamboUI turns capture off again when
- * the runner closes, on every exit path.
+ * keys, and a trackpad's sideways scrolling as ←/→, which switched Help's tabs. Lighten uses only the wheel. To
+ * select text, the user holds the terminal's bypass modifier: Shift in WezTerm and Ghostty, Option in iTerm2.
+ * `docs/user-guide.md` tells the user so. TamboUI turns capture off again when the runner closes, on every exit path.
  */
 internal fun tuiConfig(custom: TuiConfig = TuiConfig.defaults()): TuiConfig =
     custom.toBuilder().bindings(KEY_BINDINGS).mouseCapture(true).build()
@@ -89,9 +89,9 @@ internal fun runTui(
     discoveryFactory: () -> CandidateDiscovery = { CandidateDiscovery() },
 ) {
     val configured = tuiConfig(config)
-    // Propagate render and key-handling failures unchanged through the same waiting/cleanup boundary, so a bug
-    // is reported by its own type and message. The toolkit's default error screen intercepts Escape before
-    // application navigation can handle it.
+    // Rethrow render and key-handling failures unchanged. They then pass through the same wait and cleanup as any
+    // exit, and a bug is reported by its own type and message. TamboUI's default error screen would also take Escape
+    // before Lighten's navigation sees it.
     val builder = configured.toBuilder().errorHandler(RenderErrorHandler { error, _ -> throw error.cause() })
     if (configured.backend() == null) {
         builder.backend(systemBackend())
@@ -114,7 +114,6 @@ internal fun runTui(
     }
 }
 
-// TERM may be unset.
 private fun isDumb(terminalType: String?): Boolean =
     Terminal.TYPE_DUMB == terminalType || Terminal.TYPE_DUMB_COLOR == terminalType
 

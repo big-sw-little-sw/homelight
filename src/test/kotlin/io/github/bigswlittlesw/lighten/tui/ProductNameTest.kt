@@ -13,8 +13,8 @@ import java.nio.file.Path
 import java.util.concurrent.Executor
 
 /**
- * The tool was renamed from HomeLight to Lighten (#174) and its repository followed (#178): no screen, Help tab, dialog
- * or `--help` text may show the old name, in any case.
+ * The tool and its repository were renamed from HomeLight to Lighten. No screen, Help tab, dialog or `--help` text may
+ * show the old name, in any case.
  */
 class ProductNameTest {
     @TempDir lateinit var temporary: Path

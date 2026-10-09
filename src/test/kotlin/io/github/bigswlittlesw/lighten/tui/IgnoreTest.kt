@@ -11,7 +11,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** `x` on the Workspace ignores a relocation or stops ignoring a source; `i` opens the ignored group (tui-design §5). */
+/** `x` on the Workspace ignores a relocation or stops ignoring a source; `i` opens the ignored group. */
 class IgnoreTest {
     @TempDir lateinit var temporary: Path
     private lateinit var root: Path

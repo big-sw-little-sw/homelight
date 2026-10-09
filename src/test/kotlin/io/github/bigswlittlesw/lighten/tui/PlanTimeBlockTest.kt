@@ -13,8 +13,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * #207 on the Workspace: overlapping relocations block only themselves, each naming the other, and a staging root on
- * another filesystem blocks a move before Review. Checked at both design sizes.
+ * On the Workspace, overlapping relocations block only themselves, and each names the other. A staging root on another
+ * filesystem blocks a move before Review. Checked at 80x24 and 120x30.
  */
 class PlanTimeBlockTest {
     @TempDir lateinit var temporary: Path
