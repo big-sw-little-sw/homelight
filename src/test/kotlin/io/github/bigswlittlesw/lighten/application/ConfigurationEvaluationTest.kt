@@ -3,8 +3,8 @@ package io.github.bigswlittlesw.lighten.application
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
 import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome

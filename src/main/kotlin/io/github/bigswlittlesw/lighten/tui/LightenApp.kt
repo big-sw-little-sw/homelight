@@ -22,7 +22,7 @@ import io.github.bigswlittlesw.lighten.application.PlanRelocationItem
 import io.github.bigswlittlesw.lighten.application.userGuide
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import java.nio.file.Path
 
 /**

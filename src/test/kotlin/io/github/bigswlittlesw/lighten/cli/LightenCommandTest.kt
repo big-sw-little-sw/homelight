@@ -5,7 +5,7 @@ import io.github.bigswlittlesw.lighten.application.guideUrl
 import io.github.bigswlittlesw.lighten.application.resolveVersion
 import io.github.bigswlittlesw.lighten.application.userGuide
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

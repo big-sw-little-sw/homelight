@@ -1,4 +1,4 @@
-package io.github.bigswlittlesw.lighten.domain
+package io.github.bigswlittlesw.lighten.fs
 
 /** The source path's state relative to its configured relocation target. */
 enum class RelocationSourceState {

@@ -1,9 +1,9 @@
 package io.github.bigswlittlesw.lighten.application
 
 import io.github.bigswlittlesw.lighten.config.Relocation
-import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationDiagnostic
 import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
