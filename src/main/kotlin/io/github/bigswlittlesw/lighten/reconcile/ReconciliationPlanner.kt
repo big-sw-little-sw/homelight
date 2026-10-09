@@ -162,8 +162,8 @@ private fun blockedByStagingElsewhere(state: RelocationState, planned: Relocatio
         state,
         PathText(
             "the staging folder ", migration.effectiveStagingRoot, " is on another filesystem than ", migration.target,
-            ", so Lighten can't move the copy there in one step. Remove the staging-root setting to copy beside each " +
-                "target, or set it to a folder on the target's filesystem",
+            ", so Lighten can't move the copy there in one step. Set staging-root to a folder on the target's " +
+                "filesystem, or remove staging-root to stage beside each target",
         ),
     )
 }

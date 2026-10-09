@@ -399,8 +399,8 @@ class ReconciliationPlannerTest {
         val plan = ReconciliationPlanner().plan(listOf(move, link))
 
         assertEquals(PathText("the staging folder ", staging, " is on another filesystem than ", target,
-            ", so Lighten can't move the copy there in one step. Remove the staging-root setting to copy beside each " +
-                "target, or set it to a folder on the target's filesystem").toString(), blockReason(plan, 0))
+            ", so Lighten can't move the copy there in one step. Set staging-root to a folder on the target's " +
+                "filesystem, or remove staging-root to stage beside each target").toString(), blockReason(plan, 0))
         assertFalse(plan.relocations[1].actions.any { it is ReconciliationAction.Blocked })
         assertFalse(ReconciliationPlanner().plan(listOf(move.copy(stagingElsewhere = false))).hasBlockedActions())
     }
