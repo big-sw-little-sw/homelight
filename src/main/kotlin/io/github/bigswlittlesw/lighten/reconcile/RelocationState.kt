@@ -57,7 +57,7 @@ internal fun inspectRelocations(
  * the copy-time check reports it.
  */
 internal fun stagingElsewhere(relocation: Relocation): Boolean {
-    val targetParent = relocation.targetPath.toAbsolutePath().normalize().parent ?: return false
+    val targetParent = relocation.targetPath.parent ?: return false
     val stagingRoot = effectiveStagingRoot(relocation.targetPath, relocation.stagingRoot)
     return try {
         fileStoreOfExistingAncestor(stagingRoot) != fileStoreOfExistingAncestor(targetParent)
@@ -118,7 +118,7 @@ private fun notAFolder(folder: Path, real: Boolean, inspect: (Path) -> PathObser
 internal fun inspectArchiveDestinations(
     relocations: List<Relocation>, inspect: (Path) -> PathObservation,
 ): List<RelocationState.ArchiveDestination> {
-    val plain = relocations.map { it.archiveRoot.resolve(sourceName(it.sourcePath)).normalize() }
+    val plain = relocations.map { it.archiveRoot.resolve(sourceName(it.sourcePath)) }
     val spellings = plain.map(::realSpelling)
     val claims = spellings.groupingBy { it }.eachCount()
     return relocations.indices.map { i ->
@@ -136,7 +136,7 @@ internal fun inspectArchiveDestinations(
 
 private fun sourceName(source: Path): Path =
     // A filesystem root overlaps every target, so the loader refuses it as a source.
-    checkNotNull(source.toAbsolutePath().normalize().fileName) { "source has no name: $source" }
+    checkNotNull(source.fileName) { "source has no name: $source" }
 
 /**
  * Where replacing [source] with a link to [target] sets the source aside before deleting it:

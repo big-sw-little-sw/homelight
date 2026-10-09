@@ -375,6 +375,19 @@ class ConfigurationEvaluationTest {
         assertFalse(item.deletesData())
     }
 
+    @Test
+    fun aSourceWrittenUnnormalizedKeysItsChoicesByTheRelocationsOwnPath() {
+        bothDirectories("source", "target")
+        write(entry("child/../source", "target", mapOf("archive-root" to archive())))
+        val loaded = loaded()
+        val source = loaded.items.single().relocation.sourcePath
+        assertEquals(root.resolve("source"), source)
+        // Views compare a relocation's source with these keys as is, so the keys must be its path exactly.
+        assertEquals(setOf(source), loaded.availableChoices.keys)
+        val chosen = evaluator.choose(loaded, source, DecisionChoice.LEAVE_UNCHANGED)
+        assertEquals(setOf(source), chosen.draft.keys)
+    }
+
     private fun loaded(): ConfigurationEvaluation.Loaded {
         return assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, evaluator.load(config))
     }
