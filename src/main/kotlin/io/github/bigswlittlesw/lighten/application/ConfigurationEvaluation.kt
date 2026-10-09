@@ -76,7 +76,7 @@ class ConfigurationEvaluation(
         val items: List<PlanRelocationItem> = observations.mapIndexed { i, state ->
             val relocationPlan = plan.relocations[i]
             val relocation = relocationPlan.relocation
-            val source = normalize(relocation.sourcePath)
+            val source = relocation.sourcePath
             // From the saved rules: the plan's relocation already has the one-time choice applied.
             val decision = relocationDecision(state.source.state, state.target.state, state.relocation, draft[source])
                 .takeIf { choicesFor(source).isNotEmpty() }
@@ -142,7 +142,7 @@ class ConfigurationEvaluation(
 
         /** The index of the file's relocation for the normalized `source`: the loader converts them in order, one each. */
         private fun fileIndex(source: Path): Int? =
-            savedConfiguration.relocations.indexOfFirst { normalize(it.sourcePath) == source }.takeIf { it >= 0 }
+            savedConfiguration.relocations.indexOfFirst { it.sourcePath == source }.takeIf { it >= 0 }
     }
 
     /**
@@ -171,7 +171,7 @@ class ConfigurationEvaluation(
         // Invalid duplicate sources have no unambiguous draft identity, so they get no choices. The planner retains
         // their diagnostics. groupBy keeps sources in first-seen order.
         val choices = observations
-            .groupBy({ state -> normalize(state.relocation.sourcePath) }) { state ->
+            .groupBy({ state -> state.relocation.sourcePath }) { state ->
                 relocationDecision(state.source.state, state.target.state, state.relocation, null)?.offered.orEmpty()
             }
             .mapValues { (_, choices) -> choices.singleOrNull() ?: listOf() }
@@ -192,7 +192,7 @@ class ConfigurationEvaluation(
 
     private fun withDraft(current: Loaded, draft: Map<Path, DecisionChoice>): Loaded {
         val effective = current.observations.map { state ->
-            val choice = draft[normalize(state.relocation.sourcePath)]
+            val choice = draft[state.relocation.sourcePath]
             if (choice == null) state else state.copy(relocation = choice.applyTo(state.relocation))
         }
         val effectivePlan = plan(effective)
@@ -222,10 +222,10 @@ class ConfigurationEvaluation(
             val saved = observations[i]
             effectivePlan.relocations[i].actions.any { it is ReconciliationAction.Blocked } &&
                 !blocked(i, effective[i].copy(notFolders = mapOf())) &&
-                choices.getValue(normalize(saved.relocation.sourcePath)).any { choice ->
+                choices.getValue(saved.relocation.sourcePath).any { choice ->
                     !blocked(i, saved.copy(relocation = choice.applyTo(saved.relocation)))
                 }
-        }.map { i -> normalize(observations[i].relocation.sourcePath) }.toSet()
+        }.map { i -> observations[i].relocation.sourcePath }.toSet()
     }
 }
 

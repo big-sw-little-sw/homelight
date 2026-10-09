@@ -396,7 +396,7 @@ internal class LightenApp(
     private fun workspaceKey(key: KeyEvent) {
         when {
             key.isCharIgnoreCase('r') -> refresh()
-            key.isCharIgnoreCase('a') -> switchScreen(Screen.APPLY)
+            key.isCharIgnoreCase('a') -> if (WorkspaceView.offersApply(session)) switchScreen(Screen.APPLY)
             key.isCharIgnoreCase('c') -> toggleInSync()
             key.isCharIgnoreCase('s') -> askToSaveChoice()
             key.isCharIgnoreCase('x') -> askToIgnore()
@@ -454,7 +454,7 @@ internal class LightenApp(
     private fun requestQuit() {
         if (exitIntent != ExitIntent.STAY) return
         exitIntent = when {
-            session.isApplying() || !session.executionSettled() -> ExitIntent.CONFIRM_APPLYING
+            session.isBusy() -> ExitIntent.CONFIRM_APPLYING
             unappliedChoiceCount() > 0 -> ExitIntent.CONFIRM_CHOICES
             else -> ExitIntent.EXIT
         }
@@ -470,7 +470,7 @@ internal class LightenApp(
 
     /** Opens Configuration on the file as it is on disk now, or says why it cannot. */
     private fun openEditor() {
-        if (session.isApplying() || !session.executionSettled()) return
+        if (session.isBusy()) return
         editor = try {
             ConfigurationView.open(session, focus, discoveryFactory) { key -> keyHandler.handle(key) }
         } catch (error: ConfigurationException) {
@@ -506,7 +506,7 @@ internal class LightenApp(
     }
 
     internal fun switchScreen(screen: Screen) {
-        if (session.isApplying() || !session.executionSettled()) return
+        if (session.isBusy()) return
         if (screen == activeScreen) return
         if (screen == Screen.APPLY) {
             if (session.applyModel() is ApplyModel.Idle && !session.requestApply()) return
@@ -526,7 +526,7 @@ internal class LightenApp(
     }
 
     private fun refresh() {
-        if (session.isApplying() || !session.executionSettled()) return
+        if (session.isBusy()) return
         val source = selectedRow()?.source
         session.refresh()
         if (activeScreen != Screen.WORKSPACE) focus.setFocus(workspaceFocus)
@@ -559,6 +559,8 @@ internal class LightenApp(
         workspaceList.selected().coerceIn(0, maxOf(0, rows.size - 1))
 
     private fun toggleInSync() {
+        val model = session.evaluation() as? ConfigurationEvaluation.Loaded ?: return
+        if (WorkspaceView.toggledInSync(model) == 0) return
         val source = selectedRow()?.source
         showInSync = !showInSync
         userShowInSync = showInSync

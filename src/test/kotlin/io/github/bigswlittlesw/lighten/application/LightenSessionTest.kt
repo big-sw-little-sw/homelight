@@ -43,6 +43,21 @@ class LightenSessionTest {
     }
 
     @Test
+    fun isBusyFromConfirmationUntilTheApplySettles() {
+        val session = LightenSession(configuration(directory.toRealPath(), "", "cache"))
+        assertFalse(session.isBusy())
+        assertTrue(session.requestApply())
+        assertFalse(session.isBusy())
+        val tasks = mutableListOf<Runnable>()
+        session.confirmApply { tasks.add(it) }
+        assertTrue(session.isBusy())
+        // Run on this thread: the apply and its re-check both finish before `run` returns.
+        tasks.single().run()
+        assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
+        assertFalse(session.isBusy())
+    }
+
+    @Test
     fun invalidConfigurationAtStatusRefreshDoesNotEraseExecutionResult() {
         val root = directory.toRealPath()
         val config = configuration(root, "", "cache")

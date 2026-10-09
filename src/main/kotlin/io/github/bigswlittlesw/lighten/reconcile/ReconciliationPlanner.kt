@@ -135,15 +135,11 @@ private fun overlap(left: Place, right: Place): Overlap? =
     relation(left.path, right.path)?.let { Overlap(it, throughLink = false) }
         ?: relation(left.real, right.real)?.let { Overlap(it, throughLink = true) }
 
-private fun relation(left: Path, right: Path): Relation? {
-    val first = left.toAbsolutePath().normalize()
-    val second = right.toAbsolutePath().normalize()
-    return when {
-        first == second -> Relation.SAME
-        second.startsWith(first) -> Relation.CONTAINS
-        first.startsWith(second) -> Relation.INSIDE
-        else -> null
-    }
+private fun relation(left: Path, right: Path): Relation? = when {
+    left == right -> Relation.SAME
+    right.startsWith(left) -> Relation.CONTAINS
+    left.startsWith(right) -> Relation.INSIDE
+    else -> null
 }
 
 /**
