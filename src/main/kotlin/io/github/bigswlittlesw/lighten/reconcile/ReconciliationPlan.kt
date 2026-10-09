@@ -1,10 +1,10 @@
 package io.github.bigswlittlesw.lighten.reconcile
 
 /**
- * The complete, filesystem-independent result of reconciliation planning.
+ * The plan for every relocation, as plain data.
  *
- * `expectedStates` is the review snapshot that whole-plan preflight compares against. A hand-assembled
- * plan leaves it empty and so cannot pass preflight.
+ * `expectedStates` holds the observations made for review, which [ReconciliationExecutor.preflight] compares with the
+ * disk. A plan built by hand leaves it empty, so it cannot pass preflight.
  */
 data class ReconciliationPlan(
     val relocations: List<RelocationPlan>,

@@ -1,6 +1,6 @@
 package io.github.bigswlittlesw.lighten.fs
 
-/** The source path's state relative to its configured relocation target. */
+/** What is at the source, compared with the relocation's target. */
 enum class RelocationSourceState {
     ABSENT,
     FILE,

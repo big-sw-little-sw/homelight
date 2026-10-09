@@ -10,14 +10,14 @@ import java.util.concurrent.atomic.AtomicInteger
 internal const val DISCOVERY_CONCURRENCY = 8
 
 /**
- * Directory sizing jobs in flight at once, for the on-demand `du` (issue #7). Each job walks a whole tree, so the
- * limit is lower than [DISCOVERY_CONCURRENCY]. Not measured; tune later.
+ * Directory sizing jobs in flight at once, for the on-demand `du`. Each job walks a whole tree, so the limit is lower
+ * than [DISCOVERY_CONCURRENCY]. Not measured; tune later.
  */
 internal const val SIZING_CONCURRENCY = 2
 
 /**
- * Independent relocations applied at once (issue #10). Each copies a whole tree, so, as with [SIZING_CONCURRENCY],
- * a low limit keeps the copies from competing for the same disks. Not measured; tune later.
+ * Independent relocations applied at once. Each copies a whole tree, so, as with [SIZING_CONCURRENCY], a low limit
+ * keeps the copies from competing for the same disks. Not measured; tune later.
  */
 internal const val RELOCATION_CONCURRENCY = 2
 

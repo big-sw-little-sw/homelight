@@ -46,7 +46,7 @@ class ReconciliationExecutorTest {
         assertTrue(Files.isSymbolicLink(source))
     }
 
-    /** Zed leaves `zed-stable.sock` in its data folder when killed (#198); the copy skips it and says so. */
+    /** Zed leaves `zed-stable.sock` in its data folder when killed. The copy skips it and says so. */
     @Test
     fun movesAFolderWithASocketWithoutTheSocket(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/zed/sub"))
@@ -225,7 +225,7 @@ class ReconciliationExecutorTest {
         assertTrue(ReconciliationExecutor().execute(plan).succeeded())
     }
 
-    /** B4: a failure to clean up staging is added to the action's own failure, which it used to replace. */
+    /** A failure to clean up staging is added to the action's own failure, so it does not hide that failure. */
     @Test
     fun aStagingCleanupFailureDoesNotHideTheOriginalFailure(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
@@ -256,7 +256,7 @@ class ReconciliationExecutorTest {
         assertOnlyLockLeft(target)
     }
 
-    /** B5: a failure after the copy was moved to the target leaves both directories, which needs recovery. */
+    /** A failure after the copy was moved to the target leaves both directories, which needs recovery. */
     @Test
     fun aFailureAfterPublicationReportsFailedRecovery(@TempDir root: Path) {
         val source = Files.createDirectories(root.resolve("home/cache"))
@@ -279,9 +279,10 @@ class ReconciliationExecutorTest {
     }
 
     /**
-     * Existing ancestors may be symlinks (#128). The fixture is never resolved with `toRealPath()`: on macOS `@TempDir`
-     * is already under `/var -> /private/var`, and `link` adds a symlinked ancestor on every platform. The first
-     * target's immediate parent is the link itself, as `EnsureDirectory` and the default staging root see it.
+     * Existing ancestors may be symlinks, as `/home` is on Fedora Atomic. The fixture is never resolved with
+     * `toRealPath()`, because that would hide the symlinks. On macOS `@TempDir` is already under `/var -> /private/var`,
+     * and `link` adds a symlinked ancestor on every platform. The first target's immediate parent is the link itself,
+     * as `EnsureDirectory` and the default staging root see it.
      */
     @Test
     fun migratesAndLinksUnderSymlinkedAncestors(@TempDir root: Path) {

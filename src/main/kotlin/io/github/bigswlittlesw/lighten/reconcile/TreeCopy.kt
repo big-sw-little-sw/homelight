@@ -63,13 +63,12 @@ private fun entryFailure(failure: Throwable): IOException {
 /**
  * Copies a tree, giving each copied directory the nine permission bits of its source.
  *
- * Directories start owner-only, so the copy is never more open to group or others than the
- * source, and stay owner-writable until their entries are copied. Each gets its final mode
- * after its contents, which lets a read-only source directory (`0500`) still receive children.
- * `destination` must not exist yet.
+ * Directories start owner-only, so the copy is never more open to group or others than the source. They stay
+ * owner-writable until their entries are copied. Each gets its final mode after its contents, so a read-only source
+ * directory (`0500`) can still receive children. `destination` must not exist yet.
  *
  * Sockets are skipped: a socket can't be copied, and programs recreate theirs. A named pipe or device file stops the
- * copy. Planning does not look for them: that would walk every source tree on every check (decision 2026-10-08).
+ * copy. Planning does not look for them, because that would walk every source tree on every check.
  */
 internal fun copyVisitor(source: Path, destination: Path): FileVisitor<Path> = fileVisitor {
     onPreVisitDirectory { directory, _ ->

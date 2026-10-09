@@ -245,7 +245,10 @@ class ConcurrentExecutionTest {
         assertEquals(listOf(listOf(0, 1, 3), listOf(2)), independentGroups(listOf(first, second, independent, bridge)))
     }
 
-    /** Paths spelled through a symlinked ancestor (#128) are compared as the real places they are; no `toRealPath()`. */
+    /**
+     * Paths spelled through a symlinked ancestor are compared as the real places they are. The test does not resolve
+     * them with `toRealPath()`, because that would hide the symlink.
+     */
     @Test
     fun groupsRelocationsThatAliasThroughASymlinkedAncestor() {
         val real = Files.createDirectories(root.resolve("real/store"))

@@ -268,7 +268,7 @@ class ReconciliationPlannerTest {
         assertEquals("no-op", plan.actions().first().type)
     }
 
-    /** #223: no rule replaces a source link to somewhere else; the reason names both paths and both fixes. */
+    /** No rule replaces a source link to somewhere else. The reason names both paths and both fixes. */
     @Test
     fun aSourceLinkToSomewhereElseIsBlockedWhateverTheRules(@TempDir root: Path) {
         val target = Files.createDirectories(root.resolve("local/cache"))
@@ -301,7 +301,7 @@ class ReconciliationPlannerTest {
         assertTrue(ReconciliationPlanner().plan(listOf(inaccessible)).hasBlockedActions())
     }
 
-    /** #207: only the relocations involved are blocked, each naming the other; the rest plan as usual. */
+    /** Only the relocations that overlap are blocked, each naming the other. The rest plan as usual. */
     @Test
     fun overlappingRelocationsBlockOnlyThemselvesEachNamingTheOther(@TempDir root: Path) {
         val home = root.resolve("home")
@@ -366,8 +366,8 @@ class ReconciliationPlannerTest {
     }
 
     /**
-     * `local` links to `real-local`, so each pair is one place under two spellings (#128). Such overlap blocks the
-     * relocations involved, as overlap as written does, instead of making the file unreadable (#207).
+     * `local` links to `real-local`, so each pair is one place under two spellings. Such overlap blocks only the
+     * relocations involved, as overlap as written does.
      */
     @Test
     fun overlapThroughALinkBlocksTheRelocationsInvolved(@TempDir root: Path) {

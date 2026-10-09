@@ -10,11 +10,11 @@ import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import java.nio.file.Path
 
-/** Computes safe filesystem actions from observations and never mutates the filesystem. */
+/** Makes a plan from observations. It never changes the filesystem. */
 class ReconciliationPlanner {
     /**
-     * One plan per state, in order. Relocations that overlap block only themselves, each naming the other
-     * ([overlapReason]); the rest plan as usual.
+     * Makes one plan per state, in order. Relocations that overlap are blocked, and each reason names the other
+     * relocation ([overlapReason]). The other relocations plan as usual.
      */
     fun plan(states: List<RelocationState>): ReconciliationPlan = ReconciliationPlan(
         states.mapIndexed { i, state ->
@@ -69,10 +69,12 @@ class ReconciliationPlanner {
 }
 
 /**
- * Why relocation [i] of [states] overlaps, or null: its source and target overlap, or one of its paths overlaps a
- * path of another relocation, which it names. One inside the other counts, and so does the same path; a shared
- * target is one case. Paths compare as written first, then by their real spellings, so `/home/u/x` and
- * `/var/home/u/x` overlap when `/home` links to `/var/home`. Only the first overlap is named, in configuration order.
+ * Returns why relocation [i] of [states] overlaps, or null. Its source can overlap its target, or one of its paths
+ * can overlap a path of another relocation, which the reason names.
+ *
+ * A path inside another path overlaps it, and so does the same path. A target shared by two relocations is one case.
+ * Paths compare as written first, then by their real spellings. So `/home/u/x` and `/var/home/u/x` overlap when
+ * `/home` links to `/var/home`. The reason names only the first overlap, in configuration order.
  */
 private fun overlapReason(i: Int, states: List<RelocationState>): PathText? =
     selfOverlap(states[i]) ?: states.withIndex().filter { it.index != i }
@@ -130,7 +132,7 @@ private data class Overlap(val relation: Relation, val throughLink: Boolean) {
     fun link(): String = if (throughLink) " through a link" else ""
 }
 
-/** As written first; only when that finds none, by real spelling. */
+/** Compares the paths as written first. Only when they do not overlap as written, compares their real spellings. */
 private fun overlap(left: Place, right: Place): Overlap? =
     relation(left.path, right.path)?.let { Overlap(it, throughLink = false) }
         ?: relation(left.real, right.real)?.let { Overlap(it, throughLink = true) }
@@ -143,9 +145,9 @@ private fun relation(left: Path, right: Path): Relation? = when {
 }
 
 /**
- * Blocks [planned] when it copies a folder through a staging root on another filesystem than the target, as
- * inspection found ([stagingElsewhere]): the copy could not be moved into place in one step. The executor checks
- * again before it copies.
+ * Blocks [planned] when it copies a folder through a staging root on another filesystem than the target. Inspection
+ * finds this ([stagingElsewhere]). The copy cannot then move into place in one step. The executor checks again before
+ * it copies.
  */
 private fun blockedByStagingElsewhere(state: RelocationState, planned: RelocationPlan): RelocationPlan {
     if (!state.stagingElsewhere) return planned
@@ -170,8 +172,8 @@ private fun blockedByNotAFolder(state: RelocationState, planned: RelocationPlan)
         ?: return planned
     val inTheWay = state.notFolders.getValue(folder)
     val stagingRoot = effectiveStagingRoot(state.relocation.targetPath, state.relocation.stagingRoot)
-    // Only the staging root must not be a link at all. Elsewhere a link to a folder is fine, so one in the way there
-    // leads to something else and gets the general reason.
+    // Only the staging root must not be a link. Elsewhere a link to a folder is allowed, so a link in the way there
+    // points to something that is not a folder. It gets the general reason.
     val linkedStagingRoot = folder == stagingRoot && inTheWay.path == folder && inTheWay.observation.state == PathState.SYMLINK
         && inTheWay.observation.symlinkTargetAvailability != SymlinkTargetAvailability.ABSENT
     return blocked(
@@ -213,7 +215,8 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
  * A source link to somewhere else is blocked, never replaced: it may belong to another tool, and no rule or choice
  * replaces it. The reason names both paths and both fixes.
  *
- * `[skipped: naming which tool owns the link, add with #5]`
+ * The reason does not name the tool that owns the link. Add that when Lighten can recognize links that dotfile
+ * managers such as GNU Stow or chezmoi make.
  */
 private fun wrongLinkReason(state: RelocationState): PathText = PathText(
     // A wrong link is a symlink observation, which always has a link target.

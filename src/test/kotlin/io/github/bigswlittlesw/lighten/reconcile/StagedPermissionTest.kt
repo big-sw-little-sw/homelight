@@ -23,9 +23,9 @@ import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFilePermissions
 
 /**
- * Staged publication keeps each directory's nine POSIX permission bits and refuses targets that
- * cannot represent them (decision 2026-09-30). File modes and symlink values keep their existing
- * provider behavior.
+ * Staged publication keeps each directory's nine POSIX permission bits, and refuses targets that cannot store them.
+ * Relocated directories often go to shared storage, where wider permissions would expose private data. Files and
+ * symlinks are copied as the filesystem copies them.
  */
 class StagedPermissionTest {
     @TempDir
@@ -209,8 +209,8 @@ class StagedPermissionTest {
     }
 
     /**
-     * The source is set aside and linked before deletion (#132), so the entry it cannot delete stays aside, not at the
-     * source. Nothing is chmodded, and the next plan deletes what was left aside.
+     * The source is set aside and linked before deletion, so the entry it cannot delete stays aside, not at the
+     * source. No permissions are changed, and the next plan deletes what was left aside.
      */
     @Test
     fun readOnlyPopulatedSourceIsPublishedReadOnlyAndReportsRecoveryWithoutChmod() {
@@ -244,8 +244,8 @@ class StagedPermissionTest {
     }
 
     /**
-     * Whatever an earlier run of the same target left at its copy's name is cleared under the lock: a killed copy
-     * leaves finished directories with their final modes and may hold symlinks (B2). A copy never produces `0000`, but
+     * Whatever an earlier run of the same target left at its copy's name is cleared under the lock. A killed copy
+     * leaves finished directories with their final modes and may hold symlinks. A copy never produces `0000`, but
      * clearing must not depend on that.
      */
     @Test
