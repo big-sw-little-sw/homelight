@@ -18,6 +18,7 @@ import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathState
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.RelocationOutcome
 import io.github.bigswlittlesw.lighten.tui.DetailViewport.Anchored
@@ -95,7 +96,7 @@ internal object WorkspaceView {
                 )
             } else listOf(
                 Line("Config: " + displayPath(session.configPath)),
-                Line((model as? ConfigurationEvaluation.Missing)?.message ?: NO_CONFIGURATION, palette.warn, false),
+                Line((model as? ConfigurationEvaluation.Missing)?.message?.shown() ?: NO_CONFIGURATION, palette.warn, false),
                 Line(FIRST_RUN_HINT),
             )
             return Toolkit.column(
@@ -140,7 +141,7 @@ internal object WorkspaceView {
                 0,
             )
         }
-        val lines = details.lines + configured.plan.diagnostics.map { Line(it.message, palette.warn, false) }
+        val lines = details.lines + configured.plan.diagnostics.map { Line(it.message.shown(), palette.warn, false) }
         val summary = summary(configured.items)
         val content = buildList {
             add(header)
@@ -271,7 +272,7 @@ internal object WorkspaceView {
     }
 
     private fun unreadable(model: ConfigurationEvaluation.Invalid): List<String> =
-        unreadable(model.configPath, model.message, model.line > 0)
+        unreadable(model.configPath, model.message.shown(), model.line > 0)
 
     private fun selection(list: ListElement<Any>, rows: List<WorkspaceRow>): Int =
         list.selected().coerceIn(0, maxOf(0, rows.size - 1))
@@ -366,10 +367,10 @@ internal object WorkspaceView {
             decision(item, configured.draft[source])?.let { add(Line(it)) }
             add(Line("Will do: " + consequence(item), palette.text, true))
             item.plan.actions.filterIsInstance<ReconciliationAction.Blocked>()
-                .mapTo(this) { blocked -> Line(problem(blocked.reason), palette.error, false) }
+                .mapTo(this) { blocked -> Line(problem(blocked.reason.shown()), palette.error, false) }
             if (item.choiceAvoidsFolder && !retained) add(Line(CHOOSE_AROUND_FOLDER))
             if (retained) add(Line(RESULTS_KEPT, palette.warn, false))
-            item.plan.diagnostics.mapTo(this) { Line(it.message, palette.warn, false) }
+            item.plan.diagnostics.mapTo(this) { Line(it.message.shown(), palette.warn, false) }
             if (item.deletesData()) add(Line(DELETES_DATA, palette.warn, true))
             if (!retained) item.availableResolutions.forEachIndexed { i, option ->
                 add(Line(""))
@@ -390,9 +391,9 @@ internal object WorkspaceView {
             add(Line(sourceLine(source)))
             add(Line(targetLine(item.relocation.targetPath)))
             item.sourceObservation.symlinkTarget?.takeIf { path -> path != item.relocation.targetPath }
-                ?.let { path -> add(Line("Current link destination: $path")) }
+                ?.let { path -> add(Line("Current link destination: " + displayPath(path))) }
             if (archiving && archive != null) add(Line(archiveLine(archive)))
-            leftBehind(item)?.let { path -> add(Line("Left behind: $path")) }
+            leftBehind(item)?.let { path -> add(Line("Left behind: " + displayPath(path))) }
         }
         return Anchored(lines, anchor)
     }

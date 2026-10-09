@@ -51,7 +51,7 @@ internal fun saveProblem(changed: String, write: () -> Unit): String? = try {
 } catch (_: ConfigurationChangedException) {
     changed
 } catch (error: ConfigurationException) {
-    notSaved(error.message.orEmpty())
+    notSaved(error.text.shown())
 } catch (error: IllegalArgumentException) {
     notSaved(error.message.orEmpty())
 }

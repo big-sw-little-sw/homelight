@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.config
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -29,9 +30,9 @@ class ConfigurationPublisher {
                 Files.createLink(destination, temporary)
             }
         } catch (exception: FileAlreadyExistsException) {
-            throw ConfigurationException("Configuration already exists and was not replaced: $destination", exception)
+            throw ConfigurationException(PathText("Configuration already exists and was not replaced: ", destination), exception)
         } catch (exception: IOException) {
-            throw ConfigurationException("Unable to create configuration $destination", exception)
+            throw ConfigurationException(PathText("Unable to create configuration ", destination), exception)
         }
     }
 
@@ -59,7 +60,7 @@ class ConfigurationPublisher {
         } catch (exception: NoSuchFileException) {
             throw ConfigurationChangedException(shown, exception)
         } catch (exception: IOException) {
-            throw ConfigurationException("Unable to replace configuration $shown", exception)
+            throw ConfigurationException(PathText("Unable to replace configuration ", shown), exception)
         }
     }
 
@@ -84,7 +85,7 @@ class ConfigurationPublisher {
 
 /** The file changed, or was deleted, since it was loaded, so [ConfigurationPublisher.replace] left it as it is. */
 class ConfigurationChangedException(path: Path, cause: Throwable? = null) :
-    ConfigurationException("Configuration changed since it was loaded and was not replaced: $path", cause)
+    ConfigurationException(PathText("Configuration changed since it was loaded and was not replaced: ", path), cause)
 
 /**
  * Pretty-printed for hand editing. Keys keep declaration order, and values equal to their defaults (settings

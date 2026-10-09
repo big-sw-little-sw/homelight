@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.cli
 
 import io.github.bigswlittlesw.lighten.application.ApplyModel
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import kotlinx.serialization.Serializable
 import java.io.PrintWriter
@@ -30,7 +31,7 @@ internal fun renderApplyJson(result: ReconciliationExecutor.ExecutionResult, out
 
 private fun encodeApplyJson(
     succeeded: Boolean, relocations: List<ReconciliationExecutor.RelocationExecution>,
-    diagnostics: List<String>, stale: Boolean,
+    diagnostics: List<PathText>, stale: Boolean,
 ): String {
     val relocationsJson = relocations.map { relocation ->
         val configuredRelocation = relocation.relocation.relocation
@@ -44,7 +45,7 @@ private fun encodeApplyJson(
         )
     }
     val result = if (diagnostics.isEmpty()) ApplyJson(JSON_SCHEMA, succeeded, relocationsJson)
-    else ApplyJson(JSON_SCHEMA, succeeded, relocationsJson, stale, diagnostics)
+    else ApplyJson(JSON_SCHEMA, succeeded, relocationsJson, stale, diagnostics.map(PathText::toString))
     return encodeJson(ApplyJson.serializer(), result)
 }
 

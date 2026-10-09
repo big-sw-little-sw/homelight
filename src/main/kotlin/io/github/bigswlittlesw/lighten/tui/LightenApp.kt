@@ -471,7 +471,7 @@ internal class LightenApp(
         editor = try {
             ConfigurationView.open(session, focus, discoveryFactory) { key -> keyHandler.handle(key) }
         } catch (error: ConfigurationException) {
-            notice = DetailViewport.Line(cannotOpen(error.message.orEmpty()), palette.warn)
+            notice = DetailViewport.Line(cannotOpen(error.text.shown()), palette.warn)
             null
         }
     }

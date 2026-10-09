@@ -7,6 +7,7 @@ import io.github.bigswlittlesw.lighten.config.intersects
 import io.github.bigswlittlesw.lighten.config.relocationProblem
 import io.github.bigswlittlesw.lighten.domain.RelocationSourceState
 import io.github.bigswlittlesw.lighten.fs.PathState
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.fs.SymlinkTargetAvailability
 import java.nio.file.Path
 
@@ -16,7 +17,7 @@ class ReconciliationPlanner {
         val problem = relocationProblem(states.map { it.relocation })
         if (problem != null) {
             return ReconciliationPlan(
-                states.map { state -> blocked(state, "relocation configuration is invalid") },
+                states.map { state -> blocked(state, PathText("relocation configuration is invalid")) },
                 listOf(
                     ReconciliationDiagnostic(
                         ReconciliationDiagnostic.Severity.ERROR, problem.source, "INVALID_RELOCATION", problem.message,
@@ -35,7 +36,7 @@ class ReconciliationPlanner {
         val sourceState = state.source.sourceStateForTarget(target)
         val replacedSourceLeft = state.replacedSource?.state == PathState.DIRECTORY
         if (replacedSourceLeft && sourceState == RelocationSourceState.DIRECTORY) {
-            return blocked(state, "an interrupted replacement left the original source at ${replacedSource(state)}")
+            return blocked(state, PathText("an interrupted replacement left the original source at ", replacedSource(state)))
         }
         return when (sourceState) {
             RelocationSourceState.CORRECT_SYMLINK -> when {
@@ -59,18 +60,18 @@ class ReconciliationPlanner {
                 PathState.DIRECTORY -> bothDirectoriesExist(state)
                 PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
-            RelocationSourceState.FILE -> blocked(state, "source is a file; relocations require directories")
+            RelocationSourceState.FILE -> blocked(state, PathText("source is a file; relocations require directories"))
             RelocationSourceState.WRONG_SYMLINK -> conflict(
                 state, source, "source points to a live, non-configured destination",
                 ReconciliationConflict.Resolution.REPLACE_SOURCE_LINK, ReconciliationConflict.Resolution.LEAVE_UNMANAGED,
             )
             RelocationSourceState.BROKEN_SYMLINK -> when (state.target.state) {
                 PathState.DIRECTORY -> outcome(state, listOf(replacementLink(state)))
-                PathState.ABSENT -> blocked(state, "broken source link has no target directory")
+                PathState.ABSENT -> blocked(state, PathText("broken source link has no target directory"))
                 PathState.FILE, PathState.SYMLINK, PathState.INACCESSIBLE, PathState.OTHER -> unsupportedTarget(state)
             }
-            RelocationSourceState.INACCESSIBLE -> blocked(state, "source cannot be inspected")
-            RelocationSourceState.OTHER -> blocked(state, "source has an unsupported filesystem state")
+            RelocationSourceState.INACCESSIBLE -> blocked(state, PathText("source cannot be inspected"))
+            RelocationSourceState.OTHER -> blocked(state, PathText("source has an unsupported filesystem state"))
         }
     }
 }
@@ -90,7 +91,8 @@ private fun blockedByNotAFolder(state: RelocationState, planned: RelocationPlan)
         && inTheWay.observation.symlinkTargetAvailability != SymlinkTargetAvailability.ABSENT
     return blocked(
         state,
-        if (linkedStagingRoot) "the staging folder must be a real folder, not a link: $folder" else notAFolderReason(inTheWay),
+        if (linkedStagingRoot) PathText("the staging folder must be a real folder, not a link: ", folder)
+        else notAFolderReason(inTheWay),
     )
 }
 
@@ -107,17 +109,19 @@ private fun neededFolders(action: ReconciliationAction): List<Path> = when (acti
     is ReconciliationAction.NoOp, is ReconciliationAction.LeaveUnchanged, is ReconciliationAction.Blocked -> listOf()
 }
 
-private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): String {
-    val path = inTheWay.path
+private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
     val observation = inTheWay.observation
-    return when (observation.state) {
-        PathState.FILE -> "$path is a file, not a folder"
-        PathState.SYMLINK ->
-            if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) "$path is a broken link, not a folder"
-            else "$path is a link, not a folder"
-        PathState.INACCESSIBLE -> "$path can't be read, so Lighten can't tell if it is a folder"
-        PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> "$path is not a folder"
-    }
+    return PathText(
+        inTheWay.path,
+        when (observation.state) {
+            PathState.FILE -> " is a file, not a folder"
+            PathState.SYMLINK ->
+                if (observation.symlinkTargetAvailability == SymlinkTargetAvailability.ABSENT) " is a broken link, not a folder"
+                else " is a link, not a folder"
+            PathState.INACCESSIBLE -> " can't be read, so Lighten can't tell if it is a folder"
+            PathState.ABSENT, PathState.DIRECTORY, PathState.OTHER -> " is not a folder"
+        },
+    )
 }
 
 private fun migrateSourceForPublication(state: RelocationState): RelocationPlan {
@@ -140,7 +144,7 @@ private fun deleteReplacedSource(state: RelocationState): RelocationPlan {
     val path = replacedSource(state)
     val warning = ReconciliationDiagnostic(
         ReconciliationDiagnostic.Severity.WARNING, path,
-        "REPLACED_SOURCE_LEFT", "an interrupted replacement left the original source here; it will be deleted",
+        "REPLACED_SOURCE_LEFT", PathText("an interrupted replacement left the original source here; it will be deleted"),
     )
     val actions = listOf(ReconciliationAction.DeleteDirectory(path))
     return RelocationPlan(state.relocation, RelocationOutcome.CONVERGED, actions, listOf(warning))
@@ -182,13 +186,13 @@ private fun adoptTarget(state: RelocationState): RelocationPlan =
 
 private fun archiveSource(state: RelocationState): RelocationPlan {
     val relocation = state.relocation
-    val destination = state.archiveDestination ?: return blocked(state, "source archive destination was not inspected")
+    val destination = state.archiveDestination ?: return blocked(state, PathText("source archive destination was not inspected"))
     val archivePath = destination.path
     if (intersects(archivePath, relocation.sourcePath) || intersects(archivePath, relocation.targetPath)) {
-        return blocked(state, "source archive path overlaps a relocation path")
+        return blocked(state, PathText("source archive path overlaps a relocation path"))
     }
     if (destination.observation.state != PathState.ABSENT) {
-        return blocked(state, "source archive destination already exists")
+        return blocked(state, PathText("source archive destination already exists"))
     }
     return outcome(
         state, listOf(
@@ -216,13 +220,13 @@ private fun discardDirectories(state: RelocationState): RelocationPlan {
     )
     val warning = ReconciliationDiagnostic(
         ReconciliationDiagnostic.Severity.WARNING, relocation.sourcePath,
-        "DIRECTORIES_DISCARDED", "discard will permanently remove both directory trees",
+        "DIRECTORIES_DISCARDED", PathText("discard will permanently remove both directory trees"),
     )
     return RelocationPlan(relocation, RelocationOutcome.CONVERGED, actions, listOf(warning))
 }
 
 private fun unsupportedTarget(state: RelocationState): RelocationPlan =
-    blocked(state, "target is not a real directory or an absent path")
+    blocked(state, PathText("target is not a real directory or an absent path"))
 
 private fun outcome(state: RelocationState, actions: List<ReconciliationAction>): RelocationPlan =
     RelocationPlan(state.relocation, RelocationOutcome.CONVERGED, actions, listOf())
@@ -245,7 +249,7 @@ private fun conflict(
     ReconciliationConflict(path, reason, resolutions.toList()),
 )
 
-private fun blocked(state: RelocationState, reason: String): RelocationPlan = RelocationPlan(
+private fun blocked(state: RelocationState, reason: PathText): RelocationPlan = RelocationPlan(
     state.relocation, RelocationOutcome.UNRESOLVED,
     listOf(ReconciliationAction.Blocked(state.relocation.sourcePath, reason)), listOf(),
 )

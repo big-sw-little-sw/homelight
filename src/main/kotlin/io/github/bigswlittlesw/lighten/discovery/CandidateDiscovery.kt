@@ -12,6 +12,7 @@ import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery.SourceStatus
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Diagnostic
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Kind
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation.Reason
+import io.github.bigswlittlesw.lighten.fs.systemReason
 import java.io.IOException
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -209,7 +210,7 @@ class CandidateDiscovery internal constructor(
         return when (attempt) {
             is Attempt.Running -> null
             is Attempt.Done -> attempt.result.getOrElse {
-                CandidateObservation.unknown(path, generation, Reason.IO_ERROR, it.toString())
+                CandidateObservation.unknown(path, generation, Reason.IO_ERROR, systemReason(it))
             }
         }
     }
@@ -222,7 +223,7 @@ class CandidateDiscovery internal constructor(
         if (expired(attempt, METADATA_NANOS)) return Diagnostic(root, Reason.DEADLINE, "Root inspection timed out")
         val failure = (attempt as? Attempt.Done)?.result?.exceptionOrNull() ?: return null
         val reason = if (failure is AccessDeniedException) Reason.ACCESS_DENIED else Reason.IO_ERROR
-        return Diagnostic(root, reason, failure.toString())
+        return Diagnostic(root, reason, systemReason(failure))
     }
 
     private fun expired(attempt: Attempt<*>, limit: Long): Boolean = when (attempt) {
@@ -303,13 +304,14 @@ internal const val METADATA_NANOS = 5_000_000_000L
 
 private val PROCESS_WORKERS = Workers()
 
-private class NotRegular(path: Path) : IOException("Shared source is not a regular file: $path")
+// The message leaves out the path: Browse shows the list's location beside it.
+private class NotRegular : IOException("Shared source is not a regular file")
 
 private fun readShared(location: Path): ByteArray {
     // Following the explicitly selected shared-file location is permitted. A later FIFO replacement may
     // block open; the single in-flight read and the deadline still bound it.
     if (!Files.readAttributes(location, BasicFileAttributes::class.java).isRegularFile) {
-        throw NotRegular(location)
+        throw NotRegular()
     }
     return Files.newInputStream(location).use { it.readNBytes(CandidateParser.MAX_BYTES + 1) }
 }
@@ -352,7 +354,7 @@ private fun sourceProblem(failure: Throwable): SourceProblem {
         is AccessDeniedException, is SecurityException -> SourceProblem.Kind.UNREADABLE
         else -> SourceProblem.Kind.IO_ERROR
     }
-    return SourceProblem(kind, failure.toString())
+    return SourceProblem(kind, systemReason(failure))
 }
 
 private fun normalized(path: Path): Path {

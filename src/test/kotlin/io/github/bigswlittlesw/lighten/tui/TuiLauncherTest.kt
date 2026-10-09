@@ -9,6 +9,7 @@ import io.github.bigswlittlesw.lighten.HANG_LIMIT
 import io.github.bigswlittlesw.lighten.application.ApplyModel
 import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.pollUntil
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
 import org.junit.jupiter.api.Assertions.*
@@ -134,7 +135,7 @@ class TuiLauncherTest {
 
         val result = assertInstanceOf(ApplyModel.Result::class.java, session.applyModel())
         val line = "Internal error (please report): IllegalArgumentException: Plan has no complete review snapshot"
-        assertEquals(listOf(line), result.diagnostics)
+        assertEquals(listOf(PathText(line)), result.diagnostics)
         for ((width, height) in listOf(80 to 24, 120 to 30)) {
             val screen = ui.screen(width, height)
             assertTrue(screen.contains("Internal error (please report)"), screen)

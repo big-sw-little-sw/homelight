@@ -100,11 +100,11 @@ private const val INTERNAL_ERROR_EXIT_CODE = 70
  */
 private fun handleExecutionException(exception: Exception, commandLine: CommandLine, parseResult: ParseResult): Int {
     if (exception is InvalidConfigurationException) {
-        unreadableCli(exception.path, exception.message.orEmpty(), exception.line > 0).forEach(commandLine.err::println)
+        unreadableCli(exception.path, exception.text.shown(), exception.line > 0).forEach(commandLine.err::println)
         return 1
     }
     if (exception is ConfigurationException) {
-        commandLine.err.println(exception.message)
+        commandLine.err.println(exception.text.shown())
         return 1
     }
     val bug = (exception as? CompletionException)?.cause ?: exception

@@ -36,6 +36,8 @@ import io.github.bigswlittlesw.lighten.config.parseSharedList
 import io.github.bigswlittlesw.lighten.config.relocationProblem
 import io.github.bigswlittlesw.lighten.config.resolvePath
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
+import io.github.bigswlittlesw.lighten.fs.PathText
+import io.github.bigswlittlesw.lighten.fs.displayPath
 import io.github.bigswlittlesw.lighten.tui.DetailViewport.Line
 import java.nio.file.Files
 import java.nio.file.Path
@@ -186,7 +188,7 @@ internal class ConfigurationView private constructor(
         }.orEmpty()
         val resolved = resolvedLines(row).map { (label, resolved) ->
             when (resolved) {
-                is Resolved.Found -> Line(resolvedLine(label, resolved.path.toString()))
+                is Resolved.Found -> Line(resolvedLine(label, displayPath(resolved.path)))
                 is Resolved.Problem -> Line(resolvedLine(label, resolved.text), palette.warn)
                 is Resolved.Empty -> Line(resolvedLine(label, resolved.text), palette.dim)
             }
@@ -480,7 +482,7 @@ internal class ConfigurationView private constructor(
         }
         when (val action = browser.key(key, browseDraft())) {
             null -> {}
-            is BrowseAction.Add -> browser.added(addRefusal(action.source)?.message)
+            is BrowseAction.Add -> browser.added(addRefusal(action.source)?.message?.shown())
             is BrowseAction.Remove -> removeRows(listOf(action.row))
             is BrowseAction.RemoveAll -> removeRows(action.rows)
             is BrowseAction.AddAll -> {
@@ -506,7 +508,7 @@ internal class ConfigurationView private constructor(
     }
 
     /** Why Browse could not add a source: the overlap's message, and the relocation it overlaps when that is another. */
-    private data class Refusal(val message: String, val other: Path?)
+    private data class Refusal(val message: PathText, val other: Path?)
 
     /** Adds `source` as written in Browse, and returns why not when it would overlap a relocation. */
     private fun addRefusal(source: Path): Refusal? {
@@ -710,7 +712,7 @@ private data class ResolvedRelocation(val source: Resolved, val target: Resolved
 private fun resolved(value: String, name: String): Resolved = try {
     Resolved.Found(resolvePath(value, name))
 } catch (error: ConfigurationException) {
-    Resolved.Problem(error.message.orEmpty())
+    Resolved.Problem(error.text.shown())
 }
 
 /** A relocation as the list names it: its source as written. */

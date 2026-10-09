@@ -287,7 +287,7 @@ offer_path() {
     *":$dir:"*)
       found=$(command -v lighten 2> /dev/null || true)
       if [ -n "$found" ] && [ "$found" != "$target" ]; then
-        say "" "Note: the command lighten runs $found, which comes before $(tilde "$dir") on PATH."
+        say "" "Note: the command lighten runs $(tilde "$found"), which comes before $(tilde "$dir") on PATH."
       else
         say "Run lighten to start."
       fi

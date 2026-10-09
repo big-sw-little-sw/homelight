@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor.ExecutionResult
@@ -54,14 +55,14 @@ sealed interface ApplyModel {
     @ConsistentCopyVisibility
     data class Result private constructor(
         override val plan: ReconciliationPlan, val steps: List<Step>, val execution: ExecutionResult?,
-        val diagnostics: List<String>, val stale: Boolean, override val choices: Map<Path, DecisionChoice>,
+        val diagnostics: List<PathText>, val stale: Boolean, override val choices: Map<Path, DecisionChoice>,
     ) : Reviewed {
         fun succeeded(): Boolean = execution?.succeeded() ?: false
 
         companion object {
             fun of(
                 plan: ReconciliationPlan, steps: List<Step>, execution: ExecutionResult?,
-                diagnostics: List<String>, stale: Boolean, choices: Map<Path, DecisionChoice> = mapOf(),
+                diagnostics: List<PathText>, stale: Boolean, choices: Map<Path, DecisionChoice> = mapOf(),
             ): Result = Result(plan, steps.toList(), execution, diagnostics.toList(), stale, choices.toMap())
         }
     }

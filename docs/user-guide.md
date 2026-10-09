@@ -68,10 +68,11 @@ Configure → Workspace → Review → Apply → Results
 5. **Results (`2`).** Each step shows whether it worked. Press `r` to check
    again: the Workspace then shows each relocation as it is now, normally
    `[In sync]`. If a step finds something different from the plan, Lighten
-   stops there and the steps after it do not run. Select the failed step: its
-   Details say what is there, what Lighten expected and what to do. Do that,
-   then press `r` to check again. To report a bug, a screenshot of these
-   Details is enough.
+   stops there and the steps after it do not run. The line at the top says
+   how many changes it made before it stopped, or `Stopped. Nothing was
+   changed.` Select the failed step: its Details say what is there, what
+   Lighten expected and what to do. Do that, then press `r` to check again.
+   To report a bug, a screenshot of these Details is enough.
 
 ### Change the configuration later
 
@@ -503,6 +504,9 @@ Three commands never ask a question and print one line of JSON:
   something is blocked or needs a choice, it prints the plan instead and
   changes nothing. A failed step's `message` is Lighten's exact error, not
   the sentence Results show.
+
+Screens and messages show your home directory as `~`. JSON output shows
+every path in full.
 
 `apply --json` needs `--yes`, which confirms the plan the command makes.
 Without `--json`, `apply` opens the Review screen, with or without `--yes`.

@@ -204,7 +204,7 @@ class ConfigurationEvaluationTest {
         assertFalse(session.requestApply())
         Files.delete(config)
         val missing = assertInstanceOf(ConfigurationEvaluation.Missing::class.java, evaluator.load(config))
-        assertTrue(missing.message.contains("does not exist"), missing.message)
+        assertTrue(missing.message.toString().contains("does not exist"), missing.message.toString())
         assertThrows<ConfigurationException> { evaluator.loadRequired(config) }
         Files.createDirectory(config)
         assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config))
@@ -231,7 +231,7 @@ class ConfigurationEvaluationTest {
         )
         for ((name, content) in cases) {
             Files.writeString(config, content)
-            val expected = assertThrows<ConfigurationException>(name) { evaluator.loadRequired(config) }.message
+            val expected = assertThrows<ConfigurationException>(name) { evaluator.loadRequired(config) }.text
             val invalid = assertInstanceOf(ConfigurationEvaluation.Invalid::class.java, evaluator.load(config), name)
             assertEquals(expected, invalid.message, name)
         }

@@ -56,5 +56,5 @@ private fun planJson(plan: ReconciliationPlan) = PlanJson(
 
 private fun diagnosticJson(diagnostic: ReconciliationDiagnostic) = DiagnosticJson(
     diagnostic.severity.name.lowercase(Locale.ROOT), diagnostic.source.toString(), diagnostic.code,
-    diagnostic.message,
+    diagnostic.message.toString(),
 )

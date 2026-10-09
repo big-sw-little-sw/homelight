@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ActionFailure
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -68,7 +69,7 @@ class ReviewedExecutionTest {
         assertFalse(result.succeeded())
         assertFalse(result.stale)
         assertNull(result.execution)
-        assertEquals(listOf("worker unavailable"), result.diagnostics)
+        assertEquals(listOf(PathText("worker unavailable")), result.diagnostics)
         assertTrue(result.steps.all { step -> step.status == ApplyModel.StepStatus.PENDING })
         assertSame(completion, review.start { task -> fail<Unit>("Rejected review cannot restart") })
         assertFalse(Files.exists(directory.resolve("local")))

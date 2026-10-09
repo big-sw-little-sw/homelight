@@ -23,7 +23,7 @@ internal data class ActionJson(
 
 internal fun actionJson(action: ReconciliationAction): ActionJson = ActionJson(
     action.type, action.path.toString(), action.destructive,
-    target = action.destination?.toString(), reason = (action as? ReconciliationAction.Blocked)?.reason,
+    target = action.destination?.toString(), reason = (action as? ReconciliationAction.Blocked)?.reason?.toString(),
 )
 
 /**

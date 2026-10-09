@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.application
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationExecutor
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
@@ -59,13 +60,13 @@ class ReviewedExecution(
                     executeReviewed(plan)
                     completion.complete(null)
                 } catch (bug: Throwable) {
-                    finishWithoutExecution(plan, listOf(internalErrorMessage(bug)), false)
+                    finishWithoutExecution(plan, listOf(PathText(internalErrorMessage(bug))), false)
                     completion.completeExceptionally(bug)
                 }
             }
         } catch (exception: RuntimeException) {
             // Scheduling rejection: nothing ran, and it is an environment failure rather than a bug.
-            finishWithoutExecution(plan, listOf(exception.message ?: exception.toString()), false)
+            finishWithoutExecution(plan, listOf(PathText(exception.message ?: exception.toString())), false)
             completion.complete(null)
         }
         return completion
@@ -129,11 +130,11 @@ class ReviewedExecution(
     }
 
     @Synchronized
-    private fun finishWithoutExecution(plan: ReconciliationPlan, diagnostics: List<String>, stale: Boolean) {
+    private fun finishWithoutExecution(plan: ReconciliationPlan, diagnostics: List<PathText>, stale: Boolean) {
         val current = snapshot
         val steps = (if (current is ApplyModel.Running) current.steps else pendingSteps(plan)).map { step ->
             if (step.status == ApplyModel.StepStatus.RUNNING) {
-                step.copy(status = ApplyModel.StepStatus.FAILED, message = diagnostics.first())
+                step.copy(status = ApplyModel.StepStatus.FAILED, message = diagnostics.first().toString())
             } else step
         }
         snapshot = ApplyModel.Result.of(plan, steps, null, diagnostics, stale, choices)

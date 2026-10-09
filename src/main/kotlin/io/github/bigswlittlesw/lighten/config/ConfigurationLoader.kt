@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.config
 
+import io.github.bigswlittlesw.lighten.fs.PathText
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.IOException
@@ -35,7 +36,7 @@ class ConfigurationLoader {
             configuration(read.file, override)
         } catch (exception: ConfigurationException) {
             // The value checks are shared with Configuration's draft, which has no file yet.
-            throw InvalidConfigurationException(path, exception.message.orEmpty())
+            throw InvalidConfigurationException(path, exception.text)
         }
 
     /**
@@ -45,24 +46,24 @@ class ConfigurationLoader {
      */
     internal fun read(path: Path): LoadedFile {
         if (!Files.isRegularFile(path)) {
-            throw ConfigurationException("Configuration file does not exist: $path")
+            throw ConfigurationException(PathText("Configuration file does not exist: ", path))
         }
         val bytes = try {
             Files.readAllBytes(path)
         } catch (exception: IOException) {
-            throw ConfigurationException("Unable to read configuration $path", exception)
+            throw ConfigurationException(PathText("Unable to read configuration ", path), exception)
         }
         val text = try {
             // Strict, as Files.readString is: malformed UTF-8 is an error, not replacement characters.
             StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString()
         } catch (exception: CharacterCodingException) {
-            throw ConfigurationException("Unable to read configuration $path", exception)
+            throw ConfigurationException(PathText("Unable to read configuration ", path), exception)
         }
         val file = try {
             decodeJson(ConfigurationFile.serializer(), text)
         } catch (exception: JsonInputException) {
             // The message is complete; the cause would only repeat it.
-            throw InvalidConfigurationException(path, problem(exception), exception.line)
+            throw InvalidConfigurationException(path, PathText(problem(exception)), exception.line)
         }
         return LoadedFile(file.lighten, bytes)
     }
@@ -73,7 +74,7 @@ class ConfigurationLoader {
         val targetRoot = resolvePath(lighten.targetRoot, "lighten.target-root")
         val stagingRoot = lighten.stagingRoot?.let { resolvePath(it, "lighten.staging-root") }
         if (stagingRoot != null && !stagingRoot.startsWith(targetRoot)) {
-            throw ConfigurationException("staging-root must be under target-root")
+            throw ConfigurationException(PathText("staging-root must be under target-root"))
         }
         // The override replaces the first relocation's paths, or supplies it when none is configured.
         val relocations = lighten.relocations.mapIndexed { i, fields ->
@@ -87,7 +88,7 @@ class ConfigurationLoader {
         val ignoredSourcePaths = lighten.ignoredSourcePaths.mapIndexed { i, value ->
             resolvePath(value, "lighten.ignored-source-paths[$i]")
         }
-        ignoredRelocationProblem(lighten, relocations, ignoredSourcePaths)?.let { throw ConfigurationException(it) }
+        ignoredRelocationProblem(relocations, ignoredSourcePaths)?.let { throw ConfigurationException(it) }
         val sharedList = lighten.suggestionList?.let { value ->
             convert("lighten.suggestion-list") { parseSharedList(value) }
         }
@@ -103,7 +104,8 @@ class ConfigurationLoader {
             ?: fields.targetPath?.let { resolvePath(it, "$key.target-path") }
             ?: derivedTarget(sourceRoot, targetRoot, sourcePath)
             ?: throw ConfigurationException(
-                "A source outside source-root $sourceRoot requires an explicit target-path: $sourcePath")
+                PathText("A source outside source-root ", sourceRoot, " requires an explicit target-path: ", sourcePath),
+            )
         return Relocation(
             sourcePath, targetPath, fields.whenSourceAndTargetDirectoriesExist, fields.whenOnlyTargetExists,
             fields.whenAdoptingTarget,
@@ -117,11 +119,13 @@ class ConfigurationLoader {
      * for an ignored path, so it can't also manage it. Only the same path counts: ignoring a folder inside or around
      * a relocation is not refused.
      */
-    private fun ignoredRelocationProblem(lighten: LightenFile, relocations: List<Relocation>, ignored: List<Path>): String? {
+    private fun ignoredRelocationProblem(relocations: List<Relocation>, ignored: List<Path>): PathText? {
         for ((i, relocation) in relocations.withIndex()) {
             val j = ignored.indexOf(relocation.sourcePath).takeIf { it >= 0 } ?: continue
-            return "relocations[$i].source-path and ignored-source-paths[$j] are both ${lighten.ignoredSourcePaths[j]}. " +
-                "A path can't be both a relocation and ignored: remove it from one of the two lists."
+            return PathText(
+                "relocations[$i].source-path and ignored-source-paths[$j] are both ", ignored[j], ". A path can't be " +
+                    "both a relocation and ignored: remove it from one of the two lists.",
+            )
         }
         return null
     }
@@ -137,7 +141,7 @@ class ConfigurationLoader {
  * resolves its fields with this too, naming them as its screen does.
  */
 internal fun resolvePath(value: String, name: String): Path {
-    if (value.isJavaBlank()) throw ConfigurationException("$name must not be blank")
+    if (value.isJavaBlank()) throw ConfigurationException(PathText("$name must not be blank"))
     return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
 }
 
@@ -179,7 +183,7 @@ private fun <T> convert(key: String, conversion: () -> T): T = try {
     conversion()
 } catch (exception: IllegalArgumentException) {
     // An InvalidPathException's message repeats the input, which may hold the control character itself.
-    throw ConfigurationException("$key: ${(exception as? InvalidPathException)?.reason ?: exception.message}")
+    throw ConfigurationException(PathText("$key: ${(exception as? InvalidPathException)?.reason ?: exception.message}"))
 }
 
 private fun expand(value: String): Path {
