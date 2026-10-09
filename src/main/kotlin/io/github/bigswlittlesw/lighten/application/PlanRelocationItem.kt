@@ -74,9 +74,12 @@ data class PlanRelocationItem(
         }
     }
 
-    /** A source link that points somewhere else is blocked, not a warning: the blocked reason says so. */
+    /**
+     * A source link that points somewhere else is blocked, not a warning: the blocked reason says so. A broken link
+     * is a warning only when the plan repairs it; when it is blocked, the reason says so too.
+     */
     fun hasWarnings(): Boolean =
-        sourceState == RelocationSourceState.BROKEN_SYMLINK
+        (sourceState == RelocationSourceState.BROKEN_SYMLINK && !isBlocked())
                 || plan.diagnostics.any { it.severity == ReconciliationDiagnostic.Severity.WARNING }
 
     fun hasConflict(): Boolean = plan.conflict != null || plan.outcome == RelocationOutcome.UNRESOLVED

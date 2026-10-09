@@ -371,8 +371,10 @@ internal object WorkspaceView {
                 ),
             )
             when (item.sourceState) {
-                RelocationSourceState.BROKEN_SYMLINK ->
+                // A blocked broken link's problem line says what is missing.
+                RelocationSourceState.BROKEN_SYMLINK -> if (!item.isBlocked()) {
                     add(Line("The source link is broken: what it points to is missing.", palette.warn, false))
+                }
                 RelocationSourceState.CORRECT_SYMLINK -> add(Line("The source link already points to the target.", palette.ok, false))
                 // A link to somewhere else is blocked; its problem line names both paths.
                 RelocationSourceState.WRONG_SYMLINK, RelocationSourceState.ABSENT, RelocationSourceState.FILE,

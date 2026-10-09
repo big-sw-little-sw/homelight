@@ -21,6 +21,7 @@ import java.nio.file.Path
 import java.util.Locale
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletionException
+import java.util.concurrent.TimeUnit
 
 class LightenCommandTest {
 
@@ -388,6 +389,30 @@ class LightenCommandTest {
         assertEquals("{\"schema\":1,\"configured\":true,\"configPath\":\"/tmp/.lighten.json\"," +
             "\"relocations\":[{\"sourcePath\":\"/source\",\"targetPath\":\"/target\",\"state\":\"absent\"}]}",
             output.toString().trim())
+    }
+
+    /**
+     * `~` is the account's home directory, which the JVM reads as `user.home`, not the `HOME` variable. Only a new
+     * process shows this: `user.home` is fixed when the JVM starts.
+     */
+    @Test
+    fun tildeIsTheAccountHomeNotTheHomeVariable(@TempDir temporary: Path) {
+        val config = Files.writeString(temporary.resolve("config.json"),
+            "{\"lighten\": {\"target-root\": \"/local\", \"relocations\": [{\"source-path\": \"~/cache\", \"target-path\": \"/local/cache\"}]}}\n")
+        val elsewhere = Files.createDirectory(temporary.resolve("elsewhere"))
+        val builder = ProcessBuilder(
+            Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+            "-cp", System.getProperty("java.class.path"),
+            LightenCommand::class.java.name, "status", "--json", "--config", config.toString(),
+        ).redirectErrorStream(true)
+        builder.environment()["HOME"] = elsewhere.toString()
+        val process = builder.start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS), "status timed out")
+
+        assertEquals(0, process.exitValue(), output)
+        val home = Path.of(System.getProperty("user.home"))
+        assertTrue(output.contains("\"sourcePath\":\"${home.resolve("cache")}\""), output)
     }
 
     private data class CapturedOutput(val exitCode: Int, val output: String, val errorOutput: String)

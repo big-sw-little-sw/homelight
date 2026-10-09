@@ -65,7 +65,7 @@ internal class StagingOperation private constructor(
             }
         } catch (exception: IOException) {
             throw PartlyPublishedException(
-                target, "published $target but could not restore its permissions: ${exception.message}", exception,
+                target, "published $target but could not restore its permissions: ${ioMessage(exception)}", exception,
             )
         }
     }

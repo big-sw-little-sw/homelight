@@ -179,6 +179,21 @@ class ApplyCommandTest {
         assertEquals("target", Files.readString(target.resolve("entry")))
     }
 
+    /** A link to a disk that is not mounted looks broken. It is still a link to somewhere else, so apply keeps it. */
+    @Test
+    fun neverReplacesABrokenSourceLinkToSomewhereElse(@TempDir temporary: Path) {
+        val root = temporary.toRealPath()
+        val missing = root.resolve("nas/cache")
+        val source = Files.createSymbolicLink(Files.createDirectories(root.resolve("home")).resolve("cache"), missing)
+        val target = Files.createDirectories(root.resolve("local/cache"))
+
+        val result = apply(configuration(root, source, target))
+
+        assertEquals(1, result.exitCode, result.output)
+        assertTrue(result.output.contains("\"type\":\"blocked\""), result.output)
+        assertEquals(missing, Files.readSymbolicLink(source))
+    }
+
     @Test
     fun jsonAndNonInteractiveApplyRequireYes(@TempDir root: Path) {
         val source = root.resolve("home/cache")

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.io.IOException
+import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -263,16 +264,17 @@ class ReconciliationExecutorTest {
         Files.writeString(source.resolve("entry"), "source")
         val target = root.resolve("local/cache")
         val executor = ReconciliationExecutor(1) { at, _ ->
-            if (at == ReconciliationExecutor.Step.PUBLISHED) throw IOException("injected failure")
+            // The JDK's message for a denied access is only the path.
+            if (at == ReconciliationExecutor.Step.PUBLISHED) throw AccessDeniedException("$target")
         }
 
         val relocation = executor.execute(plan(Relocation(source, target))).relocations.single()
 
         assertEquals(ReconciliationExecutor.ExecutionOutcome.FAILED_RECOVERY, relocation.outcome())
         val failed = relocation.actions.single { it.status == ReconciliationExecutor.ActionStatus.FAILED }
-        assertEquals("published $target but could not restore its permissions: injected failure", failed.message)
+        assertEquals("published $target but could not restore its permissions: permission denied: $target", failed.message)
         assertTrue(failed.targetPublished)
-        assertEquals(ActionFailure.PermissionsNotRestored(target, "injected failure"), failed.failure)
+        assertEquals(ActionFailure.PermissionsNotRestored(target, "permission denied"), failed.failure)
         assertEquals("source", Files.readString(source.resolve("entry")))
         assertEquals("source", Files.readString(target.resolve("entry")))
         assertOnlyLockLeft(target)

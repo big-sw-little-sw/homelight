@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.application
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -123,7 +124,7 @@ class WorkspaceObservationTest {
     }
 
     @Test
-    fun loadsWarningStatusWhenBrokenSymlink(@TempDir tempDir: Path) {
+    fun blocksABrokenSourceLinkToSomewhereElseWithoutAWarning(@TempDir tempDir: Path) {
         val root = tempDir.resolve("target")
         val source = tempDir.resolve("source")
         val nonExistent = tempDir.resolve("does-not-exist")
@@ -146,8 +147,8 @@ class WorkspaceObservationTest {
 
         assertInstanceOf(ConfigurationEvaluation.Loaded::class.java, model)
         val configured = model as ConfigurationEvaluation.Loaded
-        assertEquals(PlanBadge.LINK, configured.items.first().badge())
-        assertTrue(configured.items.first().hasWarnings())
+        assertEquals(PlanBadge.BLOCKED, configured.items.first().badge())
+        assertFalse(configured.items.first().hasWarnings())
     }
 
     @Test

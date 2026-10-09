@@ -429,6 +429,8 @@ Paths:
 - Every path, including `suggestion-list`, is full, such as `/data/me`. Or
   it starts with `~/`, or it is `~`. Lighten refuses a path like `data/me`.
   The meaning of such a path depends on the folder that you run Lighten in.
+- `~` is the home directory of your account, not the `HOME` environment
+  variable.
 - `${USER}` is your user name. It is the `USER` environment variable, or
   your account name when `USER` is not set. Lighten does not fill in other
   variables, such as `$HOME`.
@@ -482,7 +484,9 @@ Lighten looks at the source and the target. Then:
   The link can belong to another program, so Lighten never replaces it.
   Details say where it points, such as `~/.cache/tool links to /data/tool,
   not to /scratch/local/tool. Remove the link, or set its target to where
-  it points.` Then press `r`.
+  it points.` Then press `r`. The link is blocked even when what it points to
+  does not exist now, for example on a disk that is not mounted. Details
+  then say so.
 - **Only the target exists:** the **Only target** rule decides.
 - **Both exist:** the **Both exist** rule decides.
 
@@ -504,7 +508,8 @@ to the source.
 - **Ask each time** (`prompt`): nothing happens until you choose
   (`[Choose]`).
 - **Keep target, ask about source** (`adopt`, `prompt`): nothing happens
-  until you choose to delete or archive the source.
+  until you choose (`[Choose]`). You get the same choices as for **Ask each
+  time**.
 - **Keep target, delete source** (`adopt`, `discard-source`): Lighten
   deletes the source and replaces it with a link to the target
   (`[Keep target]`). The source's contents are permanently gone.
