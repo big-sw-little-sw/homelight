@@ -48,13 +48,13 @@ A move copies the directory into `operation-<sha256 of the target's real spellin
 
 ### A source is replaced by its link in atomic steps
 
-Lighten renames the source to `.lighten-replaced-<name>-<sha256 of the target>`. It puts the link in its place and then deletes the renamed tree. Lighten recognizes a renamed tree only while the source links to that target, and the next plan deletes it. Why: a crash never leaves a partial source that a saved rule could treat as "both exist". (#132)
+Lighten renames the source to `.lighten-replaced-<name>-<sha256 of the target's absolute normalized path>`. It puts the link in its place and then deletes the renamed tree. Lighten recognizes a renamed tree only while the source links to that target, and the next plan deletes it. Why: a crash never leaves a partial source that a saved rule could treat as "both exist". (#132)
 
 - `[skipped: finishing an interrupted replacement while the source is absent, add when users ask why an only-target conflict follows a crash]`
 
 ### A crash between publishing and setting the source aside is left as is
 
-This crash leaves two whole directories, and the next plan reports "both exist". Why: the user decided that recovery would depend on fragile naming conventions. (B6)
+This crash leaves two whole directories, and the next plan reports "both exist". Why: the user decided that recovery would depend on fragile naming conventions. This is the crash case between publishing the target and setting the source aside, which is left as is.
 
 - `[skipped: crash recovery between copying and linking, add when users report "both exist" after an interrupted apply]`
 
@@ -342,7 +342,7 @@ These entries were replaced or are history only. They use the names of their tim
 - 2026-09-30: Relax candidate-list strictness. Replaced by JSON.
 - 2026-09-30: Run agent work through a cloud coordinator. History only.
 - 2026-10-01: Move to Kotlin and kotlinx.serialization. This is now "Kotlin on JVM 25". The migration (#40, `kotlin-migration` branch) is done.
-- 2026-10-01: Read JSON configuration strictly. Replaced by "Let kotlinx.serialization own the file format" (#79).
+- 2026-10-01: Read JSON configuration strictly. Replaced by "JSON, read and written by kotlinx.serialization" (#79).
 - 2026-10-01: Keep Java whitespace semantics for validation. Moved to `AGENTS.md` rule 10.
 - 2026-10-01: Keep threads and locks during the Kotlin migration. Moved to `AGENTS.md` rule 11. #10 chose bounded virtual threads.
 - 2026-10-04: How design and simplification decisions are made. Moved to `AGENTS.md`.

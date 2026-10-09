@@ -37,11 +37,12 @@ The direction of dependencies:
 ```text
 cli         -> application, tui, update, reconcile, config, fs
 tui         -> application, discovery, reconcile, config, fs
-update      -> application
+update      -> application, fs
 application -> reconcile, discovery, config, fs
 reconcile   -> config, fs, concurrent
-discovery   -> config, concurrent
-fs, config, concurrent -> Kotlin and JDK only
+discovery   -> config, fs, concurrent
+config      -> fs
+fs, concurrent -> Kotlin and JDK only
 ```
 
 The reconciliation core is `reconcile` and the packages below it. It never depends on `application`, `tui`, `cli` or terminal APIs. The JSON commands never start a terminal session.
@@ -88,7 +89,7 @@ Destructive actions have an explicit mark. A change never follows a symlink by a
 - **Idempotence.** The desired state of a relocation is a real target directory and a correct source symlink. When a relocation is in this state, a new plan has no actions, and a new apply is safe. `leave-unchanged` is a success on purpose. It is not the same as in sync.
 - **Fail closed.** When Lighten cannot be sure of the desired behavior, it blocks or asks. It never guesses. It never overwrites or destroys data without telling the user.
 - **`--yes` never makes a choice.** It confirms a plan only when the rules in the configuration already make all its decisions. Lighten refuses a plan with an open choice or a blocked relocation, with or without `--yes`.
-- **Exclusive ownership.** Either Lighten or an external dotfile manager owns a path, never both. Lighten owns what is placed inside a relocated tree. Other dotfiles stay with tools such as Stow. Lighten finds ownership from the filesystem state and the configured source roots, never from the internals of a manager. Thus it works the same for chezmoi, yadm or a plain Git checkout. Lighten never replaces an existing link into an external source root without telling the user.
+- **Exclusive ownership.** Either Lighten or an external dotfile manager owns a path, never both. Lighten owns what is placed inside a relocated tree. Other dotfiles stay with tools such as Stow. Lighten does not detect which tool owns a link. Instead, the planner blocks each source link that points somewhere other than its target, and no rule or choice replaces it. Thus it works the same for chezmoi, yadm, Stow or a plain Git checkout. Detection of the tool that owns a link is planned for a later version.
 
 ## Native Image
 
@@ -116,5 +117,5 @@ The tests make sure that these invariants stay true:
 - `--yes` does not make a choice that is still open.
 - A new plan after a relocation is in sync has no actions.
 - Changes do not follow symlinks unexpectedly.
-- Lighten does not replace a path that an external source root owns without telling the user.
+- A source link that points somewhere other than its target is blocked, never replaced.
 - Lighten supports managed links inside trees that it relocated.

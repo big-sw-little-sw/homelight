@@ -437,7 +437,7 @@ heading, and its action rows are under it. This is the same layout as the apps
 in Browse (see section 8, Browse). Summary: `5 planned changes · 2 delete or
 replace data`. When the plan has changes, `y` confirms it. `n`/Esc/`1` cancel
 and keep the Workspace state. A plan with no changes says `No changes to
-apply`. It has no confirmation, and Enter/`1`/Esc go back.
+apply.` It has no confirmation, and Enter/`1`/`n`/Esc go back.
 
 ```
 ┏Plan━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
