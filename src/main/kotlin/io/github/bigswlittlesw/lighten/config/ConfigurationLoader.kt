@@ -15,10 +15,10 @@ import java.nio.file.Path
  * Loads one JSON configuration rooted at `lighten`.
  *
  * kotlinx.serialization owns the format; see [decodeJson] for what it rejects. This class applies the domain
- * rules: paths must not be blank, expand `~`, `~/` and `${USER}`, then become absolute and normalized; a
- * missing target is the source's path under `source-root` (default `~`) placed under `target-root`; a missing
- * archive root is [defaultArchiveRoot]; staging-root must be under target-root; relocations must not overlap
- * through a symlink ([aliasedRelocationProblem]); a relocation's source must not also be ignored. Environment variables and system properties never override values.
+ * rules: every path, `suggestion-list` included, follows [resolvePath]; a missing target is the source's path under
+ * `source-root` (default `~`) placed under `target-root`; a missing archive root is [defaultArchiveRoot];
+ * staging-root must be under target-root; a relocation's source must not also be ignored. Overlapping relocations
+ * load: the planner blocks the ones involved. Environment variables and system properties never override values.
  */
 class ConfigurationLoader {
     /**
@@ -81,17 +81,14 @@ class ConfigurationLoader {
             relocation(fields, "lighten.relocations[$i]", sourceRoot, targetRoot, stagingRoot, if (i == 0) override else null)
         }.ifEmpty {
             listOfNotNull(override?.let {
-                Relocation(overridden(it.sourcePath), overridden(it.targetPath), stagingRoot = stagingRoot)
+                Relocation(overridden(it.sourcePath, SOURCE_OPTION), overridden(it.targetPath, TARGET_OPTION), stagingRoot = stagingRoot)
             })
         }
-        aliasedRelocationProblem(relocations)?.let { problem -> throw ConfigurationException(problem.message) }
         val ignoredSourcePaths = lighten.ignoredSourcePaths.mapIndexed { i, value ->
             resolvePath(value, "lighten.ignored-source-paths[$i]")
         }
         ignoredRelocationProblem(relocations, ignoredSourcePaths)?.let { throw ConfigurationException(it) }
-        val sharedList = lighten.suggestionList?.let { value ->
-            convert("lighten.suggestion-list") { parseSharedList(value) }
-        }
+        val sharedList = lighten.suggestionList?.takeUnless { it.isJavaBlank() }?.let { resolvePath(it, "lighten.suggestion-list") }
         return LightenConfiguration.of(targetRoot, relocations, ignoredSourcePaths, sharedList)
     }
 
@@ -99,8 +96,8 @@ class ConfigurationLoader {
         fields: RelocationFile, key: String, sourceRoot: Path, targetRoot: Path, stagingRoot: Path?,
         override: PathOverride?,
     ): Relocation {
-        val sourcePath = override?.let { overridden(it.sourcePath) } ?: resolvePath(fields.sourcePath, "$key.source-path")
-        val targetPath = override?.let { overridden(it.targetPath) }
+        val sourcePath = override?.let { overridden(it.sourcePath, SOURCE_OPTION) } ?: resolvePath(fields.sourcePath, "$key.source-path")
+        val targetPath = override?.let { overridden(it.targetPath, TARGET_OPTION) }
             ?: fields.targetPath?.let { resolvePath(it, "$key.target-path") }
             ?: derivedTarget(sourceRoot, targetRoot, sourcePath)
             ?: throw ConfigurationException(
@@ -142,7 +139,7 @@ class ConfigurationLoader {
  */
 internal fun resolvePath(value: String, name: String): Path {
     if (value.isJavaBlank()) throw ConfigurationException(PathText("$name must not be blank"))
-    return convert(name) { expand(value).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
+    return convert(name) { expand(value, name).also { require(it.isAbsolute) { FULL_PATH } }.normalize() }
 }
 
 /**
@@ -186,8 +183,8 @@ private fun <T> convert(key: String, conversion: () -> T): T = try {
     throw ConfigurationException(PathText("$key: ${(exception as? InvalidPathException)?.reason ?: exception.message}"))
 }
 
-private fun expand(value: String): Path {
-    val substituted = value.replace("\${USER}", System.getenv("USER").orEmpty())
+private fun expand(value: String, name: String): Path {
+    val substituted = withUser(value, name)
     val expanded = when {
         substituted == "~" -> System.getProperty("user.home")
         substituted.startsWith("~/") -> System.getProperty("user.home") + substituted.substring(1)
@@ -196,8 +193,36 @@ private fun expand(value: String): Path {
     return Path.of(expanded)
 }
 
+/**
+ * [value] with each `${USER}` replaced by [user], the user name. It is never replaced with empty text: without a name,
+ * a path that uses it is refused, naming the setting [name].
+ */
+internal fun withUser(value: String, name: String, user: String? = userName()): String {
+    if (USER_VARIABLE !in value) return value
+    if (user == null) {
+        throw ConfigurationException(
+            PathText("$name uses $USER_VARIABLE, but Lighten can't find your user name: the USER environment variable " +
+                "is not set and the system gives none. Write the name instead."),
+        )
+    }
+    return value.replace(USER_VARIABLE, user)
+}
+
+/**
+ * The `USER` environment variable, or when it is unset or empty, the OS account name. The JVM reads `user.name`
+ * from the OS user database, so it works in a native image and where a service or container leaves `USER` unset.
+ */
+internal fun userName(
+    environment: String? = System.getenv("USER"), account: String? = System.getProperty("user.name"),
+): String? = environment?.takeUnless { it.isEmpty() } ?: account?.takeUnless { it.isEmpty() }
+
+private const val USER_VARIABLE = "\${USER}"
+
 /** A command-line override: unlike the file, it may be relative to where the command runs. */
-private fun overridden(path: Path): Path = expand(path.toString()).toAbsolutePath().normalize()
+private fun overridden(path: Path, name: String): Path = expand(path.toString(), name).toAbsolutePath().normalize()
+
+private const val SOURCE_OPTION = "--source-path"
+private const val TARGET_OPTION = "--target-path"
 
 /** A configuration file as read: its contents, and its bytes for [ConfigurationPublisher.replace]. */
 internal class LoadedFile(val file: LightenFile, val bytes: ByteArray)
@@ -221,7 +246,7 @@ internal data class LightenFile(
     @SerialName("source-root") val sourceRoot: String = DEFAULT_SOURCE_ROOT,
     @SerialName("target-root") val targetRoot: String,
     @SerialName("staging-root") val stagingRoot: String? = null,
-    /** A blank one means none; see [parseSharedList]. */
+    /** A blank one means none. */
     @SerialName("suggestion-list") val suggestionList: String? = null,
     val relocations: List<RelocationFile> = listOf(),
     @SerialName("ignored-source-paths") val ignoredSourcePaths: List<String> = listOf(),

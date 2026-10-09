@@ -419,8 +419,11 @@ private fun createRealDirectory(path: Path) {
     if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) throw notRealDirectory(path)
 }
 
-/** Follows a symlink at the nearest existing component, as [ensureDirectories] would. */
-private fun fileStoreOfExistingAncestor(path: Path): FileStore {
+/**
+ * Follows a symlink at the nearest existing component, as [ensureDirectories] would. Inspection uses it too, so the
+ * plan-time staging check ([stagingElsewhere]) and the copy-time one compare the same stores.
+ */
+internal fun fileStoreOfExistingAncestor(path: Path): FileStore {
     val existing = generateSequence(path.toAbsolutePath().normalize()) { it.parent }
         .firstOrNull { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
         ?: throw IOException("no existing ancestor for $path")

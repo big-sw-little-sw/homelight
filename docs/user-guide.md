@@ -359,7 +359,9 @@ Everything goes under `"lighten"`:
 - `staging-root` (default: a `.lighten-staging` folder beside each
   target): where Lighten copies a directory before it puts the copy in
   place. It must be inside `target-root`, on the same disk as the targets.
-  Configuration does not show it, but keeps it when it saves.
+  A relocation to move whose target is on another disk is `[Blocked]`
+  until you fix it. Configuration does not show it, but keeps it when it
+  saves.
 - `suggestion-list` (default: none): your own suggestion list, as **Write
   your own list** describes. Empty text means none.
 - `relocations` (default: none): the directories Lighten manages. It
@@ -389,12 +391,12 @@ that has its default value.
 
 Paths:
 
-- Every path is full, such as `/data/me`, or starts with `~/`. Lighten
-  refuses a path like `data/me`, because its meaning would depend on the
-  folder you run Lighten in.
-- `${USER}` is your user name, taken from the `USER` environment
-  variable. Other variables, such as `$HOME`, are not filled in. The
-  `suggestion-list` path can't use `${USER}`.
+- Every path, `suggestion-list` too, is full, such as `/data/me`, or
+  starts with `~/`, or is `~`. Lighten refuses a path like `data/me`,
+  because its meaning would depend on the folder you run Lighten in.
+- `${USER}` is your user name: the `USER` environment variable, or your
+  account name when `USER` is not set. Other variables, such as `$HOME`,
+  are not filled in.
 - Configuration keeps `~/` and `${USER}` as you typed them.
 
 The file is JSON, with two additions: comments (`//` and `/* */`) and a
@@ -413,14 +415,15 @@ can't read your configuration** describes:
 - a path that is not full and does not start with `~/`;
 - a `staging-root` outside `target-root`, or a source outside
   `source-root` with no `target-path`;
-- a directory that is both a relocation and ignored;
-- two relocations whose paths overlap through a link, such as `/home`
-  linking to `/var/home`.
+- a directory that is both a relocation and ignored.
 
-When two relocations overlap as written, one inside the other or with the
-same target, Lighten reads the file but plans nothing: every relocation is
-`[Blocked]` until you fix it. So is a relocation whose source and target
-overlap.
+When two relocations overlap, one inside the other or with the same
+target, Lighten reads the file and marks both `[Blocked]`. Each one's
+Details name the other, such as `~/a contains ~/a/b, which is also a
+relocation`. The other relocations are planned as usual, but nothing is
+applied until you fix it. Paths that are the same place through a link,
+such as `/home` linking to `/var/home`, count as overlapping too. A
+relocation whose source and target overlap is `[Blocked]` on its own.
 
 ### What each rule does on disk
 
@@ -509,7 +512,8 @@ Screens and messages show your home directory as `~`. JSON output shows
 every path in full.
 
 `apply --json` needs `--yes`, which confirms the plan the command makes.
-Without `--json`, `apply` opens the Review screen, with or without `--yes`.
+Without `--json`, `status`, `plan` and `apply` open Lighten as `lighten`
+does, starting on the Workspace, with or without `--yes`.
 
 Every response is a JSON object that starts with `"schema": 1`. The number
 changes when the output changes in a way that could break a script.

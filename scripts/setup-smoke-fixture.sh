@@ -93,58 +93,53 @@ printf 'Smoke fixture: %s\n' "$fixture_root"
 printf 'Configuration: %s\n\n' "$config_path"
 printf 'First-run configuration path (intentionally absent): %s\n' "$first_run_config"
 printf 'First-run source: %s\nFirst-run target: %s\n\n' "$first_run_source" "$first_run_target"
-printf 'First-run walkthrough:\n'
-printf '  ./lighten init --config %q\n' "$first_run_config"
-printf '  Source root defaults to your home directory. Clear it with Ctrl-U, then enter:\n'
+printf 'First run:\n'
+printf '  ./lighten --config %q\n' "$first_run_config"
+printf '  The Workspace says there is no configuration file yet. Press i to open Configuration.\n'
+printf '  (./lighten config --config %q opens it directly.)\n' "$first_run_config"
+printf '  Select Storage locations and press Enter. Clear Source root with Ctrl-U, then enter:\n'
 printf '    Source root: %s\n    Target root: %s\n' "$first_run_root/home" "$first_run_root/local"
-printf '  Leave Shared candidate list blank for bundled-only discovery, or use:\n    %s\n' "$candidate_list"
-printf '  Press Enter for Relocations. a adds a manual row; enter: manual-cache\n'
-printf '  Esc returns to the table. b browses candidates; Enter expands an app or inspects a directory.\n'
-printf '  Space or a adds the focused [ ] directory directly in the list; [x] means already in the draft.\n'
-printf '  e edits an existing draft row. Enter still inspects; app headings never add children.\n'
-printf '  u reveals/hides usually-unnecessary directories. In-draft rows remain visible.\n'
-printf '  Add team-cache, edit its target, then replace the temporary list and press r in the browser:\n'
+printf '  Leave Suggestion list empty for the built-in list only, or use:\n    %s\n' "$candidate_list"
+printf '  Esc returns to the list. a adds a relocation you type; enter: %s\n' "$first_run_source"
+printf '  b opens Browse. Space adds the selected directory (○ becomes ●) or takes it out again.\n'
+printf '  Space on a category or app name adds every directory under it. Enter shows which lists suggest it.\n'
+printf '  u shows directories marked usually not needed; f shows only those found on this machine.\n'
+printf '  Add team-cache, press e to change its target, then replace your list and press r in Browse:\n'
 printf '    cp %q %q\n' "$first_run_root/shared-refreshed.json" "$candidate_list"
-printf '  The selected row and edits remain, with historical attribution. i shows full source diagnostics.\n'
-printf '  Esc steps back to the table. e edits locations; q confirms discard. v validates; s saves.\n'
-printf '  Save creates only %s and opens the workspace. Press 2 to review, Esc to cancel;\n' "$first_run_config"
-printf '  no relocation is applied until lowercase y confirms a reviewed plan.\n'
-printf '  For this candidate walkthrough, exit with q from Workspace without applying.\n'
-printf '  To verify cancellation instead, run ./lighten status --config %q, press i, then Esc;\n' "$first_run_root/cancel.json"
+printf '  i shows each list in full. Esc returns to Configuration. s saves, after asking for an existing file.\n'
+printf '  Saving writes only %s, then shows the Workspace and checks again.\n' "$first_run_config"
+printf '  Nothing on disk changes until you press a to review and y to apply. q quits without applying.\n'
+printf '  To check that quitting saves nothing: ./lighten config --config %q, then q (and y if it asks);\n' "$first_run_root/cancel.json"
 printf '  test ! -e %q\n\n' "$first_run_root/cancel.json"
-printf 'Top-level command (opens Status):\n'
+printf 'Every command without --json opens the same Workspace:\n'
 printf '  ./lighten --config %q\n' "$config_path"
-printf '\nIndividual TUI commands (apply opens Plan for review):\n'
 printf '  ./lighten status --config %q\n' "$config_path"
 printf '  ./lighten plan --config %q\n' "$config_path"
 printf '  ./lighten apply --config %q\n' "$config_path"
-printf '\nSlow execution for inspecting spinners, action following, and progress:\n'
+printf '\nSlow steps, to watch the spinner and each step as it runs:\n'
 printf '  ./lighten --debug-step-delay-ms 3000 --config %q\n' "$config_path"
-printf '  ./lighten status --debug-step-delay-ms 3000 --config %q\n' "$config_path"
-printf '  ./lighten plan --debug-step-delay-ms 3000 --config %q\n' "$config_path"
-printf '  ./lighten apply --debug-step-delay-ms 3000 --config %q\n' "$config_path"
-printf '  The delay applies to mutating actions after confirmation, not startup.\n'
+printf '  The delay applies to each change after you press y, not to start-up.\n'
 printf '\nWalkthrough:\n'
-printf '  1. From Workspace, press 2 to open Review.\n'
-printf '  2. Select conflict-cache; press Right or Tab to enter its choices.\n'
-printf '     Choose "Adopt target and discard source" with Space or Enter.\n'
-printf '  3. Press 2 or a from either Workspace pane to open Review confirmation.\n'
-printf '     Inspect actions with Up/Down. Press n or Esc to cancel, or y to apply.\n'
-printf '  4. The cursor and details follow running actions. Leaving is disabled during execution.\n'
-printf '  5. Results stay visible. Press Enter for refreshed Workspace, or r to re-plan.\n'
-printf '     An unchanged plan shows "No changes to apply" without another confirmation.\n'
-printf '\nJSON automation (no TUI or visual delay):\n'
+printf '  1. The Workspace lists conflict-cache first, marked [Choose]. Select it and press Tab.\n'
+printf '     Pick "Keep target, delete source" and press Enter: it is marked ●.\n'
+printf '  2. Press a to review every step. Up/Down selects a relocation or a step; Details say what it does.\n'
+printf '     Press n to go back, or y to apply.\n'
+printf '  3. Each step shows as it runs. q during the run finishes the changes first, then exits.\n'
+printf '  4. Results show whether each step worked. Press r to check again: the Workspace then shows\n'
+printf '     each relocation as it is now, normally [In sync].\n'
+printf '  The choice is for this apply only. To always do it, press s on the row to save it as its rule.\n'
+printf '\nJSON for scripts (no screen, no delay):\n'
 printf '  ./lighten status --config %q --json\n' "$config_path"
 printf '  ./lighten plan --config %q --json\n' "$config_path"
 printf '  ./lighten apply --config %q --json --yes\n' "$config_path"
-printf '  The fresh fixture deliberately has an unresolved conflict; JSON apply refuses it.\n'
-printf '  --yes does not resolve decisions. TUI choices are session-local, not saved to the configuration.\n'
-printf '\nAfter apply, verify converged staged publication:\n'
+printf '  The fresh fixture has a choice to make (conflict-cache), so apply --json prints the plan and changes nothing.\n'
+printf '  --yes confirms the plan; it does not make choices. Choices on screen are not saved unless you press s.\n'
+printf '\nAfter applying, check the moved directory:\n'
 printf '  test -d %q && test -f %q && test -L %q && test "$(readlink %q)" = %q\n' \
   "$target_root/stage-cache" "$target_root/stage-cache/entry" "$home_root/stage-cache" \
   "$home_root/stage-cache" "$target_root/stage-cache"
 printf '  test -z "$(find %q -mindepth 1 -print -quit)"\n' "$target_root/.lighten-staging"
-printf '\nAfter completing the walkthrough, reopen Apply to inspect the unchanged plan:\n'
-printf '  ./lighten apply --config %q\n' "$config_path"
-printf '  If you left conflict-cache unchanged instead of adopting it, a new session asks again.\n'
-printf '\nRun this script again to create a fresh fixture for another full walkthrough.\n'
+printf '\nThen open Lighten again: every relocation is [In sync] or [Left as is].\n'
+printf '  ./lighten --config %q\n' "$config_path"
+printf '  If you left conflict-cache as it was, it is [Choose] again.\n'
+printf '\nRun this script again for a fresh fixture.\n'

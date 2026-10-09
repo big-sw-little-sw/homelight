@@ -63,7 +63,8 @@ class HomePathTest {
             "Stop ignoring ~/.cache/ignored?",
             "rm ~/.cache/synced",
             "Replace ~/.lighten.json?",
-            "relocation paths overlap: ~/.cache/a and ~/.cache/b",
+            "~/.cache/a contains ~/.cache/a/b, the target of ~/.cache/b",
+            "~/.cache/a/b is inside ~/.cache/a, which is also a relocation",
             "Copy from: ~/.cache/piped",
             "~/.cache/piped/sub/ipc is a named pipe",
             "Your list · ~/team.json",
@@ -184,7 +185,7 @@ class HomePathTest {
         screens
     }
 
-    /** Overlapping relocations: the plan's diagnostic names both. */
+    /** Overlapping relocations: each blocked row names the other. */
     private fun overlapping(): List<String> {
         Files.createDirectories(home.resolve(".cache/a/b"))
         val config = Files.writeString(home.resolve("overlap.json"), """
