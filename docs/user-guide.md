@@ -439,7 +439,7 @@ Lighten looks at the source and the target, then:
 - **The source links somewhere else:** nothing (`[Blocked]`). The link may
   belong to another program, so Lighten never replaces it. Details say
   where it points, such as `~/.cache/tool links to /data/tool, not to
-  /scratch/local/tool. Remove the link, or set target-path to where it
+  /scratch/local/tool. Remove the link, or set its target to where it
   points.` Then press `r`.
 - **Only the target exists:** the **Only target** rule decides.
 - **Both exist:** the **Both exist** rule decides.

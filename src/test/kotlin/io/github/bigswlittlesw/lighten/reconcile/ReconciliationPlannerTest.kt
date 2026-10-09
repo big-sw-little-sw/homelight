@@ -287,7 +287,7 @@ class ReconciliationPlannerTest {
             assertFalse(plan.hasConflicts())
             assertEquals(listOf(ReconciliationAction.Blocked::class), plan.actions().map { it::class })
             assertEquals(
-                "$source links to $other, not to $target. Remove the link, or set target-path to where it points",
+                "$source links to $other, not to $target. Remove the link, or set its target to where it points",
                 blockReason(plan, 0),
             )
         }

@@ -218,7 +218,7 @@ private fun notAFolderReason(inTheWay: RelocationState.NotAFolder): PathText {
 private fun wrongLinkReason(state: RelocationState): PathText = PathText(
     // A wrong link is a symlink observation, which always has a link target.
     state.relocation.sourcePath, " links to ", state.source.symlinkTarget!!, ", not to ", state.relocation.targetPath,
-    ". Remove the link, or set target-path to where it points",
+    ". Remove the link, or set its target to where it points",
 )
 
 private fun migrateSourceForPublication(state: RelocationState): RelocationPlan {

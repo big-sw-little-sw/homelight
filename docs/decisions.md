@@ -16,7 +16,7 @@ The TUI keeps the plan shown in Review. Preflight checks its expected states bef
 
 Lighten relocates directories; a source that is a file is blocked. It keeps no record of what it did: an already-correct link is recognized from the disk, and adopting or replacing anything else needs a rule or a choice. Why: no recovery, staleness or lifecycle state to get wrong. (2026-09-08)
 
-A source link to somewhere other than its target is blocked, never replaced, and no rule or choice offers to: it may belong to another tool. The reason names where it links and both fixes: remove the link, or set `target-path` to where it points. `plan --json` shows it as a `blocked` action with that reason, not a conflict. Why: it used to be a conflict that offered no choice. (#223)
+A source link to somewhere other than its target is blocked, never replaced, and no rule or choice offers to: it may belong to another tool. The reason names where it links and both fixes: remove the link, or set its target to where it points, which reads right whether the fix is made in Configuration or in the file. `plan --json` shows it as a `blocked` action with that reason, not a conflict. Why: it used to be a conflict that offered no choice. (#223)
 
 - `[skipped: naming which tool owns the link, add with #5]`
 

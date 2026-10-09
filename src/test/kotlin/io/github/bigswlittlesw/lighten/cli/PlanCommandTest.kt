@@ -112,7 +112,7 @@ class PlanCommandTest {
         )
         val link = root.resolve("home/link")
         val blocked = "{\"type\":\"blocked\",\"path\":\"$link\",\"destructive\":false,\"reason\":\"$link links to " +
-            "${root.resolve("local/elsewhere")}, not to ${root.resolve("local/link")}. Remove the link, or set target-path " +
+            "${root.resolve("local/elsewhere")}, not to ${root.resolve("local/link")}. Remove the link, or set its target " +
             "to where it points\"}"
         assertTrue(out.toString().contains("\"outcome\":\"unresolved\",\"diagnostics\":[],\"actions\":[$blocked]}"), out.toString())
         assertTrue(out.toString().startsWith("{\"schema\":1,\"blocked\":true,\"conflicts\":true,"), out.toString())

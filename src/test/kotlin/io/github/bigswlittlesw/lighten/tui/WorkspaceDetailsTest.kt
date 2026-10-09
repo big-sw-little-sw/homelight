@@ -165,7 +165,7 @@ class WorkspaceDetailsTest {
         assertTrue(details.contains("Will do: nothing until you fix the problem below, then check again."), details)
         assertTrue(squeezed(details).contains(squeezed(
             "Problem: $source links to $other, not to ${root.resolve("local/elsewhere")}. Remove the link, or set " +
-                "target-path to where it points.",
+                "its target to where it points.",
         )), details)
         assertTrue(squeezed(details).contains(squeezed("Current link destination: $other")), details)
         assertFalse(details.contains("○") || details.contains("●"), details)
