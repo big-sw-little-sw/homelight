@@ -1,8 +1,8 @@
 package io.github.bigswlittlesw.lighten.update
 
 /**
- * A release version, `<major>.<minor>.<patch>[-<pre-release>]`, as a release tag carries it after the `v`. The
- * pattern is the release workflow's, so every published version parses.
+ * A release version, `<major>.<minor>.<patch>[-<pre-release>]`, as a release tag carries it after the `v`.
+ * `.github/workflows/release.yml` checks tags with the same pattern, so every published version parses.
  *
  * Ordered by semver precedence: `1.0.0-rc.1` < `1.0.0` < `1.0.1`.
  */

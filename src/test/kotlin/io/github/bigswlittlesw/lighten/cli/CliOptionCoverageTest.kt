@@ -15,8 +15,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Every option of every command, as the CLI accepts or rejects it today: the parity bar for replacing the parser
- * (#70). Each case records the exit code and a line of output that shows the option took effect.
+ * Every option of every command, as the CLI accepts or rejects it today. A replacement for picocli must pass these
+ * cases unchanged. Each case records the exit code and a line of output that shows the option took effect.
  *
  * Commands that open the TUI cannot run here: stdin is not a terminal, so they exit 2 with [NOT_A_TERMINAL]. That
  * outcome still shows the options parsed, as opposed to a usage error. `ci/native/test.sh` proves end to end that

@@ -13,7 +13,7 @@ internal fun renderApplyJson(result: ApplyModel.Result, output: PrintWriter) {
         renderApplyJson(execution, output)
         return
     }
-    // Preserve known action evidence without inventing an execution or implying zero mutation.
+    // There is no execution result. Report the known step results, without inventing one or implying nothing changed.
     val relocations = result.plan.relocations.map { relocation ->
         ReconciliationExecutor.RelocationExecution(
             relocation,

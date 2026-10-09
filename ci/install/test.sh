@@ -8,7 +8,7 @@
 # container serves them at the paths GitHub uses, plus copies whose binaries do not match
 # SHA256SUMS, are missing or do not run. scenarios.sh runs install.sh against them through LIGHTEN_INSTALL_BASE_URL.
 # Needs docker on a host of the given architecture (or an emulating one such as OrbStack).
-# Exit status is non-zero when any distro fails.
+# Exit status is non-zero when any distribution fails.
 set -u
 
 arch=${1:?usage: test.sh <x86_64|arm64> <assets-dir>}
