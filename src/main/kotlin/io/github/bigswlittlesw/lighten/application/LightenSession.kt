@@ -92,6 +92,10 @@ class LightenSession(
     @Synchronized
     fun executionSettled(): Boolean = execution.isDone
 
+    /** An apply is running or has not settled yet ([executionSettled]); nothing else may start until it has. */
+    @Synchronized
+    fun isBusy(): Boolean = isApplying() || !executionSettled()
+
     /** Captures the current plan without reloading it or touching the filesystem. */
     @Synchronized
     fun requestApply(): Boolean {
