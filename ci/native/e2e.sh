@@ -605,6 +605,41 @@ mkdir -p "$results/parity"
 cp "$C"/*.* "$results/parity/"
 rm -rf "$short"
 
+# --- a user with no account entry
+
+# The static musl binary cannot find a user who comes from LDAP or SSSD, so the JVM sets user.home
+# to "?". A uid with no passwd entry does the same on any libc. Lighten then takes the home
+# directory from HOME: ~ in the file, and Configuration on the first run (setup.exp).
+stranger=12345
+if ! sudo -n true 2> /dev/null || ! command -v setpriv > /dev/null; then
+  skip no-account "needs passwordless sudo and setpriv to run as another uid"
+elif getent passwd $stranger > /dev/null; then
+  skip no-account "uid $stranger has a passwd entry"
+else
+  # Under /tmp, because the runner's home may not be open to other users.
+  short=$(mktemp -d /tmp/lighten-e2e.XXXXXX)
+  begin no-account "a uid with no passwd entry: ~ is HOME, and Configuration opens on the first run" "$short"
+  mkdir -p "$H/app" "$H/.cache/JetBrains"
+  cp "$binary" "$C/lighten"
+  printf '{"lighten": {"target-root": "%s", "relocations": [{"source-path": "~/app"}]}}\n' "$L" > "$C/config.json"
+  chmod -R a+rwX "$short"
+  as_stranger="sudo -n setpriv --reuid=$stranger --regid=$stranger --clear-groups env HOME=$H TERM=xterm-256color"
+  check "uid $stranger has no account name" [ -z "$($as_stranger id -un 2> /dev/null)" ]
+  out=$C/plan.json
+  $as_stranger "$C/lighten" -c "$C/config.json" plan --json > "$out" 2> "$out.err" < /dev/null
+  status=$?
+  check "plan exits 0 (exit $status: $(head -c 300 "$out.err"))" exits 0
+  check "~ is HOME, got $(jq -c '.relocations[0] | [.source, .target]' "$out" 2> /dev/null)" \
+    j --arg s "$H/app" --arg t "$L/app" '.relocations[0].source == $s and .relocations[0].target == $t'
+  line=$(expect "$here/setup.exp" "$C/setup.log" "$H" "$L" $as_stranger "$C/lighten" -c "$C/new.json" init); tui=$?
+  check "Configuration opens and browses the built-in list ($line)" [ $tui -eq 0 ]
+  check "Configuration wrote no file" [ ! -e "$C/new.json" ]
+  end
+  mkdir -p "$results/no-account"
+  cp "$C"/*.json "$C"/*.err "$C"/*.log "$results/no-account/" 2> /dev/null
+  sudo -n rm -rf "$short"
+fi
+
 # --- summary
 
 echo "e2e: $(cut -f1 "$matrix" | sort | uniq -c | awk '{printf "%s %s, ", $2, $1}' | sed 's/, $//')"

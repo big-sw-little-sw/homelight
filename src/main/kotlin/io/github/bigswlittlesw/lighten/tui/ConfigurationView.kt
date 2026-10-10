@@ -686,8 +686,8 @@ internal class ConfigurationView private constructor(
 private data class BuiltInSuggestions(val count: Int, val examples: List<String>)
 
 private val builtIn: BuiltInSuggestions by lazy {
-    // The root only places the paths; the count and the apps are the same under any root.
-    val definitions = CandidateCatalog.bundled(Path.of(System.getProperty("user.home"))).definitions
+    // The root only places the paths; the count and the apps are the same under any root, so this needs no home.
+    val definitions = CandidateCatalog.bundled(Path.of("/")).definitions
     BuiltInSuggestions(
         definitions.map { it.sourcePath }.distinct().size,
         definitions.filter { it.category != null }.distinctBy { it.category }.mapNotNull { it.app }.take(EXAMPLE_APPS),

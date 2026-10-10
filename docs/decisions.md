@@ -160,7 +160,11 @@ The configuration and the suggestion lists are JSON, with `//` and `/* */` comme
 
 ### Paths are full or start with `~/`, and stay as written
 
-After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `~` is the account's home directory (`user.home`), not `$HOME`. `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the directory where Lighten runs. (#114, #207)
+After Lighten fills in `${USER}`, each path in the file must be `~`, a full path, or a path that starts with `~/`. This includes `suggestion-list`. Lighten refuses a relative path. `~` is the home directory (see below). `${USER}` is the `USER` variable or, if that is not set, the OS account name. If neither is available, Lighten refuses a path that uses `${USER}`, and never replaces it with empty text. Paths expand only when Lighten converts them to domain types, so a saved file keeps `~` and `${USER}`. `source-root` is `~` by default. If a relocation gives no target, Lighten derives the target from the source's place under the source root. Why: a relative path would depend on the directory where Lighten runs. (#114, #207)
+
+### The home directory comes from `HOME`
+
+The home directory, which `~` names and which holds `.lighten.json`, is the `HOME` variable when it is a full path. Else it is the JVM's `user.home` when that is a full path. Else Lighten stops and tells the user to set `HOME`. It does not guess. One function gives the home directory to all of Lighten. Why: the shell and other tools use `HOME`. Also, the static musl x86_64 binary cannot find a user who comes from LDAP or SSSD, so the JVM sets `user.home` to `?`. This replaces the earlier rule that `~` is `user.home`. (#243)
 
 ### One editor for creating and editing
 

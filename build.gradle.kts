@@ -68,6 +68,9 @@ tasks.processResources {
 
 tasks.test {
     useJUnitPlatform()
+    // HOME comes before user.home, so without this a test that sets user.home to a temporary home would not see it.
+    // A test that needs HOME starts a process with it.
+    environment.remove("HOME")
 }
 
 application {

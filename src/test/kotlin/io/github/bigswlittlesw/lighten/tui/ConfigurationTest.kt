@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.lighten.application.ConfigurationEvaluation
 import io.github.bigswlittlesw.lighten.application.LightenSession
 import io.github.bigswlittlesw.lighten.config.CandidateCatalog
 import io.github.bigswlittlesw.lighten.config.ConfigurationLoader
+import io.github.bigswlittlesw.lighten.config.NO_HOME
 import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
 import io.github.bigswlittlesw.lighten.config.WhenAdoptingTarget
 import io.github.bigswlittlesw.lighten.config.WhenSourceAndTargetDirectoriesExist
@@ -73,6 +74,28 @@ class ConfigurationTest {
         assertTrue(ui.screen(240, 50).contains("Saved."))
         ui.press('r')
         assertFalse(ui.screen(240, 50).contains("Saved."))
+    }
+
+    /**
+     * On the first run, `i` opens Configuration even when `user.home` is `?`, as the static musl binary sets it for a
+     * user from LDAP or SSSD. The built-in suggestions need no home; the source root `~` shows how to fix it. Tests
+     * run without `HOME`, so `user.home` decides here.
+     */
+    @Test fun createOpensWithoutAHomeDirectory() {
+        val config = temporary.resolve("new/config.json")
+        val real = System.getProperty("user.home")
+        System.setProperty("user.home", "?")
+        try {
+            val ui = HeadlessTui(LightenSession(config))
+            ui.press('i')
+
+            val screen = ui.screen(240, 50)
+            assertEquals("config-target-root", ui.focused(), screen)
+            assertFalse(screen.contains("Internal error"), screen)
+            assertTrue(squeezed(screen).contains(squeezed(NO_HOME)), screen)
+        } finally {
+            System.setProperty("user.home", real)
+        }
     }
 
     /** `e` opens the file as it is; `s` asks before replacing it and keeps what the editor does not show. */
@@ -507,4 +530,6 @@ class ConfigurationTest {
         }}
         """.trimIndent(),
     )
+
+    private fun squeezed(text: String) = text.replace(Regex("[\\s║│┃]+"), "")
 }

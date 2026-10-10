@@ -37,8 +37,16 @@ class LightenCommand : Callable<Int> {
         names = ["--config", "-c"], description = ["Path to configuration file."],
         scope = CommandLine.ScopeType.INHERIT,
     )
-    var config: Path = ConfigurationLoader.DEFAULT_PATH
-        private set
+    private var configOption: Path? = null
+
+    /**
+     * The `--config` path, else [ConfigurationLoader.DEFAULT_PATH].
+     *
+     * It reads the default path even with `--config`, because Lighten compares paths with it and expands `~`. So a
+     * command that reads a configuration stops at once with the user error when there is no home directory.
+     */
+    val config: Path
+        get() = ConfigurationLoader.DEFAULT_PATH.let { default -> configOption ?: default }
 
     @Option(
         names = ["--debug-step-delay-ms"], hidden = true, scope = CommandLine.ScopeType.INHERIT,

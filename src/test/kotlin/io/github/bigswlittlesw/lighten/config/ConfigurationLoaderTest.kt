@@ -533,6 +533,22 @@ class ConfigurationLoaderTest {
         )
     }
 
+    /**
+     * Without a home directory, `~` is refused with words that tell the user to set `HOME`; a full path still loads.
+     * Tests run without `HOME`, so `user.home` decides here.
+     */
+    @Test fun withoutAHomeDirectoryTildeIsAUserError() {
+        val real = System.getProperty("user.home")
+        System.setProperty("user.home", "?")
+        try {
+            assertEquals(NO_HOME, assertThrows<ConfigurationException> { ConfigurationLoader.DEFAULT_PATH }.text.toString())
+            assertEquals(NO_HOME, shownFailure("""{"lighten": {"target-root": "~/local"}}"""))
+            assertEquals(Path.of("/local"), load("""{"lighten": {"target-root": "/local", "source-root": "/home/me"}}""").targetRoot)
+        } finally {
+            System.setProperty("user.home", real)
+        }
+    }
+
     private fun load(json: String): LightenConfiguration = ConfigurationLoader().load(write(json))
 
     /** The failure as the screen and the CLI show it, with `~` for home. */
