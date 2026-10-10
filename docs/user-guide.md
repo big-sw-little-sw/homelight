@@ -199,9 +199,11 @@ are under "Other directories". These two groups are at the end.
 Each directory has a mark:
 
 - `●` it is in your configuration, saved earlier or added now.
+- A dim `●` it is inside a linked parent that is in your configuration.
+  It moves with the parent.
 - `○` it is not. Press `Space` to add it.
-- `−` you cannot add it, for example because it is a link. Its note says
-  why.
+- `−` you cannot add it, for example because it is a broken link. Its note
+  says why.
 - `⊘` you ignore it, so Lighten leaves it alone. Press `x` to stop ignoring
   it.
 
@@ -217,7 +219,11 @@ Each category's and app's name has a mark too:
 - `○` none are added.
 - `−` none can be added.
 
-Beside the name, Browse counts them, such as `1 of 2 added`. `Space` on the
+Beside the name, Browse counts them, such as `1 of 2 added`. A link that
+Lighten can take over counts as one that can be added. When none can be
+added, it says why: `all managed`, `all links with problems`, `all ignored`,
+or `none can be added` when the reasons differ. Press `Enter` on a directory
+to see its own reason. `Space` on the
 name adds all the directories under it that are shown and can be added. So
 `Space` on "Python" adds the directories of every Python tool at once. On a
 `●` name, `Space` removes them all. If Browse could not add some, it says
@@ -244,6 +250,45 @@ Some tools have clean commands, such as `sdk flush` or `deno clean`. These
 commands remove the link to a moved directory. The tool then creates a new
 directory in its place, and Lighten asks which directory to keep. The built-in
 list gives a caution about these tools.
+
+### Take over links you made
+
+You can move a directory to storage yourself and put a link in its place.
+Browse shows such a directory with the note `already a link`. Lighten can
+take over the link: it adds a relocation from the link to where the link
+points. Nothing on disk changes. After you save, the Workspace shows the
+relocation as `[In sync]`.
+
+- Press `Space` on a `○` row with the note `already a link` to take it over.
+- Press `Space` again to take it out.
+- Press `s` in Configuration to save.
+
+A directory can be inside a parent directory that is a link. An example is
+`~/.cache/pip` when `~/.cache` is a link. Its note is `inside ~/.cache,
+which is a link`. `Space` on it takes over the parent, `~/.cache`, also when
+no list suggests the parent. Then each directory inside `~/.cache` shows a
+dim `●` and the note `inside ~/.cache, which Lighten manages`. Lighten does
+not add these directories on their own. Links inside `~/.cache` stay as they
+are.
+
+When there are links to take over, a line above the list counts them. For
+example: `3 directories are links you made. Press L to take them over.`
+Press `L` to take over all the links that Browse shows. `L` takes over each
+linked parent once. To see what `L` does before you press it, press `Enter`
+on a link. Details list what `L` takes over and what it leaves out.
+
+Lighten takes over only a link to a directory outside your home. If it
+cannot, the row is `−` and its note says why:
+
+- `link is broken`: nothing is where the link points.
+- `link points to another link`: the target must be the directory itself.
+- `link points to a file`: the target must be a directory.
+- `link points inside your home`: moving it frees no space.
+- `link overlaps ~/.cache/pip`: the relocation would overlap one in your
+  configuration.
+
+Lighten does not repair a broken link. Fix the link yourself, then press `r`
+to check again.
 
 ### Write your own list
 
@@ -324,6 +369,9 @@ contents are, in storage. After a move, the source is a link to the target.
 **Ignored.** A directory that you told Lighten to leave alone. Lighten plans
 nothing for it. The configuration file lists it under
 `ignored-source-paths`.
+
+**Take over.** Lighten adds a link that you made to the configuration as it
+is. Nothing on disk changes.
 
 **Rule or one-time choice.** A rule is saved in the configuration file and
 decides every time. A one-time choice decides for one relocation, for the
