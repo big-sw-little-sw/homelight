@@ -24,17 +24,21 @@ import java.nio.file.Path
 
 /** What a Browse key asks of the Configuration draft. */
 internal sealed interface BrowseAction {
-    data class Add(val source: Path) : BrowseAction
+    /** Add `source`. `target` is where a link taken over points; null derives the target from the roots. */
+    data class Add(val source: Path, val target: Path? = null) : BrowseAction
 
     /** Remove the relocation at `row` from the draft. */
     data class Remove(val row: Int) : BrowseAction
 
     /**
-     * Add each of `sources` that does not overlap; `unaddable` counts the group's rows that could not be tried,
+     * Add each of `additions` that does not overlap; `unaddable` counts the group's rows that could not be tried,
      * `ignored` those skipped because they are ignored, and `notFound` those left out because only found directories
      * are shown.
      */
-    data class AddAll(val sources: List<Path>, val unaddable: Int, val ignored: Int, val notFound: Int) : BrowseAction
+    data class AddAll(val additions: List<Add>, val unaddable: Int, val ignored: Int, val notFound: Int) : BrowseAction
+
+    /** `L`: take over each of `links` that does not overlap; `problems` counts the shown links that can't be taken over. */
+    data class TakeOverAll(val links: List<Add>, val problems: Int) : BrowseAction
 
     /** Ignore `source`, taking the relocation at `row` out of the draft when it is in it. */
     data class Ignore(val source: Path, val row: Int?) : BrowseAction
@@ -109,8 +113,8 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         return when (view) {
             View.DETAILS -> Toolkit.column(
                 viewport.render(
-                    DETAILS_NAME, detailLines(focusedEntry(draft), (focus as? Item.Directory)?.path, draft), focused = true,
-                    choiceLine = 0,
+                    DETAILS_NAME, detailLines(focusedEntry(draft), (focus as? Item.Directory)?.path, draft, takeOvers(draft)),
+                    focused = true, choiceLine = 0,
                 ),
                 *listOfNotNull(messageLine, help).toTypedArray(),
             ).fill()
@@ -120,6 +124,7 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             View.LIST -> Toolkit.column(*listOfNotNull(
                 *listLines(draft).map { wrappedText(it.text, it.color) }.toTypedArray(),
                 countLine(draft)?.let { wrappedText(it, palette.text) },
+                takeOvers(draft).count { it.problem == null }.takeIf { it > 0 }?.let { wrappedText(linksYouMade(it), palette.text) },
                 framed(Toolkit.panel(BROWSE_NAME, suggestions(draft)), focused = true),
                 messageLine, help,
             ).toTypedArray()).fill()
@@ -194,7 +199,11 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                         HOME_END_KEYS.takeIf { item != null },
                     ),
                     listOf(
-                        entry?.let(::ignoreKey), checkAgain, KeyHint("i", "Lists", description = SEE_LISTS),
+                        entry?.let(::ignoreKey),
+                        // Off the help line, which is full at 80 columns: the line over the list names the key.
+                        KeyHint("L", "Take over all", inHelpArea = false, description = TAKE_OVER_ALL)
+                            .takeIf { takeOvers(draft).any { it.problem == null } },
+                        checkAgain, KeyHint("i", "Lists", description = SEE_LISTS),
                         KeyHint("u", (if (reveal) "Hide " else "Show ") + hidden, description = showHidden(reveal))
                             .takeIf { hidden > 0 },
                         HELP_KEY, close,
@@ -231,11 +240,14 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 } else listOf()
                 return when (groupState(members, draft)) {
                     GroupState.ALL -> BrowseAction.RemoveAll(members.mapNotNull { it.row })
+                    // Two directories under one linked parent take it over once.
                     GroupState.SOME, GroupState.NONE -> BrowseAction.AddAll(
-                        members.filter { it.row == null && draft.canAdd(it) }.map(::path),
-                        unaddable = members.count { it.row == null && !it.ignored && !draft.canAdd(it) },
+                        members.filter { it.row == null }.mapNotNull { addition(it, draft) }.distinct(),
+                        unaddable = members.count {
+                            it.row == null && !it.ignored && addition(it, draft) == null && draft.coveredBy(it) == null
+                        },
                         ignored = members.count { it.ignored },
-                        notFound = unshown.count { it.row == null && draft.canAdd(it) },
+                        notFound = unshown.count { it.row == null && addition(it, draft) != null },
                     )
                     GroupState.EMPTY -> null
                 }
@@ -243,9 +255,10 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
             key.isChar(' ') && entry != null -> {
                 focus = item
                 message = ""
-                // entry() matches entries by source path, so the path is set.
+                // A directory covered by its linked parent takes the parent out, as Space on it took the parent over.
+                val parent = draft.coveredBy(entry)?.row
                 return if (row != null) BrowseAction.Remove(row)
-                else if (draft.canAdd(entry)) BrowseAction.Add(path(entry)) else null
+                else if (parent != null) BrowseAction.Remove(parent) else addition(entry, draft)
             }
             key.isCharIgnoreCase('e') && row != null -> return BrowseAction.Edit(row)
             key.isCharIgnoreCase('x') && entry != null -> {
@@ -254,6 +267,13 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
                 return if (entry.ignored) BrowseAction.StopIgnoring(path(entry)) else BrowseAction.Ignore(path(entry), row)
             }
             view == View.DETAILS -> scroll(key)
+            key.isCharIgnoreCase('l') -> {
+                val links = takeOvers(draft)
+                val ready = links.filter { it.problem == null }
+                if (ready.isEmpty()) return null
+                message = ""
+                return BrowseAction.TakeOverAll(ready.map { BrowseAction.Add(it.link.path, it.link.pointsTo) }, links.size - ready.size)
+            }
             key.isCharIgnoreCase('i') -> { view = View.LISTS; viewport.reset(); message = "" }
             key.isCharIgnoreCase('u') && hiddenCount(draft) > 0 -> reveal = !reveal
             key.isCharIgnoreCase('f') && (foundOnly || foundCount(draft) > 0) -> { foundOnly = !foundOnly; message = "" }
@@ -275,6 +295,11 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
      */
     fun addedGroup(added: Int, overlapped: List<Path?>, unaddable: Int, ignored: Int, notFound: Int) {
         message = groupAdded(added, overlapped.map { it?.let(::displayPath) }, unaddable, ignored, notFound).orEmpty()
+    }
+
+    /** After [BrowseAction.TakeOverAll]: as [addedGroup], and how many links with problems `L` left out. */
+    fun tookOver(added: Int, overlapped: List<Path?>, problems: Int) {
+        message = tookOverLinks(added, overlapped.map { it?.let(::displayPath) }, problems)
     }
 
     fun back(): Boolean {
@@ -313,8 +338,15 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
         return entries.entries.sortedBy { place.getValue(it.key) }.associate { it.key to it.value }
     }
 
+    /**
+     * The links that `L` acts on: one for each shown row with a link to take over, a linked parent once, with those
+     * that can't be taken over and why.
+     */
+    private fun takeOvers(draft: BrowseDraft): List<BrowseDraft.TakeOver> = rows(draft)
+        .filter { it.item is Item.Directory }.mapNotNull { draft.takeOver(it.entries.single()) }.distinctBy { it.link.path }
+
     private fun groupState(members: List<BrowseDraft.Entry>, draft: BrowseDraft): GroupState {
-        val counted = members.filter { it.row != null || draft.canAdd(it) }
+        val counted = members.filter { it.row != null || addition(it, draft) != null }
         return when {
             counted.isEmpty() -> GroupState.EMPTY
             counted.all { it.row != null } -> GroupState.ALL
@@ -360,14 +392,15 @@ internal class CandidateBrowser(keys: KeyEventHandler) {
 
     /**
      * A heading, which Space acts on as a whole: its mark (`●` all added, `◐` some, `○` none, `−` none can be) after
-     * `indent` cells, its name in bold, and at the notes column how many of its directories that can be added are added.
+     * `indent` cells, its name in bold, and at the notes column how many of its directories that can be added are added,
+     * or why none can be.
      * Each level is two cells further in than the one above, so headings stand apart without colour.
      */
     private fun headingRow(
         name: String, indent: Int, members: List<BrowseDraft.Entry>, draft: BrowseDraft, selected: Boolean,
     ): StyledElement<*> {
-        val counted = members.filter { it.row != null || draft.canAdd(it) }
-        val count = if (counted.isEmpty()) CANNOT_ADD_ANY else addedCount(counted.count { it.row != null }, counted.size)
+        val counted = members.filter { it.row != null || addition(it, draft) != null }
+        val count = if (counted.isEmpty()) noneToAdd(members, draft) else addedCount(counted.count { it.row != null }, counted.size)
         val (mark, color) = when (groupState(members, draft)) {
             GroupState.ALL -> ADDED_MARK to palette.ok
             GroupState.SOME -> SOME_ADDED_MARK to palette.text
@@ -486,9 +519,32 @@ private fun shownWhenFiltered(entry: BrowseDraft.Entry): Boolean = found(entry) 
 /** Every listed directory found, those `u` hides included. */
 private fun foundCount(draft: BrowseDraft): Int = entriesByPath(draft).values.count(::found)
 
+/**
+ * What Space adds for `entry`, which is not in the draft: the directory itself, or a link to take over as it is. Null
+ * when it can add neither.
+ */
+private fun addition(entry: BrowseDraft.Entry, draft: BrowseDraft): BrowseAction.Add? =
+    if (draft.canAdd(entry)) BrowseAction.Add(path(entry))
+    else draft.takeOver(entry)?.takeIf { it.problem == null }?.let { BrowseAction.Add(it.link.path, it.link.pointsTo) }
+
+/**
+ * Why a heading's directories can't be added: the reason they all share, or [NONE_CAN_BE_ADDED]. Each directory's
+ * Details give its own reason.
+ */
+private fun noneToAdd(members: List<BrowseDraft.Entry>, draft: BrowseDraft): String = members.map { entry ->
+    when {
+        entry.ignored -> ALL_IGNORED
+        draft.coveredBy(entry) != null -> ALL_MANAGED
+        draft.takeOver(entry)?.problem != null -> ALL_LINK_PROBLEMS
+        else -> null
+    }
+}.distinct().singleOrNull() ?: NONE_CAN_BE_ADDED
+
 private fun toggleKey(entry: BrowseDraft.Entry, draft: BrowseDraft): KeyHint? = when {
     entry.row != null -> KeyHint("Space", "Remove", description = REMOVE_SUGGESTION)
+    draft.coveredBy(entry) != null -> KeyHint("Space", "Remove", description = REMOVE_LINKED_PARENT)
     draft.canAdd(entry) -> KeyHint("Space", "Add", description = ADD_SUGGESTION)
+    addition(entry, draft) != null -> KeyHint("Space", "Take over", description = TAKE_OVER_LINK)
     else -> null
 }
 
@@ -500,36 +556,32 @@ private fun editKey(entry: BrowseDraft.Entry): KeyHint? =
     KeyHint("e", "Edit", description = EDIT_SUGGESTION).takeIf { entry.row != null }
 
 /**
- * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, `○` not added, `⊘` ignored, `−`
- * cannot be added), the path under the source root and its notes. A note that only says the directory is not there
- * yet is dim. The other notes keep their weight.
+ * A directory row under its app, indented [DIRECTORY_INDENT] cells: the mark (`●` added, a dim `●` moved with its linked
+ * parent, `○` not added, `⊘` ignored, `−` cannot be added), the path under the source root and its notes. A note that
+ * only says the directory is not there yet is dim. The other notes keep their weight.
  */
 private fun directoryRow(entry: BrowseDraft.Entry, draft: BrowseDraft, selected: Boolean): StyledElement<*> {
+    val covered = draft.coveredBy(entry) != null
     val marker = when {
-        entry.row != null -> ADDED_MARK
+        entry.row != null || covered -> ADDED_MARK
         entry.ignored -> IGNORED_MARK
-        draft.canAdd(entry) -> NOT_ADDED_MARK
+        addition(entry, draft) != null -> NOT_ADDED_MARK
         else -> CANNOT_ADD_MARK
     }
     val path = compact(relative(draft, path(entry)))
     val main = if (entry.row != null) palette.ok else palette.text
-    val kind = entry.discovery?.observation?.kind
+    val directory = entry.discovery?.observation?.kind == CandidateObservation.Kind.DIRECTORY
     val notes = listOfNotNull(
         (IGNORED_NOTE to palette.text).takeIf { entry.ignored },
-        state(entry).takeIf { kind != CandidateObservation.Kind.DIRECTORY }?.let { note ->
-            note to when (kind) {
-                CandidateObservation.Kind.MISSING, CandidateObservation.Kind.PENDING, null -> palette.dim
-                CandidateObservation.Kind.LINK -> palette.text
-                else -> palette.warn
-            }
-        },
+        stateNote(entry, draft).takeIf { !directory },
         (USUALLY_NOT_NEEDED_NOTE to palette.text)
             .takeIf { definitions(entry).firstOrNull()?.advice == CandidateDefinition.Advice.USUALLY_UNNECESSARY },
     )
+    val muted = marker == CANNOT_ADD_MARK || marker == IGNORED_MARK || covered
     return line(
         pointer(selected),
         Span.styled(" ".repeat(DIRECTORY_INDENT), weight(main, selected)),
-        Span.styled(marker, weight(if (marker == CANNOT_ADD_MARK || marker == IGNORED_MARK) palette.dim else main, selected)),
+        Span.styled(marker, weight(if (muted) palette.dim else main, selected)),
         Span.styled(" " + path + " ".repeat(maxOf(1, PATH_COLUMN - CharWidth.of(path))), weight(main, selected)),
         *notes.flatMapIndexed { i, (note, color) ->
             listOfNotNull(Span.styled(" · ", weight(palette.dim, selected)).takeIf { i > 0 }, Span.styled(note, weight(color, selected)))
@@ -564,7 +616,44 @@ private const val PATH_COLUMN = 30
 /** A directory sits under an app under a category, two cells further in per level. */
 private const val DIRECTORY_INDENT = 4
 
-private fun state(entry: BrowseDraft.Entry): String = entry.discovery?.let { observationNote(it.observation) } ?: NOT_CHECKED
+/**
+ * What the last check saw at `entry`, and its color: for a link, whether it can be taken over, else the observation's
+ * note. A row in the draft that is a linked parent has no observation of its own, but its link is known.
+ */
+private fun stateNote(entry: BrowseDraft.Entry, draft: BrowseDraft): Pair<String, Color> {
+    val link = draft.link(entry)
+    val takeOver = draft.takeOver(entry)
+    val problem = takeOver?.problem
+    if (link != null && link.path != entry.sourcePath) {
+        val parent = shownPath(link.path)
+        return if (draft.coveredBy(entry) != null) insideManaged(parent) to palette.text
+        else insideLink(parent) to if (takeOver != null && problem != null) palette.warn else palette.text
+    }
+    if (link != null) return if (problem == null) ALREADY_A_LINK to palette.text else linkProblemNote(problem) to palette.warn
+    val observation = entry.discovery?.observation ?: return NOT_CHECKED to palette.dim
+    return observationNote(observation) to when (observation.kind) {
+        CandidateObservation.Kind.MISSING, CandidateObservation.Kind.PENDING -> palette.dim
+        CandidateObservation.Kind.LINK, CandidateObservation.Kind.DIRECTORY -> palette.text
+        CandidateObservation.Kind.REGULAR_FILE, CandidateObservation.Kind.OTHER, CandidateObservation.Kind.INACCESSIBLE,
+        CandidateObservation.Kind.BLOCKED_BY_LINK, CandidateObservation.Kind.BLOCKED_BY_NON_DIRECTORY,
+        CandidateObservation.Kind.UNKNOWN,
+        -> palette.warn
+    }
+}
+
+/** A link's problem in a row's note, which has 40 cells at 80 columns; Details says it in full. */
+private fun linkProblemNote(problem: BrowseDraft.TakeOver.Problem): String = when (problem) {
+    is BrowseDraft.TakeOver.Problem.Target -> linkTargetNote(problem.target)
+    is BrowseDraft.TakeOver.Problem.Ignored -> IGNORED_NOTE
+    is BrowseDraft.TakeOver.Problem.Overlap -> linkOverlapsNote(problem.other?.let(::shownPath))
+}
+
+/** Why a link can't be taken over, as Details says it. */
+private fun linkProblem(problem: BrowseDraft.TakeOver.Problem): String = when (problem) {
+    is BrowseDraft.TakeOver.Problem.Target -> linkTargetProblem(problem.target)
+    is BrowseDraft.TakeOver.Problem.Ignored -> LINK_IGNORED
+    is BrowseDraft.TakeOver.Problem.Overlap -> linkOverlaps(problem.other?.let(::shownPath))
+}
 
 /** The two Lists lines over the suggestions: the built-in list, then yours, each with its state. */
 private fun listLines(draft: BrowseDraft): List<Line> {
@@ -622,8 +711,13 @@ private fun listDetails(draft: BrowseDraft): List<Line> {
     } + listOfNotNull(result.rootFailure?.let { d -> Line(rootProblem(literal(d.detail), shownPath(d.path))) })
 }
 
-/** The details of `entry`, or that the directory at `path` is no longer listed. */
-private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDraft): List<Line> {
+/**
+ * The details of `entry`, or that the directory at `path` is no longer listed. For a link, they end with what `L`
+ * takes over, from `links`, and what it leaves out and why.
+ */
+private fun detailLines(
+    entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDraft, links: List<BrowseDraft.TakeOver>,
+): List<Line> {
     if (entry == null) {
         return listOfNotNull(Line(NO_LONGER_LISTED), path?.let { Line(sourceText(shownPath(it))) }, Line(BACK_FOR_SUGGESTIONS))
     }
@@ -640,26 +734,48 @@ private fun detailLines(entry: BrowseDraft.Entry?, path: Path?, draft: BrowseDra
             palette.text, true,
         ),
         Line(sourceText(shownPath(path(entry)))),
-        Line(stateLine(state(entry))),
+        Line(stateLine(stateNote(entry, draft).first)),
     ) + (if (missing) MISSING_SUGGESTION.map(::Line) else listOf()) +
         listOfNotNull(
             Line(SIZE_AND_OWNERSHIP),
             observation?.takeIf { it.kind != CandidateObservation.Kind.PENDING }?.let { Line(observedLine(it.observedAt.toString())) },
-            observation?.rawLinkTarget?.let { Line(linkText(shownPath(it))) },
+            draft.link(entry)?.let { link ->
+                Line(linkLine(shownPath(link.path), shownPath(link.pointsTo), literal(link.text.toString()).takeIf { link.text != link.pointsTo }))
+            },
         ) +
         observation?.diagnostics.orEmpty().map { d -> Line(observationDetail(literal(d.detail), shownPath(d.path))) } +
         candidate?.ancestors.orEmpty().map { Line(suggestedAround(shownPath(it))) } +
         draft.discovery?.candidates.orEmpty().filter { c -> candidate != null && candidate.catalog.sourcePath in c.ancestors }
             .map { c -> Line(suggestedInside(shownPath(c.catalog.sourcePath))) } +
-        Line(
-            when {
-                entry.row != null -> CHANGE_IN_CONFIGURATION
-                entry.ignored -> IGNORED_IN_BROWSE
-                draft.canAdd(entry) -> ADDING_ASKS
-                else -> CANNOT_ADD
-            },
-        ) +
+        Line(whatSpaceDoes(entry, draft)) +
+        (if (draft.link(entry) != null) takeOverAllLines(links) else listOf()) +
         attribution(entry)
+}
+
+/** The Details line that says what Space does for `entry`, or why it does nothing. */
+private fun whatSpaceDoes(entry: BrowseDraft.Entry, draft: BrowseDraft): String {
+    val takeOver = draft.takeOver(entry)
+    val problem = takeOver?.problem
+    val parent = draft.coveredBy(entry)?.sourcePath
+    return when {
+        entry.row != null -> CHANGE_IN_CONFIGURATION
+        entry.ignored -> IGNORED_IN_BROWSE
+        parent != null -> movesWithParent(shownPath(parent))
+        draft.canAdd(entry) -> ADDING_ASKS
+        takeOver == null -> CANNOT_ADD
+        problem != null -> cannotTakeOver(shownPath(takeOver.link.path), linkProblem(problem))
+        takeOver.link.path == entry.sourcePath -> takesOverLink(shownPath(takeOver.link.pointsTo))
+        else -> takesOverParent(shownPath(takeOver.link.path), shownPath(takeOver.link.pointsTo))
+    }
+}
+
+/** What `L` takes over and what it leaves out, so the user sees it before pressing it. */
+private fun takeOverAllLines(links: List<BrowseDraft.TakeOver>): List<Line> {
+    val (ready, left) = links.partition { it.problem == null }
+    return (if (ready.isEmpty()) listOf() else listOf(Line(L_TAKES_OVER, palette.text, true))) +
+        ready.map { Line(linkPointsTo(shownPath(it.link.path), shownPath(it.link.pointsTo))) } +
+        (if (left.isEmpty()) listOf() else listOf(Line(L_LEAVES_OUT, palette.text, true))) +
+        left.map { Line(linkLeftOut(shownPath(it.link.path), linkProblemNote(checkNotNull(it.problem))), palette.warn) }
 }
 
 /** Which lists suggest it and what each says, your list's first, so the built-in advice shows too. */

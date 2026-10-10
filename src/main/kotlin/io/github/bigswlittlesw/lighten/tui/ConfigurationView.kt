@@ -483,16 +483,20 @@ internal class ConfigurationView private constructor(
         }
         when (val action = browser.key(key, browseDraft())) {
             null -> {}
-            is BrowseAction.Add -> browser.added(addRefusal(action.source)?.message?.shown())
+            is BrowseAction.Add -> browser.added(addRefusal(action)?.message?.shown())
             is BrowseAction.Remove -> removeRows(listOf(action.row))
             is BrowseAction.RemoveAll -> removeRows(action.rows)
             is BrowseAction.AddAll -> {
                 // Each add sees the ones before it, so two suggestions in one group that overlap add only the first.
-                val refusals = action.sources.map { source -> addRefusal(source) }
+                val refusals = action.additions.map(::addRefusal)
                 browser.addedGroup(
                     refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.unaddable, action.ignored,
                     action.notFound,
                 )
+            }
+            is BrowseAction.TakeOverAll -> {
+                val refusals = action.links.map(::addRefusal)
+                browser.tookOver(refusals.count { it == null }, refusals.filterNotNull().map { it.other }, action.problems)
             }
             is BrowseAction.Ignore -> ignore(action.source, action.row)
             is BrowseAction.StopIgnoring -> {
@@ -511,9 +515,14 @@ internal class ConfigurationView private constructor(
     /** Why Browse could not add a source: the overlap's message, and the relocation it overlaps when that is another. */
     private data class Refusal(val message: PathText, val other: Path?)
 
-    /** Adds `source` as written in Browse, and returns why not when it would overlap a relocation. */
-    private fun addRefusal(source: Path): Refusal? {
-        val row = RelocationFile(displayPath(source))
+    /**
+     * Adds the relocation as written in Browse, and returns why not when it would overlap a relocation. A target that
+     * the roots would derive anyway is left out, as Configuration leaves out every default.
+     */
+    private fun addRefusal(addition: BrowseAction.Add): Refusal? {
+        val source = addition.source
+        val target = addition.target?.takeIf { it != (derived(source) as? Resolved.Found)?.path }
+        val row = RelocationFile(displayPath(source), target?.let(::displayPath))
         val relocations = (draft.relocations + row).mapNotNull { relocation ->
             val resolved = resolve(relocation)
             val path = (resolved.source as? Resolved.Found)?.path
@@ -546,9 +555,12 @@ internal class ConfigurationView private constructor(
     private fun browseDraft(): BrowseDraft {
         // Browse opens only after a check starts, which sets the request.
         val request = checkNotNull(suggestions?.request)
-        val sources = draft.relocations.map { (resolve(it).source as? Resolved.Found)?.path }
+        val relocations = draft.relocations.map { relocation ->
+            val resolved = resolve(relocation)
+            BrowseDraft.Paths((resolved.source as? Resolved.Found)?.path, (resolved.target as? Resolved.Found)?.path)
+        }
         return BrowseDraft(
-            request.root, sources, suggestions?.result(), kept, draft.ignoredSourcePaths.mapNotNull(::resolvedPath).toSet(),
+            request.root, relocations, suggestions?.result(), kept, draft.ignoredSourcePaths.mapNotNull(::resolvedPath).toSet(),
         )
     }
 
