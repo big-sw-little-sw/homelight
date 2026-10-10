@@ -2,6 +2,7 @@ package io.github.bigswlittlesw.lighten.update
 
 import io.github.bigswlittlesw.lighten.application.resolveVersion
 import io.github.bigswlittlesw.lighten.fs.displayPath
+import io.github.bigswlittlesw.lighten.fs.homeDirectoryOrNull
 import java.io.IOException
 import java.io.PrintWriter
 import java.nio.file.Files
@@ -200,8 +201,10 @@ internal class SelfUpdate(
     }
 
     // The script reads the test-only base URL as Lighten does; without an override it must not see a stale one.
+    // It also gets Lighten's home directory as HOME, so both show ~ for the same directory, even where HOME is unset.
     private fun scriptEnvironment(environment: MutableMap<String, String>) {
         if (baseOverride == null) environment.remove(BASE_URL_VARIABLE) else environment[BASE_URL_VARIABLE] = baseOverride
+        homeDirectoryOrNull()?.let { environment["HOME"] = it.toString() }
     }
 
     private inline fun reporting(operation: () -> Int): Int = try {

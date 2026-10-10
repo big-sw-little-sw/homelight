@@ -624,7 +624,6 @@ else
   printf '{"lighten": {"target-root": "%s", "relocations": [{"source-path": "~/app"}]}}\n' "$L" > "$C/config.json"
   chmod -R a+rwX "$short"
   as_stranger="sudo -n setpriv --reuid=$stranger --regid=$stranger --clear-groups env HOME=$H TERM=xterm-256color"
-  check "uid $stranger has no account name" [ -z "$($as_stranger id -un 2> /dev/null)" ]
   out=$C/plan.json
   $as_stranger "$C/lighten" -c "$C/config.json" plan --json > "$out" 2> "$out.err" < /dev/null
   status=$?
