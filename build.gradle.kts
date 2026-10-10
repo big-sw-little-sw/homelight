@@ -68,9 +68,14 @@ tasks.processResources {
 
 tasks.test {
     useJUnitPlatform()
-    // HOME comes before user.home, so without this a test that sets user.home to a temporary home would not see it.
-    // A test that needs HOME starts a process with it.
-    environment.remove("HOME")
+    // Tests never see the developer's home: HOME and user.home both name an empty directory. TestHome.kt reads it.
+    val home = layout.buildDirectory.dir("test-home").get().asFile
+    environment("HOME", home.absolutePath)
+    systemProperty("user.home", home.absolutePath)
+    doFirst {
+        home.deleteRecursively()
+        home.mkdirs()
+    }
 }
 
 application {

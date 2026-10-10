@@ -9,7 +9,6 @@ import io.github.bigswlittlesw.lighten.config.InvalidConfigurationException
 import io.github.bigswlittlesw.lighten.fs.PathInspector
 import io.github.bigswlittlesw.lighten.fs.PathObservation
 import io.github.bigswlittlesw.lighten.fs.PathText
-import io.github.bigswlittlesw.lighten.fs.homeDirectoryOrNull
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationAction
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlan
 import io.github.bigswlittlesw.lighten.reconcile.ReconciliationPlanner
@@ -238,10 +237,9 @@ class ConfigurationEvaluation(
 
 /**
  * True when the default configuration path holds no regular file. Evaluation and the JSON output then treat nothing
- * as configured and report empty results. A path the user names must hold a file. Without a home directory, there
- * is no default path.
+ * as configured and report empty results. A path the user names must hold a file.
  */
-fun isUnconfiguredDefault(configPath: Path): Boolean = homeDirectoryOrNull() != null &&
+fun isUnconfiguredDefault(configPath: Path): Boolean =
     normalize(configPath) == normalize(ConfigurationLoader.DEFAULT_PATH) && !Files.isRegularFile(configPath)
 
 private fun normalize(path: Path): Path = path.toAbsolutePath().normalize()

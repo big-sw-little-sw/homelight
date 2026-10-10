@@ -22,14 +22,16 @@ class DefaultConfigurationClassificationTest {
     @ParameterizedTest
     @ValueSource(strings = ["default-directory", "default-missing", "default-malformed", "explicit-directory"])
     fun callersAgreeOnClassificationWithAnIsolatedHome(scenario: String, @TempDir temporary: Path) {
-        // DEFAULT_PATH is initialized once per JVM. Isolate user.home before class loading, without touching the real home.
+        // Each scenario writes at the default path, so each gets its own home, as HOME and user.home.
         val output = temporary.resolve("probe.log")
-        val process = ProcessBuilder(
+        val builder = ProcessBuilder(
                 Path.of(System.getProperty("java.home"), "bin", "java").toString(),
                 "-Duser.home=" + temporary.toRealPath(),
                 "-cp", System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
                 Probe::class.java.name, scenario)
-                .redirectErrorStream(true).redirectOutput(output.toFile()).start()
+                .redirectErrorStream(true).redirectOutput(output.toFile())
+        builder.environment()["HOME"] = temporary.toRealPath().toString()
+        val process = builder.start()
         try {
             assertTrue(process.waitFor(30, TimeUnit.SECONDS), "Classification probe timed out")
             assertEquals(0, process.exitValue()) {

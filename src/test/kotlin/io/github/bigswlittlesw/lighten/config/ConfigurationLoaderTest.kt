@@ -1,5 +1,6 @@
 package io.github.bigswlittlesw.lighten.config
 
+import io.github.bigswlittlesw.lighten.testHome
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -533,17 +534,13 @@ class ConfigurationLoaderTest {
         )
     }
 
-    /**
-     * Without a home directory, `~` is refused with words that tell the user to set `HOME`; a full path still loads.
-     * Tests run without `HOME`, so `user.home` decides here.
-     */
-    @Test fun withoutAHomeDirectoryTildeIsAUserError() {
+    /** `~` and the default file follow `HOME`, even when `user.home` is `?`, as the static musl binary sets it. */
+    @Test fun tildeIsHomeWhenUserHomeIsUnusable() {
         val real = System.getProperty("user.home")
         System.setProperty("user.home", "?")
         try {
-            assertEquals(NO_HOME, assertThrows<ConfigurationException> { ConfigurationLoader.DEFAULT_PATH }.text.toString())
-            assertEquals(NO_HOME, shownFailure("""{"lighten": {"target-root": "~/local"}}"""))
-            assertEquals(Path.of("/local"), load("""{"lighten": {"target-root": "/local", "source-root": "/home/me"}}""").targetRoot)
+            assertEquals(testHome.resolve(".lighten.json"), ConfigurationLoader.DEFAULT_PATH)
+            assertEquals(testHome.resolve("local"), load("""{"lighten": {"target-root": "~/local"}}""").targetRoot)
         } finally {
             System.setProperty("user.home", real)
         }

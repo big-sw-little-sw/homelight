@@ -6,6 +6,7 @@ import io.github.bigswlittlesw.lighten.cli.LightenCommand
 import io.github.bigswlittlesw.lighten.discovery.CandidateDiscovery
 import io.github.bigswlittlesw.lighten.discovery.CandidateObservation
 import io.github.bigswlittlesw.lighten.discovery.SetupDiscoveryFixture
+import io.github.bigswlittlesw.lighten.emptiedTestHome
 import io.github.bigswlittlesw.lighten.fifoAt
 import io.github.bigswlittlesw.lighten.pollUntil
 import org.junit.jupiter.api.AfterEach
@@ -24,7 +25,7 @@ import java.util.concurrent.Executor
 /**
  * Every path on screen shows the home directory as `~`: no screen, dialog, Help page or human-readable CLI
  * message may show the home directory's absolute path, while `--json` keeps every path in full. The home directory is
- * a temporary one, so its absolute path is known; the fixtures write their paths with `~/` as a user does.
+ * the empty test home ([emptiedTestHome]), so its absolute path is known; the fixtures write their paths with `~/` as a user does.
  *
  * Screens render at 80x24, and again at 200x60 so that no path wraps or is cut off where the check could miss it.
  */
@@ -32,20 +33,16 @@ class HomePathTest {
     @TempDir lateinit var temporary: Path
     private lateinit var home: Path
     private lateinit var storage: Path
-    private lateinit var realHome: String
 
     @BeforeEach
-    fun temporaryHome() {
-        val root = temporary.toRealPath()
-        home = Files.createDirectory(root.resolve(HOME_NAME))
-        storage = Files.createDirectory(root.resolve("storage"))
-        realHome = System.getProperty("user.home")
-        System.setProperty("user.home", home.toString())
+    fun emptyHome() {
+        home = emptiedTestHome()
+        storage = Files.createDirectory(temporary.toRealPath().resolve("storage"))
     }
 
     @AfterEach
-    fun realHome() {
-        System.setProperty("user.home", realHome)
+    fun cleanHome() {
+        emptiedTestHome()
     }
 
     @Test
@@ -308,7 +305,7 @@ class HomePathTest {
      */
     private fun assertNoHome(screens: List<String>) {
         for (screen in screens) {
-            assertFalse(screen.contains(home.toString()) || screen.contains(HOME_NAME), screen)
+            assertFalse(screen.contains(home.toString()) || screen.contains(home.fileName.toString()), screen)
             // Nor a Java exception's name, which notes about unreadable paths once showed.
             assertFalse(Regex("[A-Za-z]Exception").containsMatchIn(screen), screen)
         }
@@ -318,8 +315,6 @@ class HomePathTest {
     private fun squeezed(text: String) = text.replace(Regex("[\\s║│┃]+"), "")
 
     private companion object {
-        const val HOME_NAME = "home-of-201"
-
         /** The Workspace's rows: five relocations, the ignored group's heading and the ignored source. */
         const val ROWS = 7
     }
