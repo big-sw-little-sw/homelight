@@ -750,7 +750,7 @@ screen never says "candidate" or "draft".
 | Policy | rule |
 | `prompt` or missing | Ask each time |
 | Workspace badges | `[Choose]` needs a choice, `[Blocked]`, `[Can't read]`, `[Warning]`, `[Move]`, `[Keep target]`, `[Link]`, `[Archive]`, `[Delete]`, `[Left as is]`, `[In sync]`, and `[Ignored]` for an ignored source |
-| Actions | Create parent directory · Create target directory · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete directory · Already in sync · Leave as is |
+| Actions | Create parent of target · Create parent of source · Create archive directory · Create target directory · Copy to target and check · Replace source with a link · Link source to target · Fix source link · Archive source · Delete directory · Already in sync · Leave as is |
 
 All screen text is in one TUI wording file.
 
