@@ -68,6 +68,14 @@ tasks.processResources {
 
 tasks.test {
     useJUnitPlatform()
+    // Tests never see the developer's home: HOME and user.home both name an empty directory. TestHome.kt reads it.
+    val home = layout.buildDirectory.dir("test-home").get().asFile
+    environment("HOME", home.absolutePath)
+    systemProperty("user.home", home.absolutePath)
+    doFirst {
+        home.deleteRecursively()
+        home.mkdirs()
+    }
 }
 
 application {

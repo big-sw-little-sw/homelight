@@ -5,6 +5,7 @@ import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystemException
 import java.nio.file.FileSystemLoopException
+import java.nio.file.InvalidPathException
 import java.nio.file.NoSuchFileException
 import java.nio.file.NotDirectoryException
 import java.nio.file.NotLinkException
@@ -43,9 +44,29 @@ class PathText(vararg parts: Any) {
  * [path] with the home directory shown as `~`, as every path on screen and in the CLI's human-readable output is.
  * Only the home directory becomes `~`: a path under another root, such as `source-root`, stays in full.
  */
-internal fun displayPath(path: Path, home: Path = Path.of(System.getProperty("user.home"))): String =
-    if (path.startsWith(home) && home.nameCount > 0) "~" + path.toString().substring(home.toString().length)
+internal fun displayPath(path: Path, home: Path? = homeDirectoryOrNull()): String =
+    if (home != null && path.startsWith(home) && home.nameCount > 0) "~" + path.toString().substring(home.toString().length)
     else path.toString()
+
+/**
+ * The home directory, which `~` names: the `HOME` variable when it is a full path, else the JVM's `user.home` when
+ * it is one, else null.
+ *
+ * `HOME` comes first because the user's shell and other tools use it. Also, the static musl binary cannot find a
+ * user who comes from LDAP or SSSD, and the JVM then sets `user.home` to `?`. `user.home` is the fallback for an
+ * environment without `HOME`, or with a relative one. When neither is a full path, Lighten does not guess: the
+ * caller says so.
+ */
+internal fun homeDirectoryOrNull(
+    environment: String? = System.getenv("HOME"), property: String? = System.getProperty("user.home"),
+): Path? = fullPath(environment) ?: fullPath(property)
+
+private fun fullPath(value: String?): Path? =
+    try {
+        value?.let(Path::of)?.takeIf { it.isAbsolute }?.normalize()
+    } catch (_: InvalidPathException) {
+        null
+    }
 
 /**
  * The system's words for [exception], for text that names its paths separately: a [FileSystemException]'s reason,

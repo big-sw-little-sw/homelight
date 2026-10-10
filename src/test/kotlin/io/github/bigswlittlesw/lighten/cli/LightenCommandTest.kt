@@ -5,6 +5,7 @@ import io.github.bigswlittlesw.lighten.application.guideUrl
 import io.github.bigswlittlesw.lighten.application.resolveVersion
 import io.github.bigswlittlesw.lighten.application.userGuide
 import io.github.bigswlittlesw.lighten.config.ConfigurationException
+import io.github.bigswlittlesw.lighten.config.NO_HOME
 import io.github.bigswlittlesw.lighten.fs.RelocationSourceState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -392,27 +393,41 @@ class LightenCommandTest {
     }
 
     /**
-     * `~` is the account's home directory, which the JVM reads as `user.home`, not the `HOME` variable. Only a new
-     * process shows this: `user.home` is fixed when the JVM starts.
+     * `~` is the `HOME` variable, even when `user.home` is `?`, as the static musl binary sets it for a user from LDAP
+     * or SSSD. Only a new process shows this: `user.home` and the environment are fixed when the JVM starts.
      */
     @Test
-    fun tildeIsTheAccountHomeNotTheHomeVariable(@TempDir temporary: Path) {
+    fun tildeIsTheHomeVariable(@TempDir temporary: Path) {
         val config = Files.writeString(temporary.resolve("config.json"),
             "{\"lighten\": {\"target-root\": \"/local\", \"relocations\": [{\"source-path\": \"~/cache\", \"target-path\": \"/local/cache\"}]}}\n")
-        val elsewhere = Files.createDirectory(temporary.resolve("elsewhere"))
+        val home = Files.createDirectory(temporary.resolve("home"))
+
+        val (exitCode, output) = lighten("?", home, "status", "--json", "--config", config.toString())
+
+        assertEquals(0, exitCode, output)
+        assertTrue(output.contains("\"sourcePath\":\"${home.resolve("cache")}\""), output)
+    }
+
+    /** Without a full `HOME` or `user.home`, a command stops with words that tell the user to set `HOME`. */
+    @Test
+    fun withoutAHomeDirectoryACommandStopsWithAUserError() {
+        val (exitCode, output) = lighten("?", null, "plan")
+
+        assertEquals(1, exitCode, output)
+        assertEquals(NO_HOME, output.trim())
+    }
+
+    /** Runs Lighten in a new JVM with `user.home` set to [userHome], and `HOME` set to [home] or unset when null. */
+    private fun lighten(userHome: String, home: Path?, vararg args: String): Pair<Int, String> {
         val builder = ProcessBuilder(
-            Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-            "-cp", System.getProperty("java.class.path"),
-            LightenCommand::class.java.name, "status", "--json", "--config", config.toString(),
+            Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-Duser.home=$userHome",
+            "-cp", System.getProperty("java.class.path"), LightenCommand::class.java.name, *args,
         ).redirectErrorStream(true)
-        builder.environment()["HOME"] = elsewhere.toString()
+        if (home == null) builder.environment().remove("HOME") else builder.environment()["HOME"] = home.toString()
         val process = builder.start()
         val output = process.inputStream.bufferedReader().use { it.readText() }
-        assertTrue(process.waitFor(30, TimeUnit.SECONDS), "status timed out")
-
-        assertEquals(0, process.exitValue(), output)
-        val home = Path.of(System.getProperty("user.home"))
-        assertTrue(output.contains("\"sourcePath\":\"${home.resolve("cache")}\""), output)
+        assertTrue(process.waitFor(30, TimeUnit.SECONDS), "lighten timed out")
+        return process.exitValue() to output
     }
 
     private data class CapturedOutput(val exitCode: Int, val output: String, val errorOutput: String)

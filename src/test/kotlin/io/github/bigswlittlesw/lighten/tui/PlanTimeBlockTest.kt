@@ -2,6 +2,7 @@ package io.github.bigswlittlesw.lighten.tui
 
 import dev.tamboui.tui.event.KeyCode
 import io.github.bigswlittlesw.lighten.application.LightenSession
+import io.github.bigswlittlesw.lighten.emptiedTestHome
 import io.github.bigswlittlesw.lighten.tui.WorkspaceViewTest.Companion.rightPane
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -20,20 +21,16 @@ class PlanTimeBlockTest {
     @TempDir lateinit var temporary: Path
     private lateinit var home: Path
     private lateinit var storage: Path
-    private lateinit var realHome: String
 
     @BeforeEach
     fun fixture() {
-        val root = temporary.toRealPath()
-        home = Files.createDirectory(root.resolve("home"))
-        storage = Files.createDirectory(root.resolve("storage"))
-        realHome = System.getProperty("user.home")
-        System.setProperty("user.home", home.toString())
+        home = emptiedTestHome()
+        storage = Files.createDirectory(temporary.toRealPath().resolve("storage"))
     }
 
     @AfterEach
-    fun restoreHome() {
-        System.setProperty("user.home", realHome)
+    fun cleanHome() {
+        emptiedTestHome()
     }
 
     @Test

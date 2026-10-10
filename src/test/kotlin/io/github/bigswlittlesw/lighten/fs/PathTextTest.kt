@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.fs
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.nio.file.Path
@@ -17,6 +18,25 @@ class PathTextTest {
         assertEquals("/srv/cache", displayPath(Path.of("/srv/cache"), Path.of("/")))
         // Only home is ~: a source root elsewhere is not.
         assertEquals("/data/me/.cache/uv", displayPath(Path.of("/data/me/.cache/uv"), home))
+    }
+
+    @Test
+    fun homeIsHomeThenUserHomeWhenFull() {
+        assertEquals(Path.of("/home/env"), homeDirectoryOrNull("/home/env", "/home/account"))
+        assertEquals(Path.of("/home/env"), homeDirectoryOrNull("/home/env/", "?"))
+        // The static musl binary sets user.home to "?" for a user from LDAP or SSSD.
+        assertEquals(Path.of("/home/env"), homeDirectoryOrNull("/home/env", "?"))
+        assertEquals(Path.of("/home/account"), homeDirectoryOrNull(null, "/home/account"))
+        assertEquals(Path.of("/home/account"), homeDirectoryOrNull("", "/home/account"))
+        assertEquals(Path.of("/home/account"), homeDirectoryOrNull("relative", "/home/account"))
+        assertEquals(Path.of("/home/account"), homeDirectoryOrNull("/bad\u0000", "/home/account"))
+        assertNull(homeDirectoryOrNull(null, "?"))
+        assertNull(homeDirectoryOrNull("", null))
+    }
+
+    @Test
+    fun withoutAHomeEveryPathStaysInFull() {
+        assertEquals("/home/me/.cache", displayPath(Path.of("/home/me/.cache"), null))
     }
 
     @Test

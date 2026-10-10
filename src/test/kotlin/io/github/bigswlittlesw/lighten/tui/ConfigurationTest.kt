@@ -75,6 +75,26 @@ class ConfigurationTest {
         assertFalse(ui.screen(240, 50).contains("Saved."))
     }
 
+    /**
+     * On the first run, `i` opens Configuration when `HOME` is set and `user.home` is `?`, as the static musl binary
+     * sets it for a user from LDAP or SSSD.
+     */
+    @Test fun createOpensWhenUserHomeIsUnusable() {
+        val config = temporary.resolve("new/config.json")
+        val real = System.getProperty("user.home")
+        System.setProperty("user.home", "?")
+        try {
+            val ui = HeadlessTui(LightenSession(config))
+            ui.press('i')
+
+            val screen = ui.screen(240, 50)
+            assertEquals("config-target-root", ui.focused(), screen)
+            assertFalse(screen.contains("Internal error"), screen)
+        } finally {
+            System.setProperty("user.home", real)
+        }
+    }
+
     /** `e` opens the file as it is; `s` asks before replacing it and keeps what the editor does not show. */
     @Test fun editsAnExistingFileAndReplacesItAfterAsking() {
         val root = fixture()

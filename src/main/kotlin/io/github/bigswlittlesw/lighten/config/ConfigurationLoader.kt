@@ -1,6 +1,7 @@
 package io.github.bigswlittlesw.lighten.config
 
 import io.github.bigswlittlesw.lighten.fs.PathText
+import io.github.bigswlittlesw.lighten.fs.homeDirectoryOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.IOException
@@ -133,7 +134,8 @@ class ConfigurationLoader {
     }
 
     companion object {
-        val DEFAULT_PATH: Path = Path.of(System.getProperty("user.home"), ".lighten.json")
+        /** `~/.lighten.json`. Reading it needs the home directory: see [homeDirectory]. */
+        val DEFAULT_PATH: Path get() = homeDirectory().resolve(".lighten.json")
     }
 }
 
@@ -192,8 +194,8 @@ private fun <T> convert(key: String, conversion: () -> T): T = try {
 private fun expand(value: String, name: String): Path {
     val substituted = withUser(value, name)
     val expanded = when {
-        substituted == "~" -> System.getProperty("user.home")
-        substituted.startsWith("~/") -> System.getProperty("user.home") + substituted.substring(1)
+        substituted == "~" -> homeDirectory().toString()
+        substituted.startsWith("~/") -> homeDirectory().toString() + substituted.substring(1)
         else -> substituted
     }
     return Path.of(expanded)
@@ -223,6 +225,12 @@ internal fun userName(
 ): String? = environment?.takeUnless { it.isEmpty() } ?: account?.takeUnless { it.isEmpty() }
 
 private const val USER_VARIABLE = "\${USER}"
+
+/** The home directory ([homeDirectoryOrNull]), or a [ConfigurationException] that tells the user to set `HOME`. */
+internal fun homeDirectory(): Path = homeDirectoryOrNull() ?: throw ConfigurationException(PathText(NO_HOME))
+
+internal const val NO_HOME =
+    "Lighten can't find your home directory. Set the HOME environment variable to its full path, then try again."
 
 /** A command-line override: unlike the file, it may be relative to where the command runs. */
 private fun overridden(path: Path, name: String): Path = expand(path.toString(), name).toAbsolutePath().normalize()
